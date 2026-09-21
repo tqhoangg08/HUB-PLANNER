@@ -50,6 +50,7 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const SAFE_TECH_REPLY = 'Mình không thể chia sẻ thông tin kỹ thuật hoặc bảo mật nội bộ của website. HUB Planner được xây dựng để hỗ trợ sinh viên quản lý học tập, theo dõi GPA, lịch học, thông báo, sự kiện và các tiện ích sinh viên thuận tiện hơn.';
 const UNVERIFIED_HUB_REPLY = 'Mình chưa thể xác minh thông tin hiện hành của HUB Planner hoặc BUH từ nguồn chính thức. Bạn có thể hỏi rõ hơn hoặc kiểm tra thông báo/tài liệu chính thức mới nhất.';
 const EMPTY_AUTHORITATIVE_REPLY = 'Mình chưa tìm thấy thông tin này trong dữ liệu hiện hành của HUB Planner.';
+const INSUFFICIENT_GROUNDED_EVIDENCE_REPLY = 'Mình đã tìm thấy văn bản liên quan nhưng đoạn nguồn truy xuất hiện chưa chứa đủ dữ liệu để xác nhận thông tin này.';
 const CONVERSATION_ID_PATTERN = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|legacy-[1-9]\d*)$/i;
 
 export type AdvisorIntent =
@@ -228,13 +229,54 @@ export const selectDocumentSearchStrategy = (route: AdvisorDocumentRoute): Docum
  * policy follow-up searchable without inventing policy facts or filenames.
  */
 export const buildResolvedDocumentRetrievalQuestion = (question: string, route: AdvisorDocumentRoute) => {
+  // These are searchable factual fields, never policy values. They preserve
+  // what Gemini should retrieve when a short follow-up only contains a year.
+  const factualTarget: Partial<Record<AdvisorDocumentDomain, string>> = {
+    grading: 'bảng quy đổi điểm gồm thang điểm 10, điểm chữ và thang điểm hệ 4',
+    scholarship: 'các loại học bổng, nhóm học bổng và phạm vi áp dụng',
+    graduation: 'điều kiện và tiêu chí xét tốt nghiệp',
+    course_registration: 'quy định đăng ký, rút và bảo lưu học phần',
+    academic_warning: 'điều kiện cảnh báo học vụ và buộc thôi học',
+    tuition: 'mức, thời hạn và chính sách học phí',
+    discipline: 'quy định kỷ luật và vi phạm',
+  };
   const qualifiers = [
+    route.domain ? `mục tiêu dữ kiện=${factualTarget[route.domain] || route.domain}` : '',
     `miền tài liệu chính thức=${route.domain || 'general_official_document'}`,
     route.scope.cohortYear ? `khóa tuyển sinh=${route.scope.cohortYear}` : '',
     route.scope.fromCohortYear ? `từ khóa tuyển sinh=${route.scope.fromCohortYear}` : '',
     route.scope.academicYear ? `năm học=${route.scope.academicYear}` : '',
   ].filter(Boolean);
   return qualifiers.length ? `${question.trim()}\n[${qualifiers.join('; ')}]` : question.trim();
+};
+
+const normalizedPolicyReply = (value: string) => value
+  .normalize('NFD')
+  .replace(/\p{Diacritic}/gu, '')
+  .replace(/[đĐ]/g, 'd')
+  .toLowerCase()
+  .replace(/\s+/g, ' ')
+  .trim();
+
+/**
+ * A D1-authorized citation is not permission to return generic navigation
+ * advice. If the model did not use the retrieved passage to answer, return a
+ * truthful insufficiency notice instead of deflecting the student elsewhere.
+ */
+export const isGroundedPolicyDeflection = (reply: string) => {
+  const normalized = normalizedPolicyReply(reply);
+  return [
+    'ban co the tham khao',
+    'vui long truy cap',
+    'truy cap website',
+    'website chinh thuc',
+    'de biet chinh xac',
+    'thuong duoc quy dinh',
+    'cac quy dinh thuong',
+    'cac quy dinh thuong duoc',
+    'mo quy che',
+    'xem quy che',
+  ].some((phrase) => normalized.includes(phrase));
 };
 
 /** Bounds both production SDK calls and deterministic test seams. */
@@ -1029,6 +1071,9 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       `Câu hỏi cần tài liệu chính thức thuộc miền: ${retrieval.documentRoute.domain || 'general_official_document'}.`,
       `Phạm vi người dùng hỏi (chưa phải kết luận): ${JSON.stringify(retrieval.documentRoute.scope)}.`,
       'Chỉ trả lời quy định HUB/BUH dựa trên tài liệu đã truy xuất và được trích dẫn. Không thay bằng kiến thức đại học phổ biến, không tự tạo bảng quy đổi, và nói rõ khi nguồn chưa đủ.',
+      'Khi có nguồn tài liệu chính thức hợp lệ, câu đầu tiên phải trả lời trực tiếp dữ kiện người dùng hỏi, không chào hỏi/mở đầu dài. Không bảo người dùng truy cập website, tự mở quy chế/cẩm nang, hay dùng các cụm “có thể tham khảo”, “để biết chính xác”, “thường được quy định”.',
+      'Nếu đoạn nguồn truy xuất có bảng, danh sách hoặc ngưỡng liên quan, hãy ghi lại đầy đủ các hàng/giá trị liên quan bằng bảng Markdown hoặc danh sách ngắn. Chỉ dùng giá trị có trong đoạn nguồn; không tự bù dữ liệu còn thiếu.',
+      `Nếu đã thấy văn bản nhưng đoạn nguồn không đủ để trả lời dữ kiện được hỏi, chỉ nói: “${INSUFFICIENT_GROUNDED_EVIDENCE_REPLY}”`,
       'Khi đoạn tài liệu được truy xuất nêu rõ Phần/Chương/Mục/Điều/Khoản/Điểm/Tiểu mục, hãy nêu chính xác locator đó. Không suy ra locator từ số trang, tên tệp, tiêu đề hoặc câu hỏi.',
       'Khi tài liệu có phạm vi khóa hoặc năm học khác nhau, hãy nêu rõ phạm vi áp dụng; không gộp các phiên bản thành một quy định duy nhất.',
       ...(retrieval.documentRoute.coverageMode ? [
@@ -1145,8 +1190,11 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
             };
           });
           const answerSources = [...retrieval.sources, ...sourcesWithGrounding.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
-          if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: sourcesWithGrounding, answer_sources: answerSources, document_search_unavailable: false });
-          return { reply: result.reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };
+          const reply = isGroundedPolicyDeflection(result.reply)
+            ? INSUFFICIENT_GROUNDED_EVIDENCE_REPLY
+            : result.reply;
+          if (logId) await patchTurnLog(env, userId, logId, { bot_reply: reply, document_sources: sourcesWithGrounding, answer_sources: answerSources, document_search_unavailable: false });
+          return { reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };
         }
         documentSearchUnavailable = true;
       }

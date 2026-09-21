@@ -3,11 +3,13 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import {
+  buildResolvedDocumentRetrievalQuestion,
   classifyAdvisorIntents,
   extractCourseCode,
   extractAdvisorPolicyScope,
   extractSearchTerms,
   handleAiAdvisor,
+  isGroundedPolicyDeflection,
   resolveDocumentSources,
   resolveDocumentSourcesWithDiagnostics,
   retrieveAdvisorContext,
@@ -124,6 +126,12 @@ test('document routing carries only bounded prior user context for short policy 
   assert.equal(followup2027.documentSearch, true);
   assert.equal(followup2027.domain, 'grading');
   assert.equal(followup2027.scope.cohortYear, 2027);
+  const resolved = buildResolvedDocumentRetrievalQuestion('2027 thì sao?', followup2027);
+  assert.match(resolved, /bảng quy đổi điểm/i);
+  assert.match(resolved, /thang điểm 10/i);
+  assert.match(resolved, /điểm chữ/i);
+  assert.match(resolved, /hệ 4/i);
+  assert.match(resolved, /khóa tuyển sinh=2027/i);
 });
 
 test('policy scope keeps academic year distinct from intake/cohort year', () => {
@@ -502,6 +510,79 @@ test('empty or invalid Gemini citations block HUB policy answers without a Groq 
     globalThis.fetch = originalFetch;
     fixture.sql.close();
   }
+});
+
+test('grounded policy answers remain direct, preserve retrieved grading rows, and suppress website deflection', async () => {
+  const fixture = makeDatabase();
+  let system = '';
+  let retrievalQuestion = '';
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo 2026', category: 'grading' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'bảng quy đổi điểm cho khóa 2026?' }),
+    });
+    const groundedReply = [
+      'Áp dụng cho khóa tuyển sinh năm 2026, Điều 21 khoản 2 điểm a quy định bảng quy đổi sau:',
+      '',
+      '| Thang điểm 10 | Điểm chữ | Hệ 4 |',
+      '| --- | --- | --- |',
+      '| 8.5–10 | A | 4.0 |',
+      '| 7.0–8.4 | B | 3.0 |',
+    ].join('\n');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, capturedSystem, _history, capturedQuestion) => {
+        system = capturedSystem;
+        retrievalQuestion = capturedQuestion;
+        return {
+          reply: groundedReply,
+          documentSources: [{
+            documentId: DOCUMENT_A,
+            fileName: 'quy-che-2026.pdf',
+            locators: ['Điều 21, khoản 2, điểm a'],
+            applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }],
+          }],
+        };
+      },
+    }) as { reply: string; documentSources: Array<{ locators?: string[]; applicability?: Array<{ cohortYear?: number }> }> };
+    assert.equal(result.reply, groundedReply);
+    assert.match(result.reply, /^Áp dụng cho khóa tuyển sinh năm 2026/u);
+    assert.match(result.reply, /\| Thang điểm 10 \| Điểm chữ \| Hệ 4 \|/u);
+    assert.doesNotMatch(result.reply, /có thể tham khảo|truy cập website|để biết chính xác|thường được quy định/iu);
+    assert.deepEqual(result.documentSources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+    assert.equal(result.documentSources[0]?.applicability?.[0]?.cohortYear, 2026);
+    assert.match(system, /câu đầu tiên phải trả lời trực tiếp/u);
+    assert.match(system, /bảng Markdown hoặc danh sách ngắn/u);
+    assert.match(retrievalQuestion, /bảng quy đổi điểm/u);
+    assert.match(retrievalQuestion, /thang điểm 10/u);
+    assert.match(retrievalQuestion, /điểm chữ/u);
+    assert.match(retrievalQuestion, /hệ 4/u);
+    assert.match(retrievalQuestion, /khóa tuyển sinh=2026/u);
+  } finally { fixture.sql.close(); }
+});
+
+test('generic website advice is never returned after a D1-authorized policy citation', async () => {
+  const fixture = makeDatabase();
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'bảng quy đổi điểm cho khóa 2026?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => ({
+        reply: 'Bạn có thể tham khảo website chính thức hoặc mở quy chế để biết chính xác.',
+        documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che.pdf' }],
+      }),
+    }) as { reply: string; documentSources: Array<{ documentId: string }> };
+    assert.match(result.reply, /đoạn nguồn truy xuất hiện chưa chứa đủ dữ liệu/i);
+    assert.doesNotMatch(result.reply, /tham khảo|website|quy chế để biết/i);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.equal(isGroundedPolicyDeflection('Các quy định thường được nêu trong cẩm nang.'), true);
+    assert.equal(isGroundedPolicyDeflection('Điều 21 quy định trực tiếp bảng điểm.'), false);
+  } finally { fixture.sql.close(); }
 });
 
 test('coverage-mode grading uses one broad File Search call and persists grounded applicability per source', async () => {
