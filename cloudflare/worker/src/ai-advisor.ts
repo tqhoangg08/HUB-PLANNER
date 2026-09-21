@@ -46,6 +46,7 @@ const FILE_SEARCH_TOTAL_BUDGET_MS = 16_000;
 const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 16_000;
 const MAX_DOCUMENT_CANDIDATES = 12;
 const DOCUMENT_CANDIDATE_QUERY_LIMIT = 48;
+const MAX_POLICY_PRIOR_CONTEXT_CHARS = 1_500;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const SAFE_TECH_REPLY = 'Mình không thể chia sẻ thông tin kỹ thuật hoặc bảo mật nội bộ của website. HUB Planner được xây dựng để hỗ trợ sinh viên quản lý học tập, theo dõi GPA, lịch học, thông báo, sự kiện và các tiện ích sinh viên thuận tiện hơn.';
 const UNVERIFIED_HUB_REPLY = 'Mình chưa thể xác minh thông tin hiện hành của HUB Planner hoặc BUH từ nguồn chính thức. Bạn có thể hỏi rõ hơn hoặc kiểm tra thông báo/tài liệu chính thức mới nhất.';
@@ -248,6 +249,40 @@ export const buildResolvedDocumentRetrievalQuestion = (question: string, route: 
     route.scope.academicYear ? `năm học=${route.scope.academicYear}` : '',
   ].filter(Boolean);
   return qualifiers.length ? `${question.trim()}\n[${qualifiers.join('; ')}]` : question.trim();
+};
+
+/**
+ * GenerateContent receives one user Content. Prior user turns are bounded text
+ * context only, so assistant claims never become retrieval authority and the
+ * SDK never sees invalid consecutive user roles.
+ */
+export const buildPolicyRetrievalInput = (history: unknown, question: string, route: AdvisorDocumentRoute) => {
+  const current = question.trim();
+  const currentKey = normalizedQuestion(current);
+  const recent = recentUserQuestions(history)
+    .filter((item) => normalizedQuestion(item) !== currentKey);
+  const boundedPrior: string[] = [];
+  let remaining = MAX_POLICY_PRIOR_CONTEXT_CHARS;
+  for (const item of [...recent].reverse()) {
+    if (remaining <= 0) break;
+    const value = item.slice(0, remaining).trim();
+    if (value) {
+      boundedPrior.unshift(value);
+      remaining -= value.length;
+    }
+  }
+  const scope = [
+    route.scope.cohortYear ? `cohortYear=${route.scope.cohortYear}` : '',
+    route.scope.fromCohortYear ? `fromCohortYear=${route.scope.fromCohortYear}` : '',
+    route.scope.academicYear ? `academicYear=${route.scope.academicYear}` : '',
+  ].filter(Boolean).join(', ') || 'không chỉ định';
+  const sections = [
+    ...(boundedPrior.length ? [`Ngữ cảnh các câu hỏi trước của người dùng:\n${boundedPrior.map((item) => `- ${item}`).join('\n')}`] : []),
+    `Miền chính sách đã xác định: ${route.domain || 'general_official_document'}.`,
+    `Phạm vi yêu cầu: ${scope}.`,
+    `Yêu cầu hiện tại:\n${buildResolvedDocumentRetrievalQuestion(current, route)}`,
+  ];
+  return sections.join('\n\n');
 };
 
 const normalizedPolicyReply = (value: string) => value
@@ -1044,7 +1079,7 @@ const logFileSearchDiagnostic = (
   durationMs: number,
   citationCount: number,
   resolvedCitationCount: number,
-  extra: { errorName?: string; status?: number; model?: string; durationMs?: number; groundingChunkCount?: number; documentIdMetadataCount?: number } = {},
+  extra: { errorName?: string; status?: number; model?: string; durationMs?: number; groundingChunkCount?: number; documentIdMetadataCount?: number; inputContentCount?: number } = {},
 ) => {
   // Deliberately omit the question, document ID/name, store, keys, raw SDK
   // response, and errors. This is enough to locate the failed stage safely.
@@ -1062,6 +1097,7 @@ const logFileSearchDiagnostic = (
     resolvedCitationCount,
     groundingChunkCount: Math.max(0, Math.trunc(extra.groundingChunkCount || 0)),
     documentIdMetadataCount: Math.max(0, Math.trunc(extra.documentIdMetadataCount || 0)),
+    inputContentCount: Math.max(0, Math.trunc(extra.inputContentCount || 0)),
   }));
 };
 
@@ -1117,8 +1153,7 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       type DocumentSearchOutcome =
         | { success: true; result: NonNullable<Awaited<ReturnType<typeof answerWithGeminiFileSearch>>>; documentSources: ResolvedDocumentSource[] }
         | { success: false; reason: GeminiFileSearchFailureReason };
-      const policyHistory = recentUserQuestions(body.history).map((content) => ({ role: 'user', content }));
-      const retrievalQuestion = buildResolvedDocumentRetrievalQuestion(question, retrieval.documentRoute);
+      const retrievalInput = buildPolicyRetrievalInput(body.history, question, retrieval.documentRoute);
       const searchStartedAt = Date.now();
       const search = async (
         metadataFilter: string,
@@ -1137,36 +1172,37 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
         const startedAt = Date.now();
         try {
           const result = await withFileSearchDeadline(
-            answer(env, system, policyHistory, retrievalQuestion, { metadataFilter, timeoutMs }),
+            answer(env, system, retrievalInput, { metadataFilter, timeoutMs }),
             timeoutMs,
             String(env.GEMINI_CHAT_MODEL || 'gemini-3.1-flash-lite'),
           );
           const durationMs = Date.now() - startedAt;
           if (!result) {
-            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0);
+            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, { inputContentCount: 1 });
             return { success: false, reason: 'CONFIG_DISABLED' };
           }
           const citations = Array.isArray(result.documentSources)
             ? result.documentSources as unknown as Array<Record<string, unknown>>
             : [];
           if (!citations.length) {
-            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0);
+            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, { inputContentCount: 1 });
             return { success: false, reason: 'GEMINI_NO_FILE_CITATION' };
           }
           const resolution = await resolveDocumentSourcesWithDiagnostics(env, citations, retrieval.documentRoute);
           if (!resolution.sources.length) {
-            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount);
+            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount, { inputContentCount: 1 });
             return { success: false, reason: resolution.reason };
           }
           logFileSearchDiagnostic('SUCCESS', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount, {
             groundingChunkCount: result.groundingChunkCount,
             documentIdMetadataCount: result.documentIdMetadataCount,
+            inputContentCount: 1,
           });
           return { success: true, result, documentSources: resolution.sources };
         } catch (error) {
           const fileSearchError = error instanceof GeminiFileSearchError ? error : null;
           const reason = fileSearchError?.reason || 'GEMINI_REQUEST_FAILED';
-          logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, filterKind, candidateCount, Date.now() - startedAt, 0, 0, fileSearchError?.diagnostics);
+          logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, filterKind, candidateCount, Date.now() - startedAt, 0, 0, { ...fileSearchError?.diagnostics, inputContentCount: 1 });
           return { success: false, reason };
         }
       };

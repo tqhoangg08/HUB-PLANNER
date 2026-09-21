@@ -384,6 +384,12 @@ const extractGenerateContentGrounding = (response: unknown): GenerateContentGrou
 
 export const extractGenerateContentDocumentSources = (response: unknown) => extractGenerateContentGrounding(response).sources;
 
+/** Official-policy retrieval is one synthesized user request, never chat turns. */
+export const buildGeminiPolicyContents = (retrievalInput: string) => [{
+  role: 'user' as const,
+  parts: [{ text: String(retrievalInput || '').trim() }],
+}];
+
 export const buildGeminiInteractionSteps = (
   history: Array<{ role: string; content: string }>,
   question: string,
@@ -422,8 +428,7 @@ const outputText = (interaction: unknown) => {
 export const answerWithGeminiFileSearch = async (
   env: GeminiFileSearchEnv,
   system: string,
-  history: Array<{ role: string; content: string }>,
-  question: string,
+  retrievalInput: string,
   options: GeminiFileSearchOptions = {},
 ) => {
   if (!geminiFileSearchConfigured(env)) return null;
@@ -439,13 +444,7 @@ export const answerWithGeminiFileSearch = async (
   try {
     response = await ai.models.generateContent({
       model,
-      contents: [
-        ...history.flatMap((message) => {
-          const text = String(message.content || '').trim();
-          return text ? [{ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text }] }] : [];
-        }),
-        { role: 'user', parts: [{ text: question.trim() }] },
-      ],
+      contents: buildGeminiPolicyContents(retrievalInput),
       config: {
         systemInstruction: system,
         maxOutputTokens: FILE_SEARCH_MAX_OUTPUT_TOKENS,

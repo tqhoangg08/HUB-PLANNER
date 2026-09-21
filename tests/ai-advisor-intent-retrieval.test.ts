@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import {
   buildResolvedDocumentRetrievalQuestion,
+  buildPolicyRetrievalInput,
   classifyAdvisorIntents,
   extractCourseCode,
   extractAdvisorPolicyScope,
@@ -20,7 +21,7 @@ import {
   shouldUseDocumentSearch,
   withFileSearchDeadline,
 } from '../cloudflare/worker/src/ai-advisor.ts';
-import { buildDocumentCandidateMetadataFilter, extractGenerateContentDocumentSources, extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import { buildDocumentCandidateMetadataFilter, buildGeminiPolicyContents, extractGenerateContentDocumentSources, extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
@@ -133,6 +134,45 @@ test('document routing carries only bounded prior user context for short policy 
   assert.match(resolved, /điểm chữ/i);
   assert.match(resolved, /hệ 4/i);
   assert.match(resolved, /khóa tuyển sinh=2027/i);
+});
+
+test('policy retrieval collapses bounded user-only context into exactly one GenerateContent user Content', () => {
+  const current = 'mình khóa 2026 á, bạn có bảng quy đổi điểm không';
+  const history = [
+    { role: 'user', content: 'quy đổi điểm ở HUB như nào?' },
+    { role: 'assistant', content: 'Không được dùng câu trả lời này làm nguồn.' },
+    { role: 'user', content: 'khóa 2026 thì sao?' },
+    { role: 'user', content: current },
+  ];
+  const route = routeAdvisorDocuments(current, history);
+  const retrievalInput = buildPolicyRetrievalInput(history, current, route);
+  const contents = buildGeminiPolicyContents(retrievalInput);
+  assert.equal(route.domain, 'grading');
+  assert.equal(route.scope.cohortYear, 2026);
+  assert.equal(contents.length, 1);
+  assert.equal(contents[0]?.role, 'user');
+  assert.match(contents[0]?.parts[0]?.text || '', /quy đổi điểm ở HUB như nào\?/);
+  assert.match(contents[0]?.parts[0]?.text || '', /khóa 2026 thì sao\?/);
+  assert.match(contents[0]?.parts[0]?.text || '', /Miền chính sách đã xác định: grading/);
+  assert.match(contents[0]?.parts[0]?.text || '', /cohortYear=2026/);
+  assert.match(contents[0]?.parts[0]?.text || '', /bảng quy đổi điểm gồm thang điểm 10, điểm chữ và thang điểm hệ 4/);
+  assert.doesNotMatch(contents[0]?.parts[0]?.text || '', /Không được dùng câu trả lời này làm nguồn/);
+  assert.equal((contents[0]?.parts[0]?.text.match(/mình khóa 2026 á, bạn có bảng quy đổi điểm không/g) || []).length, 1);
+});
+
+test('elliptical grading and scholarship retrieval both keep a single user Content', () => {
+  const history = [{ role: 'user', content: 'quy đổi điểm ở HUB như nào?' }];
+  const gradingRoute = routeAdvisorDocuments('2027 thì sao?', history);
+  const gradingContents = buildGeminiPolicyContents(buildPolicyRetrievalInput(history, '2027 thì sao?', gradingRoute));
+  assert.equal(gradingRoute.domain, 'grading');
+  assert.equal(gradingRoute.scope.cohortYear, 2027);
+  assert.equal(gradingContents.length, 1);
+  assert.match(gradingContents[0]?.parts[0]?.text || '', /khóa tuyển sinh=2027/);
+  const scholarshipRoute = routeAdvisorDocuments('các loại học bổng ở HUB?');
+  const scholarshipContents = buildGeminiPolicyContents(buildPolicyRetrievalInput([], 'các loại học bổng ở HUB?', scholarshipRoute));
+  assert.equal(scholarshipRoute.domain, 'scholarship');
+  assert.equal(scholarshipContents.length, 1);
+  assert.equal(scholarshipContents[0]?.role, 'user');
 });
 
 test('policy scope keeps academic year distinct from intake/cohort year', () => {
@@ -533,7 +573,7 @@ test('grounded policy answers remain direct, preserve retrieved grading rows, an
     ].join('\n');
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, capturedSystem, _history, capturedQuestion) => {
+      fileSearchAnswer: async (_env, capturedSystem, capturedQuestion) => {
         system = capturedSystem;
         retrievalQuestion = capturedQuestion;
         return {
@@ -600,7 +640,7 @@ test('coverage-mode grading uses one broad File Search call and persists grounde
     });
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, _retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
         return {
           reply: 'Có bảng riêng áp dụng cho khóa tuyển sinh năm 2026 và các khóa tuyển sinh từ năm 2027.',
@@ -626,7 +666,7 @@ test('coverage-mode grading uses one broad File Search call and persists grounde
 test('scoped grading follow-up starts broad and retrieves a compatible 2025-2026 handbook', async () => {
   const fixture = makeDatabase();
   const filters: string[] = [];
-  const policyHistories: Array<Array<{ role: string; content: string }>> = [];
+  const policyInputs: string[] = [];
   const retrievalQueries: string[] = [];
   try {
     insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế 2026', category: 'grading' });
@@ -638,10 +678,10 @@ test('scoped grading follow-up starts broad and retrieves a compatible 2025-2026
     });
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, historyForSearch, retrievalQuestion, options) => {
+      fileSearchAnswer: async (_env, _system, retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
-        policyHistories.push(historyForSearch);
-        retrievalQueries.push(retrievalQuestion);
+        policyInputs.push(retrievalInput);
+        retrievalQueries.push(retrievalInput);
         return {
           reply: 'Cẩm nang Sinh viên năm học 2025-2026 công bố bảng quy đổi điểm.',
           documentSources: [{ documentId: DOCUMENT_B, fileName: 'cam-nang.pdf', applicability: [{ academicYear: '2025-2026', rawLabel: 'Năm học 2025-2026' }] }],
@@ -653,7 +693,8 @@ test('scoped grading follow-up starts broad and retrieves a compatible 2025-2026
     assert.equal(route.scope.cohortYear, 2025);
     assert.equal(sourceCoversRequestedScope({ applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }], academicYear: null }, route.scope), false);
     assertCandidateFilter(filters[0], [DOCUMENT_A, DOCUMENT_B]);
-    assert.equal(policyHistories[0]?.every((item) => item.role === 'user'), true);
+    assert.match(policyInputs[0], /Ngữ cảnh các câu hỏi trước của người dùng:/);
+    assert.match(policyInputs[0], /quy đổi điểm ở HUB như nào\?/);
     assert.match(String(retrievalQueries[0]), /miền tài liệu chính thức=grading/);
     assert.match(String(retrievalQueries[0]), /khóa tuyển sinh=2025/);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_B]);
@@ -674,7 +715,7 @@ test('a scoped 2027 follow-up uses one broad search and preserves its confirmed 
     });
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, _retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
         return {
           reply: 'Áp dụng cho các khóa tuyển sinh từ năm 2027.',
@@ -700,7 +741,7 @@ test('scholarship overview routes to official documents without hardcoded schola
     const groundedReply = 'Điều 2 nêu Học bổng Khuyến khích học tập, Học bổng Ngân hàng và Học bổng xã hội gồm Tương hỗ, Tài năng, Quốc tế, học bổng khác.';
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, _retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
         return { reply: groundedReply, documentSources: [{ documentId: DOCUMENT_A, fileName: 'hoc-bong.pdf' }] };
       },
@@ -726,7 +767,7 @@ test('legacy general-category documents remain reachable through one broad-first
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
       GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, _retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
         return { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: null, pageNumber: 1 }] };
       },
@@ -749,7 +790,7 @@ test('a scoped current legacy Quy chế document is accepted by broad-first sear
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
       GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, _retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
         return { reply: 'Theo quy chế hiện hành.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
       },
@@ -777,7 +818,7 @@ test('a focused narrow File Search miss is diagnosed and the broad public fallba
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
       GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, _retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
         return filters.length === 1
           ? { reply: 'Không có citation.', documentSources: [] }
@@ -890,7 +931,7 @@ test('a focused valid narrow result returns immediately without optional fallbac
     });
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, _retrievalInput, options) => {
         filters.push(String(options.metadataFilter));
         return { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che.pdf' }] };
       },
