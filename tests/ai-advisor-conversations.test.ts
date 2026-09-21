@@ -18,6 +18,7 @@ const createFixture = () => {
   const sql = new DatabaseSync(':memory:');
   sql.exec(readFileSync('cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql', 'utf8'));
   sql.exec(readFileSync('cloudflare/migrations/0043_ai_chat_conversations.sql', 'utf8'));
+  sql.exec(readFileSync('cloudflare/migrations/0045_ai_document_public_view_policy.sql', 'utf8'));
   const identity = { userId: USER_A };
   const prepare = (query: string) => {
     let bindings: unknown[] = [];
@@ -114,6 +115,7 @@ test('legacy rows are backfilled into distinct conversations without merging his
   const sql = new DatabaseSync(':memory:');
   try {
     sql.exec(readFileSync('cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql', 'utf8'));
+    sql.exec(readFileSync('cloudflare/migrations/0045_ai_document_public_view_policy.sql', 'utf8'));
     sql.prepare('INSERT INTO ai_chat_logs(created_at,user_id,user_message,bot_reply) VALUES(?,?,?,?)').run('2026-09-20T00:00:00.000Z', USER_A, 'Cũ một', 'Trả lời');
     sql.prepare('INSERT INTO ai_chat_logs(created_at,user_id,user_message,bot_reply) VALUES(?,?,?,?)').run('2026-09-20T00:01:00.000Z', USER_A, 'Cũ hai', 'Trả lời');
     sql.exec(readFileSync('cloudflare/migrations/0043_ai_chat_conversations.sql', 'utf8'));

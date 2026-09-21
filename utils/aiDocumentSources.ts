@@ -13,6 +13,10 @@ export type AIDocumentSource = {
     /** Grounded wording only; the UI never infers a scope. */
     rawLabel: string;
   }>;
+  /** Supplied only from the current, server-side D1 policy check. */
+  publicView?: 'none' | 'local_rehost' | 'official_link';
+  /** Same-origin public viewer path only; never an R2 or Gemini URL. */
+  publicUrl?: string;
 };
 
 const normalizedTitle = (value: string) => value
@@ -51,6 +55,10 @@ export const deduplicateAiDocumentSources = (sources: AIDocumentSource[]) => {
       .filter((item, itemIndex, items) => items.findIndex((other) => other.rawLabel === item.rawLabel) === itemIndex)
       .slice(0, 3);
     if (mergedApplicability.length) existing.applicability = mergedApplicability;
+    if (!existing.publicUrl && source.publicUrl && source.publicView && source.publicView !== 'none') {
+      existing.publicView = source.publicView;
+      existing.publicUrl = source.publicUrl;
+    }
   }
   return [...byKey.values()];
 };

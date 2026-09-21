@@ -4,6 +4,7 @@ import {
   BrainCircuit,
   Download,
   FileText,
+  Globe2,
   Loader2,
   RefreshCw,
   Search,
@@ -26,6 +27,8 @@ type AIDocument = {
   academic_year: string | null;
   program_code: string | null;
   visibility: 'public' | 'program' | 'admin';
+  public_view_policy?: 'none' | 'local_rehost' | 'official_link';
+  official_source_url?: string | null;
   indexing_status: string;
   indexing_error: string | null;
   ocr_status?: string;
@@ -69,6 +72,10 @@ export const AdminAIDocuments: React.FC = () => {
   const [academicYear, setAcademicYear] = useState('');
   const [programCode, setProgramCode] = useState('all');
   const [visibility, setVisibility] = useState<'public' | 'program' | 'admin'>('public');
+  const [publicViewPolicy, setPublicViewPolicy] = useState<'none' | 'local_rehost' | 'official_link'>('none');
+  const [officialSourceUrl, setOfficialSourceUrl] = useState('');
+  const [policyItem, setPolicyItem] = useState<AIDocument | null>(null);
+  const [policyBusy, setPolicyBusy] = useState(false);
   const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number; percent: number; stage: 'analyzing' | 'ocr' | 'upload' } | null>(null);
   const ocrAbortRef = useRef<AbortController | null>(null);
 
@@ -145,6 +152,8 @@ export const AdminAIDocuments: React.FC = () => {
       form.set('academicYear', academicYear);
       form.set('programCode', programCode.trim() || 'all');
       form.set('visibility', visibility);
+      form.set('publicViewPolicy', publicViewPolicy);
+      form.set('officialSourceUrl', officialSourceUrl.trim());
       if (ocr) {
         form.set('ocrText', ocr.text);
         form.set('ocrPageCount', String(ocr.pageCount));
@@ -159,6 +168,8 @@ export const AdminAIDocuments: React.FC = () => {
       setOpen(false);
       setFile(null);
       setTitle('');
+      setPublicViewPolicy('none');
+      setOfficialSourceUrl('');
       setPage(1);
       await load();
     } catch (cause: any) {
@@ -198,6 +209,38 @@ export const AdminAIDocuments: React.FC = () => {
       window.open(payload.url, '_blank', 'noopener,noreferrer');
     } catch (cause: any) {
       setError(cause.message);
+    }
+  };
+
+  const openPolicyEditor = (item: AIDocument) => {
+    setPolicyItem(item);
+    setPublicViewPolicy(item.public_view_policy || 'none');
+    setOfficialSourceUrl(item.official_source_url || '');
+  };
+
+  const savePublicViewPolicy = async () => {
+    if (!policyItem) return;
+    setPolicyBusy(true);
+    setError('');
+    try {
+      const response = await privateApiRequest('/api/admin/v1/ai-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_public_view',
+          id: policyItem.id,
+          publicViewPolicy,
+          officialSourceUrl: officialSourceUrl.trim(),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || payload.message || 'Không thể cập nhật chính sách xem công khai.');
+      if (payload.document) setItems((current) => current.map((item) => item.id === policyItem.id ? payload.document : item));
+      setPolicyItem(null);
+    } catch (cause: any) {
+      setError(cause.message);
+    } finally {
+      setPolicyBusy(false);
     }
   };
 
@@ -312,6 +355,12 @@ export const AdminAIDocuments: React.FC = () => {
                     {new Date(item.created_at).toLocaleString('vi-VN')}
                     <br />
                     <span title={item.uploaded_by}>Người tải: {item.uploaded_by.slice(0, 8)}…</span>
+                    <br />
+                    {item.public_view_policy === 'local_rehost'
+                      ? 'Xem trực tiếp trên HUB Planner'
+                      : item.public_view_policy === 'official_link'
+                        ? 'Dẫn tới nguồn chính thức'
+                        : 'Không công khai'}
                   </div>
                   <span
                     className={`w-fit rounded-full px-2 py-1 text-xs font-bold ${
@@ -328,6 +377,14 @@ export const AdminAIDocuments: React.FC = () => {
                     )}
                   </span>
                   <div className="flex">
+                    <button
+                      onClick={() => openPolicyEditor(item)}
+                      title="Chính sách xem công khai"
+                      aria-label={`Cập nhật chính sách xem công khai cho ${item.title}`}
+                      className="p-2 text-slate-600 hover:text-blue-700"
+                    >
+                      <Globe2 size={17} />
+                    </button>
                     <button
                       onClick={() => download(item)}
                       title="Tải file gốc"
@@ -484,6 +541,34 @@ export const AdminAIDocuments: React.FC = () => {
                   Phiên bản File Search hiện chỉ truy xuất tài liệu “Công khai cho chatbot”.
                 </small>
               </label>
+              <label className="block text-sm font-bold">
+                Xem công khai
+                <select
+                  value={publicViewPolicy}
+                  onChange={(event) => setPublicViewPolicy(event.target.value as 'none' | 'local_rehost' | 'official_link')}
+                  className="mt-1 h-11 w-full rounded-lg border px-3 font-normal"
+                >
+                  <option value="none">Không công khai</option>
+                  <option value="local_rehost">Xem trực tiếp trên HUB Planner</option>
+                  <option value="official_link">Dẫn tới nguồn chính thức</option>
+                </select>
+                <small className="mt-1 block font-normal text-amber-700">
+                  Chỉ chọn xem trực tiếp khi bạn có quyền công khai bản tài liệu này.
+                </small>
+              </label>
+              {publicViewPolicy !== 'none' && (
+                <label className="block text-sm font-bold">
+                  Liên kết nguồn chính thức {publicViewPolicy === 'official_link' ? '(bắt buộc)' : '(khuyến nghị)'}
+                  <input
+                    required={publicViewPolicy === 'official_link'}
+                    type="url"
+                    value={officialSourceUrl}
+                    onChange={(event) => setOfficialSourceUrl(event.target.value)}
+                    placeholder="https://..."
+                    className="mt-1 h-11 w-full rounded-lg border px-3 font-normal"
+                  />
+                </label>
+              )}
             </div>
             <div className="flex justify-end gap-2 border-t p-4">
               {ocrProgress && (
@@ -511,6 +596,55 @@ export const AdminAIDocuments: React.FC = () => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {policyItem && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-labelledby="ai-document-public-view-title">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b p-5">
+              <div>
+                <h2 id="ai-document-public-view-title" className="font-black text-[#003375]">Xem công khai tài liệu</h2>
+                <p className="mt-1 text-xs text-slate-500">{policyItem.title}</p>
+              </div>
+              <button type="button" onClick={() => setPolicyItem(null)} aria-label="Đóng"><X /></button>
+            </div>
+            <div className="space-y-4 p-5">
+              <label className="block text-sm font-bold">
+                Chính sách xem công khai
+                <select
+                  value={publicViewPolicy}
+                  onChange={(event) => setPublicViewPolicy(event.target.value as 'none' | 'local_rehost' | 'official_link')}
+                  className="mt-1 h-11 w-full rounded-lg border px-3 font-normal"
+                >
+                  <option value="none">Không công khai</option>
+                  <option value="local_rehost">Xem trực tiếp trên HUB Planner</option>
+                  <option value="official_link">Dẫn tới nguồn chính thức</option>
+                </select>
+              </label>
+              {publicViewPolicy !== 'none' && (
+                <label className="block text-sm font-bold">
+                  Liên kết nguồn chính thức {publicViewPolicy === 'official_link' ? '(bắt buộc)' : '(khuyến nghị)'}
+                  <input
+                    required={publicViewPolicy === 'official_link'}
+                    type="url"
+                    value={officialSourceUrl}
+                    onChange={(event) => setOfficialSourceUrl(event.target.value)}
+                    placeholder="https://..."
+                    className="mt-1 h-11 w-full rounded-lg border px-3 font-normal"
+                  />
+                </label>
+              )}
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                Chỉ chọn xem trực tiếp khi bạn có quyền công khai bản tài liệu này.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t p-4">
+              <button type="button" onClick={() => setPolicyItem(null)} disabled={policyBusy} className="h-10 rounded-lg border px-4 font-bold">Hủy</button>
+              <button type="button" onClick={savePublicViewPolicy} disabled={policyBusy} className="flex h-10 items-center gap-2 rounded-lg bg-[#0052CC] px-4 font-bold text-white disabled:opacity-50">
+                {policyBusy && <Loader2 className="animate-spin" size={16} />} Lưu chính sách
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

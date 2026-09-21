@@ -665,11 +665,25 @@ const patchTurnLog = async (env: AiAdvisorEnv, userId: string, id: number, patch
   if (!entries.length) return;
   const assignments = entries.map(([key], index) => `${columns.get(key)} = ?${index + 3}`).join(', ');
   const values = entries.map(([key, value]) => (key === 'document_sources' || key === 'answer_sources')
-    ? JSON.stringify(Array.isArray(value) ? value : [])
+    // Public-view eligibility is current D1 state, not historical chat state.
+    // Never persist it; a revoked policy therefore cannot leave an old chat link active.
+    ? JSON.stringify(Array.isArray(value) ? value.map((source) => {
+      if (!source || typeof source !== 'object' || Array.isArray(source)) return source;
+      const { publicView: _publicView, publicUrl: _publicUrl, ...stableSource } = source as Record<string, unknown>;
+      return stableSource;
+    }) : [])
     : typeof value === 'boolean' ? (value ? 1 : 0) : value);
   await requireDb(env).prepare(`UPDATE ai_chat_logs SET ${assignments} WHERE id = ?1 AND user_id = ?2`)
     .bind(id, userId, ...values).run();
 };
+
+const historicalDocumentSources = (value: unknown) => parseJsonArray(value).map((source) => {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return source;
+  // Older JSON may contain a now-revoked presentation flag. Historical cards
+  // remain non-clickable until a future current-policy enrichment confirms it.
+  const { publicView: _publicView, publicUrl: _publicUrl, ...stableSource } = source as Record<string, unknown>;
+  return stableSource;
+});
 
 const publicLog = (row: Record<string, unknown>) => ({
   id: row.id,
@@ -681,7 +695,7 @@ const publicLog = (row: Record<string, unknown>) => ({
   title: row.title,
   is_deleted: Number(row.is_deleted || 0) === 1,
   is_pinned: Number(row.is_pinned || 0) === 1,
-  ...(row.document_sources_json === undefined ? {} : { document_sources: parseJsonArray(row.document_sources_json) }),
+  ...(row.document_sources_json === undefined ? {} : { document_sources: historicalDocumentSources(row.document_sources_json) }),
   ...(row.notice_sources_json === undefined ? {} : { answer_sources: parseJsonArray(row.notice_sources_json) }),
   ...(row.document_search_unavailable === undefined ? {} : { document_search_unavailable: Number(row.document_search_unavailable || 0) === 1 }),
 });
@@ -750,6 +764,9 @@ type ResolvedDocumentSource = {
   createdAt: string;
   updatedAt: string;
   inferredCurrent: true;
+  /** Presentation metadata only. It is never persisted in chat history. */
+  publicView: 'none' | 'local_rehost' | 'official_link';
+  publicUrl?: string;
 };
 
 const mergeGroundedLocators = (...values: unknown[]) => [...new Set(values.flatMap((value) => Array.isArray(value)
@@ -807,6 +824,7 @@ type DocumentCitationRow = {
   deleted_at: string | null;
   indexing_status: string;
   visibility: string;
+  public_view_policy: 'none' | 'local_rehost' | 'official_link' | null;
 };
 
 type DocumentSourceResolution = {
@@ -946,7 +964,7 @@ export const resolveDocumentSourcesWithDiagnostics = async (
   }
   const rows = await db.prepare(
     `SELECT id, title, original_file_name, gemini_document_name, category, academic_year,
-       program_code, version, created_at, updated_at, deleted_at, indexing_status, visibility
+       program_code, version, created_at, updated_at, deleted_at, indexing_status, visibility, public_view_policy
      FROM ai_documents
       WHERE (id IN (${externalIds.map(() => '?').join(', ')})
           OR gemini_document_name IN (${externalIds.map(() => '?').join(', ')}))`,
@@ -973,6 +991,9 @@ export const resolveDocumentSourcesWithDiagnostics = async (
     }
     const locators = mergeGroundedLocators(entry.locators);
     const applicability = mergeGroundedApplicability(entry.applicability);
+    const publicView = row.public_view_policy === 'local_rehost' || row.public_view_policy === 'official_link'
+      ? row.public_view_policy
+      : 'none';
     return [{
       documentId: row.id,
       title: row.title,
@@ -990,6 +1011,8 @@ export const resolveDocumentSourcesWithDiagnostics = async (
       createdAt: String(row.created_at || ''),
       updatedAt: String(row.updated_at || ''),
       inferredCurrent: true as const,
+      publicView,
+      ...(publicView !== 'none' ? { publicUrl: `/tai-lieu/${row.id}` } : {}),
     }];
   }).sort((left, right) => documentPrecedence(route, left, right));
   const deduplicated = mergeResolvedDocumentSources(resolved);

@@ -150,3 +150,18 @@ test('persisted Gemini upload operations are rehydrated with the SDK operation t
   assert.match(handler, /operations\.get\(\{ operation: persistedOperation \}\)/);
   assert.doesNotMatch(handler, /operations\.get\(\{ operation: \{ name:/);
 });
+
+test('public document viewing uses explicit policy gates and a controlled same-origin viewer', () => {
+  const documents = source('cloudflare/worker/src/ai-documents.ts');
+  const worker = source('cloudflare/worker/src/index.ts');
+  const viewer = source('components/PublicAIDocumentViewer.tsx');
+  const migration = source('cloudflare/migrations/0045_ai_document_public_view_policy.sql');
+  assert.match(migration, /public_view_policy TEXT NOT NULL DEFAULT 'none'/);
+  assert.match(migration, /official_source_url TEXT/);
+  assert.match(documents, /public_view_policy <> 'none'/);
+  assert.match(documents, /'local_rehost'/);
+  assert.match(documents, /Content-Disposition': 'inline'/);
+  assert.match(worker, /handlePublicAiDocumentMetadata/);
+  assert.match(viewer, /\/api\/public\/v1\/ai-documents/);
+  assert.doesNotMatch(viewer, /storage_path|AI_DOCUMENTS_BUCKET|Download|print\(/);
+});

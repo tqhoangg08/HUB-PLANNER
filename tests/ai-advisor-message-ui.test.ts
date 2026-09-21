@@ -26,6 +26,21 @@ test('student sources are read-only labels and never render page numbers or down
   assert.match(component, /<section/);
   assert.match(component, /source\.locators/);
   assert.match(component, /formatLocator/);
+  assert.match(component, /source\.publicUrl/);
+  assert.match(component, /<Link/);
+});
+
+test('source cards become links only with server-provided current public-view metadata', () => {
+  const sources = deduplicateAiDocumentSources([
+    { documentId: 'public-id', title: 'Quy chế', publicView: 'local_rehost', publicUrl: '/tai-lieu/public-id' },
+    { documentId: 'private-id', title: 'Nội bộ', publicView: 'none' },
+  ]);
+  assert.equal(sources[0]?.publicUrl, '/tai-lieu/public-id');
+  assert.equal(sources[1]?.publicUrl, undefined);
+  const component = source('components/AIDocumentSources.tsx');
+  assert.match(component, /source\.publicView === 'local_rehost'/);
+  assert.match(component, /source\.publicUrl ===/);
+  assert.doesNotMatch(component, /api\/private\/v1\/ai-document/);
 });
 
 test('student-facing source UI preserves grounded applicability without exposing pages or downloads', () => {

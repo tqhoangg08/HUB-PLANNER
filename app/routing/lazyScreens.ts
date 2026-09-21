@@ -42,6 +42,9 @@ export const PrivacyPolicy = lazy(() =>
 export const PublicRankings = lazy(() =>
     import('../../components/PublicRankings').then(module => ({ default: module.PublicRankings }))
 );
+export const PublicAIDocumentViewer = lazy(() =>
+    import('../../components/PublicAIDocumentViewer').then(module => ({ default: module.PublicAIDocumentViewer }))
+);
 export const TermsOfUse = lazy(() =>
     import('../../components/TermsOfUse').then(module => ({ default: module.TermsOfUse }))
 );

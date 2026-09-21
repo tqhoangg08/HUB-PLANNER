@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { AlertCircle, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { deduplicateAiDocumentSources, type AIDocumentSource } from '../utils/aiDocumentSources';
 
 export { deduplicateAiDocumentSources, type AIDocumentSource } from '../utils/aiDocumentSources';
@@ -31,11 +32,11 @@ export const AIDocumentSources: React.FC<{
             Nguồn tham khảo{visibleSources.length > 1 ? ` (${visibleSources.length})` : ''}
           </p>
           <div className="space-y-1.5">
-            {visibleSources.map((source, index) => (
-              <div
-                key={String(source.id || source.documentId || `${source.title}-${index}`)}
-                className="flex max-w-full items-start gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-left text-slate-700"
-              >
+            {visibleSources.map((source, index) => {
+              const key = String(source.id || source.documentId || `${source.title}-${index}`);
+              const isPubliclyViewable = (source.publicView === 'local_rehost' || source.publicView === 'official_link')
+                && source.publicUrl === `/tai-lieu/${source.documentId || source.id}`;
+              const content = <>
                 <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="truncate text-[10px] font-semibold">{source.title || source.fileName || 'Tài liệu chính thức'}</p>
@@ -50,8 +51,14 @@ export const AIDocumentSources: React.FC<{
                     </p>
                   ))}
                 </div>
-              </div>
-            ))}
+              </>;
+              const className = "flex max-w-full items-start gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-left text-slate-700";
+              return isPubliclyViewable ? (
+                <Link key={key} to={source.publicUrl!} className={`${className} transition-colors hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`} aria-label={`Xem tài liệu ${source.title || source.fileName || 'chính thức'}`}>
+                  {content}
+                </Link>
+              ) : <div key={key} className={className}>{content}</div>;
+            })}
           </div>
         </div>
       )}

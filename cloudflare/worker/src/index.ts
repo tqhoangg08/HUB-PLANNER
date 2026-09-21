@@ -144,6 +144,8 @@ import {
   handleAdminAiDocuments,
   handleAiDocumentFile,
   handleAiDocumentSource,
+  handlePublicAiDocumentFile,
+  handlePublicAiDocumentMetadata,
   type AiDocumentsEnv,
 } from './ai-documents.ts';
 import {
@@ -1159,7 +1161,8 @@ const worker = {
     const isLegacyPublicAlias =
       requestUrl.pathname === '/events' ||
       requestUrl.pathname === '/courses' ||
-      requestUrl.pathname === '/lost-found';
+      requestUrl.pathname === '/lost-found' ||
+      /^\/tai-lieu\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestUrl.pathname);
     if (isLegacyPublicAlias && isFrontendNavigation(request)) {
       return withFrontendAssetHeaders(await env.ASSETS.fetch(request));
     }
@@ -1368,6 +1371,37 @@ const worker = {
         }, status, {
           ...cors,
           ...(error instanceof PdfAiError && error.allow ? { Allow: error.allow } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    const publicAiDocumentFileMatch = requestUrl.pathname.match(/^\/api\/public\/v1\/ai-documents\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/file$/i);
+    if (publicAiDocumentFileMatch) {
+      try {
+        return await handlePublicAiDocumentFile(request, publicAiDocumentFileMatch[1], env);
+      } catch (error) {
+        const status = aiDocumentsErrorStatus(error);
+        return json({ error: status === 404 ? 'Không tìm thấy tài liệu.' : status === 405 ? 'Phương thức không được hỗ trợ.' : 'Không thể mở tài liệu.' }, status, {
+          ...cors,
+          ...(status === 405 ? { Allow: 'GET, HEAD' } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    const publicAiDocumentMetadataMatch = requestUrl.pathname.match(/^\/api\/public\/v1\/ai-documents\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i);
+    if (publicAiDocumentMetadataMatch) {
+      try {
+        return json(await handlePublicAiDocumentMetadata(request, publicAiDocumentMetadataMatch[1], env), 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        const status = aiDocumentsErrorStatus(error);
+        return json({ error: status === 404 ? 'Không tìm thấy tài liệu.' : status === 405 ? 'Phương thức không được hỗ trợ.' : 'Không thể mở tài liệu.' }, status, {
+          ...cors,
+          ...(status === 405 ? { Allow: 'GET' } : {}),
           'Cache-Control': 'no-store',
         });
       }

@@ -11,6 +11,7 @@ import {
     Onboarding,
     PrivacyPolicy,
     PublicRankings,
+    PublicAIDocumentViewer,
     RecoveryAccountScreen,
     RecoveryForgotPasswordScreen,
     RecoveryResetPasswordScreen,
@@ -84,6 +85,7 @@ export const AppRoutes = ({
                 <Route path="/schedule/:studentCode" element={<AuthMaintenanceScreen />} />
                 <Route path="/events/edit/:eventId" element={<AuthMaintenanceScreen />} />
                 <Route path="/rankings" element={<PublicRankings />} />
+                <Route path="/tai-lieu/:documentId" element={<PublicAIDocumentViewer />} />
                 <Route path="/support/*" element={<AuthMaintenanceScreen />} />
                 <Route path="/handbook/*" element={<AuthMaintenanceScreen />} />
                 <Route path="/profile/*" element={<AuthMaintenanceScreen />} />
@@ -127,6 +129,7 @@ export const AppRoutes = ({
                         : <Navigate to="/login" replace />}
                 />
                 <Route path="/account" element={<RecoveryAccountScreen />} />
+                <Route path="/tai-lieu/:documentId" element={<PublicAIDocumentViewer />} />
                 <Route
                     path="/onboarding"
                     element={isLoaded ? (

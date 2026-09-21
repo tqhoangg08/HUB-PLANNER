@@ -10,6 +10,9 @@ import {
   handleAdminAiDocuments,
   handleAiDocumentFile,
   handleAiDocumentSource,
+  handlePublicAiDocumentFile,
+  handlePublicAiDocumentMetadata,
+  parseAiDocumentPublicViewSettings,
   parseAiDocumentOcrPayload,
   sha256AiDocumentBlob,
   uploadAiDocumentStorage,
@@ -30,6 +33,7 @@ const makeEnv = (userId = USER, role: 'user' | 'admin' = 'user') => {
   sql.exec(readFileSync('cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql', 'utf8'));
   sql.exec(readFileSync('cloudflare/migrations/0043_ai_chat_conversations.sql', 'utf8'));
   sql.exec(readFileSync('cloudflare/migrations/0044_ai_document_ocr_ingestion.sql', 'utf8'));
+  sql.exec(readFileSync('cloudflare/migrations/0045_ai_document_public_view_policy.sql', 'utf8'));
   sql.prepare('INSERT INTO user_profile_private VALUES (?,?,?,?)').run(USER, 'Công nghệ thông tin', null, '{}');
   const prepare = (query: string) => {
     let bindings: unknown[] = [];
@@ -178,6 +182,80 @@ test('private extracted text has its own R2 SHA-256 rather than the original PDF
     await uploadAiDocumentStorage(env, key, derivative, derivativeHash);
     assert.notEqual(originalHash, derivativeHash);
     assert.equal(env.__objects.get(key)?.sha256, derivativeHash);
+  } finally { env.__sql.close(); }
+});
+
+test('0045 defaults existing documents to no public viewing and validates explicit policy URLs', () => {
+  const env = makeEnv();
+  try {
+    const id = '66666666-6666-4666-8666-666666666666';
+    env.__sql.prepare(`INSERT INTO ai_documents (id,title,original_file_name,storage_path,mime_type,file_size,content_hash,program_code,visibility,indexing_status,uploaded_by,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, 'Legacy', 'legacy.pdf', 'ai-documents/legacy.pdf', 'application/pdf', 1, '0'.repeat(64), 'all', 'public', 'completed', ADMIN, '2026-01-01', '2026-01-01');
+    assert.equal(env.__sql.prepare('SELECT public_view_policy FROM ai_documents WHERE id=?').get(id).public_view_policy, 'none');
+    assert.deepEqual(parseAiDocumentPublicViewSettings('local_rehost', 'https://official.example.test/rules.pdf'), {
+      publicViewPolicy: 'local_rehost', officialSourceUrl: 'https://official.example.test/rules.pdf',
+    });
+    assert.throws(() => parseAiDocumentPublicViewSettings('official_link', 'javascript:alert(1)'), AiDocumentsError);
+    assert.throws(() => parseAiDocumentPublicViewSettings('official_link', ''), AiDocumentsError);
+  } finally { env.__sql.close(); }
+});
+
+test('anonymous public document endpoints require current local-rehost eligibility and never expose R2 keys', async () => {
+  const env = makeEnv(ADMIN, 'admin');
+  try {
+    const id = '77777777-7777-4777-8777-777777777777';
+    const key = `ai-documents/${ADMIN}/${id}-fixture.pdf`;
+    const bytes = new TextEncoder().encode('%PDF-1.7\npublic fixture');
+    env.__objects.set(key, { bytes, type: 'application/pdf' });
+    env.__sql.prepare(`INSERT INTO ai_documents (id,title,original_file_name,storage_path,mime_type,file_size,content_hash,category,academic_year,program_code,visibility,public_view_policy,indexing_status,uploaded_by,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, 'Quy chế', 'fixture.pdf', key, 'application/pdf', bytes.length, '1'.repeat(64), 'training_regulation', '2026-2027', 'all', 'public', 'local_rehost', 'completed', ADMIN, '2026-01-01', '2026-01-01');
+    const anonymous = new Request(`https://hotrosinhvienhub.id.vn/api/public/v1/ai-documents/${id}`);
+    const metadata = await handlePublicAiDocumentMetadata(anonymous, id, env);
+    assert.deepEqual(metadata, {
+      id, title: 'Quy chế', category: 'training_regulation', academicYear: '2026-2027', publicViewPolicy: 'local_rehost', mimeType: 'application/pdf',
+    });
+    assert.doesNotMatch(JSON.stringify(metadata), /storage_path|uploaded_by|gemini|hash/i);
+    const file = await handlePublicAiDocumentFile(new Request(`${anonymous.url}/file`), id, env);
+    assert.equal(file.status, 200);
+    assert.equal(file.headers.get('content-disposition'), 'inline');
+    assert.equal(file.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
+    assert.deepEqual(new Uint8Array(await file.arrayBuffer()), bytes);
+    await handleAdminAiDocuments(request('/api/admin/v1/ai-documents', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update_public_view', id, publicViewPolicy: 'none' }),
+    }), new URL('https://hotrosinhvienhub.id.vn/api/admin/v1/ai-documents'), env);
+    await assert.rejects(() => handlePublicAiDocumentMetadata(anonymous, id, env), (error: unknown) => error instanceof AiDocumentsError && error.status === 404);
+    await assert.rejects(() => handlePublicAiDocumentFile(new Request(`${anonymous.url}/file`), id, env), (error: unknown) => error instanceof AiDocumentsError && error.status === 404);
+  } finally { env.__sql.close(); }
+});
+
+test('anonymous endpoints reject official-link local files and all non-public or inactive document states', async () => {
+  const env = makeEnv();
+  try {
+    const base = '88888888-8888-4888-8888-88888888888';
+    const insert = (suffix: string, visibility: string, status: string, policy: string, deletedAt: string | null = null) => {
+      const id = `${base}${suffix}`;
+      env.__sql.prepare(`INSERT INTO ai_documents (id,title,original_file_name,storage_path,mime_type,file_size,content_hash,program_code,visibility,public_view_policy,official_source_url,indexing_status,uploaded_by,created_at,updated_at,deleted_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(id, 'Fixture', 'fixture.pdf', `ai-documents/${id}.pdf`, 'application/pdf', 1, suffix.repeat(64).slice(0, 64), 'all', visibility, policy, 'https://official.example.test/rules', status, ADMIN, '2026-01-01', '2026-01-01', deletedAt);
+      return id;
+    };
+    const officialLink = insert('1', 'public', 'completed', 'official_link');
+    const rejected = [
+      insert('2', 'public', 'completed', 'none'),
+      insert('3', 'admin', 'completed', 'local_rehost'),
+      insert('4', 'program', 'completed', 'local_rehost'),
+      insert('5', 'public', 'processing', 'local_rehost'),
+      insert('6', 'public', 'failed', 'local_rehost'),
+      insert('7', 'public', 'completed', 'local_rehost', '2026-01-02'),
+    ];
+    const metadata = await handlePublicAiDocumentMetadata(new Request(`https://x/api/public/v1/ai-documents/${officialLink}`), officialLink, env);
+    assert.equal(metadata.publicViewPolicy, 'official_link');
+    assert.equal(metadata.officialSourceUrl, 'https://official.example.test/rules');
+    await assert.rejects(() => handlePublicAiDocumentFile(new Request(`https://x/api/public/v1/ai-documents/${officialLink}/file`), officialLink, env), (error: unknown) => error instanceof AiDocumentsError && error.status === 404);
+    for (const id of rejected) {
+      await assert.rejects(() => handlePublicAiDocumentMetadata(new Request(`https://x/api/public/v1/ai-documents/${id}`), id, env), (error: unknown) => error instanceof AiDocumentsError && error.status === 404);
+      await assert.rejects(() => handlePublicAiDocumentFile(new Request(`https://x/api/public/v1/ai-documents/${id}/file`), id, env), (error: unknown) => error instanceof AiDocumentsError && error.status === 404);
+    }
+    await assert.rejects(() => handlePublicAiDocumentMetadata(new Request('https://x/api/public/v1/ai-documents/99999999-9999-4999-8999-999999999999'), '99999999-9999-4999-8999-999999999999', env), (error: unknown) => error instanceof AiDocumentsError && error.status === 404);
   } finally { env.__sql.close(); }
 });
 

@@ -23,6 +23,10 @@ export class AiDocumentsError extends Error {
   }
 }
 
+export type AiDocumentPublicViewPolicy = 'none' | 'local_rehost' | 'official_link';
+
+const PUBLIC_VIEW_POLICIES = new Set<AiDocumentPublicViewPolicy>(['none', 'local_rehost', 'official_link']);
+
 type AiDocumentRow = Record<string, unknown> & {
   id: string;
   title: string;
@@ -39,6 +43,8 @@ type AiDocumentRow = Record<string, unknown> & {
   ocr_status?: string | null;
   ocr_text_path?: string | null;
   index_source_kind?: string | null;
+  public_view_policy?: AiDocumentPublicViewPolicy | null;
+  official_source_url?: string | null;
 };
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -69,6 +75,34 @@ const requireAdmin = async (request: Request, env: AiDocumentsEnv) => {
   const identity = await requireBetterAuthSession(request, env);
   if (identity.role !== 'admin') throw new AiDocumentsError(403, 'Chỉ quản trị viên được quản lý kho tài liệu AI.');
   return identity;
+};
+
+const cleanOfficialSourceUrl = (value: unknown, required: boolean) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) {
+    if (required) throw new AiDocumentsError(400, 'Vui lòng nhập liên kết nguồn chính thức hợp lệ.');
+    return null;
+  }
+  if (raw.length > 2048) throw new AiDocumentsError(400, 'Liên kết nguồn chính thức quá dài.');
+  let parsed: URL;
+  try { parsed = new URL(raw); } catch { throw new AiDocumentsError(400, 'Liên kết nguồn chính thức không hợp lệ.'); }
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password) {
+    throw new AiDocumentsError(400, 'Liên kết nguồn chính thức phải dùng HTTP hoặc HTTPS.');
+  }
+  return parsed.toString();
+};
+
+/** Validates the explicit public viewing decision; client data never selects a storage key. */
+export const parseAiDocumentPublicViewSettings = (policyValue: unknown, sourceUrlValue: unknown) => {
+  const policy = String(policyValue || 'none').trim() as AiDocumentPublicViewPolicy;
+  if (!PUBLIC_VIEW_POLICIES.has(policy)) throw new AiDocumentsError(400, 'Chính sách xem công khai không hợp lệ.');
+  const officialSourceUrl = cleanOfficialSourceUrl(sourceUrlValue, policy === 'official_link');
+  return {
+    publicViewPolicy: policy,
+    // Keeping a link on a rehosted document is useful attribution. A revoked
+    // policy must not retain or expose an irrelevant external URL.
+    officialSourceUrl: policy === 'none' ? null : officialSourceUrl,
+  } as const;
 };
 
 const extensionOf = (name: string) => cleanName(name).split('.').pop()?.toLowerCase() || '';
@@ -137,6 +171,7 @@ const UPDATE_FIELDS = new Set([
   'indexing_status', 'indexing_error', 'deleted_at',
   'ocr_status', 'ocr_text_path', 'ocr_text_length', 'ocr_page_count', 'ocr_engine', 'ocr_used',
   'ocr_completed_at', 'index_source_kind',
+  'public_view_policy', 'official_source_url',
 ]);
 
 export const updateAiDocument = async (env: AiDocumentsEnv, id: string, patch: Record<string, unknown>) => {
@@ -254,6 +289,7 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
   if (!(file instanceof File)) throw new AiDocumentsError(400, 'Vui lòng chọn tài liệu.');
   const validated = await validateAiDocumentFile(file);
   const ocr = parseAiDocumentOcrPayload(form, validated.mimeType);
+  const publicView = parseAiDocumentPublicViewSettings(form.get('publicViewPolicy'), form.get('officialSourceUrl'));
   const contentHash = await sha256AiDocumentBlob(file);
   const duplicate = await db.prepare('SELECT id FROM ai_documents WHERE content_hash = ? AND deleted_at IS NULL LIMIT 1')
     .bind(contentHash).first<{ id: string }>();
@@ -276,15 +312,17 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
       academic_year: String(form.get('academicYear') || '') || null,
       program_code: String(form.get('programCode') || 'all').trim() || 'all',
       visibility: ['public', 'program', 'admin'].includes(String(form.get('visibility'))) ? String(form.get('visibility')) : 'public',
+      public_view_policy: publicView.publicViewPolicy,
+      official_source_url: publicView.officialSourceUrl,
       uploaded_by: identity.userId,
     };
     await db.prepare(`INSERT INTO ai_documents (
       id, title, original_file_name, storage_path, mime_type, file_size, content_hash,
-      category, academic_year, program_code, visibility, indexing_status, uploaded_by, created_at, updated_at,
+      category, academic_year, program_code, visibility, public_view_policy, official_source_url, indexing_status, uploaded_by, created_at, updated_at,
       ocr_status, ocr_text_path, ocr_text_length, ocr_page_count, ocr_engine, ocr_used, ocr_completed_at, index_source_kind
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(id, base.title, base.original_file_name, base.storage_path, base.mime_type, base.file_size, base.content_hash,
-        base.category, base.academic_year, base.program_code, base.visibility,
+        base.category, base.academic_year, base.program_code, base.visibility, base.public_view_policy, base.official_source_url,
         'uploading', base.uploaded_by, now, now,
         ocr ? 'processing' : 'not_applicable',
         null, null, null, null, 0, null, 'original').run();
@@ -312,8 +350,7 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
   }
 };
 
-const retryDocument = async (request: Request, env: AiDocumentsEnv) => {
-  const body = await request.json() as { id?: unknown };
+const retryDocument = async (body: { id?: unknown }, env: AiDocumentsEnv) => {
   const id = String(body.id || '');
   const document = await findAiDocument(env, id);
   if (!document || document.indexing_status !== 'failed') throw new AiDocumentsError(409, 'Chỉ có thể thử lại tài liệu đang lỗi.');
@@ -322,6 +359,19 @@ const retryDocument = async (request: Request, env: AiDocumentsEnv) => {
   return indexAiDocumentBlob(env, document, new Blob([await object.arrayBuffer()], {
     type: document.ocr_text_path ? 'text/plain' : document.mime_type,
   }));
+};
+
+const updatePublicViewPolicy = async (body: { id?: unknown; publicViewPolicy?: unknown; officialSourceUrl?: unknown }, env: AiDocumentsEnv) => {
+  const id = String(body.id || '').trim();
+  const document = await findAiDocument(env, id);
+  if (!document) throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
+  const settings = parseAiDocumentPublicViewSettings(body.publicViewPolicy, body.officialSourceUrl);
+  const updated = await updateAiDocument(env, id, {
+    public_view_policy: settings.publicViewPolicy,
+    official_source_url: settings.officialSourceUrl,
+  });
+  if (!updated) throw new AiDocumentsError(502, 'Không thể cập nhật chính sách xem công khai.');
+  return updated;
 };
 
 const deleteDocument = async (url: URL, env: AiDocumentsEnv) => {
@@ -343,7 +393,11 @@ export const handleAdminAiDocuments = async (request: Request, url: URL, env: Ai
   if (request.method === 'GET') return listDocuments(url, env);
   if (request.method === 'POST') {
     const contentType = request.headers.get('content-type') || '';
-    return { document: contentType.includes('application/json') ? await retryDocument(request, env) : await indexDocument(request, env, identity) };
+    if (!contentType.includes('application/json')) return { document: await indexDocument(request, env, identity) };
+    const body = await request.json() as { action?: unknown; id?: unknown; publicViewPolicy?: unknown; officialSourceUrl?: unknown };
+    if (body.action === 'retry') return { document: await retryDocument(body, env) };
+    if (body.action === 'update_public_view') return { document: await updatePublicViewPolicy(body, env) };
+    throw new AiDocumentsError(400, 'Thao tác tài liệu không hợp lệ.');
   }
   if (request.method === 'DELETE') return deleteDocument(url, env);
   throw new AiDocumentsError(405, 'Phương thức không được hỗ trợ.');
@@ -374,6 +428,70 @@ export const handleAiDocumentFile = async (request: Request, documentId: string,
       'Content-Length': String(object.size),
       'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(document.original_file_name)}`,
       'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+};
+
+type PublicAiDocumentRow = Pick<AiDocumentRow,
+  'id' | 'title' | 'category' | 'academic_year' | 'mime_type' | 'storage_path' | 'public_view_policy' | 'official_source_url'>;
+
+/** One exact D1 lookup is the public gate. The R2 object key never comes from a request. */
+const findPublicViewableDocument = async (
+  env: AiDocumentsEnv,
+  id: string,
+  requiredPolicy?: AiDocumentPublicViewPolicy,
+) => {
+  const { db } = requireStorage(env);
+  const filters = [
+    'id = ?1',
+    "visibility = 'public'",
+    "indexing_status = 'completed'",
+    'deleted_at IS NULL',
+    "public_view_policy <> 'none'",
+  ];
+  const bindings: unknown[] = [id];
+  if (requiredPolicy) {
+    filters.push(`public_view_policy = ?${bindings.length + 1}`);
+    bindings.push(requiredPolicy);
+  }
+  const document = await db.prepare(
+    `SELECT id, title, category, academic_year, mime_type, storage_path, public_view_policy, official_source_url
+       FROM ai_documents WHERE ${filters.join(' AND ')} LIMIT 1`,
+  ).bind(...bindings).first<PublicAiDocumentRow>();
+  if (!document) throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
+  return document;
+};
+
+export const handlePublicAiDocumentMetadata = async (request: Request, documentId: string, env: AiDocumentsEnv) => {
+  if (request.method !== 'GET') throw new AiDocumentsError(405, 'Phương thức không được hỗ trợ.');
+  const document = await findPublicViewableDocument(env, documentId);
+  const policy = document.public_view_policy as AiDocumentPublicViewPolicy;
+  return {
+    id: document.id,
+    title: document.title,
+    category: document.category || null,
+    academicYear: document.academic_year || null,
+    publicViewPolicy: policy,
+    ...(document.official_source_url ? { officialSourceUrl: document.official_source_url } : {}),
+    mimeType: document.mime_type,
+  };
+};
+
+export const handlePublicAiDocumentFile = async (request: Request, documentId: string, env: AiDocumentsEnv) => {
+  if (request.method !== 'GET' && request.method !== 'HEAD') throw new AiDocumentsError(405, 'Phương thức không được hỗ trợ.');
+  // Authorization is deliberately complete before this R2 read. A policy
+  // revoke is visible on the very next request because these responses must revalidate.
+  const document = await findPublicViewableDocument(env, documentId, 'local_rehost');
+  const object = await downloadAiDocumentStorage(env, document.storage_path);
+  return new Response(request.method === 'HEAD' ? null : object.body, {
+    status: 200,
+    headers: {
+      'Content-Type': document.mime_type,
+      'Content-Length': String(object.size),
+      'Content-Disposition': 'inline',
+      'Cache-Control': 'public, max-age=0, must-revalidate',
+      'Cross-Origin-Resource-Policy': 'same-origin',
       'X-Content-Type-Options': 'nosniff',
     },
   });
