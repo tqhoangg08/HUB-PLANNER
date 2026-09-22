@@ -1030,7 +1030,7 @@ export const resolveDocumentSourcesWithDiagnostics = async (
     }
     const locators = mergeGroundedLocators(entry.locators);
     const applicability = mergeGroundedApplicability(entry.applicability);
-    const publicView = row.public_view_policy === 'local_rehost' || row.public_view_policy === 'official_link'
+    const publicView: ResolvedDocumentSource['publicView'] = row.public_view_policy === 'local_rehost' || row.public_view_policy === 'official_link'
       ? row.public_view_policy
       : 'none';
     return [{

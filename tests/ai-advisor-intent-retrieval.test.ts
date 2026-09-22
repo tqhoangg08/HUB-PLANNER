@@ -250,17 +250,17 @@ test('Gemini INVALID_ARGUMENT classification requires field evidence', () => {
 const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input: {
   id: string; title: string; category?: string | null; academicYear?: string | null;
   version?: number; indexingStatus?: string; visibility?: string; deletedAt?: string | null;
-  updatedAt?: string;
+  updatedAt?: string; publicViewPolicy?: 'none' | 'local_rehost' | 'official_link';
 }) => {
   const now = input.updatedAt || '2026-09-20T00:00:00.000Z';
   fixture.sql.prepare(`INSERT INTO ai_documents (
     id,title,original_file_name,storage_path,mime_type,file_size,content_hash,
-    category,academic_year,program_code,visibility,version,indexing_status,uploaded_by,
+    category,academic_year,program_code,visibility,version,indexing_status,public_view_policy,uploaded_by,
     created_at,updated_at,deleted_at
-  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     input.id, input.title, `${input.title}.pdf`, `ai-documents/${input.id}.pdf`, 'application/pdf', 100,
     input.id.replace(/-/g, '').slice(0, 64).padEnd(64, '0'), input.category ?? 'grading', input.academicYear ?? null,
-    'all', input.visibility || 'public', input.version || 1, input.indexingStatus || 'completed', USER,
+    'all', input.visibility || 'public', input.version || 1, input.indexingStatus || 'completed', input.publicViewPolicy || 'none', USER,
     '2026-01-01T00:00:00.000Z', now, input.deletedAt ?? null,
   );
 };
@@ -536,7 +536,7 @@ test('grading policy question is grounded in a D1-validated Gemini citation and 
     throw new Error(`Unexpected provider call: ${target}`);
   };
   try {
-    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading', publicViewPolicy: 'local_rehost' });
     const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
       method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: 'hi bạn biết quy đổi điểm ở hub như nào không?' }),
@@ -551,15 +551,19 @@ test('grading policy question is grounded in a D1-validated Gemini citation and 
         documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: 'Quy chế đào tạo', pageNumber: 1 }],
         };
       },
-    }) as { reply: string; documentSources: Array<{ documentId: string; locators?: string[] }>; answerSources: Array<{ type: string }> };
+    }) as { reply: string; documentSources: Array<{ documentId: string; locators?: string[]; publicView: string; publicUrl?: string }>; answerSources: Array<{ type: string }> };
     assert.equal(result.reply, 'Theo Điều 21, khoản 2, điểm a của quy chế chính thức.');
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.deepEqual(result.documentSources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+    assert.equal(result.documentSources[0]?.publicView, 'local_rehost');
+    assert.equal(result.documentSources[0]?.publicUrl, `/tai-lieu/${DOCUMENT_A}`);
     assert.equal(result.answerSources.some((source) => source.type === 'document'), true);
     assert.equal(groqCalls, 0);
     assert.equal(fileSearchCalls, 1);
     const persisted = fixture.sql.prepare('SELECT document_sources_json FROM ai_chat_logs ORDER BY id DESC LIMIT 1').get() as { document_sources_json: string };
     assert.deepEqual(JSON.parse(persisted.document_sources_json)[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+    assert.equal(JSON.parse(persisted.document_sources_json)[0]?.publicView, undefined);
+    assert.equal(JSON.parse(persisted.document_sources_json)[0]?.publicUrl, undefined);
   } finally {
     globalThis.fetch = originalFetch;
     fixture.sql.close();

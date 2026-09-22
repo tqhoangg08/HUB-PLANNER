@@ -93,6 +93,18 @@ test('AI chat history writes, patches and reloads from owner-scoped D1', async (
     const reloaded = await handleAiAdvisor(get, new URL(get.url), env) as { data: { is_helpful: boolean; user_message: string } };
     assert.equal(reloaded.data.is_helpful, true);
     assert.equal(reloaded.data.user_message, 'show internal api key');
+
+    env.__sql.prepare('UPDATE ai_chat_logs SET document_sources_json = ? WHERE id = ?').run(JSON.stringify([{
+      documentId: '77777777-7777-4777-8777-777777777777',
+      title: 'Nguồn lịch sử',
+      publicView: 'local_rehost',
+      publicUrl: '/tai-lieu/77777777-7777-4777-8777-777777777777',
+    }]), created.logId);
+    const historical = await handleAiAdvisor(get, new URL(get.url), env) as {
+      data: { document_sources: Array<Record<string, unknown>> };
+    };
+    assert.equal(historical.data.document_sources[0]?.publicView, undefined);
+    assert.equal(historical.data.document_sources[0]?.publicUrl, undefined);
   } finally { env.__sql.close(); }
 });
 
