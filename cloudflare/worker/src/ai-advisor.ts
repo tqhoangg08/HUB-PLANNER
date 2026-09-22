@@ -45,6 +45,9 @@ export class AiAdvisorError extends Error {
 const MAX_BODY_BYTES = 48 * 1024;
 const FILE_SEARCH_TOTAL_BUDGET_MS = 30_000;
 const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 30_000;
+const FILE_SEARCH_TRANSIENT_MAX_ATTEMPTS = 2;
+const FILE_SEARCH_RETRY_BACKOFF_MS = 250;
+const FILE_SEARCH_MIN_RETRY_BUDGET_MS = 1_000;
 const MAX_DOCUMENT_CANDIDATES = 12;
 const DOCUMENT_CANDIDATE_QUERY_LIMIT = 48;
 const MAX_POLICY_PRIOR_CONTEXT_CHARS = 1_500;
@@ -1094,6 +1097,10 @@ const logFileSearchDiagnostic = (
     google400Classification?: string;
     cfCountry?: string;
     cfColo?: string;
+    attempt?: number;
+    maxAttempts?: number;
+    providerStatus?: number;
+    remainingBudgetMs?: number;
   } = {},
 ) => {
   // Deliberately omit the question, document ID/name, store, keys, raw SDK
@@ -1171,6 +1178,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         | { success: false; reason: GeminiFileSearchFailureReason };
       const retrievalInput = buildPolicyRetrievalInput(body.history, question, retrieval.documentRoute);
       const searchStartedAt = Date.now();
+      let transientRetryUsed = false;
       const search = async (
         metadataFilter: string,
         strategy: 'candidate_ids' | 'visibility_fallback',
@@ -1178,49 +1186,79 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         candidateCount: number,
       ): Promise<DocumentSearchOutcome> => {
         const answer = env.fileSearchAnswer || answerWithGeminiFileSearch;
-        const elapsed = Date.now() - searchStartedAt;
         const configuredTimeout = Number(env.fileSearchTimeoutMs) || FILE_SEARCH_ATTEMPT_TIMEOUT_MS;
-        const timeoutMs = Math.min(Math.max(1, configuredTimeout), FILE_SEARCH_ATTEMPT_TIMEOUT_MS, FILE_SEARCH_TOTAL_BUDGET_MS - elapsed);
-        if (timeoutMs <= 0) {
-          logFileSearchDiagnostic('GEMINI_REQUEST_TIMEOUT', retrieval.documentRoute, strategy, filterKind, candidateCount, elapsed, 0, 0);
-          return { success: false, reason: 'GEMINI_REQUEST_TIMEOUT' };
+        const maxAttempts = transientRetryUsed ? 1 : FILE_SEARCH_TRANSIENT_MAX_ATTEMPTS;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          const elapsed = Date.now() - searchStartedAt;
+          const remainingAtStart = FILE_SEARCH_TOTAL_BUDGET_MS - elapsed;
+          const timeoutMs = Math.min(Math.max(1, configuredTimeout), FILE_SEARCH_ATTEMPT_TIMEOUT_MS, remainingAtStart);
+          if (timeoutMs <= 0) {
+            logFileSearchDiagnostic('GEMINI_REQUEST_TIMEOUT', retrieval.documentRoute, strategy, filterKind, candidateCount, elapsed, 0, 0, {
+              attempt,
+              maxAttempts,
+              remainingBudgetMs: 0,
+            });
+            return { success: false, reason: 'GEMINI_REQUEST_TIMEOUT' };
+          }
+          const startedAt = Date.now();
+          try {
+            const result = await withFileSearchDeadline(
+              answer(env, system, retrievalInput, { metadataFilter, timeoutMs, diagnosticLocation }),
+              timeoutMs,
+              String(env.GEMINI_CHAT_MODEL || 'gemini-3.1-flash-lite'),
+            );
+            const durationMs = Date.now() - startedAt;
+            const remainingBudgetMs = Math.max(0, FILE_SEARCH_TOTAL_BUDGET_MS - (Date.now() - searchStartedAt));
+            const attemptDiagnostic = { attempt, maxAttempts, providerStatus: 200, remainingBudgetMs, inputContentCount: 1 };
+            if (!result) {
+              logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, attemptDiagnostic);
+              return { success: false, reason: 'CONFIG_DISABLED' };
+            }
+            const citations = Array.isArray(result.documentSources)
+              ? result.documentSources as unknown as Array<Record<string, unknown>>
+              : [];
+            if (!citations.length) {
+              logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, attemptDiagnostic);
+              return { success: false, reason: 'GEMINI_NO_FILE_CITATION' };
+            }
+            const resolution = await resolveDocumentSourcesWithDiagnostics(env, citations, retrieval.documentRoute);
+            if (!resolution.sources.length) {
+              logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount, attemptDiagnostic);
+              return { success: false, reason: resolution.reason };
+            }
+            logFileSearchDiagnostic('SUCCESS', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount, {
+              ...attemptDiagnostic,
+              groundingChunkCount: result.groundingChunkCount,
+              documentIdMetadataCount: result.documentIdMetadataCount,
+            });
+            return { success: true, result, documentSources: resolution.sources };
+          } catch (error) {
+            const fileSearchError = error instanceof GeminiFileSearchError ? error : null;
+            const reason = fileSearchError?.reason || 'GEMINI_REQUEST_FAILED';
+            const providerStatus = Number(fileSearchError?.diagnostics.status);
+            const remainingBudgetMs = Math.max(0, FILE_SEARCH_TOTAL_BUDGET_MS - (Date.now() - searchStartedAt));
+            const transientProviderFailure = reason === 'GEMINI_REQUEST_FAILED'
+              && Number.isInteger(providerStatus)
+              && providerStatus >= 500
+              && providerStatus <= 599;
+            const canRetry = transientProviderFailure
+              && !transientRetryUsed
+              && attempt < maxAttempts
+              && remainingBudgetMs >= FILE_SEARCH_RETRY_BACKOFF_MS + FILE_SEARCH_MIN_RETRY_BUDGET_MS;
+            logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, filterKind, candidateCount, Date.now() - startedAt, 0, 0, {
+              ...fileSearchError?.diagnostics,
+              attempt,
+              maxAttempts,
+              ...(Number.isInteger(providerStatus) ? { providerStatus } : {}),
+              remainingBudgetMs,
+              inputContentCount: 1,
+            });
+            if (!canRetry) return { success: false, reason };
+            transientRetryUsed = true;
+            await new Promise((resolve) => setTimeout(resolve, FILE_SEARCH_RETRY_BACKOFF_MS));
+          }
         }
-        const startedAt = Date.now();
-        try {
-          const result = await withFileSearchDeadline(
-            answer(env, system, retrievalInput, { metadataFilter, timeoutMs, diagnosticLocation }),
-            timeoutMs,
-            String(env.GEMINI_CHAT_MODEL || 'gemini-3.1-flash-lite'),
-          );
-          const durationMs = Date.now() - startedAt;
-          if (!result) {
-            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, { inputContentCount: 1 });
-            return { success: false, reason: 'CONFIG_DISABLED' };
-          }
-          const citations = Array.isArray(result.documentSources)
-            ? result.documentSources as unknown as Array<Record<string, unknown>>
-            : [];
-          if (!citations.length) {
-            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, { inputContentCount: 1 });
-            return { success: false, reason: 'GEMINI_NO_FILE_CITATION' };
-          }
-          const resolution = await resolveDocumentSourcesWithDiagnostics(env, citations, retrieval.documentRoute);
-          if (!resolution.sources.length) {
-            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount, { inputContentCount: 1 });
-            return { success: false, reason: resolution.reason };
-          }
-          logFileSearchDiagnostic('SUCCESS', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount, {
-            groundingChunkCount: result.groundingChunkCount,
-            documentIdMetadataCount: result.documentIdMetadataCount,
-            inputContentCount: 1,
-          });
-          return { success: true, result, documentSources: resolution.sources };
-        } catch (error) {
-          const fileSearchError = error instanceof GeminiFileSearchError ? error : null;
-          const reason = fileSearchError?.reason || 'GEMINI_REQUEST_FAILED';
-          logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, filterKind, candidateCount, Date.now() - startedAt, 0, 0, { ...fileSearchError?.diagnostics, inputContentCount: 1 });
-          return { success: false, reason };
-        }
+        return { success: false, reason: 'GEMINI_REQUEST_FAILED' };
       };
       // D1 is the authority for the candidate set. This one bounded query
       // replaces expensive visibility-only searches over the entire store.
@@ -1238,9 +1276,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         // candidate result without usable citations. A timeout never starts a
         // second full-store request and cannot exceed the total turn budget.
         const broadFallback = firstFailure
-          && firstFailure.reason !== 'GEMINI_REQUEST_FAILED'
-          && firstFailure.reason !== 'GEMINI_LOCATION_UNSUPPORTED'
-          && firstFailure.reason !== 'GEMINI_REQUEST_TIMEOUT'
+          && (firstFailure.reason === 'GEMINI_NO_FILE_CITATION' || firstFailure.reason === 'GEMINI_EMPTY_REPLY')
           ? await search(publicDocumentMetadataFilter(), 'visibility_fallback', 'visibility_fallback', candidates.length)
           : null;
         const grounded = first.success ? first : broadFallback?.success ? broadFallback : null;

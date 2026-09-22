@@ -908,6 +908,83 @@ test('Gemini request errors are classified server-side and remain safe to the po
   }
 });
 
+test('one transient Gemini 5xx is retried within the same budget and a grounded retry is returned', async () => {
+  const fixture = makeDatabase();
+  const previousWarn = console.warn;
+  const warnings: string[] = [];
+  let fileSearchCalls = 0;
+  console.warn = (message: unknown) => { warnings.push(String(message)); };
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'bạn có bảng quy đổi điểm khóa 2026' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => {
+        fileSearchCalls += 1;
+        if (fileSearchCalls === 1) {
+          throw new GeminiFileSearchError('GEMINI_REQUEST_FAILED', { model: 'gemini-3.1-flash-lite', status: 503 });
+        }
+        return { reply: 'Bảng quy đổi chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
+      },
+    }) as { reply: string; documentSources: Array<{ documentId: string }> };
+    assert.equal(result.reply, 'Bảng quy đổi chính thức.');
+    assert.equal(fileSearchCalls, 2);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.equal(warnings.some((warning) => warning.includes('"attempt":1') && warning.includes('"maxAttempts":2') && warning.includes('"providerStatus":503') && warning.includes('remainingBudgetMs')), true);
+    assert.equal(warnings.some((warning) => warning.includes('"reason":"SUCCESS"') && warning.includes('"attempt":2') && warning.includes('"providerStatus":200')), true);
+  } finally {
+    console.warn = previousWarn;
+    fixture.sql.close();
+  }
+});
+
+test('400, 429, location, timeout, and D1 citation failures are never retried', async () => {
+  const fixture = makeDatabase();
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const requestFor = () => new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'bạn có bảng quy đổi điểm khóa 2026' }),
+    });
+    const failures = [
+      new GeminiFileSearchError('GEMINI_REQUEST_FAILED', { model: 'gemini-3.1-flash-lite', status: 400 }),
+      new GeminiFileSearchError('GEMINI_REQUEST_FAILED', { model: 'gemini-3.1-flash-lite', status: 429 }),
+      new GeminiFileSearchError('GEMINI_LOCATION_UNSUPPORTED', { model: 'gemini-3.1-flash-lite', status: 400 }),
+      new GeminiFileSearchError('GEMINI_REQUEST_TIMEOUT', { model: 'gemini-3.1-flash-lite', status: 504 }),
+    ];
+    for (const failure of failures) {
+      let calls = 0;
+      const request = requestFor();
+      const result = await handleAiAdvisor(request, new URL(request.url), {
+        ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+        GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+        fileSearchAnswer: async () => { calls += 1; throw failure; },
+      }) as { reply: string; documentSearchUnavailable: boolean };
+      assert.equal(calls, 1);
+      assert.equal(result.documentSearchUnavailable, true);
+      assert.match(result.reply, /chưa thể xác minh/i);
+    }
+
+    let citationCalls = 0;
+    const citationRequest = requestFor();
+    const citationResult = await handleAiAdvisor(citationRequest, new URL(citationRequest.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => {
+        citationCalls += 1;
+        return { reply: 'Nguồn không hợp lệ.', documentSources: [{ documentId: DOCUMENT_B, fileName: 'unknown.pdf' }] };
+      },
+    }) as { reply: string; documentSearchUnavailable: boolean };
+    assert.equal(citationCalls, 1);
+    assert.equal(citationResult.documentSearchUnavailable, true);
+    assert.match(citationResult.reply, /chưa thể xác minh/i);
+  } finally { fixture.sql.close(); }
+});
+
 test('a timed-out policy File Search returns the safe response without Groq fallback and logs timing safely', async () => {
   const fixture = makeDatabase();
   const previousWarn = console.warn;
