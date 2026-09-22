@@ -162,7 +162,12 @@ const validateNullableText = (value: unknown, maxLength: number) => {
 
 const validatePublicProfile = (profile: Record<string, unknown>) => {
   for (const [key, value] of Object.entries(profile)) {
-    if (key === 'full_name' || key === 'class_name') validateNullableText(value, 200);
+    if (key === 'full_name' || key === 'class_name') {
+      validateNullableText(value, 200);
+      // Once a student explicitly edits either required profile field, do not
+      // accept an empty value that would desynchronise onboarding locally.
+      if (typeof value !== 'string' || !value.trim()) throw invalid();
+    }
     else if (key === 'avatar_url') validateNullableText(value, 2_048);
     else if (key === 'bio') validateNullableText(value, 4_000);
     else if (

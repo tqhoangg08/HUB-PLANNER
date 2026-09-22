@@ -1,4 +1,5 @@
 import type { Semester, UserData } from '../../types.ts';
+import { isStudentProfileComplete } from '../../shared/student-profile-completeness.ts';
 
 export const DEFAULT_TRANSCRIPT_SEMESTER_NAME = 'Học kỳ 1 Năm học 2025-2026';
 export const REMOTE_SAVE_DEBOUNCE_MS = 8_000;
@@ -91,16 +92,17 @@ export const hasMeaningfulStudyData = (value?: Partial<UserData> | null): boolea
     );
 };
 
-export const hasCompleteRequiredStudyProfile = (value?: Partial<UserData> | null): boolean => {
-    if (!value) return false;
-    return Boolean(
-        value.studentName?.trim()
-        && value.programName?.trim()
-        && value.cohort?.trim()
-        && value.majorName?.trim()
-        && value.specializationName?.trim()
-    );
-};
+export const hasCompleteRequiredStudyProfile = (
+    value?: Partial<UserData> | null,
+    publicProfile?: { fullName?: unknown; className?: unknown } | null,
+): boolean => isStudentProfileComplete({
+    fullName: publicProfile?.fullName ?? value?.studentName,
+    className: publicProfile?.className,
+    programName: value?.programName,
+    cohort: value?.cohort,
+    majorName: value?.majorName,
+    specializationName: value?.specializationName,
+});
 
 const normalizeSemesterName = (name?: string) => {
     const trimmed = (name || '').trim();
@@ -155,8 +157,7 @@ export const normalizeLoadedUserData = (value?: Partial<UserData> | null): UserD
         loadedData.semesters = [createInitialSemester()];
     }
 
-    return {
-        ...loadedData,
-        hasOnboarded: loadedData.hasOnboarded || hasMeaningfulStudyData(loadedData),
-    };
+    // `hasOnboarded` is derived only after public profile data (name/class)
+    // is available.  Do not let old study/transcript data bypass onboarding.
+    return { ...loadedData, hasOnboarded: false };
 };

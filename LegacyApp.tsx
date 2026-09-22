@@ -21,7 +21,7 @@ import { AuthGate } from './app/auth/AuthGate';
 import { AccessDeniedScreen } from './app/auth/AccessDeniedScreen';
 import { ProtectedAppOverlays } from './app/shell/ProtectedAppOverlays';
 import { ProtectedAppShell } from './app/shell/ProtectedAppShell';
-import { hasCompleteRequiredStudyProfile } from './features/study-data/model';
+import { isStudentProfileComplete } from './shared/student-profile-completeness';
 import { useStudyActions } from './hooks/useStudyActions';
 
 const LegacyApp: React.FC = () => {
@@ -84,6 +84,7 @@ const LegacyApp: React.FC = () => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [profileFullName, setProfileFullName] = useState('');
     const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
+    const [profileClassName, setProfileClassName] = useState('');
     const {
         data,
         isLoaded,
@@ -103,6 +104,7 @@ const LegacyApp: React.FC = () => {
         profileAvatarUrl,
         setProfileFullName,
         setProfileAvatarUrl,
+        setProfileClassName,
     });
     const studyActions = useStudyActions({ commitDataUpdate });
     const transcriptTransfer = useTranscriptTransfer({
@@ -115,9 +117,11 @@ const LegacyApp: React.FC = () => {
         data,
         profileFullName,
         profileAvatarUrl,
+        profileClassName,
         commitDataUpdate,
         setProfileFullName,
         setProfileAvatarUrl,
+        setProfileClassName,
         onSaved: () => setShowAccountSettings(false),
     });
     const { profileRefreshKey } = accountProfileDraft;
@@ -162,8 +166,10 @@ const LegacyApp: React.FC = () => {
 
     const displayName = useMemo(() => {
         if (profileFullName.trim()) return profileFullName.trim();
+        const authName = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name;
+        if (typeof authName === 'string' && authName.trim()) return authName.trim();
         return session?.user?.email ?? 'HUB User';
-    }, [profileFullName, session?.user?.email]);
+    }, [profileFullName, session?.user?.email, session?.user?.user_metadata]);
 
     const avatarSeed = useMemo(() => {
         if (displayName.trim()) return displayName.trim()[0].toUpperCase();
@@ -175,7 +181,14 @@ const LegacyApp: React.FC = () => {
     const renderProtectedApp = () => {
         const isPrivilegedUser = isAdmin || isAuditor || isCTV;
         const requiresPasswordSetup = Boolean(session?.user && !isPrivilegedUser && passwordSetAt === null);
-        const requiresRequiredProfileSetup = Boolean(session?.user && !isPrivilegedUser && !hasCompleteRequiredStudyProfile(data));
+        const requiresRequiredProfileSetup = Boolean(session?.user && !isPrivilegedUser && !isStudentProfileComplete({
+            fullName: profileFullName,
+            className: profileClassName,
+            programName: data.programName,
+            cohort: data.cohort,
+            majorName: data.majorName,
+            specializationName: data.specializationName,
+        }));
 
         if (!isLoaded || passwordSetupCheckLoading) return <RouteLoadingFallback />;
 
@@ -338,13 +351,22 @@ const LegacyApp: React.FC = () => {
                                     isAdmin
                                     || isAuditor
                                     || isCTV
-                                    || hasCompleteRequiredStudyProfile(data)
+                                    || isStudentProfileComplete({
+                                        fullName: profileFullName,
+                                        className: profileClassName,
+                                        programName: data.programName,
+                                        cohort: data.cohort,
+                                        majorName: data.majorName,
+                                        specializationName: data.specializationName,
+                                    })
                                 )
                             )}
+                            initialProfileName={profileFullName || (typeof session?.user?.user_metadata?.full_name === 'string' ? session.user.user_metadata.full_name : typeof session?.user?.user_metadata?.name === 'string' ? session.user.user_metadata.name : '')}
+                            initialClassName={profileClassName}
                             onRefreshAuth={refreshAuth}
                             onPasswordSetupComplete={() => setPasswordSetAt(new Date().toISOString())}
-                            onCompleteOnboarding={(onboardingData) => {
-                                void completeOnboarding(onboardingData);
+                            onCompleteOnboarding={async (onboardingData) => {
+                                await completeOnboarding(onboardingData);
                                 navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
                             }}
                             protectedApp={renderProtectedApp()}

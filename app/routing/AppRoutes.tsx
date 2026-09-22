@@ -28,7 +28,9 @@ interface AppRoutesProps {
     canSkipOnboarding: boolean;
     onRefreshAuth: AuthRefresh;
     onPasswordSetupComplete: () => void;
-    onCompleteOnboarding: (data: Partial<UserData>) => void;
+    initialProfileName: string;
+    initialClassName: string;
+    onCompleteOnboarding: (data: Partial<UserData> & { fullName: string; className: string }) => Promise<void> | void;
     protectedApp: ReactNode;
 }
 
@@ -40,6 +42,8 @@ export const AppRoutes = ({
     canSkipOnboarding,
     onRefreshAuth,
     onPasswordSetupComplete,
+    initialProfileName,
+    initialClassName,
     onCompleteOnboarding,
     protectedApp,
 }: AppRoutesProps) => {
@@ -138,6 +142,8 @@ export const AppRoutes = ({
                             : (
                                 <Onboarding
                                     initialData={data}
+                                    initialFullName={initialProfileName}
+                                    initialClassName={initialClassName}
                                     onComplete={onCompleteOnboarding}
                                 />
                             )

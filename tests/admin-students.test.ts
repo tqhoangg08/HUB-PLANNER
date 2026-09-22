@@ -50,7 +50,7 @@ test('admin list uses a bounded cursor query and redacts internal identity/PII',
   assert.equal(response.data[0].email_masked, 'SV***@st.buh.edu.vn');
 });
 
-test('admin list prioritizes the persisted Better Auth display name with one bounded lookup per page', async () => {
+test('admin list keeps the saved HUB profile name ahead of Better Auth fallback', async () => {
   let canonicalNameRequests = 0;
   const userId = '22222222-2222-4222-8222-222222222222';
   const request = new Request('https://example.invalid/api/admin/students?limit=10', { headers: { Cookie: 'better-auth.session=test' } });
@@ -69,13 +69,13 @@ test('admin list prioritizes the persisted Better Auth display name with one bou
   } as any;
   const response = await handleAdminStudents(request, new URL(request.url), env);
   assert.equal(canonicalNameRequests, 1);
-  assert.equal(response.data[0].full_name, 'Nguyễn Văn An');
+  assert.equal(response.data[0].full_name, 'Tên hồ sơ cũ');
 });
 
 test('admin list retains the profile fallback and never derives a name from an email local-part', async () => {
   const source = readFileSync('cloudflare/worker/src/admin-students.ts', 'utf8');
   const ui = readFileSync('components/AdminStudentManagement.tsx', 'utf8');
-  assert.match(source, /canonicalName\(row\.full_name\) \|\| canonicalName\(row\.student_name\) \|\| null/);
+  assert.match(source, /canonicalName\(row\.full_name\) \|\| canonicalName\(row\.student_name\) \|\| names\.get/);
   assert.match(source, /userIds: ids/);
   assert.match(source, /MAX_AUTH_NAME_LOOKUP = 50/);
   assert.doesNotMatch(source, /split\(['"]@['"]\)/);

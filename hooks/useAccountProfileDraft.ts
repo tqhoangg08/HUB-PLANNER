@@ -24,9 +24,11 @@ interface UseAccountProfileDraftOptions {
     data: UserData;
     profileFullName: string;
     profileAvatarUrl: string;
+    profileClassName: string;
     commitDataUpdate: (updater: (previousData: UserData) => UserData) => void;
     setProfileFullName: (value: string) => void;
     setProfileAvatarUrl: (value: string) => void;
+    setProfileClassName: (value: string) => void;
     onSaved: () => void;
 }
 
@@ -73,9 +75,11 @@ export const useAccountProfileDraft = ({
     data,
     profileFullName,
     profileAvatarUrl,
+    profileClassName,
     commitDataUpdate,
     setProfileFullName,
     setProfileAvatarUrl,
+    setProfileClassName,
     onSaved,
 }: UseAccountProfileDraftOptions) => {
     const [draftFullName, setDraftFullName] = useState('');
@@ -91,7 +95,6 @@ export const useAccountProfileDraft = ({
     const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
-    const [draftStudentName, setDraftStudentName] = useState('');
     const [draftProgram, setDraftProgram] = useState<Program | null>(null);
     const [draftCohort, setDraftCohort] = useState('');
     const [draftMajor, setDraftMajor] = useState<Major | null>(null);
@@ -111,12 +114,11 @@ export const useAccountProfileDraft = ({
         if (!open) return;
 
         let active = true;
-        setDraftFullName(profileFullName);
+        setDraftFullName(profileFullName || data.studentName || '');
         setDraftAvatarUrl(profileAvatarUrl);
         setDraftAvatarFile(null);
         setDraftAvatarPreview('');
         setProfileError(null);
-        setDraftStudentName(data.studentName || '');
 
         const program = ACADEMIC_PROGRAMS.find(item => item.name === data.programName) || null;
         setDraftProgram(program);
@@ -154,7 +156,7 @@ export const useAccountProfileDraft = ({
 
             setDefaultClassName(officialClassName);
             setDraftBio((publicProfile as any)?.bio || '');
-            setDraftClassName((publicProfile as any)?.class_name || officialClassName || '');
+            setDraftClassName((publicProfile as any)?.class_name || profileClassName || officialClassName || '');
             setDraftProfileTags(
                 Array.isArray((publicProfile as any)?.profile_tags)
                     ? (publicProfile as any).profile_tags.join(', ')
@@ -257,14 +259,15 @@ export const useAccountProfileDraft = ({
         setProfileError(null);
 
         if (
-            !draftStudentName.trim()
+            !draftFullName.trim()
+            || !draftClassName.trim()
             || !draftProgram
             || !draftCohort
             || !draftMajor
             || !draftSpecialization
         ) {
             setProfileError(
-                'Vui lòng cập nhật đầy đủ tên, hệ đào tạo, khóa, ngành và chuyên ngành.',
+                'Vui lòng cập nhật đầy đủ họ tên, lớp, hệ đào tạo, khóa, ngành và chuyên ngành.',
             );
             setProfileSaving(false);
             return;
@@ -284,7 +287,7 @@ export const useAccountProfileDraft = ({
         const officialClassName =
             defaultClassName || await fetchDefaultClassName(studentCode);
         const classNameInput = draftClassName.trim();
-        const classNameToSave = classNameInput || officialClassName || null;
+        const classNameToSave = classNameInput;
         const classNameOverridden = Boolean(
             classNameInput
             && (!officialClassName || classNameInput !== officialClassName),
@@ -322,17 +325,9 @@ export const useAccountProfileDraft = ({
             public_credits: shouldPublishStats ? publicStats.passedCredits : null,
         };
 
-        setProfileFullName(draftFullName.trim());
-        setProfileAvatarUrl(avatarUrlToSave);
-        setDraftAvatarFile(null);
-        if (draftAvatarPreview) {
-            URL.revokeObjectURL(draftAvatarPreview);
-            setDraftAvatarPreview('');
-        }
-
         const nextData = {
             ...data,
-            studentName: draftStudentName.trim(),
+            studentName: draftFullName.trim(),
             programName: draftProgram.name || data.programName,
             cohort: draftCohort || data.cohort,
             majorName: draftMajor.name || data.majorName,
@@ -361,9 +356,18 @@ export const useAccountProfileDraft = ({
             return;
         }
 
+        setProfileFullName(draftFullName.trim());
+        setProfileAvatarUrl(avatarUrlToSave);
+        setProfileClassName(classNameToSave);
+        setDraftAvatarFile(null);
+        if (draftAvatarPreview) {
+            URL.revokeObjectURL(draftAvatarPreview);
+            setDraftAvatarPreview('');
+        }
+
         commitDataUpdate(previousData => ({
             ...previousData,
-            studentName: draftStudentName.trim(),
+            studentName: draftFullName.trim(),
             programName: draftProgram.name || previousData.programName,
             cohort: draftCohort || previousData.cohort,
             majorName: draftMajor.name || previousData.majorName,
@@ -395,11 +399,11 @@ export const useAccountProfileDraft = ({
         draftPublicProfileEnabled,
         draftShowProfileStats,
         draftSpecialization,
-        draftStudentName,
         onSaved,
         sessionEmail,
         sessionUserId,
         setProfileAvatarUrl,
+        setProfileClassName,
         setProfileFullName,
     ]);
 
@@ -425,8 +429,6 @@ export const useAccountProfileDraft = ({
         rejectAvatarFile,
         profileSaving,
         profileError,
-        draftStudentName,
-        setDraftStudentName,
         draftProgram,
         selectProgram,
         draftCohort,

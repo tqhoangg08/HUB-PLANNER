@@ -248,6 +248,7 @@ test('D1 authority derives semesters_json from canonical data and repeated write
     studentName: PRIVATE_SOURCE.student_name,
     cohort: PRIVATE_SOURCE.cohort,
     majorName: PRIVATE_SOURCE.major_name,
+    specializationName: 'Specialization',
     programName: PRIVATE_SOURCE.program_name,
     targetGPA: PRIVATE_SOURCE.target_gpa,
     totalCreditsRequired: PRIVATE_SOURCE.total_credits_required,
@@ -278,6 +279,47 @@ test('D1 authority derives semesters_json from canonical data and repeated write
   );
   assert.deepEqual(first.compatibilityPrivateProfile, second.compatibilityPrivateProfile);
   assert.deepEqual(first.compatibilityPrivateProfile.data, JSON.parse(String(batches[0][1].values[1])));
+});
+
+test('D1 authority repairs derived profile columns and ignores stale hasOnboarded', async () => {
+  const rows = d1AuthorityRows();
+  rows.privateRow.student_name = null;
+  rows.privateRow.cohort = null;
+  rows.privateRow.program_name = null;
+  rows.privateRow.major_name = null;
+  rows.privateRow.specialization_name = null;
+  rows.privateRow.has_onboarded = 0;
+  const { db, batches } = fakeD1(rows);
+  await writeProfileD1Authority({ DB: db }, {
+    userId: USER_A,
+    email: 'student@st.buh.edu.vn',
+    publicProfile: {},
+    privateProfile: { data: {
+      studentName: 'Student A', cohort: '2026', programName: 'Program', majorName: 'Major',
+      specializationName: 'Specialization', targetGPA: 3.2, totalCreditsRequired: 125,
+      hasOnboarded: false, semesters: [],
+    } },
+  });
+  const values = batches[0][1].values;
+  assert.equal(values[2], 'Student A');
+  assert.equal(values[3], '2026');
+  assert.equal(values[4], 'Major');
+  assert.equal(values[5], 'Specialization');
+  assert.equal(values[6], 'Program');
+  assert.equal(values[10], 1);
+
+  const incomplete = d1AuthorityRows();
+  const { db: incompleteDb, batches: incompleteBatches } = fakeD1(incomplete);
+  await writeProfileD1Authority({ DB: incompleteDb }, {
+    userId: USER_A,
+    email: 'student@st.buh.edu.vn',
+    publicProfile: {},
+    privateProfile: { data: {
+      studentName: 'Student A', cohort: '2026', programName: 'Program', majorName: '',
+      specializationName: 'Specialization', hasOnboarded: true, semesters: [],
+    } },
+  });
+  assert.equal(incompleteBatches[0][1].values[10], 0);
 });
 
 test('shadow compare exact match', async () => {

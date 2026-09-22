@@ -9,6 +9,7 @@ import {
     REMOTE_SAVE_DEBOUNCE_MS,
     resolveStudyDataSaveScope,
 } from '../features/study-data/model';
+import { isStudentProfileComplete } from '../shared/student-profile-completeness';
 import { fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 import { fetchOwnPrivateProfile, updateOwnPrivateProfile } from '../utils/privateProfileApi';
 
@@ -28,6 +29,7 @@ interface UseStudyDataOptions {
     profileAvatarUrl: string;
     setProfileFullName: (value: string) => void;
     setProfileAvatarUrl: (value: string) => void;
+    setProfileClassName: (value: string) => void;
 }
 
 const getStorageDirtyKey = (key: string) => `${key}:dirty`;
@@ -42,6 +44,7 @@ export const useStudyData = ({
     profileAvatarUrl,
     setProfileFullName,
     setProfileAvatarUrl,
+    setProfileClassName,
 }: UseStudyDataOptions) => {
     const [data, setData] = useState<UserData>(INITIAL_STUDY_DATA);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -58,15 +61,6 @@ export const useStudyData = ({
 
     const isGuest = !session;
     const sessionUserId = session?.user?.id || null;
-    const sessionEmail = session?.user?.email || '';
-    const sessionMetaName =
-        session?.user?.user_metadata?.full_name
-        || session?.user?.user_metadata?.name
-        || '';
-    const sessionMetaAvatar =
-        session?.user?.user_metadata?.avatar_url
-        || session?.user?.user_metadata?.picture
-        || '';
     const userRole: 'guest' | 'school' | 'admin' = session
         ? (isAdmin ? 'admin' : 'school')
         : 'guest';
@@ -152,18 +146,16 @@ export const useStudyData = ({
                 data: dataToSave,
             });
         } else if (saveScope === 'self') {
-            const nameToSave = profileFullName || sessionMetaName;
+            // Never turn a Better Auth/Google fallback into a persisted HUB
+            // profile name during an unrelated autosave.
+            const nameToSave = profileFullName.trim();
             await updateOwnPrivateProfile({
                 publicProfile: {
-                    full_name: nameToSave,
+                    ...(nameToSave ? { full_name: nameToSave } : {}),
                     avatar_url: profileAvatarUrl,
                 },
                 privateProfile: { data: dataToSave },
             });
-
-            if (!profileFullName && nameToSave) {
-                setProfileFullName(nameToSave);
-            }
         } else {
             return false;
         }
@@ -176,10 +168,7 @@ export const useStudyData = ({
         isAuditor,
         profileAvatarUrl,
         profileFullName,
-        sessionEmail,
-        sessionMetaName,
         sessionUserId,
-        setProfileFullName,
         storageKey,
         targetUserId,
         userRole,
@@ -237,26 +226,36 @@ export const useStudyData = ({
                 }
                 if (!isActive) return;
 
-                const remoteData = hasMeaningfulStudyData(privateData)
-                    ? normalizeLoadedUserData(privateData)
-                    : null;
-
-                if (remoteData) {
-                    loadDataIntoState(remoteData);
-                    lastPrivateSaveRef.current = {
-                        ownerId: sessionUserId,
-                        signature: JSON.stringify(remoteData),
-                    };
-                    setProfileFullName(profileData?.full_name || '');
-                    setProfileAvatarUrl(profileData?.avatar_url || '');
-                    dataOwnerIdRef.current = sessionUserId;
-                    setIsLoaded(true);
-                    return;
-                }
-
-                setProfileFullName(sessionMetaName);
-                setProfileAvatarUrl(sessionMetaAvatar);
-                loadDataIntoState(INITIAL_STUDY_DATA);
+                const remoteData = normalizeLoadedUserData(privateData);
+                const canonicalFullName = typeof profileData?.full_name === 'string'
+                    ? profileData.full_name.trim()
+                    : '';
+                const canonicalClassName = typeof profileData?.class_name === 'string'
+                    ? profileData.class_name.trim()
+                    : '';
+                const synchronizedData = {
+                    ...remoteData,
+                    // The private name is only a compatibility mirror. Keep
+                    // old data usable while the public profile remains the
+                    // sole completion authority.
+                    studentName: canonicalFullName || remoteData.studentName || '',
+                    hasOnboarded: isStudentProfileComplete({
+                        fullName: canonicalFullName,
+                        className: canonicalClassName,
+                        programName: remoteData.programName,
+                        cohort: remoteData.cohort,
+                        majorName: remoteData.majorName,
+                        specializationName: remoteData.specializationName,
+                    }),
+                };
+                loadDataIntoState(synchronizedData);
+                lastPrivateSaveRef.current = {
+                    ownerId: sessionUserId,
+                    signature: JSON.stringify(synchronizedData),
+                };
+                setProfileFullName(canonicalFullName);
+                setProfileClassName(canonicalClassName);
+                setProfileAvatarUrl(profileData?.avatar_url || '');
                 dataOwnerIdRef.current = sessionUserId;
                 setIsLoaded(true);
                 return;
@@ -264,6 +263,7 @@ export const useStudyData = ({
 
             setProfileFullName('');
             setProfileAvatarUrl('');
+            setProfileClassName('');
             loadDataIntoState(INITIAL_STUDY_DATA);
             dataOwnerIdRef.current = isGuest ? 'guest' : null;
             setIsLoaded(true);
@@ -279,10 +279,9 @@ export const useStudyData = ({
         isGuest,
         loadDataIntoState,
         profileReloadGeneration,
-        sessionMetaAvatar,
-        sessionMetaName,
         sessionUserId,
         setProfileAvatarUrl,
+        setProfileClassName,
         setProfileFullName,
         targetUserId,
         userRole,
@@ -367,44 +366,56 @@ export const useStudyData = ({
     }, [
         loadDataIntoState,
         saveStudyDataToRemote,
-        sessionEmail,
         sessionUserId,
         storageKey,
         targetUserId,
         viewingUser,
     ]);
 
-    const completeOnboarding = useCallback(async (onboardingData: Partial<UserData>) => {
+    const completeOnboarding = useCallback(async (
+        onboardingData: Partial<UserData> & { fullName: string; className: string },
+    ) => {
+        const fullName = onboardingData.fullName.trim();
+        const className = onboardingData.className.trim();
         const nextData = {
             ...dataRef.current,
             ...onboardingData,
-            hasOnboarded: true,
+            studentName: fullName,
+            hasOnboarded: isStudentProfileComplete({
+                fullName,
+                className,
+                programName: onboardingData.programName ?? dataRef.current.programName,
+                cohort: onboardingData.cohort ?? dataRef.current.cohort,
+                majorName: onboardingData.majorName ?? dataRef.current.majorName,
+                specializationName: onboardingData.specializationName ?? dataRef.current.specializationName,
+            }),
         };
-        loadDataIntoState(nextData);
+        delete (nextData as Partial<typeof nextData>).fullName;
+        delete (nextData as Partial<typeof nextData>).className;
 
-        if (sessionUserId && !viewingUser && !isAuditor) {
-            try {
-                let saved = await saveStudyDataToRemote(nextData);
-                if (!saved) {
-                    await updateOwnPrivateProfile({ privateProfile: { data: nextData } });
-                    saved = true;
-                }
-                if (saved) {
-                    lastPrivateSaveRef.current = {
-                        ownerId: sessionUserId,
-                        signature: JSON.stringify(nextData),
-                    };
-                }
-            } catch (error) {
-                console.error('Không thể lưu onboarding profile:', error);
-            }
+        if (!nextData.hasOnboarded) {
+            throw new Error('Vui lòng điền đầy đủ họ tên, lớp và thông tin đào tạo.');
         }
+
+        if (!sessionUserId || viewingUser || isAuditor) {
+            throw new Error('Không thể hoàn tất hồ sơ trong ngữ cảnh hiện tại.');
+        }
+        await updateOwnPrivateProfile({
+            publicProfile: { full_name: fullName, class_name: className },
+            privateProfile: { data: nextData },
+        });
+        // Apply local completion only after the single authoritative write
+        // succeeds. This prevents a failed save from bypassing onboarding.
+        setProfileFullName(fullName);
+        setProfileClassName(className);
+        loadDataIntoState(nextData);
+        lastPrivateSaveRef.current = { ownerId: sessionUserId, signature: JSON.stringify(nextData) };
     }, [
         isAuditor,
         loadDataIntoState,
-        saveStudyDataToRemote,
-        sessionEmail,
         sessionUserId,
+        setProfileClassName,
+        setProfileFullName,
         viewingUser,
     ]);
 

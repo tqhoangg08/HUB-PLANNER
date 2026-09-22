@@ -2,7 +2,6 @@ import React from 'react';
 import { isManualTotalCreditsCohort, type Major, type Program, type Specialization } from '../../utils/programs';
 
 interface AccountAcademicProfileFieldsProps {
-    studentName: string;
     selectedProgram: Program | null;
     selectedCohort: string;
     selectedMajor: Major | null;
@@ -10,7 +9,6 @@ interface AccountAcademicProfileFieldsProps {
     programs: Program[];
     cohortOptions: string[];
     majorOptions: Major[];
-    onStudentNameChange: (value: string) => void;
     onProgramChange: (programId: string) => void;
     onCohortChange: (cohort: string) => void;
     onMajorChange: (majorCode: string) => void;
@@ -20,7 +18,6 @@ interface AccountAcademicProfileFieldsProps {
 }
 
 export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFieldsProps> = ({
-    studentName,
     selectedProgram,
     selectedCohort,
     selectedMajor,
@@ -28,7 +25,6 @@ export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFields
     programs,
     cohortOptions,
     majorOptions,
-    onStudentNameChange,
     onProgramChange,
     onCohortChange,
     onMajorChange,
@@ -41,17 +37,6 @@ export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFields
             3. Thông tin lộ trình
         </h4>
         <div className="space-y-4">
-            <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500">Tên sinh viên (Tùy chọn)</label>
-                <input
-                    type="text"
-                    value={studentName}
-                    onChange={event => onStudentNameChange(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                    placeholder="Ví dụ: Nguyễn Văn A..."
-                />
-            </div>
-
             <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-500">
                     Chương trình đào tạo <span className="text-red-500">*</span>

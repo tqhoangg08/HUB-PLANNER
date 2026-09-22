@@ -15,8 +15,10 @@ import { playClick } from '../utils/audio';
 import { signOutBetterAuth } from '../utils/privateApi';
 
 interface OnboardingProps {
-  onComplete: (data: Partial<UserData>) => void;
+  onComplete: (data: Partial<UserData> & { fullName: string; className: string }) => Promise<void> | void;
   initialData?: Partial<UserData>;
+  initialFullName?: string;
+  initialClassName?: string;
 }
 
 const normalize = (value?: string) => (value || '').trim().toLocaleLowerCase('vi');
@@ -55,7 +57,7 @@ const findSpecializationFromInitialData = (major: Major | null, specializationNa
   );
 };
 
-const buildInitialFormData = (initialData?: Partial<UserData>) => {
+const buildInitialFormData = (initialData?: Partial<UserData>, initialFullName?: string, initialClassName?: string) => {
   const program = findProgramFromName(initialData?.programName);
   const cohort = initialData?.cohort || '';
   const major = findMajorFromInitialData(
@@ -66,7 +68,8 @@ const buildInitialFormData = (initialData?: Partial<UserData>) => {
   );
 
   return {
-    studentName: initialData?.studentName || '',
+    fullName: initialFullName || initialData?.studentName || '',
+    className: initialClassName || '',
     cohort,
     program,
     major,
@@ -78,9 +81,11 @@ const buildInitialFormData = (initialData?: Partial<UserData>) => {
   };
 };
 
-export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData }) => {
-  const [formData, setFormData] = useState(() => buildInitialFormData(initialData));
+export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData, initialFullName, initialClassName }) => {
+  const [formData, setFormData] = useState(() => buildInitialFormData(initialData, initialFullName, initialClassName));
   const [submitted, setSubmitted] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const cohortOptions = formData.program
     ? ACADEMIC_COHORT_OPTIONS[formData.program.id] || []
@@ -96,7 +101,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
   );
 
   const isComplete = Boolean(
-    formData.studentName.trim() &&
+    formData.fullName.trim() &&
+      formData.className.trim() &&
       formData.program &&
       formData.cohort &&
       formData.major &&
@@ -145,14 +151,19 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
     setFormData((previous) => ({ ...previous, specialization }));
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitted(true);
     if (!isComplete) return;
 
     playClick();
-    onComplete({
-      studentName: formData.studentName.trim(),
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onComplete({
+      fullName: formData.fullName.trim(),
+      className: formData.className.trim(),
+      studentName: formData.fullName.trim(),
       cohort: formData.cohort,
       programName: formData.program!.name,
       majorName: formData.major!.name,
@@ -161,7 +172,11 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
         ? normalizeManualTotalCredits(formData.manualTotalCredits)
         : formData.specialization!.credits || 0,
       hasOnboarded: true,
-    });
+      });
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Không thể lưu hồ sơ. Vui lòng thử lại.');
+      setSaving(false);
+    }
   };
 
   const handleExit = async () => {
@@ -218,19 +233,19 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
 
           <div className="onboarding-fields">
             <div className="onboarding-field">
-              <label htmlFor="onboarding-name">Điền Họ tên đầy đủ</label>
+              <label htmlFor="onboarding-name">Họ tên sinh viên *</label>
               <div className="onboarding-input-wrap">
                 <User size={18} aria-hidden="true" />
                 <input
                   id="onboarding-name"
                   type="text"
                   autoComplete="name"
-                  value={formData.studentName}
+                  value={formData.fullName}
                   onChange={(event) =>
-                    setFormData((previous) => ({ ...previous, studentName: event.target.value }))
+                    setFormData((previous) => ({ ...previous, fullName: event.target.value }))
                   }
                   placeholder="Nhập họ tên đầy đủ của bạn"
-                  aria-invalid={submitted && !formData.studentName.trim()}
+                  aria-invalid={submitted && !formData.fullName.trim()}
                 />
               </div>
             </div>
@@ -322,6 +337,20 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
               </div>
             </div>
 
+            <div className="onboarding-field">
+              <label htmlFor="onboarding-class">Lớp *</label>
+              <div className="onboarding-input-wrap">
+                <input
+                  id="onboarding-class"
+                  type="text"
+                  value={formData.className}
+                  onChange={(event) => setFormData((previous) => ({ ...previous, className: event.target.value }))}
+                  placeholder="Ví dụ: DH22KTA"
+                  aria-invalid={submitted && !formData.className.trim()}
+                />
+              </div>
+            </div>
+
             {manualCredits && (
               <div className="onboarding-field">
                 <label htmlFor="onboarding-total-credits">Tổng số tín chỉ chương trình (nếu biết)</label>
@@ -350,9 +379,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
               Vui lòng điền đầy đủ tất cả thông tin trước khi tiếp tục.
             </p>
           )}
+          {saveError && <p className="onboarding-error" role="alert">{saveError}</p>}
 
-          <button className="onboarding-submit" type="submit">
-            <span>Tiếp tục</span>
+          <button className="onboarding-submit" type="submit" disabled={saving}>
+            <span>{saving ? 'Đang lưu...' : 'Tiếp tục'}</span>
             <ChevronRight size={20} aria-hidden="true" />
           </button>
 

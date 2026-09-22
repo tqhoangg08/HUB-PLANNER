@@ -35,11 +35,16 @@ test('meaningful and complete data are evaluated independently', () => {
         cohort: 'K40',
         majorName: 'Tài chính',
         specializationName: 'Tài chính doanh nghiệp',
-    }), true);
+    }, { fullName: 'Nguyễn Văn A', className: 'DH22TC' }), true);
     assert.equal(hasCompleteRequiredStudyProfile({
         studentName: 'Nguyễn Văn A',
         programName: 'Chính quy',
-    }), false);
+    }, { fullName: 'Nguyễn Văn A', className: 'DH22TC' }), false);
+    // A stale client flag or transcript must never bypass a missing class.
+    assert.equal(hasCompleteRequiredStudyProfile({
+        studentName: 'Nguyễn Văn A', programName: 'Chính quy', cohort: 'K40',
+        majorName: 'Tài chính', specializationName: 'Tài chính doanh nghiệp', hasOnboarded: true,
+    }, { fullName: 'Nguyễn Văn A', className: '' }), false);
 });
 
 test('normalization repairs compact and duplicate semester names', () => {
@@ -63,7 +68,7 @@ test('normalization repairs compact and duplicate semester names', () => {
         normalized.semesters.map(semester => semester.name),
         ['Học kỳ 1 Năm học 2025-2026', 'Học kỳ 2 Năm học 2025-2026'],
     );
-    assert.equal(normalized.hasOnboarded, true);
+    assert.equal(normalized.hasOnboarded, false);
 });
 
 test('next semester progresses from term two into the next academic year', () => {

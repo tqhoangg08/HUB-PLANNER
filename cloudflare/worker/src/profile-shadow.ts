@@ -2,6 +2,7 @@ import {
   makePrivateProfileShadowProjection,
   makeProfileShadowProjection,
 } from '../../../scripts/profile-shadow-projection.mjs';
+import { isStudentProfileComplete, requiredStudentProfileText } from '../../../shared/student-profile-completeness.ts';
 
 export interface ProfileShadowEnv {
   DB?: D1Database;
@@ -475,6 +476,41 @@ export const canonicalizePrivateProfileSemesters = (
   };
 };
 
+const privateText = (data: Record<string, unknown>, key: string) =>
+  requiredStudentProfileText(data[key]);
+
+/** Keep legacy JSON and the indexed D1 columns in lockstep on every authority write. */
+const derivePrivateAuthorityFields = (
+  data: Record<string, unknown>,
+  publicProfile: { full_name: string | null; class_name: string | null },
+) => {
+  const fullName = requiredStudentProfileText(publicProfile.full_name) || privateText(data, 'studentName');
+  const normalized = { ...data } as Record<string, unknown>;
+  if (fullName) normalized.studentName = fullName;
+  const complete = isStudentProfileComplete({
+    fullName,
+    className: publicProfile.class_name,
+    programName: normalized.programName,
+    cohort: normalized.cohort,
+    majorName: normalized.majorName,
+    specializationName: normalized.specializationName,
+  });
+  normalized.hasOnboarded = complete;
+  return {
+    data: normalized,
+    student_name: fullName || null,
+    cohort: privateText(normalized, 'cohort') || null,
+    program_name: privateText(normalized, 'programName') || null,
+    major_name: privateText(normalized, 'majorName') || null,
+    specialization_name: privateText(normalized, 'specializationName') || null,
+    target_gpa: typeof normalized.targetGPA === 'number' && Number.isFinite(normalized.targetGPA)
+      ? normalized.targetGPA : null,
+    total_credits_required: typeof normalized.totalCreditsRequired === 'number'
+      && Number.isFinite(normalized.totalCreditsRequired) ? normalized.totalCreditsRequired : null,
+    has_onboarded: complete,
+  };
+};
+
 export const writeProfileD1Authority = async (
   env: ProfileShadowEnv,
   input: {
@@ -507,11 +543,18 @@ export const writeProfileD1Authority = async (
   if (!storedPublic && !studentCode) {
     throw new ProfileShadowError('PROFILE_D1_AUTHORITY_EMAIL_REQUIRED');
   }
+  const storedPrivateSource = storedPrivate ? authorityPrivateAsSource(storedPrivate) : null;
+  const suppliedPrivateData = Object.hasOwn(input.privateProfile, 'data')
+    ? input.privateProfile.data
+    : storedPrivateSource?.data;
+  const legacyStudentName = isRecord(suppliedPrivateData)
+    ? privateText(suppliedPrivateData, 'studentName')
+    : '';
   const publicSource = {
     ...(storedPublic ? authorityPublicAsSource(storedPublic) : {
       id: ownerId,
       student_code: studentCode,
-      full_name: studentCode || 'Sinh viên HUB',
+      full_name: null,
       avatar_url: null,
       bio: null,
       class_name: null,
@@ -529,6 +572,9 @@ export const writeProfileD1Authority = async (
     id: ownerId,
     updated_at: now,
   };
+  if (!requiredStudentProfileText(publicSource.full_name) && legacyStudentName) {
+    publicSource.full_name = legacyStudentName;
+  }
   const publicProjection = await projectSourcePublicProfile(publicSource);
   if (!publicProjection || publicProjection.user_id !== ownerId) {
     throw new ProfileShadowError('PROFILE_D1_AUTHORITY_OWNER_INVALID');
@@ -536,8 +582,9 @@ export const writeProfileD1Authority = async (
 
   let privateProjection: Awaited<ReturnType<typeof projectSourcePrivateProfile>> = null;
   let compatibilityPrivateProfile = input.privateProfile;
-  if (Object.keys(input.privateProfile).length > 0) {
-    const storedPrivateSource = storedPrivate ? authorityPrivateAsSource(storedPrivate) : null;
+  const shouldSyncPrivate = Object.keys(input.privateProfile).length > 0
+    || Boolean(storedPrivate && (Object.hasOwn(input.publicProfile, 'full_name') || Object.hasOwn(input.publicProfile, 'class_name')));
+  if (shouldSyncPrivate) {
     const normalizedSemesters = Object.hasOwn(input.privateProfile, 'data')
       ? canonicalizePrivateProfileSemesters(storedPrivateSource?.data, input.privateProfile.data)
       : null;
@@ -565,6 +612,19 @@ export const writeProfileD1Authority = async (
       user_id: ownerId,
       updated_at: now,
     };
+    const derived = derivePrivateAuthorityFields(
+      isRecord(privateSource.data) ? privateSource.data : {},
+      { full_name: publicProjection.full_name, class_name: publicProjection.class_name },
+    );
+    privateSource.data = derived.data;
+    privateSource.student_name = derived.student_name;
+    privateSource.cohort = derived.cohort;
+    privateSource.program_name = derived.program_name;
+    privateSource.major_name = derived.major_name;
+    privateSource.specialization_name = derived.specialization_name;
+    privateSource.target_gpa = derived.target_gpa;
+    privateSource.total_credits_required = derived.total_credits_required;
+    privateSource.has_onboarded = derived.has_onboarded;
     privateProjection = await projectSourcePrivateProfile(privateSource);
     if (!privateProjection || privateProjection.user_id !== ownerId) {
       throw new ProfileShadowError('PROFILE_D1_AUTHORITY_OWNER_INVALID');
@@ -575,7 +635,7 @@ export const writeProfileD1Authority = async (
     if (normalizedSemesters) {
       compatibilityPrivateProfile = {
         ...input.privateProfile,
-        data: normalizedSemesters.data,
+        data: derived.data,
       };
     }
   }

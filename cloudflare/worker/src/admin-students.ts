@@ -5,6 +5,7 @@ import {
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
 import { writeProfileD1Authority, type ProfileShadowEnv } from './profile-shadow.ts';
+import { isStudentProfileComplete } from '../../../shared/student-profile-completeness.ts';
 import {
   AdminStudentLifecycleError,
   createAdminStudent,
@@ -114,23 +115,42 @@ const readCanonicalAuthNames = async (
   }
 };
 
-const rowResponse = (row: Record<string, unknown>, names: Map<string, string>) => ({
+const rowData = (row: Record<string, unknown>) => {
+  try {
+    const value = typeof row.data_json === 'string' ? JSON.parse(row.data_json) : null;
+    return isRecord(value) ? value : {};
+  } catch { return {}; }
+};
+const rowField = (row: Record<string, unknown>, data: Record<string, unknown>, column: string, key: string) =>
+  canonicalName(row[column]) || canonicalName(data[key]) || null;
+
+const rowResponse = (row: Record<string, unknown>, names: Map<string, string>) => {
+  const data = rowData(row);
+  const fullName = canonicalName(row.full_name) || canonicalName(row.student_name) || names.get(String(row.user_id || '').toLowerCase()) || null;
+  const className = canonicalName(row.class_name) || null;
+  const cohort = rowField(row, data, 'cohort', 'cohort');
+  const programName = rowField(row, data, 'program_name', 'programName');
+  const majorName = rowField(row, data, 'major_name', 'majorName');
+  const specializationName = rowField(row, data, 'specialization_name', 'specializationName');
+  const complete = isStudentProfileComplete({ fullName, className, cohort, programName, majorName, specializationName });
+  return ({
   student_code: row.student_code ?? null,
-  // Better Auth's persisted user.name is the canonical OAuth/Google display
-  // name. Do not derive a name from an email address.
-  full_name: names.get(String(row.user_id || '').toLowerCase()) || canonicalName(row.full_name) || canonicalName(row.student_name) || null,
-  class_name: row.class_name ?? null,
-  cohort: row.cohort ?? null,
-  program_name: row.program_name ?? null,
-  major_name: row.major_name ?? null,
-  specialization_name: row.specialization_name ?? null,
+  // HUB profile name is canonical. Better Auth/Google is a last-resort
+  // display fallback and must never overwrite an explicitly saved name.
+  full_name: fullName,
+  class_name: className,
+  cohort,
+  program_name: programName,
+  major_name: majorName,
+  specialization_name: specializationName,
   gender: null,
   birth_date: null,
   phone_masked: null,
   email_masked: maskEmail(typeof row.student_code === 'string' ? row.student_code : null),
-  status: Number(row.has_onboarded || 0) === 1 ? 'onboarded' : 'pending',
+  status: complete ? 'onboarded' : 'pending',
   last_active_at: row.updated_at ?? null,
-});
+  });
+};
 
 const readList = async (request: Request, url: URL, env: AdminStudentsEnv) => {
   const query = parseAdminStudentQuery(url.searchParams);
@@ -150,7 +170,14 @@ const readList = async (request: Request, url: URL, env: AdminStudentsEnv) => {
   }
   if (query.className) { where.push('p.class_name = ?'); values.push(query.className); }
   if (query.major) { where.push('q.major_name = ?'); values.push(query.major); }
-  if (query.status) { where.push('COALESCE(q.has_onboarded, 0) = ?'); values.push(query.status === 'onboarded' ? 1 : 0); }
+  if (query.status) {
+    const completeSql = `TRIM(COALESCE(p.full_name,'')) <> '' AND TRIM(COALESCE(p.class_name,'')) <> ''
+      AND TRIM(COALESCE(q.program_name, json_extract(q.data_json, '$.programName'),'')) <> ''
+      AND TRIM(COALESCE(q.cohort, json_extract(q.data_json, '$.cohort'),'')) <> ''
+      AND TRIM(COALESCE(q.major_name, json_extract(q.data_json, '$.majorName'),'')) <> ''
+      AND TRIM(COALESCE(q.specialization_name, json_extract(q.data_json, '$.specializationName'),'')) <> ''`;
+    where.push(query.status === 'onboarded' ? `(${completeSql})` : `NOT (${completeSql})`);
+  }
   if (query.start) { where.push('p.updated_at >= ?'); values.push(`${query.start}T00:00:00.000Z`); }
   if (query.end) { where.push('p.updated_at < ?'); values.push(`${query.end}T23:59:59.999Z`); }
   if (query.cursor) {
@@ -158,7 +185,7 @@ const readList = async (request: Request, url: URL, env: AdminStudentsEnv) => {
     values.push(query.cursor.updatedAt, query.cursor.updatedAt, query.cursor.userId);
   }
   const rows = await env.DB.prepare(`SELECT p.user_id,p.student_code,p.full_name,p.class_name,p.updated_at,
-      q.student_name,q.cohort,q.program_name,q.major_name,q.specialization_name,q.has_onboarded
+      q.data_json,q.student_name,q.cohort,q.program_name,q.major_name,q.specialization_name,q.has_onboarded
       FROM user_profiles p LEFT JOIN user_profile_private q ON q.user_id=p.user_id
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY p.updated_at DESC,p.user_id DESC LIMIT ?`).bind(...values, query.limit + 1).all<Record<string, unknown>>();

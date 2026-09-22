@@ -94,7 +94,6 @@ export const AccountSettingsOverlays = ({
             />
 
             <AccountAcademicProfileFields
-                studentName={profile.draftStudentName}
                 selectedProgram={profile.draftProgram}
                 selectedCohort={profile.draftCohort}
                 selectedMajor={profile.draftMajor}
@@ -102,7 +101,6 @@ export const AccountSettingsOverlays = ({
                 programs={profile.programOptions}
                 cohortOptions={profile.cohortOptions}
                 majorOptions={profile.majorOptions}
-                onStudentNameChange={profile.setDraftStudentName}
                 onProgramChange={profile.selectProgram}
                 onCohortChange={profile.selectCohort}
                 onMajorChange={profile.selectMajor}

@@ -54,13 +54,14 @@ export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProp
         </h4>
         <div className="space-y-4">
             <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500">Tên hiển thị (Góc phải)</label>
+                <label className="text-xs font-bold text-gray-500">Họ tên sinh viên <span className="text-red-500">*</span></label>
                 <input
                     type="text"
                     value={fullName}
                     onChange={event => onFullNameChange(event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
                     placeholder="Nhập tên..."
+                    required
                 />
             </div>
 
@@ -77,17 +78,15 @@ export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProp
             </div>
 
             <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500">Lớp</label>
+                <label className="text-xs font-bold text-gray-500">Lớp <span className="text-red-500">*</span></label>
                 <input
                     type="text"
                     value={className}
                     onChange={event => onClassNameChange(event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
                     placeholder={defaultClassName ? `Mặc định: ${defaultClassName}` : 'VD: DH22KTA'}
+                    required
                 />
-                <p className="text-[11px] text-gray-500">
-                    Nếu để trống, hệ thống sẽ dùng lớp mặc định theo MSSV khi có dữ liệu.
-                </p>
             </div>
 
             <div className="space-y-1.5">
