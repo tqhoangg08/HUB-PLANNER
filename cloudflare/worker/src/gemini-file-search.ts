@@ -40,6 +40,7 @@ export interface GeminiDocumentApplicability {
 export type GeminiFileSearchFailureReason =
   | 'CONFIG_DISABLED'
   | 'GEMINI_REQUEST_FAILED'
+  | 'GEMINI_LOCATION_UNSUPPORTED'
   | 'GEMINI_REQUEST_TIMEOUT'
   | 'GEMINI_EMPTY_REPLY'
   | 'GEMINI_NO_FILE_CITATION'
@@ -49,6 +50,7 @@ export type GeminiFileSearchFailureReason =
   | 'SUCCESS';
 
 export type GeminiInvalidArgumentClassification =
+  | 'GEMINI_LOCATION_UNSUPPORTED'
   | 'INVALID_ARGUMENT_CONTENTS'
   | 'INVALID_ARGUMENT_TOOL'
   | 'INVALID_ARGUMENT_METADATA_FILTER'
@@ -66,25 +68,16 @@ export type GeminiFileSearchDiagnostics = {
   apiErrorStatusText?: string;
   apiErrorReason?: string;
   google400Classification?: GeminiInvalidArgumentClassification;
-  contentsKind?: 'string' | 'content_array';
-  contentsCount?: number;
-  systemChars?: number;
-  inputChars?: number;
-  maxOutputTokensPresent?: boolean;
-  thinkingLevel?: string;
-  toolCount?: number;
-  metadataFilterChars?: number;
-  keyFingerprint?: string;
-  storeFingerprint?: string;
-  metadataFilterFingerprint?: string;
+  cfCountry?: string;
+  cfColo?: string;
 };
 
 export class GeminiFileSearchError extends Error {
-  readonly reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>;
+  readonly reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_LOCATION_UNSUPPORTED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>;
   readonly diagnostics: GeminiFileSearchDiagnostics;
 
   constructor(
-    reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>,
+    reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_LOCATION_UNSUPPORTED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>,
     diagnostics: GeminiFileSearchDiagnostics,
   ) {
     super(reason);
@@ -99,9 +92,11 @@ export type GeminiFileSearchOptions = {
   metadataFilter?: string;
   /** A server-selected per-request bound; never client-controlled. */
   timeoutMs?: number;
+  /** Coarse Cloudflare execution location retained only in sanitized diagnostics. */
+  diagnosticLocation?: { cfCountry?: string; cfColo?: string };
 };
 
-const DEFAULT_FILE_SEARCH_TIMEOUT_MS = 16_000;
+const DEFAULT_FILE_SEARCH_TIMEOUT_MS = 30_000;
 const DEFAULT_FILE_SEARCH_MODEL = 'gemini-3.1-flash-lite';
 const FILE_SEARCH_MAX_OUTPUT_TOKENS = 2_048;
 const DOCUMENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -182,6 +177,9 @@ export const classifyGeminiInvalidArgument = (
   reason: string | undefined,
 ): GeminiInvalidArgumentClassification | undefined => {
   const evidence = `${statusText || ''} ${message || ''} ${reason || ''}`.toLowerCase();
+  if (evidence.includes('failed_precondition') && /user location is not supported|location is not supported for (the )?api use/.test(evidence)) {
+    return 'GEMINI_LOCATION_UNSUPPORTED';
+  }
   if (status !== 400 && !evidence.includes('invalid_argument') && !evidence.includes('invalid argument')) return undefined;
   if (/metadata[_\s-]*filter|aip-?160/.test(evidence)) return 'INVALID_ARGUMENT_METADATA_FILTER';
   if (/thinking[_\s-]*(config|level|budget)|thinkingconfig/.test(evidence)) return 'INVALID_ARGUMENT_THINKING_CONFIG';
@@ -219,25 +217,11 @@ export const extractSafeGeminiApiErrorDiagnostics = (
   };
 };
 
-export const buildGeminiRequestShapeDiagnostic = (
-  system: string,
-  retrievalInput: string,
-  metadataFilter: string,
-  thinkingLevel: string,
-) => ({
-  contentsKind: 'content_array' as const,
-  contentsCount: 1,
-  systemChars: system.length,
-  inputChars: retrievalInput.length,
-  maxOutputTokensPresent: true,
-  thinkingLevel,
-  toolCount: 1,
-  metadataFilterChars: metadataFilter.length,
-});
-
-const sha256Fingerprint = async (value: string) => {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 12);
+export const readCloudflareRequestLocation = (request: Request) => {
+  const cf = (request as Request & { cf?: { country?: unknown; colo?: unknown } }).cf;
+  const country = typeof cf?.country === 'string' && /^[A-Z]{2}$/.test(cf.country) ? cf.country : undefined;
+  const colo = typeof cf?.colo === 'string' && /^[A-Z0-9]{3,8}$/.test(cf.colo) ? cf.colo : undefined;
+  return { ...(country ? { cfCountry: country } : {}), ...(colo ? { cfColo: colo } : {}) };
 };
 
 export const geminiFileSearchConfigured = (env: GeminiFileSearchEnv) =>
@@ -601,7 +585,6 @@ export const answerWithGeminiFileSearch = async (
   const storeName = String(env.GEMINI_FILE_SEARCH_STORE);
   const apiKey = String(env.GEMINI_FILE_SEARCH_API_KEY);
   const metadataFilter = options.metadataFilter || publicDocumentMetadataFilter();
-  const requestShape = buildGeminiRequestShapeDiagnostic(system, retrievalInput, metadataFilter, thinkingLevel);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
@@ -625,20 +608,15 @@ export const answerWithGeminiFileSearch = async (
   } catch (error) {
     const durationMs = Math.max(0, Date.now() - startedAt);
     const safeApiError = extractSafeGeminiApiErrorDiagnostics(error, [apiKey, storeName, retrievalInput, system]);
-    const [keyFingerprint, storeFingerprint, metadataFilterFingerprint] = await Promise.all([
-      sha256Fingerprint(apiKey),
-      sha256Fingerprint(storeName),
-      sha256Fingerprint(metadataFilter),
-    ]);
     const errorName = safeApiError.errorName;
     const timedOut = controller.signal.aborted || errorName === 'AbortError' || durationMs >= timeoutMs;
-    throw new GeminiFileSearchError(timedOut ? 'GEMINI_REQUEST_TIMEOUT' : 'GEMINI_REQUEST_FAILED', {
+    const locationUnsupported = safeApiError.google400Classification === 'GEMINI_LOCATION_UNSUPPORTED';
+    throw new GeminiFileSearchError(timedOut
+      ? 'GEMINI_REQUEST_TIMEOUT'
+      : locationUnsupported ? 'GEMINI_LOCATION_UNSUPPORTED' : 'GEMINI_REQUEST_FAILED', {
       model,
       ...safeApiError,
-      ...requestShape,
-      keyFingerprint,
-      storeFingerprint,
-      metadataFilterFingerprint,
+      ...options.diagnosticLocation,
       durationMs,
     });
   } finally {

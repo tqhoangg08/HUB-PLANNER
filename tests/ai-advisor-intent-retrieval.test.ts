@@ -24,7 +24,6 @@ import {
 import {
   buildDocumentCandidateMetadataFilter,
   buildGeminiPolicyContents,
-  buildGeminiRequestShapeDiagnostic,
   classifyGeminiInvalidArgument,
   extractGenerateContentDocumentSources,
   extractGeminiDocumentSources,
@@ -237,21 +236,15 @@ test('Gemini API error diagnostics retain only bounded structural INVALID_ARGUME
   assert.doesNotMatch(diagnostic.apiErrorMessage || '', /aaaaaaaa-aaaa/);
 });
 
-test('Gemini INVALID_ARGUMENT classification requires field evidence and request shape is text-free', () => {
+test('Gemini INVALID_ARGUMENT classification requires field evidence', () => {
   assert.equal(classifyGeminiInvalidArgument(400, 'INVALID_ARGUMENT', 'contents[1].role is invalid', undefined), 'INVALID_ARGUMENT_CONTENTS');
   assert.equal(classifyGeminiInvalidArgument(400, 'INVALID_ARGUMENT', 'thinkingConfig.thinkingLevel is invalid', undefined), 'INVALID_ARGUMENT_THINKING_CONFIG');
   assert.equal(classifyGeminiInvalidArgument(400, 'INVALID_ARGUMENT', 'Invalid request', undefined), 'INVALID_ARGUMENT_UNKNOWN');
+  assert.equal(
+    classifyGeminiInvalidArgument(400, 'FAILED_PRECONDITION', 'User location is not supported for the API use.', undefined),
+    'GEMINI_LOCATION_UNSUPPORTED',
+  );
   assert.equal(classifyGeminiInvalidArgument(503, 'UNAVAILABLE', 'high demand', undefined), undefined);
-  assert.deepEqual(buildGeminiRequestShapeDiagnostic('system secret', 'user secret', 'visibility = "public"', 'minimal'), {
-    contentsKind: 'content_array',
-    contentsCount: 1,
-    systemChars: 13,
-    inputChars: 11,
-    maxOutputTokensPresent: true,
-    thinkingLevel: 'minimal',
-    toolCount: 1,
-    metadataFilterChars: 21,
-  });
 });
 
 const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input: {

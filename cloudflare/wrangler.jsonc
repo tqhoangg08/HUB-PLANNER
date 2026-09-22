@@ -2,6 +2,9 @@
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "hub-planner-public-dev-api",
   "workers_dev": true,
+  "placement": {
+    "region": "gcp:asia-southeast1"
+  },
   "main": "worker/src/index.ts",
   "compatibility_date": "2026-07-29",
   "assets": {

@@ -11,6 +11,7 @@ import {
   GeminiFileSearchError,
   geminiFileSearchConfigured,
   publicDocumentMetadataFilter,
+  readCloudflareRequestLocation,
   type GeminiFileSearchFailureReason,
   type GeminiFileSearchEnv,
   type GeminiDocumentApplicability,
@@ -42,8 +43,8 @@ export class AiAdvisorError extends Error {
 }
 
 const MAX_BODY_BYTES = 48 * 1024;
-const FILE_SEARCH_TOTAL_BUDGET_MS = 16_000;
-const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 16_000;
+const FILE_SEARCH_TOTAL_BUDGET_MS = 30_000;
+const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 30_000;
 const MAX_DOCUMENT_CANDIDATES = 12;
 const DOCUMENT_CANDIDATE_QUERY_LIMIT = 48;
 const MAX_POLICY_PRIOR_CONTEXT_CHARS = 1_500;
@@ -1091,17 +1092,8 @@ const logFileSearchDiagnostic = (
     apiErrorStatusText?: string;
     apiErrorReason?: string;
     google400Classification?: string;
-    contentsKind?: 'string' | 'content_array';
-    contentsCount?: number;
-    systemChars?: number;
-    inputChars?: number;
-    maxOutputTokensPresent?: boolean;
-    thinkingLevel?: string;
-    toolCount?: number;
-    metadataFilterChars?: number;
-    keyFingerprint?: string;
-    storeFingerprint?: string;
-    metadataFilterFingerprint?: string;
+    cfCountry?: string;
+    cfColo?: string;
   } = {},
 ) => {
   // Deliberately omit the question, document ID/name, store, keys, raw SDK
@@ -1124,9 +1116,10 @@ const logFileSearchDiagnostic = (
   }));
 };
 
-const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: string) => {
+const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, unknown>, userId: string) => {
   const question = String(body.question || body.message || '').trim().slice(0, 2000);
   if (!question) throw new AiAdvisorError(400, 'Vui lòng nhập câu hỏi.');
+  const diagnosticLocation = readCloudflareRequestLocation(request);
   const conversationId = await resolveConversationId(env, userId, body.conversationId);
   const logId = await createLog(env, userId, conversationId, question);
   const sensitive = /api.?key|secret|password|token|source code|supabase|database|backend|prompt/i.test(question);
@@ -1195,7 +1188,7 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
         const startedAt = Date.now();
         try {
           const result = await withFileSearchDeadline(
-            answer(env, system, retrievalInput, { metadataFilter, timeoutMs }),
+            answer(env, system, retrievalInput, { metadataFilter, timeoutMs, diagnosticLocation }),
             timeoutMs,
             String(env.GEMINI_CHAT_MODEL || 'gemini-3.1-flash-lite'),
           );
@@ -1246,6 +1239,7 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
         // second full-store request and cannot exceed the total turn budget.
         const broadFallback = firstFailure
           && firstFailure.reason !== 'GEMINI_REQUEST_FAILED'
+          && firstFailure.reason !== 'GEMINI_LOCATION_UNSUPPORTED'
           && firstFailure.reason !== 'GEMINI_REQUEST_TIMEOUT'
           ? await search(publicDocumentMetadataFilter(), 'visibility_fallback', 'visibility_fallback', candidates.length)
           : null;
@@ -1355,7 +1349,7 @@ export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisor
   }
   const body = await readBody(request);
   if ('userId' in body || 'user_id' in body || 'role' in body) throw new AiAdvisorError(400, 'Không cho phép chỉ định chủ sở hữu.');
-  if (request.method === 'POST') return chat(env, body, identity.userId);
+  if (request.method === 'POST') return chat(request, env, body, identity.userId);
   if (request.method === 'PATCH') {
     if (body.conversationId !== undefined) {
       if (!validConversationId(body.conversationId)) throw new AiAdvisorError(400, 'Cuộc trò chuyện không hợp lệ.');
