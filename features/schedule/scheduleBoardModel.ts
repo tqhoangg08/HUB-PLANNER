@@ -1,8 +1,9 @@
 import {
-    SEMESTER_OPTIONS,
-    getSemesterMaxWeek,
-    getWeekNumberForDate,
+  SEMESTER_OPTIONS,
+  getSemesterMaxWeek,
+  getWeekNumberForDate,
 } from '../../utils/academicCalendar.ts';
+import type { StructuredScheduleSession } from '../../utils/scheduleSessions.ts';
 
 export interface UserProfile {
     id?: string;
@@ -78,16 +79,18 @@ export interface Course {
 }
 
 export interface CourseRequest {
-    id: string;
-    subject_name: string;
-    course_code: string;
-    instructor?: string;
+  id: string;
+  subject_name: string;
+  course_code: string;
+  semester: string;
+  instructor?: string;
     status?: string;
     created_at?: string;
     user_id?: string;
     user?: UserProfile | null;
     duplicate_course?: Course | null;
     revision?: number;
+    scheduleSessions?: StructuredScheduleSession[];
 }
 
 export interface CourseRequestPageCache {

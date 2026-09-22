@@ -4,6 +4,7 @@ import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User,
 import { parseWeeks } from '../utils/scheduleLogic';
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
+import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
@@ -24,6 +25,14 @@ import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
 import { showAlert, showConfirm } from '../utils/appNotifications';
 import { submitManualCourseRequest } from '../utils/manualCourseRequest';
+import { fetchScheduleSessionCatalogue } from '../utils/scheduleSessionOptionsApi';
+import {
+  createEmptyScheduleSession,
+  formatScheduleSession,
+  scheduleSessionsAreValid,
+  type ScheduleSessionCatalogue,
+  type StructuredScheduleSession,
+} from '../utils/scheduleSessions';
 import { normalizeImportedSemester } from '../utils/scheduleImportUtils';
 import {
   approveD1CourseRequest,
@@ -77,6 +86,7 @@ interface CourseRequest {
   id: string;
   subject_name: string;
   course_code: string;
+  semester: string;
   instructor?: string;
   status?: string;
   created_at?: string;
@@ -84,6 +94,7 @@ interface CourseRequest {
   user?: UserProfile | null;
   duplicate_course?: Course | null;
   revision?: number;
+  scheduleSessions?: StructuredScheduleSession[];
 }
 
 interface CourseLabel {
@@ -558,8 +569,22 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
-  const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
+  const [newCourseData, setNewCourseData] = useState<{ subject_name: string; course_code: string; instructor: string; scheduleSessions: StructuredScheduleSession[] }>({ subject_name: '', course_code: '', instructor: '', scheduleSessions: [createEmptyScheduleSession()] });
+  const [scheduleSessionCatalogue, setScheduleSessionCatalogue] = useState<ScheduleSessionCatalogue | null>(null);
+  const [scheduleSessionCatalogueError, setScheduleSessionCatalogueError] = useState('');
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
+
+  useEffect(() => {
+    if (!isCreateCourseModalOpen) return;
+    let cancelled = false;
+    setScheduleSessionCatalogue(null); setScheduleSessionCatalogueError('');
+    void fetchScheduleSessionCatalogue(selectedSemester).then((catalogue) => {
+      if (!cancelled) setScheduleSessionCatalogue(catalogue);
+    }).catch(() => {
+      if (!cancelled) setScheduleSessionCatalogueError('Không thể tải danh mục cơ sở/phòng. Vui lòng thử lại.');
+    });
+    return () => { cancelled = true; };
+  }, [isCreateCourseModalOpen, selectedSemester]);
 
   useEffect(() => {
     const maxWeek = getSemesterMaxWeek(selectedSemester);
@@ -885,7 +910,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       course_code: request.course_code,
       instructor: request.instructor || '',
       credits: 3,
-      semester: selectedSemester,
+      semester: request.semester || selectedSemester,
       phase: selectedPhase === 'all' ? '1' : selectedPhase,
       campus: 'TD',
       is_user_added: false,
@@ -1153,7 +1178,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       try {
           const payload = {
               ...adminEditData,
-              semester: selectedSemester,
+              semester: activeCourseRequest?.semester || adminEditData.semester || selectedSemester,
               is_user_added: activeCourseRequest ? false : (adminEditData.is_user_added ?? (adminTab === 'user')),
           };
 
@@ -1434,7 +1459,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const handleCreateCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) { alert("Vui lòng điền tối thiểu Tên môn học và Mã học phần!"); return; }
+    if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester, scheduleSessionCatalogue)) { alert("Vui lòng hoàn tất ít nhất một buổi học hợp lệ."); return; }
 
     if (!session?.user) { alert("Bạn cần đăng nhập để gửi yêu cầu!"); return; }
 
@@ -1445,6 +1470,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         courseCode: newCourseData.course_code,
         instructor: newCourseData.instructor,
         semester: selectedSemester,
+        scheduleSessions: newCourseData.scheduleSessions,
       });
 
       if (result.duplicateCourse) {
@@ -1465,7 +1491,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       if (result.requestId) void notifyModerators('user_course_request', result.requestId);
       alert("Gửi yêu cầu thành công!");
       setIsCreateCourseModalOpen(false);
-      setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
+      setNewCourseData({ subject_name: '', course_code: '', instructor: '', scheduleSessions: [createEmptyScheduleSession()] });
     } catch (error) { alert((error as Error)?.message || "Đã xảy ra lỗi khi gửi yêu cầu."); }
     finally { setIsSubmittingCourse(false); }
   };
@@ -1854,9 +1880,15 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         <h3 className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">{request.subject_name}</h3>
                         <div className="mt-2 flex flex-wrap gap-1.5">
                             <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.course_code}</span>
+                            <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.semester}</span>
                             <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">SV {getCourseRequestStudentCode(request)}</span>
                             {request.instructor && <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.instructor}</span>}
                         </div>
+                        {(request.scheduleSessions || []).length > 0 && (
+                            <div className="mt-2 rounded-xl border border-[#DDE3F0] bg-white p-2 text-[10.5px] leading-relaxed text-[#56627B]">
+                                {(request.scheduleSessions || []).map((session, sessionIndex) => <p key={sessionIndex}><span className="font-black text-[#0D1B3E]">Buổi {sessionIndex + 1}: </span>{formatScheduleSession(session).join(' · ')}</p>)}
+                            </div>
+                        )}
                         {request.duplicate_course && (
                             <button
                                 type="button"
@@ -2907,12 +2939,14 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         <h2 className="font-bold text-emerald-700 text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
                         <button onClick={() => setIsCreateCourseModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
-                    <form onSubmit={handleCreateCourseSubmit} className="p-4 space-y-3 pb-safe">
+                    <form onSubmit={handleCreateCourseSubmit} className="max-h-[76vh] overflow-y-auto p-4 space-y-3 pb-safe">
                         <div className="text-[11px] text-gray-500 mb-1">Hệ thống chưa có môn này? Gửi thông tin để Admin thêm nhé!</div>
                         <input required placeholder="Tên môn học *" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
                         <input required placeholder="Mã học phần *" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
                         <input placeholder="Giảng viên (Tùy chọn)" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
-                        <button type="submit" disabled={isSubmittingCourse} className="w-full py-3 rounded-xl bg-emerald-600 text-white text-[13px] font-bold active:bg-emerald-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2">{isSubmittingCourse ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} Gửi yêu cầu</button>
+                        <ScheduleSessionsEditor semester={selectedSemester} value={newCourseData.scheduleSessions} onChange={scheduleSessions => setNewCourseData({ ...newCourseData, scheduleSessions })} catalogue={scheduleSessionCatalogue} catalogueLoading={!scheduleSessionCatalogue && !scheduleSessionCatalogueError} compact />
+                        {scheduleSessionCatalogueError && <p className="text-[11px] font-semibold text-red-600" role="alert">{scheduleSessionCatalogueError}</p>}
+                        <button type="submit" disabled={isSubmittingCourse || Boolean(scheduleSessionCatalogueError) || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester, scheduleSessionCatalogue)} className="w-full py-3 rounded-xl bg-emerald-600 text-white text-[13px] font-bold active:bg-emerald-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2 disabled:bg-slate-300">{isSubmittingCourse ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} Gửi yêu cầu</button>
                     </form>
                 </div>
             </div>, document.body

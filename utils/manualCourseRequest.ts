@@ -1,10 +1,12 @@
 import { createD1CourseRequest } from './courseAuthorityApi';
+import type { StructuredScheduleSession } from './scheduleSessions';
 
 export interface MatchingSystemCourse {
   id: string;
   course_code: string;
   subject_name: string;
   semester?: string;
+  scheduleSessions: StructuredScheduleSession[];
   instructor?: string;
   [key: string]: unknown;
 }
@@ -14,6 +16,7 @@ interface SubmitManualCourseRequestInput {
   courseCode: string;
   instructor?: string;
   semester?: string;
+  scheduleSessions: StructuredScheduleSession[];
 }
 
 export type ManualCourseRequestResult =
@@ -25,12 +28,14 @@ export const submitManualCourseRequest = async ({
   courseCode,
   instructor,
   semester,
+  scheduleSessions,
 }: SubmitManualCourseRequestInput): Promise<ManualCourseRequestResult> => {
   const payload = await createD1CourseRequest({
     subjectName: subjectName.trim(),
     courseCode: courseCode.trim(),
     instructor: instructor?.trim() || 'Chưa rõ',
     semester,
+    scheduleSessions,
   });
   return { requestId: String(payload.id || '') };
 };

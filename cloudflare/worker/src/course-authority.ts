@@ -7,6 +7,14 @@ import {
 } from './better-auth-identity.ts';
 import { signalCourseRequestDecision } from './course-notification-push.ts';
 import type { PushEventQueueEnv } from './push-events.ts';
+import {
+  CourseScheduleSessionError,
+  assertScheduleSessionCatalogue,
+  listScheduleSessionCatalogue,
+  parseStructuredScheduleSessions,
+  serializeStructuredScheduleSessions,
+} from './course-schedule-sessions.ts';
+import type { StructuredScheduleSession } from '../../../utils/scheduleSessions.ts';
 
 export interface CourseAuthorityEnv extends BetterAuthIdentityEnv, PushEventQueueEnv {
   DB: D1Database;
@@ -26,7 +34,7 @@ const COURSE_FIELDS = new Set([
   'cohort', 'major', 'group_name', 'orientation', 'orientation_note_3', 'registration_type', 'general_note',
   'academic_program', 'student_count', 'phase', 'semester', 'instructor', 'is_user_added',
 ]);
-const REQUEST_FIELDS = new Set(['courseCode', 'subjectName', 'semester', 'instructor', 'note']);
+const REQUEST_FIELDS = new Set(['courseCode', 'subjectName', 'semester', 'instructor', 'note', 'scheduleSessions']);
 
 export class CourseAuthorityError extends Error {
   readonly status: 400 | 401 | 403 | 404 | 409 | 413 | 503;
@@ -52,6 +60,18 @@ const sha256 = async (value: unknown) => {
   return [...new Uint8Array(digest)].map((part) => part.toString(16).padStart(2, '0')).join('');
 };
 const now = () => new Date().toISOString();
+const serializeRequestSessions = (sessions: StructuredScheduleSession[]) => JSON.stringify(sessions);
+const parseStoredSessions = (value: unknown): StructuredScheduleSession[] => {
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as StructuredScheduleSession[] : [];
+  } catch { return []; }
+};
+const requestResponseRow = (row: Record<string, unknown>) => {
+  const { schedule_details_json: rawSessions, ...rest } = row;
+  return { ...rest, scheduleSessions: parseStoredSessions(rawSessions) };
+};
 
 export const readCourseWriteAuthority = (env: Pick<CourseAuthorityEnv, 'COURSE_WRITE_AUTHORITY'>): CourseWriteAuthority =>
   env.COURSE_WRITE_AUTHORITY === 'd1' ? 'd1' : 'supabase';
@@ -188,11 +208,20 @@ const updateCourse = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity, 
 
 const createRequest = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity, request: Request) => {
   const payload = await readBody(request); assertKeys(payload, REQUEST_FIELDS); const { key } = parseHeaders(request, false);
-  const normalized = { courseCode: text(payload.courseCode, 120, true), subjectName: text(payload.subjectName, 240, true), semester: text(payload.semester, 80), instructor: text(payload.instructor, 160), note: text(payload.note, 1000) };
+  const semester = text(payload.semester, 80, true)!;
+  let scheduleSessions: StructuredScheduleSession[];
+  try {
+    scheduleSessions = parseStructuredScheduleSessions(payload.scheduleSessions, semester);
+    await assertScheduleSessionCatalogue(env.DB, semester, scheduleSessions);
+  } catch (error) {
+    if (error instanceof CourseScheduleSessionError) throw new CourseAuthorityError(400, error.message);
+    throw error;
+  }
+  const normalized = { courseCode: text(payload.courseCode, 120, true), subjectName: text(payload.subjectName, 240, true), semester, instructor: text(payload.instructor, 160), note: text(payload.note, 1000), scheduleSessions };
   const hash = await sha256(['request_create', normalized]); const old = await receipt(env, 'user', actor.userId, key, hash); if (old) return old;
   const id = crypto.randomUUID(); const at = now(); const response = { success: true, id, revision: 0, changed: true };
   await env.DB.batch([
-    env.DB.prepare('INSERT INTO user_course_requests (id,user_id,course_code,subject_name,semester,instructor,request_note,request_hash,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, actor.userId, normalized.courseCode, normalized.subjectName, normalized.semester, normalized.instructor, normalized.note, hash, at, at),
+    env.DB.prepare('INSERT INTO user_course_requests (id,user_id,course_code,subject_name,semester,instructor,request_note,schedule_details_json,request_hash,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(id, actor.userId, normalized.courseCode, normalized.subjectName, normalized.semester, normalized.instructor, normalized.note, serializeRequestSessions(scheduleSessions), hash, at, at),
     storeReceipt(env, 'user', actor.userId, key, hash, 'request_create', response, at),
     outbox(env, 'course_request.created', `course_request.created:${id}`, at, { requestId: id, userId: actor.userId }).statement,
   ]);
@@ -207,19 +236,30 @@ const reviewRequest = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity,
     ? parseCourse(await readOptionalBody(request), true)
     : {};
   const hash = await sha256([approve ? 'request_approve' : 'request_reject', id, revision, override]); const old = await receipt(env, 'staff', actor.userId, key, hash); if (old) return old;
-  const row = await env.DB.prepare('SELECT user_id,course_code,subject_name,semester,instructor,revision,status FROM user_course_requests WHERE id=?').bind(id).first<Record<string, unknown>>();
+  const row = await env.DB.prepare('SELECT user_id,course_code,subject_name,semester,instructor,schedule_details_json,revision,status FROM user_course_requests WHERE id=?').bind(id).first<Record<string, unknown>>();
   if (!row) throw new CourseAuthorityError(404, 'Không tìm thấy yêu cầu.');
   if (row.status !== 'pending' || Number(row.revision) !== revision) throw new CourseAuthorityError(409, 'Yêu cầu đã thay đổi.');
   const at = now(); const next = revision! + 1; let courseId: string | null = null; const statements: D1PreparedStatement[] = [];
   if (approve) {
     courseId = crypto.randomUUID();
+    let scheduleSessions: StructuredScheduleSession[];
+    try {
+      scheduleSessions = parseStructuredScheduleSessions(parseStoredSessions(row.schedule_details_json), String(row.semester || ''));
+      await assertScheduleSessionCatalogue(env.DB, String(row.semester || ''), scheduleSessions);
+    } catch (error) {
+      if (error instanceof CourseScheduleSessionError) throw new CourseAuthorityError(400, error.message);
+      throw error;
+    }
+    // A request's identity, semester, and structured sessions are authoritative.
+    // The review form can only add/edit non-schedule catalogue metadata.
     const course = {
+      ...override,
       course_code: row.course_code,
       subject_name: row.subject_name,
       semester: row.semester,
       instructor: row.instructor,
       is_user_added: 1,
-      ...override,
+      ...serializeStructuredScheduleSessions(scheduleSessions),
     } as Record<string, unknown>;
     const values = courseColumns.map((column) => course[column] ?? null);
     statements.push(env.DB.prepare(`INSERT INTO course_schedules (id,${courseColumns.join(',')},created_at,updated_at,course_code_search,subject_name_search,instructor_search,source_position,catalogue_visibility,revision,source_kind,source_key,writer_provenance,content_hash,instructor_provenance) VALUES (${['?'].concat(courseColumns.map(() => '?'), ['?','?','?','?','?','(SELECT COALESCE(MAX(source_position),0)+1 FROM course_schedules)','?','0','?','?','?','?','?']).join(',')})`).bind(courseId, ...values, at, at, normalizeCode(String(course.course_code)), normalizeCode(String(course.subject_name)), normalizeCode(String(course.instructor || '')), 'published', 'request_approval', `request:${id}`, 'request_approval', await sha256(course), 'request_approval'));
@@ -266,21 +306,28 @@ export const handleCourseAuthority = async (request: Request, url: URL, env: Cou
     if (courseMatch && request.method === 'PATCH') return { status: 200, payload: await updateCourse(env, await requireBetterAuthStaff(request, env), request, parseId(courseMatch[1])) };
     if (courseMatch && request.method === 'DELETE') return { status: 200, payload: await updateCourse(env, await requireBetterAuthStaff(request, env), request, parseId(courseMatch[1]), true) };
     if (url.pathname === '/api/private/v1/course-requests' && request.method === 'POST') return { status: 200, payload: await createRequest(env, await requireBetterAuthSession(request, env), request) };
+    if (url.pathname === '/api/private/v1/course-schedule-options' && request.method === 'GET') {
+      await requireBetterAuthSession(request, env);
+      const semester = String(url.searchParams.get('semester') || '').trim();
+      if (!semester || semester.length > 80) throw new CourseAuthorityError(400, 'Học kỳ không hợp lệ.');
+      return { status: 200, payload: await listScheduleSessionCatalogue(env.DB, semester) };
+    }
     if (url.pathname === '/api/private/v1/course-requests' && request.method === 'GET') {
       const identity = await requireBetterAuthSession(request, env);
-      const result = await env.DB.prepare('SELECT id,course_code,subject_name,semester,instructor,request_note,status,revision,created_at,updated_at FROM user_course_requests WHERE user_id=? ORDER BY created_at DESC LIMIT 100').bind(identity.userId).all();
-      return { status: 200, payload: { success: true, data: result.results || [] } };
+      const result = await env.DB.prepare('SELECT id,course_code,subject_name,semester,instructor,request_note,schedule_details_json,status,revision,created_at,updated_at FROM user_course_requests WHERE user_id=? ORDER BY created_at DESC LIMIT 100').bind(identity.userId).all<Record<string, unknown>>();
+      return { status: 200, payload: { success: true, data: (result.results || []).map(requestResponseRow) } };
     }
     if (url.pathname === '/api/private/v1/course-requests/review' && request.method === 'GET') {
       const staff = await requireBetterAuthStaff(request, env);
-      const result = await env.DB.prepare('SELECT id,user_id,course_code,subject_name,semester,instructor,request_note,status,revision,reviewer_id,reviewed_at,approved_course_id,created_at,updated_at FROM user_course_requests ORDER BY created_at DESC LIMIT 200').all();
+      const result = await env.DB.prepare('SELECT id,user_id,course_code,subject_name,semester,instructor,request_note,schedule_details_json,status,revision,reviewer_id,reviewed_at,approved_course_id,created_at,updated_at FROM user_course_requests ORDER BY created_at DESC LIMIT 200').all<Record<string, unknown>>();
       // Auditors may inspect the review queue, but only admins may transition it.
-      return { status: 200, payload: { success: true, role: staff.role, data: result.results || [] } };
+      return { status: 200, payload: { success: true, role: staff.role, data: (result.results || []).map(requestResponseRow) } };
     }
     if (requestMatch && request.method === 'PATCH') return { status: 200, payload: await reviewRequest(env, await requireBetterAuthStaff(request, env), request, parseId(requestMatch[1]), requestMatch[2] === 'approve') };
     return { status: 404, payload: { error: 'Không tìm thấy endpoint.' } };
   } catch (error) {
     if (error instanceof BetterAuthIdentityError) throw new CourseAuthorityError(error.status, error.code);
+    if (error instanceof CourseScheduleSessionError) throw new CourseAuthorityError(400, error.message);
     throw error;
   }
 };

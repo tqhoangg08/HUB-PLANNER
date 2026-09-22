@@ -21,6 +21,8 @@ const schema = `
   CREATE TABLE course_schedules (
     id TEXT PRIMARY KEY,
     semester TEXT,
+    campus TEXT,
+    room TEXT,
     is_user_added INTEGER CHECK (is_user_added IN (0, 1)),
     catalogue_visibility TEXT NOT NULL DEFAULT 'published'
   );
@@ -74,12 +76,12 @@ const schema = `
     created_at TEXT NOT NULL,
     delivered_at TEXT
   );
-  INSERT INTO course_schedules (id, semester, is_user_added, catalogue_visibility) VALUES
-    ('${COURSE_A}', '${SEMESTER}', 0, 'published'),
-    ('${COURSE_B}', '${SEMESTER}', NULL, 'published'),
-    ('${COURSE_OTHER_SEMESTER}', '${OTHER_SEMESTER}', 0, 'published'),
-    ('${COURSE_PUBLISHED_CONTRIBUTION}', '${SEMESTER}', 1, 'published'),
-    ('${COURSE_RETIRED}', '${SEMESTER}', 0, 'retired');
+  INSERT INTO course_schedules (id, semester, campus, room, is_user_added, catalogue_visibility) VALUES
+    ('${COURSE_A}', '${SEMESTER}', 'TD', 'A.101', 0, 'published'),
+    ('${COURSE_B}', '${SEMESTER}', NULL, NULL, NULL, 'published'),
+    ('${COURSE_OTHER_SEMESTER}', '${OTHER_SEMESTER}', NULL, NULL, 0, 'published'),
+    ('${COURSE_PUBLISHED_CONTRIBUTION}', '${SEMESTER}', NULL, NULL, 1, 'published'),
+    ('${COURSE_RETIRED}', '${SEMESTER}', NULL, NULL, 0, 'retired');
 `;
 
 const createHarness = async () => {
@@ -696,8 +698,11 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
       rows: [{
         course: {
           course_code: 'PRIVATE101', subject_name: 'Imported private course', credits: 3,
-          instructor: 'Teacher', day_of_week: '2', shift: '1', room: 'A.101',
-          campus: 'TD', weeks: '1-15', phase: '1',
+          instructor: 'Teacher',
+          scheduleSessions: [
+            { weeks: [1, 2, 3], dayOfWeek: 2, shift: 'S', campus: 'TD', room: 'A.101' },
+            { weeks: [6, 7], dayOfWeek: 4, shift: 'C', campus: '', room: '' },
+          ], phase: '1',
         },
       }],
     };
@@ -720,6 +725,12 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
         (SELECT COUNT(*) FROM course_schedules WHERE is_user_added=1) AS public_imports
     `);
     assert.deepEqual(stateRows[0], { schedules: 1, snapshots: 1, public_imports: 1 });
+    const snapshot = (await harness.query(`SELECT course_json FROM user_schedule_course_snapshots WHERE user_id='${USER_A}'`))[0];
+    const reloaded = JSON.parse(snapshot.course_json);
+    assert.deepEqual(
+      { weeks: reloaded.weeks, day_of_week: reloaded.day_of_week, shift: reloaded.shift, campus: reloaded.campus, room: reloaded.room },
+      { weeks: '1,2,3\n6,7', day_of_week: '2\n4', shift: 'S\nC', campus: 'TD\n', room: 'A.101\n' },
+    );
   } finally {
     await harness.dispose();
   }

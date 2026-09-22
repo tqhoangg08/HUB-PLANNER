@@ -1,4 +1,5 @@
 import { privateApiRequest } from './privateApi';
+import type { StructuredScheduleSession } from './scheduleSessions';
 
 export type CourseAuthorityCourse = Record<string, unknown>;
 
@@ -6,12 +7,13 @@ export type CourseAuthorityRequest = {
   id: string;
   course_code: string;
   subject_name: string;
-  semester?: string | null;
+  semester: string;
   instructor?: string | null;
   request_note?: string | null;
   status?: string;
   revision: number;
   created_at?: string;
+  scheduleSessions?: StructuredScheduleSession[];
 };
 
 const mutationKey = (scope: string) => `${scope}:${crypto.randomUUID()}`;
@@ -47,6 +49,7 @@ export const createD1CourseRequest = (input: {
   semester?: string;
   instructor?: string;
   note?: string;
+  scheduleSessions: StructuredScheduleSession[];
 }) => json<{ id: string; revision: number }>('/api/private/v1/course-requests', {
   method: 'POST',
   headers: { 'Idempotency-Key': mutationKey('course-request-create') },

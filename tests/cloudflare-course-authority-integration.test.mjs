@@ -18,7 +18,7 @@ CREATE UNIQUE INDEX course_source_key ON course_schedules(source_kind, source_ke
 CREATE TABLE course_filter_facets (semester TEXT, phase TEXT, is_user_added INTEGER, subject_name TEXT, major TEXT, cohort TEXT, academic_program TEXT, group_name TEXT, course_count INTEGER, first_source_position INTEGER, PRIMARY KEY (semester,phase,is_user_added,subject_name,major,cohort,academic_program,group_name));
 CREATE TABLE course_mutation_receipts (actor_scope TEXT, actor_id TEXT, idempotency_key TEXT, request_hash TEXT, operation TEXT, response_json TEXT, created_at TEXT, PRIMARY KEY(actor_scope,actor_id,idempotency_key));
 CREATE TABLE course_mutation_outbox (id TEXT PRIMARY KEY, dedupe_key TEXT UNIQUE, event_type TEXT, course_id TEXT, request_id TEXT, user_id TEXT, payload_json TEXT, status TEXT DEFAULT 'pending', attempts INTEGER DEFAULT 0, created_at TEXT, delivered_at TEXT);
-CREATE TABLE user_course_requests (id TEXT PRIMARY KEY, user_id TEXT, course_code TEXT, subject_name TEXT, semester TEXT, instructor TEXT, request_note TEXT, status TEXT DEFAULT 'pending', request_hash TEXT, revision INTEGER DEFAULT 0, reviewer_id TEXT, reviewed_at TEXT, approved_course_id TEXT, created_at TEXT, updated_at TEXT);
+CREATE TABLE user_course_requests (id TEXT PRIMARY KEY, user_id TEXT, course_code TEXT, subject_name TEXT, semester TEXT, instructor TEXT, request_note TEXT, schedule_details_json TEXT NOT NULL DEFAULT '[]', status TEXT DEFAULT 'pending', request_hash TEXT, revision INTEGER DEFAULT 0, reviewer_id TEXT, reviewed_at TEXT, approved_course_id TEXT, created_at TEXT, updated_at TEXT);
 CREATE TABLE course_scraper_runs (run_id TEXT PRIMARY KEY, payload_hash TEXT, status TEXT, attempted_count INTEGER, updated_count INTEGER DEFAULT 0, skipped_admin_count INTEGER DEFAULT 0, conflict_count INTEGER DEFAULT 0, error_code TEXT, created_at TEXT, completed_at TEXT);
 `;
 
@@ -27,6 +27,7 @@ const headers = (cookie, key, revision) => ({
   'Idempotency-Key': key, ...(revision === undefined ? {} : { 'If-Match': `"${revision}"` }),
 });
 const courseBody = (code = 'TEST_001') => ({ course_code: code, subject_name: 'Fixture course', semester: 'HK1_2099', instructor: 'Initial instructor' });
+const scheduleSessions = [{ weeks: [1, 2, 3], dayOfWeek: 2, shift: 'S', campus: '', room: '' }];
 const signedInternalHeaders = async (body, nonce = crypto.randomUUID()) => {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -76,7 +77,20 @@ test('course D1 APIs enforce roles, CAS, idempotency, ownership and atomic appro
     assert.equal(retire.status, 200);
     assert.equal((await app.sql(`SELECT catalogue_visibility FROM course_schedules WHERE id='${created.id}'`))[0].catalogue_visibility, 'retired');
 
-    const request = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0001'), body: JSON.stringify({ courseCode: 'REQ_001', subjectName: 'Request fixture', semester: 'HK1_2099', note: 'fixture' }) });
+    const missingSessions = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-no-sessions-0001'), body: JSON.stringify({ courseCode: 'REQ_NONE', subjectName: 'No sessions', semester: 'HK1_2099' }) });
+    assert.equal(missingSessions.status, 400);
+    const invalidDay = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-day-0001'), body: JSON.stringify({ courseCode: 'REQ_DAY', subjectName: 'Invalid day', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], dayOfWeek: 9 }] }) });
+    assert.equal(invalidDay.status, 400);
+    const invalidWeek = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-week-0001'), body: JSON.stringify({ courseCode: 'REQ_WEEK', subjectName: 'Invalid week', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], weeks: [23] }] }) });
+    assert.equal(invalidWeek.status, 400);
+    const invalidShift = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-shift-0001'), body: JSON.stringify({ courseCode: 'REQ_SHIFT', subjectName: 'Invalid shift', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], shift: 'CUSTOM' }] }) });
+    assert.equal(invalidShift.status, 400);
+    const invalidCampus = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-campus-0001'), body: JSON.stringify({ courseCode: 'REQ_CAMPUS', subjectName: 'Invalid campus', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], campus: 'Campus không có', room: 'A.101' }] }) });
+    assert.equal(invalidCampus.status, 400);
+    const invalidRoom = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-room-0001'), body: JSON.stringify({ courseCode: 'REQ_ROOM', subjectName: 'Invalid room', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], campus: 'TD', room: 'Không tồn tại' }] }) });
+    assert.equal(invalidRoom.status, 400);
+
+    const request = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0001'), body: JSON.stringify({ courseCode: 'REQ_001', subjectName: 'Request fixture', semester: 'HK1_2099', note: 'fixture', scheduleSessions }) });
     assert.equal(request.status, 200); const requested = await request.json();
     const own = await app.request('/api/private/v1/course-requests', { headers: { Origin: ORIGIN, Cookie: 'session=user' } }); assert.equal(own.status, 200);
     const review = await app.request('/api/private/v1/course-requests/review', { headers: { Origin: ORIGIN, Cookie: 'session=auditor' } }); assert.equal(review.status, 200);
@@ -85,8 +99,9 @@ test('course D1 APIs enforce roles, CAS, idempotency, ownership and atomic appro
     const approvalRetry = await app.request(`/api/private/v1/course-requests/${requested.id}/approve`, { method: 'PATCH', headers: headers('admin', 'request-approve-0001', 0) }); assert.deepEqual(await approvalRetry.json(), approved);
     const counts = (await app.sql(`SELECT (SELECT COUNT(*) FROM course_schedules WHERE source_key='request:${requested.id}') AS courses,(SELECT status FROM user_course_requests WHERE id='${requested.id}') AS status,(SELECT COUNT(*) FROM course_mutation_outbox WHERE request_id='${requested.id}' AND event_type='course_request.approved') AS outbox`))[0];
     assert.deepEqual({ courses: Number(counts.courses), status: counts.status, outbox: Number(counts.outbox) }, { courses: 1, status: 'approved', outbox: 1 });
+    assert.deepEqual((await app.sql(`SELECT weeks,day_of_week,shift,campus,room FROM course_schedules WHERE source_key='request:${requested.id}'`))[0], { weeks: '1,2,3', day_of_week: '2', shift: 'S', campus: '', room: '' });
 
-    const rejectedRequest = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0002'), body: JSON.stringify({ courseCode: 'REQ_002', subjectName: 'Reject fixture' }) }); const rejected = await rejectedRequest.json();
+    const rejectedRequest = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0002'), body: JSON.stringify({ courseCode: 'REQ_002', subjectName: 'Reject fixture', semester: 'HK1_2099', scheduleSessions }) }); const rejected = await rejectedRequest.json();
     const reject = await app.request(`/api/private/v1/course-requests/${rejected.id}/reject`, { method: 'PATCH', headers: headers('admin', 'request-reject-0001', 0) }); assert.equal(reject.status, 200);
   } finally { await app.dispose(); }
 });
@@ -111,7 +126,7 @@ test('scraper internal path is server-authenticated, idempotent and cannot overw
 test('approval failure is atomic and account cleanup removes only owner-owned request state', async () => {
   const app = await harness();
   try {
-    const create = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-atomic-0001'), body: JSON.stringify({ courseCode: 'REQ_ATOMIC', subjectName: 'Atomic fixture', semester: 'HK1_2099' }) });
+    const create = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-atomic-0001'), body: JSON.stringify({ courseCode: 'REQ_ATOMIC', subjectName: 'Atomic fixture', semester: 'HK1_2099', scheduleSessions }) });
     const requested = await create.json();
     await app.sql(`CREATE TRIGGER reject_approval BEFORE UPDATE OF status ON user_course_requests WHEN NEW.id='${requested.id}' BEGIN SELECT RAISE(ABORT, 'injected approval failure'); END`);
     const failedApproval = await app.request(`/api/private/v1/course-requests/${requested.id}/approve`, { method: 'PATCH', headers: headers('admin', 'request-approve-atomic-0001', 0) });

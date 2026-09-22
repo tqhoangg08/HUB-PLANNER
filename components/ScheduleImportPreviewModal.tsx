@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, Lock, Trash2, X } from 'lucide-react';
 import type { ScheduleImportPreviewRow } from '../utils/scheduleImportPreview';
+import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
+import { fetchScheduleSessionCatalogue } from '../utils/scheduleSessionOptionsApi';
+import { formatScheduleSession, scheduleSessionsAreValid, type ScheduleSessionCatalogue } from '../utils/scheduleSessions';
 
 interface ScheduleImportPreviewModalProps {
   rows: ScheduleImportPreviewRow[];
@@ -12,19 +15,12 @@ interface ScheduleImportPreviewModalProps {
   onConfirm: () => void;
 }
 
-const formatDay = (value: string) => {
-  const normalized = value.trim();
-  if (!normalized) return 'Chưa rõ';
-  if (normalized === '8' || normalized === 'CN') return 'Chủ nhật';
-  return `Thứ ${normalized}`;
-};
-
 const getSessionSummary = (row: ScheduleImportPreviewRow) => {
   const days = String(row.course.day_of_week || '').split(/\r?\n/);
   const shifts = String(row.course.shift || '').split(/\r?\n/);
   const count = Math.max(days.length, shifts.length);
   return Array.from({ length: count }, (_, index) => (
-    `${formatDay(days[index] || days[0] || '')} • ${shifts[index] || shifts[0] || 'Chưa rõ giờ'}`
+    `${days[index] === '8' ? 'Chủ nhật' : `Thứ ${days[index] || days[0] || 'chưa rõ'}`} • ${shifts[index] || shifts[0] || 'Chưa rõ giờ'}`
   )).join('\n');
 };
 
@@ -36,6 +32,19 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
   onCancel,
   onConfirm,
 }) => {
+  const [catalogue, setCatalogue] = useState<ScheduleSessionCatalogue | null>(null);
+  const [catalogueError, setCatalogueError] = useState('');
+  useEffect(() => {
+    let cancelled = false;
+    setCatalogue(null); setCatalogueError('');
+    void fetchScheduleSessionCatalogue(semester).then((value) => {
+      if (!cancelled) setCatalogue(value);
+    }).catch(() => {
+      if (!cancelled) setCatalogueError('Không thể tải danh mục cơ sở/phòng. Vui lòng thử lại.');
+    });
+    return () => { cancelled = true; };
+  }, [semester]);
+  const invalidUnknownRows = useMemo(() => rows.filter((row) => !row.isSystemCourse && !scheduleSessionsAreValid(row.course.scheduleSessions || [], semester, catalogue)), [catalogue, rows, semester]);
   const updateRow = (previewId: string, changes: Partial<ScheduleImportPreviewRow['course']>) => {
     onChange(rows.map(row => (
       row.previewId === previewId
@@ -118,32 +127,19 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
                     </div>
 
                     <div>
-                      <span className="mb-1 block text-[10px] font-bold uppercase text-slate-400 md:hidden">Ca học</span>
                       {row.isSystemCourse ? (
                         <p className="whitespace-pre-line text-xs font-semibold leading-5 text-slate-700">
                           {getSessionSummary(row)}
                         </p>
                       ) : (
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <label>
-                            <span className="mb-1 block text-[10px] font-semibold text-slate-400">Thứ (2-8)</span>
-                            <textarea
-                              value={String(row.course.day_of_week || '')}
-                              onChange={event => updateRow(row.previewId, { day_of_week: event.target.value })}
-                              rows={2}
-                              className="w-full resize-none rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500"
-                            />
-                          </label>
-                          <label>
-                            <span className="mb-1 block text-[10px] font-semibold text-slate-400">Giờ học</span>
-                            <textarea
-                              value={String(row.course.shift || '')}
-                              onChange={event => updateRow(row.previewId, { shift: event.target.value })}
-                              rows={2}
-                              className="w-full resize-none rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500"
-                            />
-                          </label>
-                        </div>
+                        <ScheduleSessionsEditor
+                          semester={semester}
+                          value={row.course.scheduleSessions || []}
+                          onChange={(scheduleSessions) => updateRow(row.previewId, { scheduleSessions })}
+                          catalogue={catalogue}
+                          catalogueLoading={!catalogue && !catalogueError}
+                          compact
+                        />
                       )}
                     </div>
 
@@ -186,6 +182,11 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
               ))}
             </div>
           )}
+          {(catalogueError || invalidUnknownRows.length > 0) && (
+            <p className="mt-3 text-xs font-semibold text-red-600" role="alert">
+              {catalogueError || `${invalidUnknownRows.length} môn ngoài hệ thống chưa có buổi học hợp lệ.`}
+            </p>
+          )}
         </div>
 
         <footer className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -202,7 +203,7 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
             <button
               type="button"
               onClick={onConfirm}
-              disabled={isSaving || rows.length === 0}
+              disabled={isSaving || rows.length === 0 || invalidUnknownRows.length > 0 || Boolean(catalogueError)}
               className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0056C7] px-5 text-sm font-bold text-white hover:bg-[#0047A5] disabled:cursor-not-allowed disabled:bg-slate-300 sm:flex-none"
             >
               <Check size={16} />

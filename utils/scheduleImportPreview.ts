@@ -1,6 +1,7 @@
 import { resolveImportedScheduleMetadata } from './scheduleImportUtils';
 import { replaceCloudflareUserScheduleSemester } from './userSchedulesApi';
 import { fetchPublicCourses } from './coursesApi';
+import { scheduleSessionsFromLegacyFields, type StructuredScheduleSession } from './scheduleSessions';
 
 export interface ScheduleImportCourse {
   id?: string;
@@ -16,6 +17,7 @@ export interface ScheduleImportCourse {
   semester?: string;
   phase?: string;
   is_user_added?: boolean;
+  scheduleSessions?: StructuredScheduleSession[];
   [key: string]: unknown;
 }
 
@@ -147,6 +149,13 @@ export const buildScheduleImportPreview = async (
         room: String(importedCourse.room || ''),
         campus: String(importedCourse.campus || 'TD'),
         weeks,
+        scheduleSessions: scheduleSessionsFromLegacyFields({
+          weeks,
+          day_of_week: importedCourse.day_of_week,
+          shift: importedCourse.shift,
+          campus: importedCourse.campus,
+          room: importedCourse.room,
+        }, semester),
         semester,
         phase,
         is_user_added: true,
@@ -167,11 +176,7 @@ export const replaceUserScheduleFromPreview = async (
         subject_name: row.course.subject_name,
         credits: Number(row.course.credits) || 0,
         instructor: row.course.instructor || '',
-        day_of_week: row.course.day_of_week || '',
-        shift: row.course.shift || '',
-        room: row.course.room || '',
-        campus: row.course.campus || 'TD',
-        weeks: row.course.weeks || '',
+        scheduleSessions: row.course.scheduleSessions || [],
         phase: row.course.phase || '1',
       },
     });

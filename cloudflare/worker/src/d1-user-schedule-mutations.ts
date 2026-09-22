@@ -6,6 +6,13 @@ import {
   serializeCanonicalUserScheduleJson,
   UserScheduleError,
 } from './user-schedules.ts';
+import {
+  CourseScheduleSessionError,
+  assertScheduleSessionCatalogue,
+  parseStructuredScheduleSessions,
+  serializeStructuredScheduleSessions,
+} from './course-schedule-sessions.ts';
+import type { StructuredScheduleSession } from '../../../utils/scheduleSessions.ts';
 
 interface D1UserScheduleMutationEnv { DB: D1Database; }
 type D1ScheduleAction = 'add' | 'delete' | 'update_custom_data' | 'replace_all' | 'pdf_import';
@@ -22,6 +29,7 @@ interface ReplacementItem {
   courseId: string;
   snapshotKind?: SnapshotKind;
   snapshotCourse?: Record<string, unknown>;
+  scheduleSessions?: StructuredScheduleSession[];
 }
 
 interface ParsedMutationRequest {
@@ -46,8 +54,7 @@ const MAX_RECEIPT_RESPONSE_BYTES = 768;
 const MAX_COURSES_PER_REPLACE = 100;
 const RESPONSE_KEYS = new Set(['success', 'changed', 'revision', 'count']);
 const IMPORT_COURSE_KEYS = new Set([
-  'course_code', 'subject_name', 'credits', 'instructor', 'day_of_week',
-  'shift', 'room', 'campus', 'weeks', 'phase',
+  'course_code', 'subject_name', 'credits', 'instructor', 'scheduleSessions', 'phase',
 ]);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -90,7 +97,7 @@ const buildRequestHash = (
   'hub-planner-d1-schedule-mutation-v2', action, semester, expectedRevision, payload,
 ]));
 
-const parseImportedCourse = (value: unknown) => {
+const parseImportedCourse = (value: unknown, semester: string) => {
   if (!isRecord(value)) throw new UserScheduleError(400, 'Dữ liệu nhập lịch không hợp lệ.');
   assertOnlyKeys(value, IMPORT_COURSE_KEYS);
   const required = (key: 'course_code' | 'subject_name', maximum: number) => {
@@ -105,17 +112,20 @@ const parseImportedCourse = (value: unknown) => {
   };
   const credits = Number(value.credits ?? 0);
   if (!Number.isInteger(credits) || credits < 0 || credits > 30) throw new UserScheduleError(400, 'Dữ liệu nhập lịch không hợp lệ.');
+  let scheduleSessions: StructuredScheduleSession[];
+  try { scheduleSessions = parseStructuredScheduleSessions(value.scheduleSessions, semester); }
+  catch (error) {
+    if (error instanceof CourseScheduleSessionError) throw new UserScheduleError(400, error.message);
+    throw error;
+  }
   return {
     course_code: required('course_code', 120),
     subject_name: required('subject_name', 200),
     credits,
     instructor: optional('instructor', 160),
-    day_of_week: optional('day_of_week', 30),
-    shift: optional('shift', 60),
-    room: optional('room', 120),
-    campus: optional('campus', 60, 'TD'),
-    weeks: optional('weeks', 500),
+    ...serializeStructuredScheduleSessions(scheduleSessions),
     phase: optional('phase', 20, '1'),
+    scheduleSessions,
   };
 };
 
@@ -156,9 +166,10 @@ const parseReplacementItems = async (value: Record<string, unknown>, semester: s
       continue;
     }
     if (!Object.hasOwn(row, 'course') || Object.hasOwn(row, 'systemCourseId')) throw new UserScheduleError(400, 'Dữ liệu nhập lịch không hợp lệ.');
-    const course = parseImportedCourse(row.course);
+    const imported = parseImportedCourse(row.course, semester);
+    const { scheduleSessions, ...course } = imported;
     const courseId = await deterministicImportCourseId(semester, index, course);
-    items.push({ courseId, snapshotKind: 'PRIVATE_IMPORTED', snapshotCourse: { id: courseId, semester, is_user_added: true, ...course } });
+    items.push({ courseId, snapshotKind: 'PRIVATE_IMPORTED', scheduleSessions, snapshotCourse: { id: courseId, semester, is_user_added: true, ...course } });
   }
   return { action: 'pdf_import' as const, items };
 };
@@ -380,6 +391,14 @@ export const replaceD1UserScheduleSemester = async (env: D1UserScheduleMutationE
   if ((input.action !== 'replace_all' && input.action !== 'pdf_import') || !input.replacementItems) throw new UserScheduleError(400, 'Dữ liệu thay lịch không hợp lệ.');
   const receipt = await readReceipt(env, userId, input.idempotencyKey);
   if (receipt) return resolveReceipt(receipt, input.requestHash);
+  const importedSessions = input.replacementItems.flatMap((item) => item.scheduleSessions || []);
+  if (importedSessions.length > 0) {
+    try { await assertScheduleSessionCatalogue(env.DB, input.semester, importedSessions); }
+    catch (error) {
+      if (error instanceof CourseScheduleSessionError) throw new UserScheduleError(400, error.message);
+      throw error;
+    }
+  }
   for (const item of input.replacementItems) if (!item.snapshotKind) await assertSchedulableCourse(env, item.courseId, input.semester);
   const existing = await env.DB.prepare('SELECT id, course_id, custom_data FROM user_schedules WHERE user_id = ? AND semester = ? ORDER BY id').bind(userId, input.semester).all<{ id: string; course_id: string; custom_data: string | null }>();
   const existingCanonical = serializeCanonicalUserScheduleJson((existing.results || []).map((row) => ({ courseId: row.course_id, customData: row.custom_data })));
