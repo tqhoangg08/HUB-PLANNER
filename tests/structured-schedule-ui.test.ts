@@ -16,9 +16,15 @@ test('unknown import courses and manual requests share the structured schedule e
     assert.match(source, /scheduleSessions/);
     assert.match(source, /scheduleSessionsAreValid/);
   }
-  assert.match(editor, /Chọn tất cả/);
-  assert.match(editor, /Bỏ chọn tất cả/);
   assert.match(editor, /Chọn thứ \*/);
   assert.match(editor, /Chọn ca \*/);
-  assert.match(editor, /Chưa xác định/);
+  assert.match(editor, /Tuần học/);
+  assert.match(editor, /Phòng/);
+  assert.match(editor, /Nhân bản buổi/);
+  assert.match(editor, /Áp dụng thứ cho tất cả/);
+  assert.match(editor, /Áp dụng ca cho tất cả/);
+  assert.doesNotMatch(editor, /Cơ sở buổi/);
+  assert.match(desktop, /max-w-\[min\(96vw,1280px\)\]/);
+  assert.match(desktop, /Giảng viên \*/);
+  assert.match(mobile, /Giảng viên \*/);
 });

@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, Lock, Trash2, X } from 'lucide-react';
 import type { ScheduleImportPreviewRow } from '../utils/scheduleImportPreview';
 import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
-import { fetchScheduleSessionCatalogue } from '../utils/scheduleSessionOptionsApi';
-import { formatScheduleSession, scheduleSessionsAreValid, type ScheduleSessionCatalogue } from '../utils/scheduleSessions';
+import { scheduleSessionsAreValid } from '../utils/scheduleSessions';
 
 interface ScheduleImportPreviewModalProps {
   rows: ScheduleImportPreviewRow[];
@@ -32,19 +31,9 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
   onCancel,
   onConfirm,
 }) => {
-  const [catalogue, setCatalogue] = useState<ScheduleSessionCatalogue | null>(null);
-  const [catalogueError, setCatalogueError] = useState('');
-  useEffect(() => {
-    let cancelled = false;
-    setCatalogue(null); setCatalogueError('');
-    void fetchScheduleSessionCatalogue(semester).then((value) => {
-      if (!cancelled) setCatalogue(value);
-    }).catch(() => {
-      if (!cancelled) setCatalogueError('Không thể tải danh mục cơ sở/phòng. Vui lòng thử lại.');
-    });
-    return () => { cancelled = true; };
-  }, [semester]);
-  const invalidUnknownRows = useMemo(() => rows.filter((row) => !row.isSystemCourse && !scheduleSessionsAreValid(row.course.scheduleSessions || [], semester, catalogue)), [catalogue, rows, semester]);
+  const invalidUnknownRows = useMemo(() => rows.filter((row) => !row.isSystemCourse && (
+    !String(row.course.course_code || '').trim() || !String(row.course.subject_name || '').trim() || !String(row.course.instructor || '').trim() || !scheduleSessionsAreValid(row.course.scheduleSessions || [], semester)
+  )), [rows, semester]);
   const updateRow = (previewId: string, changes: Partial<ScheduleImportPreviewRow['course']>) => {
     onChange(rows.map(row => (
       row.previewId === previewId
@@ -102,14 +91,16 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
               {rows.map((row, index) => (
                 <div
                   key={row.previewId}
-                  className="grid grid-cols-[30px_minmax(0,1fr)_38px] gap-2 border-b border-slate-100 px-3 py-3 last:border-b-0 md:grid-cols-[48px_minmax(190px,1fr)_minmax(210px,1.15fr)_minmax(150px,.8fr)_130px_48px] md:items-center md:gap-3 md:px-4"
+                  className={row.isSystemCourse
+                    ? 'grid grid-cols-[30px_minmax(0,1fr)_38px] gap-2 border-b border-slate-100 px-3 py-3 last:border-b-0 md:grid-cols-[48px_minmax(190px,1fr)_minmax(210px,1.15fr)_minmax(150px,.8fr)_130px_48px] md:items-center md:gap-3 md:px-4'
+                    : 'relative block border-b border-slate-100 px-3 py-4 last:border-b-0 md:px-4'}
                 >
                   <span className="pt-2 text-xs font-bold text-slate-500 md:pt-0">{index + 1}</span>
 
                   <div className="space-y-3 md:contents">
                     <div>
                       <span className="mb-1 block text-[10px] font-bold uppercase text-slate-400 md:hidden">Môn học</span>
-                      {row.isSystemCourse ? (
+              {row.isSystemCourse ? (
                         <div>
                           <p className="text-xs font-extrabold text-slate-900">{row.course.subject_name}</p>
                           <p className="mt-0.5 text-[11px] font-semibold text-[#0056C7]">{row.course.course_code}</p>
@@ -117,11 +108,18 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
                       ) : (
                         <div className="space-y-1.5">
                           <input
+                            required
                             value={String(row.course.subject_name || '')}
                             onChange={event => updateRow(row.previewId, { subject_name: event.target.value })}
                             className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500"
                           />
-                          <p className="px-1 text-[10px] font-semibold text-[#0056C7]">{row.course.course_code}</p>
+                          <input
+                            required
+                            value={String(row.course.course_code || '')}
+                            onChange={event => updateRow(row.previewId, { course_code: event.target.value })}
+                            placeholder="Mã học phần *"
+                            className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500"
+                          />
                         </div>
                       )}
                     </div>
@@ -136,9 +134,7 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
                           semester={semester}
                           value={row.course.scheduleSessions || []}
                           onChange={(scheduleSessions) => updateRow(row.previewId, { scheduleSessions })}
-                          catalogue={catalogue}
-                          catalogueLoading={!catalogue && !catalogueError}
-                          compact
+                          compact={false}
                         />
                       )}
                     </div>
@@ -151,7 +147,8 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
                         <input
                           value={String(row.course.instructor || '')}
                           onChange={event => updateRow(row.previewId, { instructor: event.target.value })}
-                          placeholder="Chưa rõ"
+                          required
+                          placeholder="Giảng viên *"
                           className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500"
                         />
                       )}
@@ -182,9 +179,9 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
               ))}
             </div>
           )}
-          {(catalogueError || invalidUnknownRows.length > 0) && (
+          {invalidUnknownRows.length > 0 && (
             <p className="mt-3 text-xs font-semibold text-red-600" role="alert">
-              {catalogueError || `${invalidUnknownRows.length} môn ngoài hệ thống chưa có buổi học hợp lệ.`}
+              {`${invalidUnknownRows.length} môn ngoài hệ thống chưa đủ mã, tên, giảng viên hoặc lịch học hợp lệ.`}
             </p>
           )}
         </div>
@@ -203,7 +200,7 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
             <button
               type="button"
               onClick={onConfirm}
-              disabled={isSaving || rows.length === 0 || invalidUnknownRows.length > 0 || Boolean(catalogueError)}
+              disabled={isSaving || rows.length === 0 || invalidUnknownRows.length > 0}
               className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0056C7] px-5 text-sm font-bold text-white hover:bg-[#0047A5] disabled:cursor-not-allowed disabled:bg-slate-300 sm:flex-none"
             >
               <Check size={16} />

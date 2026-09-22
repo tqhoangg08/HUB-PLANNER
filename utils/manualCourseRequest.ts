@@ -14,7 +14,7 @@ export interface MatchingSystemCourse {
 interface SubmitManualCourseRequestInput {
   subjectName: string;
   courseCode: string;
-  instructor?: string;
+  instructor: string;
   semester?: string;
   scheduleSessions: StructuredScheduleSession[];
 }
@@ -33,7 +33,7 @@ export const submitManualCourseRequest = async ({
   const payload = await createD1CourseRequest({
     subjectName: subjectName.trim(),
     courseCode: courseCode.trim(),
-    instructor: instructor?.trim() || 'Chưa rõ',
+    instructor: instructor.trim(),
     semester,
     scheduleSessions,
   });

@@ -9,8 +9,6 @@ import { signalCourseRequestDecision } from './course-notification-push.ts';
 import type { PushEventQueueEnv } from './push-events.ts';
 import {
   CourseScheduleSessionError,
-  assertScheduleSessionCatalogue,
-  listScheduleSessionCatalogue,
   parseStructuredScheduleSessions,
   serializeStructuredScheduleSessions,
 } from './course-schedule-sessions.ts';
@@ -47,7 +45,10 @@ export class CourseAuthorityError extends Error {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const text = (value: unknown, max: number, required = false) => {
-  if (value === undefined || value === null) return required ? '' : null;
+  if (value === undefined || value === null) {
+    if (required) throw new CourseAuthorityError(400, 'Dữ liệu môn học không hợp lệ.');
+    return null;
+  }
   if (typeof value !== 'string') throw new CourseAuthorityError(400, 'Dữ liệu môn học không hợp lệ.');
   const result = value.trim();
   if ((required && !result) || result.length > max) throw new CourseAuthorityError(400, 'Dữ liệu môn học không hợp lệ.');
@@ -212,12 +213,11 @@ const createRequest = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity,
   let scheduleSessions: StructuredScheduleSession[];
   try {
     scheduleSessions = parseStructuredScheduleSessions(payload.scheduleSessions, semester);
-    await assertScheduleSessionCatalogue(env.DB, semester, scheduleSessions);
   } catch (error) {
     if (error instanceof CourseScheduleSessionError) throw new CourseAuthorityError(400, error.message);
     throw error;
   }
-  const normalized = { courseCode: text(payload.courseCode, 120, true), subjectName: text(payload.subjectName, 240, true), semester, instructor: text(payload.instructor, 160), note: text(payload.note, 1000), scheduleSessions };
+  const normalized = { courseCode: text(payload.courseCode, 120, true), subjectName: text(payload.subjectName, 240, true), semester, instructor: text(payload.instructor, 160, true), note: text(payload.note, 1000), scheduleSessions };
   const hash = await sha256(['request_create', normalized]); const old = await receipt(env, 'user', actor.userId, key, hash); if (old) return old;
   const id = crypto.randomUUID(); const at = now(); const response = { success: true, id, revision: 0, changed: true };
   await env.DB.batch([
@@ -244,8 +244,8 @@ const reviewRequest = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity,
     courseId = crypto.randomUUID();
     let scheduleSessions: StructuredScheduleSession[];
     try {
-      scheduleSessions = parseStructuredScheduleSessions(parseStoredSessions(row.schedule_details_json), String(row.semester || ''));
-      await assertScheduleSessionCatalogue(env.DB, String(row.semester || ''), scheduleSessions);
+      // Existing requests from the former multi-week editor remain reviewable.
+      scheduleSessions = parseStructuredScheduleSessions(parseStoredSessions(row.schedule_details_json), String(row.semester || ''), { singleWeekPerSession: false, preserveCampus: true });
     } catch (error) {
       if (error instanceof CourseScheduleSessionError) throw new CourseAuthorityError(400, error.message);
       throw error;
@@ -306,12 +306,6 @@ export const handleCourseAuthority = async (request: Request, url: URL, env: Cou
     if (courseMatch && request.method === 'PATCH') return { status: 200, payload: await updateCourse(env, await requireBetterAuthStaff(request, env), request, parseId(courseMatch[1])) };
     if (courseMatch && request.method === 'DELETE') return { status: 200, payload: await updateCourse(env, await requireBetterAuthStaff(request, env), request, parseId(courseMatch[1]), true) };
     if (url.pathname === '/api/private/v1/course-requests' && request.method === 'POST') return { status: 200, payload: await createRequest(env, await requireBetterAuthSession(request, env), request) };
-    if (url.pathname === '/api/private/v1/course-schedule-options' && request.method === 'GET') {
-      await requireBetterAuthSession(request, env);
-      const semester = String(url.searchParams.get('semester') || '').trim();
-      if (!semester || semester.length > 80) throw new CourseAuthorityError(400, 'Học kỳ không hợp lệ.');
-      return { status: 200, payload: await listScheduleSessionCatalogue(env.DB, semester) };
-    }
     if (url.pathname === '/api/private/v1/course-requests' && request.method === 'GET') {
       const identity = await requireBetterAuthSession(request, env);
       const result = await env.DB.prepare('SELECT id,course_code,subject_name,semester,instructor,request_note,schedule_details_json,status,revision,created_at,updated_at FROM user_course_requests WHERE user_id=? ORDER BY created_at DESC LIMIT 100').bind(identity.userId).all<Record<string, unknown>>();

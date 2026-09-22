@@ -1052,7 +1052,6 @@ const worker = {
     if (
       requestUrl.pathname === '/api/private/v1/courses' ||
       /^\/api\/private\/v1\/courses\/[0-9a-f-]+$/i.test(requestUrl.pathname) ||
-      requestUrl.pathname === '/api/private/v1/course-schedule-options' ||
       requestUrl.pathname === '/api/private/v1/course-requests' ||
       requestUrl.pathname === '/api/private/v1/course-requests/review' ||
       /^\/api\/private\/v1\/course-requests\/[0-9a-f-]+\/(approve|reject)$/i.test(requestUrl.pathname)

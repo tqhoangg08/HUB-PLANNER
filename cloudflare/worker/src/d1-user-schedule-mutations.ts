@@ -8,7 +8,6 @@ import {
 } from './user-schedules.ts';
 import {
   CourseScheduleSessionError,
-  assertScheduleSessionCatalogue,
   parseStructuredScheduleSessions,
   serializeStructuredScheduleSessions,
 } from './course-schedule-sessions.ts';
@@ -100,7 +99,7 @@ const buildRequestHash = (
 const parseImportedCourse = (value: unknown, semester: string) => {
   if (!isRecord(value)) throw new UserScheduleError(400, 'Dữ liệu nhập lịch không hợp lệ.');
   assertOnlyKeys(value, IMPORT_COURSE_KEYS);
-  const required = (key: 'course_code' | 'subject_name', maximum: number) => {
+  const required = (key: 'course_code' | 'subject_name' | 'instructor', maximum: number) => {
     const text = typeof value[key] === 'string' ? value[key].trim() : '';
     if (!text || text.length > maximum) throw new UserScheduleError(400, 'Dữ liệu nhập lịch không hợp lệ.');
     return text;
@@ -122,7 +121,7 @@ const parseImportedCourse = (value: unknown, semester: string) => {
     course_code: required('course_code', 120),
     subject_name: required('subject_name', 200),
     credits,
-    instructor: optional('instructor', 160),
+    instructor: required('instructor', 160),
     ...serializeStructuredScheduleSessions(scheduleSessions),
     phase: optional('phase', 20, '1'),
     scheduleSessions,
@@ -391,14 +390,6 @@ export const replaceD1UserScheduleSemester = async (env: D1UserScheduleMutationE
   if ((input.action !== 'replace_all' && input.action !== 'pdf_import') || !input.replacementItems) throw new UserScheduleError(400, 'Dữ liệu thay lịch không hợp lệ.');
   const receipt = await readReceipt(env, userId, input.idempotencyKey);
   if (receipt) return resolveReceipt(receipt, input.requestHash);
-  const importedSessions = input.replacementItems.flatMap((item) => item.scheduleSessions || []);
-  if (importedSessions.length > 0) {
-    try { await assertScheduleSessionCatalogue(env.DB, input.semester, importedSessions); }
-    catch (error) {
-      if (error instanceof CourseScheduleSessionError) throw new UserScheduleError(400, error.message);
-      throw error;
-    }
-  }
   for (const item of input.replacementItems) if (!item.snapshotKind) await assertSchedulableCourse(env, item.courseId, input.semester);
   const existing = await env.DB.prepare('SELECT id, course_id, custom_data FROM user_schedules WHERE user_id = ? AND semester = ? ORDER BY id').bind(userId, input.semester).all<{ id: string; course_id: string; custom_data: string | null }>();
   const existingCanonical = serializeCanonicalUserScheduleJson((existing.results || []).map((row) => ({ courseId: row.course_id, customData: row.custom_data })));

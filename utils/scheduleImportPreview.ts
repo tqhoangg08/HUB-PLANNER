@@ -147,7 +147,7 @@ export const buildScheduleImportPreview = async (
         day_of_week: String(importedCourse.day_of_week || ''),
         shift: String(importedCourse.shift || ''),
         room: String(importedCourse.room || ''),
-        campus: String(importedCourse.campus || 'TD'),
+        campus: '',
         weeks,
         scheduleSessions: scheduleSessionsFromLegacyFields({
           weeks,

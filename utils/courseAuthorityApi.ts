@@ -47,7 +47,7 @@ export const createD1CourseRequest = (input: {
   courseCode: string;
   subjectName: string;
   semester?: string;
-  instructor?: string;
+  instructor: string;
   note?: string;
   scheduleSessions: StructuredScheduleSession[];
 }) => json<{ id: string; revision: number }>('/api/private/v1/course-requests', {

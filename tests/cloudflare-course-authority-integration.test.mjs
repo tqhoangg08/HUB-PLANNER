@@ -27,7 +27,7 @@ const headers = (cookie, key, revision) => ({
   'Idempotency-Key': key, ...(revision === undefined ? {} : { 'If-Match': `"${revision}"` }),
 });
 const courseBody = (code = 'TEST_001') => ({ course_code: code, subject_name: 'Fixture course', semester: 'HK1_2099', instructor: 'Initial instructor' });
-const scheduleSessions = [{ weeks: [1, 2, 3], dayOfWeek: 2, shift: 'S', campus: '', room: '' }];
+const scheduleSessions = [{ weeks: [1], dayOfWeek: 2, shift: 'S', campus: '', room: 'A.101' }];
 const signedInternalHeaders = async (body, nonce = crypto.randomUUID()) => {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -79,18 +79,20 @@ test('course D1 APIs enforce roles, CAS, idempotency, ownership and atomic appro
 
     const missingSessions = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-no-sessions-0001'), body: JSON.stringify({ courseCode: 'REQ_NONE', subjectName: 'No sessions', semester: 'HK1_2099' }) });
     assert.equal(missingSessions.status, 400);
-    const invalidDay = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-day-0001'), body: JSON.stringify({ courseCode: 'REQ_DAY', subjectName: 'Invalid day', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], dayOfWeek: 9 }] }) });
+    const missingInstructor = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-no-instructor-0001'), body: JSON.stringify({ courseCode: 'REQ_NO_TEACHER', subjectName: 'Missing instructor', semester: 'HK1_2099', scheduleSessions }) });
+    assert.equal(missingInstructor.status, 400);
+    const invalidDay = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-day-0001'), body: JSON.stringify({ courseCode: 'REQ_DAY', subjectName: 'Invalid day', instructor: 'Teacher', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], dayOfWeek: 9 }] }) });
     assert.equal(invalidDay.status, 400);
-    const invalidWeek = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-week-0001'), body: JSON.stringify({ courseCode: 'REQ_WEEK', subjectName: 'Invalid week', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], weeks: [23] }] }) });
+    const invalidWeek = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-week-0001'), body: JSON.stringify({ courseCode: 'REQ_WEEK', subjectName: 'Invalid week', instructor: 'Teacher', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], weeks: [23] }] }) });
     assert.equal(invalidWeek.status, 400);
-    const invalidShift = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-shift-0001'), body: JSON.stringify({ courseCode: 'REQ_SHIFT', subjectName: 'Invalid shift', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], shift: 'CUSTOM' }] }) });
+    const invalidShift = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-shift-0001'), body: JSON.stringify({ courseCode: 'REQ_SHIFT', subjectName: 'Invalid shift', instructor: 'Teacher', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], shift: 'CUSTOM' }] }) });
     assert.equal(invalidShift.status, 400);
-    const invalidCampus = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-campus-0001'), body: JSON.stringify({ courseCode: 'REQ_CAMPUS', subjectName: 'Invalid campus', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], campus: 'Campus không có', room: 'A.101' }] }) });
-    assert.equal(invalidCampus.status, 400);
-    const invalidRoom = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-invalid-room-0001'), body: JSON.stringify({ courseCode: 'REQ_ROOM', subjectName: 'Invalid room', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], campus: 'TD', room: 'Không tồn tại' }] }) });
-    assert.equal(invalidRoom.status, 400);
+    const duplicateWeek = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-duplicate-week-0001'), body: JSON.stringify({ courseCode: 'REQ_DUPLICATE', subjectName: 'Duplicate week', instructor: 'Teacher', semester: 'HK1_2099', scheduleSessions: [scheduleSessions[0], { ...scheduleSessions[0], room: 'B.202' }] }) });
+    assert.equal(duplicateWeek.status, 400);
+    const freeTextRoom = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-free-room-0001'), body: JSON.stringify({ courseCode: 'REQ_ROOM', subjectName: 'Free room', instructor: 'Teacher', semester: 'HK1_2099', scheduleSessions: [{ ...scheduleSessions[0], room: 'Phòng tự nhập 501' }] }) });
+    assert.equal(freeTextRoom.status, 200);
 
-    const request = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0001'), body: JSON.stringify({ courseCode: 'REQ_001', subjectName: 'Request fixture', semester: 'HK1_2099', note: 'fixture', scheduleSessions }) });
+    const request = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0001'), body: JSON.stringify({ courseCode: 'REQ_001', subjectName: 'Request fixture', instructor: 'Teacher', semester: 'HK1_2099', note: 'fixture', scheduleSessions }) });
     assert.equal(request.status, 200); const requested = await request.json();
     const own = await app.request('/api/private/v1/course-requests', { headers: { Origin: ORIGIN, Cookie: 'session=user' } }); assert.equal(own.status, 200);
     const review = await app.request('/api/private/v1/course-requests/review', { headers: { Origin: ORIGIN, Cookie: 'session=auditor' } }); assert.equal(review.status, 200);
@@ -99,9 +101,9 @@ test('course D1 APIs enforce roles, CAS, idempotency, ownership and atomic appro
     const approvalRetry = await app.request(`/api/private/v1/course-requests/${requested.id}/approve`, { method: 'PATCH', headers: headers('admin', 'request-approve-0001', 0) }); assert.deepEqual(await approvalRetry.json(), approved);
     const counts = (await app.sql(`SELECT (SELECT COUNT(*) FROM course_schedules WHERE source_key='request:${requested.id}') AS courses,(SELECT status FROM user_course_requests WHERE id='${requested.id}') AS status,(SELECT COUNT(*) FROM course_mutation_outbox WHERE request_id='${requested.id}' AND event_type='course_request.approved') AS outbox`))[0];
     assert.deepEqual({ courses: Number(counts.courses), status: counts.status, outbox: Number(counts.outbox) }, { courses: 1, status: 'approved', outbox: 1 });
-    assert.deepEqual((await app.sql(`SELECT weeks,day_of_week,shift,campus,room FROM course_schedules WHERE source_key='request:${requested.id}'`))[0], { weeks: '1,2,3', day_of_week: '2', shift: 'S', campus: '', room: '' });
+    assert.deepEqual((await app.sql(`SELECT weeks,day_of_week,shift,campus,room FROM course_schedules WHERE source_key='request:${requested.id}'`))[0], { weeks: '1', day_of_week: '2', shift: 'S', campus: '', room: 'A.101' });
 
-    const rejectedRequest = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0002'), body: JSON.stringify({ courseCode: 'REQ_002', subjectName: 'Reject fixture', semester: 'HK1_2099', scheduleSessions }) }); const rejected = await rejectedRequest.json();
+    const rejectedRequest = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0002'), body: JSON.stringify({ courseCode: 'REQ_002', subjectName: 'Reject fixture', instructor: 'Teacher', semester: 'HK1_2099', scheduleSessions }) }); const rejected = await rejectedRequest.json();
     const reject = await app.request(`/api/private/v1/course-requests/${rejected.id}/reject`, { method: 'PATCH', headers: headers('admin', 'request-reject-0001', 0) }); assert.equal(reject.status, 200);
   } finally { await app.dispose(); }
 });
@@ -126,7 +128,7 @@ test('scraper internal path is server-authenticated, idempotent and cannot overw
 test('approval failure is atomic and account cleanup removes only owner-owned request state', async () => {
   const app = await harness();
   try {
-    const create = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-atomic-0001'), body: JSON.stringify({ courseCode: 'REQ_ATOMIC', subjectName: 'Atomic fixture', semester: 'HK1_2099', scheduleSessions }) });
+    const create = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-atomic-0001'), body: JSON.stringify({ courseCode: 'REQ_ATOMIC', subjectName: 'Atomic fixture', instructor: 'Teacher', semester: 'HK1_2099', scheduleSessions }) });
     const requested = await create.json();
     await app.sql(`CREATE TRIGGER reject_approval BEFORE UPDATE OF status ON user_course_requests WHEN NEW.id='${requested.id}' BEGIN SELECT RAISE(ABORT, 'injected approval failure'); END`);
     const failedApproval = await app.request(`/api/private/v1/course-requests/${requested.id}/approve`, { method: 'PATCH', headers: headers('admin', 'request-approve-atomic-0001', 0) });

@@ -26,12 +26,10 @@ import { logWebError } from '../utils/logWebError';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
 import { submitManualCourseRequest } from '../utils/manualCourseRequest';
-import { fetchScheduleSessionCatalogue } from '../utils/scheduleSessionOptionsApi';
 import {
   createEmptyScheduleSession,
   formatScheduleSession,
   scheduleSessionsAreValid,
-  type ScheduleSessionCatalogue,
   type StructuredScheduleSession,
 } from '../utils/scheduleSessions';
 import { normalizeImportedSemester } from '../utils/scheduleImportUtils';
@@ -601,21 +599,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState<{ subject_name: string; course_code: string; instructor: string; scheduleSessions: StructuredScheduleSession[] }>({ subject_name: '', course_code: '', instructor: '', scheduleSessions: [createEmptyScheduleSession()] });
-  const [scheduleSessionCatalogue, setScheduleSessionCatalogue] = useState<ScheduleSessionCatalogue | null>(null);
-  const [scheduleSessionCatalogueError, setScheduleSessionCatalogueError] = useState('');
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
-
-  useEffect(() => {
-    if (!isCreateCourseModalOpen) return;
-    let cancelled = false;
-    setScheduleSessionCatalogue(null); setScheduleSessionCatalogueError('');
-    void fetchScheduleSessionCatalogue(selectedSemester).then((catalogue) => {
-      if (!cancelled) setScheduleSessionCatalogue(catalogue);
-    }).catch(() => {
-      if (!cancelled) setScheduleSessionCatalogueError('Không thể tải danh mục cơ sở/phòng. Vui lòng thử lại.');
-    });
-    return () => { cancelled = true; };
-  }, [isCreateCourseModalOpen, selectedSemester]);
   const planStorageKey = `${PLAN_SCHEDULE_STORAGE_PREFIX}:${session?.user?.id || 'guest'}`;
   const currentPlanSchedule = planSchedules[activePlanKey].filter(c => c.semester === selectedSemester);
   const isPlanMode = scheduleViewMode === 'plan';
@@ -2265,7 +2249,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const handleCreateCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester, scheduleSessionCatalogue)) { alert("Vui lòng hoàn tất ít nhất một buổi học hợp lệ."); return; }
+    if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)) { alert("Vui lòng hoàn tất thông tin môn học và từng buổi học."); return; }
 
     if (!session?.user) { alert("⚠️ Bạn cần đăng nhập để gửi yêu cầu!"); return; }
 
@@ -4059,20 +4043,22 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL THÊM MÔN MỚI DÀNH CHO USER */}
         {isCreateCourseModalOpen && (
-            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsCreateCourseModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-300 overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-3 md:p-6" onClick={() => setIsCreateCourseModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-[min(96vw,1280px)] border border-gray-300 overflow-hidden flex max-h-[94vh] flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-[#f8fafc]">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
                         <button onClick={() => setIsCreateCourseModalOpen(false)} className="text-gray-400 hover:text-gray-800"><X size={20}/></button>
                     </div>
-                    <form onSubmit={handleCreateCourseSubmit} className="max-h-[72vh] space-y-4 overflow-y-auto p-5 bg-white">
-                        <div className="text-xs text-gray-500 mb-2">Hệ thống chưa có môn này? Gửi thông tin để Admin cập nhật nhé.</div>
-                        <div><input type="text" required placeholder="Tên môn học *" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/></div>
-                        <div><input type="text" required placeholder="Mã học phần *" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/></div>
-                        <div><input type="text" placeholder="Giảng viên (Tùy chọn)" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/></div>
-                        <ScheduleSessionsEditor semester={selectedSemester} value={newCourseData.scheduleSessions} onChange={scheduleSessions => setNewCourseData({ ...newCourseData, scheduleSessions })} catalogue={scheduleSessionCatalogue} catalogueLoading={!scheduleSessionCatalogue && !scheduleSessionCatalogueError} compact />
-                        {scheduleSessionCatalogueError && <p className="text-xs font-semibold text-red-600" role="alert">{scheduleSessionCatalogueError}</p>}
-                        <button type="submit" disabled={isSubmittingCourse || Boolean(scheduleSessionCatalogueError) || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester, scheduleSessionCatalogue)} className="w-full py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-colors disabled:bg-slate-300">{isSubmittingCourse ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
+                    <form onSubmit={handleCreateCourseSubmit} className="overflow-y-auto p-5 bg-white">
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-gray-500">Khai báo từng tuần/buổi để Admin cập nhật đúng lịch học.</p><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-[#0056C7]">Học kỳ {selectedSemester.replaceAll('_', ' ')}</span></div>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                          <input type="text" required placeholder="Mã học phần *" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
+                          <input type="text" required placeholder="Tên môn học *" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
+                          <input type="text" required placeholder="Giảng viên *" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
+                          <input type="text" aria-label="Học kỳ" readOnly value={selectedSemester.replaceAll('_', ' ')} className="w-full cursor-not-allowed px-3 py-2.5 border border-gray-200 rounded-lg bg-slate-50 text-sm font-semibold text-slate-600"/>
+                        </div>
+                        <div className="mt-4"><ScheduleSessionsEditor semester={selectedSemester} value={newCourseData.scheduleSessions} onChange={scheduleSessions => setNewCourseData({ ...newCourseData, scheduleSessions })} showSummary /></div>
+                        <button type="submit" disabled={isSubmittingCourse || !newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)} className="mt-5 w-full py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-colors disabled:bg-slate-300">{isSubmittingCourse ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
                     </form>
                 </div>
             </div>

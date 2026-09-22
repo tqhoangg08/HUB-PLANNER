@@ -14,11 +14,6 @@ export interface StructuredScheduleSession {
   room: string;
 }
 
-export interface ScheduleSessionCatalogue {
-  campuses: string[];
-  roomsByCampus: Record<string, string[]>;
-}
-
 export const SCHEDULE_SHIFT_OPTIONS: ReadonlyArray<{ value: ScheduleShiftCode; label: string }> = [
   { value: 'S', label: 'Ca sáng (07:00 – 11:05)' },
   { value: 'C', label: 'Ca chiều (13:00 – 17:05)' },
@@ -62,35 +57,42 @@ export const getSemesterWeekOptions = (semester?: string) => {
 export const getScheduleSessionErrors = (
   session: StructuredScheduleSession,
   semester: string,
-  catalogue?: ScheduleSessionCatalogue | null,
+  hasDuplicateWeek = false,
 ) => {
   const errors: string[] = [];
   const maxWeek = getSemesterMaxWeek(semester);
-  const validWeeks = session.weeks.length > 0
+  const validWeeks = session.weeks.length === 1
     && session.weeks.every((week) => Number.isInteger(week) && week >= 1 && week <= maxWeek);
-  if (!validWeeks) errors.push('Chọn ít nhất một tuần học hợp lệ.');
+  if (!validWeeks) errors.push('Mỗi buổi cần chọn đúng một tuần học hợp lệ.');
+  if (hasDuplicateWeek) errors.push('Tuần học bị trùng với một buổi khác.');
   if (!Number.isInteger(session.dayOfWeek) || Number(session.dayOfWeek) < 2 || Number(session.dayOfWeek) > 8) {
     errors.push('Chọn thứ học.');
   }
   if (!SCHEDULE_SHIFT_OPTIONS.some((option) => option.value === session.shift)) {
     errors.push('Chọn ca học.');
   }
-  if (catalogue) {
-    const campus = session.campus.trim();
-    const room = session.room.trim();
-    if (campus && !catalogue.campuses.includes(campus)) errors.push('Cơ sở không còn trong danh mục.');
-    if (room && (!campus || !(catalogue.roomsByCampus[campus] || []).includes(room))) {
-      errors.push('Phòng học không thuộc cơ sở đã chọn.');
-    }
-  }
+  if (typeof session.room !== 'string' || session.room.trim().length > 120) errors.push('Phòng học không hợp lệ.');
   return errors;
+};
+
+export const getDuplicateWeekSessionIndexes = (sessions: StructuredScheduleSession[]) => {
+  const occurrences = new Map<number, number[]>();
+  sessions.forEach((session, index) => {
+    if (session.weeks.length !== 1 || !Number.isInteger(session.weeks[0])) return;
+    const matches = occurrences.get(session.weeks[0]) || [];
+    matches.push(index);
+    occurrences.set(session.weeks[0], matches);
+  });
+  return new Set([...occurrences.values()].filter((indexes) => indexes.length > 1).flat());
 };
 
 export const scheduleSessionsAreValid = (
   sessions: StructuredScheduleSession[],
   semester: string,
-  catalogue?: ScheduleSessionCatalogue | null,
-) => sessions.length > 0 && sessions.every((session) => getScheduleSessionErrors(session, semester, catalogue).length === 0);
+) => {
+  const duplicates = getDuplicateWeekSessionIndexes(sessions);
+  return sessions.length > 0 && sessions.every((session, index) => getScheduleSessionErrors(session, semester, duplicates.has(index)).length === 0);
+};
 
 const splitValues = (value: unknown) => String(value || '').split(/\r?\n/).map((item) => item.trim());
 
@@ -119,14 +121,14 @@ export const scheduleSessionsFromLegacyFields = (
       .filter((week) => week >= 1 && week <= maxWeek))].sort((a, b) => a - b);
     const day = Number(days[index] || days[0] || '');
     const shift = String(shifts[index] || shifts[0] || '').toUpperCase();
-    return {
-      weeks: parsedWeeks,
+    return parsedWeeks.map((week): StructuredScheduleSession => ({
+      weeks: [week],
       dayOfWeek: Number.isInteger(day) && day >= 2 && day <= 8 ? day : null,
       shift: SCHEDULE_SHIFT_OPTIONS.some((option) => option.value === shift) ? shift as ScheduleShiftCode : '',
       campus: campuses[index] || campuses[0] || '',
       room: rooms[index] || rooms[0] || '',
-    };
-  });
+    }));
+  }).flat();
 };
 
 export const serializeScheduleSessions = (sessions: StructuredScheduleSession[]) => ({
@@ -141,5 +143,5 @@ export const formatScheduleSession = (session: StructuredScheduleSession) => {
   const day = SCHEDULE_DAY_OPTIONS.find((option) => option.value === session.dayOfWeek)?.label || 'Chưa xác định thứ';
   const shift = SCHEDULE_SHIFT_OPTIONS.find((option) => option.value === session.shift)?.label || 'Chưa xác định ca';
   const weeks = session.weeks.length ? `Tuần ${[...new Set(session.weeks)].sort((a, b) => a - b).join(', ')}` : 'Chưa xác định tuần';
-  return [weeks, day, shift, session.campus || 'Chưa xác định cơ sở', session.room || 'Chưa xác định phòng'];
+  return [weeks, day, shift, session.room ? `Phòng ${session.room}` : 'Chưa xác định phòng'];
 };

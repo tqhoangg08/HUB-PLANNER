@@ -693,6 +693,15 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
       body: { semester: SEMESTER, courseIds: [COURSE_A, COURSE_B] },
     });
     assert.deepEqual(await replace.json(), { success: true, changed: true, revision: 1, count: 2 });
+    const missingInstructor = await replaceSchedule(harness, {
+      key: 'pdf-import-no-instructor',
+      revision: 1,
+      body: { semester: SEMESTER, rows: [{ course: {
+        course_code: 'PRIVATE_NO_TEACHER', subject_name: 'Missing instructor', credits: 3,
+        scheduleSessions: [{ weeks: [1], dayOfWeek: 2, shift: 'S', campus: '', room: 'A.101' }], phase: '1',
+      } }] },
+    });
+    assert.equal(missingInstructor.status, 400);
     const importedBody = {
       semester: SEMESTER,
       rows: [{
@@ -700,8 +709,8 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
           course_code: 'PRIVATE101', subject_name: 'Imported private course', credits: 3,
           instructor: 'Teacher',
           scheduleSessions: [
-            { weeks: [1, 2, 3], dayOfWeek: 2, shift: 'S', campus: 'TD', room: 'A.101' },
-            { weeks: [6, 7], dayOfWeek: 4, shift: 'C', campus: '', room: '' },
+            { weeks: [1], dayOfWeek: 2, shift: 'S', campus: '', room: 'A.101' },
+            { weeks: [6], dayOfWeek: 4, shift: 'C', campus: '', room: 'B.202' },
           ], phase: '1',
         },
       }],
@@ -729,7 +738,7 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
     const reloaded = JSON.parse(snapshot.course_json);
     assert.deepEqual(
       { weeks: reloaded.weeks, day_of_week: reloaded.day_of_week, shift: reloaded.shift, campus: reloaded.campus, room: reloaded.room },
-      { weeks: '1,2,3\n6,7', day_of_week: '2\n4', shift: 'S\nC', campus: 'TD\n', room: 'A.101\n' },
+      { weeks: '1\n6', day_of_week: '2\n4', shift: 'S\nC', campus: '\n', room: 'A.101\nB.202' },
     );
   } finally {
     await harness.dispose();
