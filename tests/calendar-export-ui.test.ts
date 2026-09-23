@@ -23,3 +23,22 @@ test('desktop and mobile schedule surfaces use the shared calendar export dialog
   assert.match(dialog, /Bao gồm giảng viên/);
   assert.match(dialog, /không tự cập nhật/);
 });
+
+test('download handoff shows a focused, responsive import guide without downloading again', () => {
+  const exportDialog = read('components/CalendarExportDialog.tsx');
+  const guide = read('components/CalendarImportGuideDialog.tsx');
+  const host = read('components/CalendarImportGuideHost.tsx');
+  assert.match(exportDialog, /getCalendarHandoffPresentation\(method, count\)/);
+  assert.match(exportDialog, /flushSync\(\(\) => openCalendarImportGuide\(count\)\)/);
+  assert.match(host, /CalendarImportGuideDialog eventCount=/);
+  assert.match(host, /document\.body/);
+  assert.match(guide, /role="dialog"/);
+  assert.match(guide, /aria-labelledby="calendar-import-guide-title"/);
+  assert.match(guide, /closeButtonRef\.current\?\.focus\(\)/);
+  assert.match(guide, /event\.key === 'Escape'/);
+  assert.match(guide, /overflow-x-hidden/);
+  assert.match(guide, /showPwaInstallCard/);
+  assert.match(guide, /canInstall \?/);
+  assert.match(guide, /Cài HUB Planner/);
+  assert.doesNotMatch(guide, /downloadCalendarFile|handoffCalendarFile|createObjectURL/);
+});

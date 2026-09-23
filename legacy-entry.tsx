@@ -5,6 +5,7 @@ import LegacyApp from './LegacyApp';
 import { installAppNotificationBridge } from './utils/appNotifications';
 import { bootstrapBrowser } from './utils/browserBootstrap';
 import { installGlobalWebErrorHandlers } from './utils/logWebError';
+import { CalendarImportGuideHost } from './components/CalendarImportGuideHost';
 
 export const mountLegacyApplication = () => {
   const rootElement = document.getElementById('root');
@@ -19,6 +20,7 @@ export const mountLegacyApplication = () => {
     <React.StrictMode>
       <BrowserRouter>
         <LegacyApp />
+        <CalendarImportGuideHost />
       </BrowserRouter>
     </React.StrictMode>,
   );

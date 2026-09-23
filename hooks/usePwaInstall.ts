@@ -1,28 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { playClick } from '../utils/audio';
 import { showAlert } from '../utils/appNotifications';
-
-interface BeforeInstallPromptEvent extends Event {
-    prompt: () => Promise<void>;
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
+import { canPromptPwaInstall, requestPwaInstall } from '../utils/pwaInstallPrompt';
 
 interface UsePwaInstallOptions {
     pathname: string;
     search: string;
 }
 
-let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
-
-if (typeof window !== 'undefined') {
-    window.addEventListener('beforeinstallprompt', event => {
-        event.preventDefault();
-        globalDeferredPrompt = event as BeforeInstallPromptEvent;
-    });
-}
-
 export const usePwaInstall = ({ pathname, search }: UsePwaInstallOptions) => {
-    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
     const [isIOS, setIsIOS] = useState(false);
     const [showIOSInstructions, setShowIOSInstructions] = useState(false);
     const lastAutoInstallPathRef = useRef<string | null>(null);
@@ -34,25 +20,16 @@ export const usePwaInstall = ({ pathname, search }: UsePwaInstallOptions) => {
             && 'ontouchend' in document
         );
 
-        const handleBeforeInstallPrompt = (event: Event) => {
-            event.preventDefault();
-            setDeferredPrompt(event as BeforeInstallPromptEvent);
-        };
-
-        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     }, []);
 
     const handleInstallApp = useCallback(async () => {
         playClick();
-        const promptToUse = deferredPrompt || globalDeferredPrompt;
-
         if (isIOS) {
             setShowIOSInstructions(true);
             return;
         }
 
-        if (!promptToUse) {
+        if (!canPromptPwaInstall()) {
             await showAlert({
                 title: 'Không thể cài tự động',
                 message: 'Trình duyệt không hỗ trợ cài tự động, hoặc HUB Planner đã được cài trên thiết bị này rồi.',
@@ -62,13 +39,8 @@ export const usePwaInstall = ({ pathname, search }: UsePwaInstallOptions) => {
             return;
         }
 
-        await promptToUse.prompt();
-        const { outcome } = await promptToUse.userChoice;
-        if (outcome === 'accepted') {
-            setDeferredPrompt(null);
-            globalDeferredPrompt = null;
-        }
-    }, [deferredPrompt, isIOS]);
+        await requestPwaInstall();
+    }, [isIOS]);
 
     useEffect(() => {
         const searchParams = new URLSearchParams(search);

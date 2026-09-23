@@ -1,13 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { CalendarPlus, CheckCircle2, Clock3, FileDown, MapPin, UserRound, X } from 'lucide-react';
 import {
   buildCalendarExport,
+  CalendarExportHandoffError,
   handoffCalendarFile,
   type CalendarExportCourse,
   type CalendarReminderMinutes,
 } from '../utils/calendarExport';
 import { SEMESTER_OPTIONS } from '../utils/academicCalendar';
+import { getCalendarHandoffPresentation } from '../utils/calendarImportGuide';
+import { closeCalendarImportGuide, openCalendarImportGuide } from '../utils/calendarImportGuideState';
 
 interface CalendarExportDialogProps {
   open: boolean;
@@ -31,14 +34,18 @@ export const CalendarExportDialog: React.FC<CalendarExportDialogProps> = ({ open
   const [includeInstructor, setIncludeInstructor] = useState(true);
   const [resultMessage, setResultMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
-  const preview = useMemo(() => buildCalendarExport({
-    semester,
-    courses,
-    reminderMinutes,
-    includeRoom,
-    includeInstructor,
-  }), [courses, includeInstructor, includeRoom, reminderMinutes, semester]);
+  const preview = useMemo(() => {
+    try {
+      return buildCalendarExport({ semester, courses, reminderMinutes, includeRoom, includeInstructor });
+    } catch {
+      return null;
+    }
+  }, [courses, includeInstructor, includeRoom, reminderMinutes, semester]);
+  const issueRowCount = new Set(preview?.issues.map(issue => `${issue.courseIndex}:${issue.rowIndex}`)).size;
+  const hasInvalidDates = preview?.issues.some(issue => issue.reason === 'invalid_date');
+  const hasUnknownShifts = preview?.issues.some(issue => issue.reason === 'unknown_shift');
   const semesterLabel = SEMESTER_OPTIONS.find(option => option.value === semester)?.label || semester.replaceAll('_', ' ');
 
   if (!open) return null;
@@ -50,21 +57,45 @@ export const CalendarExportDialog: React.FC<CalendarExportDialogProps> = ({ open
   };
 
   const handleExport = async () => {
+    if (isExporting) return;
     setErrorMessage('');
     setResultMessage('');
-    if (!preview.events.length) {
-      setErrorMessage('Chưa có buổi học hợp lệ để thêm vào lịch cho học kỳ này.');
+    if (!preview) {
+      setErrorMessage('Không thể tạo lịch từ dữ liệu học kỳ này.');
       return;
     }
+    if (!preview.events.length) {
+      setErrorMessage(hasInvalidDates
+        ? 'Không thể xác định ngày học của các buổi trong học kỳ này.'
+        : hasUnknownShifts
+          ? 'Không thể xác định giờ học của các buổi trong học kỳ này.'
+          : 'Không có buổi học hợp lệ để xuất.');
+      return;
+    }
+    let file: File;
     try {
-      const file = new File([preview.ics], preview.filename, { type: 'text/calendar;charset=utf-8' });
-      const method = await handoffCalendarFile(file);
-      setResultMessage(method === 'share'
-        ? `Đã chuẩn bị ${preview.events.length} buổi học. Chọn ứng dụng lịch trên thiết bị để hoàn tất.`
-        : `Đã chuẩn bị ${preview.events.length} buổi học. Mở file .ics vừa tải xuống bằng ứng dụng lịch trên thiết bị để hoàn tất.`);
+      file = new File([preview.ics], preview.filename, { type: 'text/calendar;charset=utf-8' });
+    } catch {
+      setErrorMessage('Trình duyệt không thể tạo file lịch .ics.');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const count = preview.events.length;
+      const method = await handoffCalendarFile(file, navigator, undefined, () => {
+        // Commit the independent guide before mobile download UI can background us.
+        flushSync(() => openCalendarImportGuide(count));
+      });
+      const presentation = getCalendarHandoffPresentation(method, count);
+      if (presentation.successMessage) setResultMessage(presentation.successMessage);
+      if (presentation.showGuide) handleClose();
     } catch (error) {
-      if ((error as DOMException)?.name === 'AbortError') return;
-      setErrorMessage('Không thể chuẩn bị file lịch. Vui lòng thử lại.');
+      closeCalendarImportGuide();
+      setErrorMessage(error instanceof CalendarExportHandoffError
+        ? 'Không thể tải file .ics xuống thiết bị. Hãy kiểm tra quyền tải file của trình duyệt.'
+        : 'Không thể chuyển file lịch cho thiết bị. Vui lòng thử lại.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -88,7 +119,7 @@ export const CalendarExportDialog: React.FC<CalendarExportDialogProps> = ({ open
         <div className="space-y-4 px-5 py-5">
           <div className="grid grid-cols-2 gap-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs">
             <div><p className="font-semibold text-slate-500">Học kỳ</p><p className="mt-0.5 font-extrabold text-[#003375]">{semesterLabel}</p></div>
-            <div><p className="font-semibold text-slate-500">Lịch sẽ thêm</p><p className="mt-0.5 font-extrabold text-[#003375]">{preview.courseCount} môn · {preview.events.length} buổi</p></div>
+            <div><p className="font-semibold text-slate-500">Lịch sẽ thêm</p><p className="mt-0.5 font-extrabold text-[#003375]">{preview?.courseCount || 0} môn · {preview?.events.length || 0} buổi</p></div>
           </div>
 
           <label className="block text-sm font-bold text-slate-700">
@@ -103,6 +134,8 @@ export const CalendarExportDialog: React.FC<CalendarExportDialogProps> = ({ open
             <label className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-slate-700"><input type="checkbox" checked={includeInstructor} onChange={event => setIncludeInstructor(event.target.checked)} className="h-4 w-4 accent-[#0056C7]" /><UserRound size={15} className="text-slate-500" /> Bao gồm giảng viên</label>
           </div>
 
+          {issueRowCount > 0 && <p role="status" className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">{issueRowCount} dòng lịch có dữ liệu không hợp lệ; chỉ các buổi hợp lệ được đưa vào file .ics.</p>}
+          {!preview && <p role="alert" className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">Không thể tạo lịch từ dữ liệu học kỳ này.</p>}
           {errorMessage && <p role="alert" className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{errorMessage}</p>}
           {resultMessage && <p role="status" className="flex items-start gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"><CheckCircle2 size={16} className="mt-0.5 shrink-0" />{resultMessage}</p>}
           <p className="text-[11px] leading-5 text-slate-500">Lịch đã thêm vào ứng dụng lịch sẽ không tự cập nhật nếu thời khóa biểu trong HUB Planner thay đổi.</p>
@@ -110,7 +143,7 @@ export const CalendarExportDialog: React.FC<CalendarExportDialogProps> = ({ open
 
         <footer className="flex gap-3 border-t border-slate-100 bg-white px-5 py-4">
           <button type="button" onClick={handleClose} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Hủy</button>
-          <button type="button" disabled={!preview.events.length} onClick={handleExport} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#003375] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-slate-300"><FileDown size={16} /> Thêm toàn bộ vào lịch</button>
+          <button type="button" disabled={!preview?.events.length || isExporting} onClick={handleExport} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#003375] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-slate-300"><FileDown size={16} /> Thêm toàn bộ vào lịch</button>
         </footer>
       </section>
     </div>,

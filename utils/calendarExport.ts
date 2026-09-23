@@ -41,6 +41,25 @@ export interface CalendarExportResult {
   events: CalendarExportEvent[];
   courseCount: number;
   filename: string;
+  issues: CalendarExportIssue[];
+}
+
+export type CalendarExportIssueReason = 'invalid_week' | 'invalid_day' | 'unknown_shift' | 'invalid_date';
+
+export interface CalendarExportIssue {
+  courseIndex: number;
+  rowIndex: number;
+  reason: CalendarExportIssueReason;
+}
+
+export class CalendarExportHandoffError extends Error {
+  readonly reason: 'download_failed';
+
+  constructor(reason: 'download_failed') {
+    super(reason);
+    this.name = 'CalendarExportHandoffError';
+    this.reason = reason;
+  }
 }
 
 const CALENDAR_TIMEZONE = 'Asia/Ho_Chi_Minh';
@@ -95,41 +114,61 @@ const splitScheduleRows = (value: unknown) => {
 
 const valueForRow = (values: string[], index: number) => values[index] ?? values[values.length - 1] ?? '';
 
-const parseDays = (value: string) => (
-  value.replace(/,/g, ' ').split(/\s+/).map(Number).filter(day => Number.isInteger(day) && day >= 2 && day <= 8)
-);
+const parseDays = (value: string) => value.replace(/,/g, ' ').trim().split(/\s+/)
+  .map(Number).filter(day => Number.isInteger(day) && day >= 2 && day <= 8);
 
 const parseExportWeeks = (value: string, semester: string) => {
   const weeks = new Set<number>();
-  value.replace(/\s/g, '').split(',').forEach(part => {
-    const [first, last] = part.split('-').map(Number);
-    if (Number.isInteger(first) && Number.isInteger(last) && first > 0 && last >= first) {
-      for (let week = first; week <= last; week += 1) weeks.add(week);
-    } else if (Number.isInteger(first) && first > 0) {
-      weeks.add(first);
-    }
-  });
   const holidays = new Set(getSemesterHolidayWeeks(semester));
   const maxWeek = getSemesterMaxWeek(semester);
-  return [...weeks]
-    .filter(week => week <= maxWeek && !holidays.has(week))
-    .sort((left, right) => left - right);
+  let invalid = false;
+  value.replace(/\s/g, '').split(',').forEach(part => {
+    const range = part.match(/^(\d+)-(\d+)$/);
+    const single = part.match(/^\d+$/);
+    const first = Number(range?.[1] || single?.[0]);
+    const last = range ? Number(range[2]) : first;
+    if ((!range && !single) || first < 1 || last < first || last > maxWeek) {
+      invalid = true;
+      return;
+    }
+    for (let week = first; week <= last; week += 1) {
+      if (!holidays.has(week)) weeks.add(week);
+    }
+  });
+  return { weeks: [...weeks].sort((left, right) => left - right), invalid };
 };
 
 export const getCanonicalShiftTimeRange = (shift: unknown) => {
-  const raw = String(shift || '').trim().toUpperCase();
-  const exact = raw.match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/);
-  if (exact) {
-    return { start: `${pad(Number(exact[1]))}:${exact[2]}`, end: `${pad(Number(exact[3]))}:${exact[4]}` };
-  }
-
-  if (raw === 'S') return { start: '07:00', end: '11:05' };
-  if (raw === 'C') return { start: '13:00', end: '17:05' };
-  if (/(^|\D)1\s*[-–]\s*3(\D|$)/.test(raw)) return { start: '07:00', end: '09:15' };
-  if (/(^|\D)4\s*[-–]\s*5(\D|$)/.test(raw)) return { start: '09:35', end: '11:05' };
-  if (/(^|\D)6\s*[-–]\s*8(\D|$)/.test(raw)) return { start: '13:00', end: '15:15' };
-  if (/(^|\D)9\s*[-–]\s*10(\D|$)/.test(raw)) return { start: '15:35', end: '17:05' };
-  return null;
+  const raw = String(shift || '').trim().toUpperCase()
+    .replace(/\s*:\s*/g, ':').replace(/\s*[-–]\s*/g, '-');
+  const parts = raw.split(/[;,]|\s+(?=(?:\d+-\d+|S|C)(?:\s|$))/).map(part => part.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const ranges = parts.map(part => {
+    const exact = part.match(/^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/);
+    if (exact) {
+      const startMinutes = Number(exact[1]) * 60 + Number(exact[2]);
+      const endMinutes = Number(exact[3]) * 60 + Number(exact[4]);
+      if (endMinutes <= 24 * 60 && startMinutes < endMinutes && Number(exact[2]) < 60 && Number(exact[4]) < 60) {
+        return { start: `${pad(Number(exact[1]))}:${exact[2]}`, end: `${pad(Number(exact[3]))}:${exact[4]}` };
+      }
+      return null;
+    }
+    const known: Record<string, { start: string; end: string }> = {
+      S: { start: '07:00', end: '11:05' },
+      C: { start: '13:00', end: '17:05' },
+      '1-3': { start: '07:00', end: '09:15' },
+      '4-5': { start: '09:35', end: '11:05' },
+      '6-8': { start: '13:00', end: '15:15' },
+      '9-10': { start: '15:35', end: '17:05' },
+      '1-5': { start: '07:00', end: '11:05' },
+      '6-10': { start: '13:00', end: '17:05' },
+    };
+    return known[part] || null;
+  });
+  if (ranges.some(range => !range)) return null;
+  const starts = ranges.map(range => range!.start).sort();
+  const ends = ranges.map(range => range!.end).sort();
+  return { start: starts[0], end: ends[ends.length - 1] };
 };
 
 const hashOpaque = (value: string) => {
@@ -157,8 +196,10 @@ export const buildCalendarExport = ({
   now = new Date(),
 }: CalendarExportOptions): CalendarExportResult => {
   const events: Array<CalendarExportEvent & { course: CalendarExportCourse }> = [];
+  const issues: CalendarExportIssue[] = [];
 
-  courses.filter(course => course.semester === semester).forEach(course => {
+  courses.forEach((course, courseIndex) => {
+    if (course.semester !== semester) return;
     const weekRows = splitScheduleRows(course.weeks);
     const dayRows = splitScheduleRows(course.day_of_week);
     const shiftRows = splitScheduleRows(course.shift);
@@ -169,16 +210,23 @@ export const buildCalendarExport = ({
       const weekValue = valueForRow(weekRows, row);
       const dayValue = valueForRow(dayRows, row);
       const shiftValue = valueForRow(shiftRows, row);
-      const timeRange = getCanonicalShiftTimeRange(shiftValue);
-      if (!timeRange) continue;
-
-      const weeks = parseExportWeeks(weekValue, semester);
+      const { weeks, invalid: invalidWeek } = parseExportWeeks(weekValue, semester);
       const days = parseDays(dayValue);
+      const timeRange = getCanonicalShiftTimeRange(shiftValue);
+      if (invalidWeek) issues.push({ courseIndex, rowIndex: row, reason: 'invalid_week' });
+      if (!days.length || dayValue.replace(/,/g, ' ').trim().split(/\s+/).length !== days.length) {
+        issues.push({ courseIndex, rowIndex: row, reason: 'invalid_day' });
+      }
+      if (!timeRange) issues.push({ courseIndex, rowIndex: row, reason: 'unknown_shift' });
+      if (!timeRange || !weeks.length || !days.length) continue;
       for (const week of weeks) {
         const weekDates = getWeekDatesForSemester(week, semester);
         for (const dayOfWeek of days) {
           const date = weekDates[dayOfWeek - 2];
-          if (!date) continue;
+          if (!date || Number.isNaN(date.getTime())) {
+            issues.push({ courseIndex, rowIndex: row, reason: 'invalid_date' });
+            continue;
+          }
           events.push({
             uid: eventUid(course, semester, week, dayOfWeek, shiftValue, row),
             courseId: course.user_schedule_id || course.id || course.course_code || 'course',
@@ -246,43 +294,74 @@ export const buildCalendarExport = ({
     events: events.map(({ course: _course, ...event }) => event),
     courseCount: new Set(events.map(event => event.courseId)).size,
     filename: buildFilename(semester),
+    issues,
   };
 };
 
 type NavigatorWithShare = Pick<Navigator, 'share' | 'canShare'>;
 
-export const getCalendarHandoffMethod = (navigatorLike: Partial<NavigatorWithShare>, file: File) => (
-  typeof navigatorLike.share === 'function'
-    && typeof navigatorLike.canShare === 'function'
-    && navigatorLike.canShare({ files: [file] })
-    ? 'share'
-    : 'download'
-);
+export const getCalendarHandoffMethod = (navigatorLike: Partial<NavigatorWithShare>, file: File) => {
+  try {
+    return typeof navigatorLike.share === 'function'
+      && typeof navigatorLike.canShare === 'function'
+      && navigatorLike.canShare({ files: [file] })
+      ? 'share' : 'download';
+  } catch {
+    return 'download';
+  }
+};
 
 export const downloadCalendarFile = (file: File) => {
-  const url = URL.createObjectURL(file);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = file.name;
-  anchor.style.display = 'none';
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  let url = '';
+  let anchor: HTMLAnchorElement | null = null;
+  try {
+    url = URL.createObjectURL(file);
+    anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = file.name;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    // Let the browser begin reading the blob before releasing its URL.
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch {
+    if (url) URL.revokeObjectURL(url);
+    throw new CalendarExportHandoffError('download_failed');
+  } finally {
+    anchor?.remove();
+  }
 };
 
 export const handoffCalendarFile = async (
   file: File,
   navigatorLike: Partial<NavigatorWithShare> = navigator,
   download = downloadCalendarFile,
+  beforeDownload?: () => void,
 ) => {
+  const safelyDownload = () => {
+    try {
+      // Mobile browsers may background the page immediately when the file opens.
+      // Notify the UI before the browser starts that handoff.
+      beforeDownload?.();
+      download(file);
+    } catch {
+      throw new CalendarExportHandoffError('download_failed');
+    }
+  };
   if (getCalendarHandoffMethod(navigatorLike, file) === 'share') {
-    await navigatorLike.share!({
-      files: [file],
-      title: 'Thời khóa biểu HUB Planner',
-    });
-    return 'share' as const;
+    try {
+      await navigatorLike.share!({
+        files: [file],
+        title: 'Thời khóa biểu HUB Planner',
+      });
+      return 'share' as const;
+    } catch (error) {
+      if ((error as { name?: string })?.name === 'AbortError') return 'cancelled' as const;
+      // Some desktop browsers advertise file share but have no working target.
+      safelyDownload();
+      return 'download-after-share-failure' as const;
+    }
   }
-  download(file);
+  safelyDownload();
   return 'download' as const;
 };
