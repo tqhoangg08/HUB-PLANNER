@@ -3,6 +3,7 @@ import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { devBackendOrigin, proxyCloudflareApi, selectDevApiRoute } from './dev/devApiBridge'
 
 const apiRoot = path.join(process.cwd(), 'api')
 
@@ -84,6 +85,16 @@ const devApiPlugin = (): Plugin => ({
       const modulePath = resolveApiModule(parsedUrl.pathname)
 
       if (!modulePath) {
+        if (selectDevApiRoute(parsedUrl.pathname, modulePath) === 'cloudflare') {
+          try {
+            await proxyCloudflareApi(req, res, devBackendOrigin(process.env.DEV_BACKEND_ORIGIN))
+          } catch {
+            res.statusCode = 502
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Dev backend unavailable' }))
+          }
+          return
+        }
         res.statusCode = 404
         res.setHeader('Content-Type', 'application/json')
         res.end(JSON.stringify({ error: 'API route not found' }))
