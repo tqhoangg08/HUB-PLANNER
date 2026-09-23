@@ -13,7 +13,7 @@ import {
   handleCourseAuthorityInternal,
   type CourseAuthorityInternalEnv,
 } from './course-authority-internal.ts';
-import { handleEvents } from './events.ts';
+import { handleEvents, incrementPendingAdminEventView, incrementPublicEventView, parseEventViewId } from './events.ts';
 import {
   handleAdminLostFound,
   handleLostFound,
@@ -1182,6 +1182,21 @@ const worker = {
       });
     }
 
+    const publicEventViewMatch = requestUrl.pathname.match(/^\/api\/events\/([^/]+)\/view$/);
+    if (publicEventViewMatch) {
+      if (request.method !== 'POST') return json({ error: 'Chỉ hỗ trợ phương thức POST.' }, 405, { ...cors, Allow: 'POST, OPTIONS', 'Cache-Control': 'no-store' });
+      const id = parseEventViewId(publicEventViewMatch[1]);
+      if (id === null) return json({ error: 'Mã sự kiện không hợp lệ.' }, 400, { ...cors, 'Cache-Control': 'no-store' });
+      try {
+        const views = await incrementPublicEventView(env, id);
+        return views === null
+          ? json({ error: 'Không tìm thấy sự kiện.' }, 404, { ...cors, 'Cache-Control': 'no-store' })
+          : json({ success: true, views }, 200, { ...cors, 'Cache-Control': 'no-store' });
+      } catch {
+        return json({ error: 'Không thể ghi lượt xem.' }, 500, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
     if (requestUrl.pathname === '/api/private/v1/me') {
       return handleBetterAuthMeRequest(request, env, cors);
     }
@@ -1714,6 +1729,23 @@ const worker = {
           ...cors,
           'Cache-Control': 'no-store',
         });
+      }
+    }
+
+    const adminEventViewMatch = requestUrl.pathname.match(/^\/api\/admin\/v1\/events\/([^/]+)\/view$/);
+    if (adminEventViewMatch) {
+      if (request.method !== 'POST') return json({ error: 'Chỉ hỗ trợ phương thức POST.' }, 405, { ...cors, Allow: 'POST, OPTIONS', 'Cache-Control': 'no-store' });
+      const id = parseEventViewId(adminEventViewMatch[1]);
+      if (id === null) return json({ error: 'Mã sự kiện không hợp lệ.' }, 400, { ...cors, 'Cache-Control': 'no-store' });
+      try {
+        await requireBetterAuthStaff(request, env);
+        const views = await incrementPendingAdminEventView(env, id);
+        return views === null
+          ? json({ error: 'Không tìm thấy sự kiện chờ duyệt.' }, 404, { ...cors, 'Cache-Control': 'private, no-store' })
+          : json({ success: true, views }, 200, { ...cors, 'Cache-Control': 'private, no-store' });
+      } catch (error) {
+        if (error instanceof StaffAuthError || error instanceof BetterAuthIdentityError) return adminErrorResponse(error, requestUrl, cors);
+        return json({ error: 'Không thể ghi lượt xem.' }, 500, { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 

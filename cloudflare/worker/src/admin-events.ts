@@ -31,6 +31,7 @@ export interface CoreAdminEventRow {
   registration_start_date: string | null;
   registration_start_time: string | null;
   image_url: string | null;
+  view_count: number;
   contribution_link: string | null;
   contributor_note: string | null;
   section: string | null;
@@ -84,6 +85,7 @@ export const ADMIN_EVENT_SOURCE_COLUMNS = [
   'registration_start_date',
   'registration_start_time',
   'image_url',
+  'view_count',
   'contribution_link',
   'contributor_note',
   'section',
@@ -114,6 +116,7 @@ const ADMIN_EVENT_RESPONSE_COLUMNS = [
   'registration_start_date',
   'registration_start_time',
   'image_url',
+  'view_count',
 ] as const;
 
 const DEFAULT_PAGE_SIZE = 50;

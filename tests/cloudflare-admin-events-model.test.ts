@@ -11,6 +11,7 @@ import {
   readAdminEventMutationPayload,
   validateAdminEventMutationPayload,
 } from '../cloudflare/worker/src/admin-event-mutations.ts';
+import { incrementPendingAdminEventView, incrementPublicEventView } from '../cloudflare/worker/src/events.ts';
 
 test('admin event query clamps paging and accepts only known filters', () => {
   assert.deepEqual(parseAdminEventQuery(new URLSearchParams()), {
@@ -190,6 +191,7 @@ const d1Fixture = () => {
     '0009_create_admin_event_mutations.sql',
     '0023_create_event_push_deliveries.sql',
     '0026_core_events_d1_authority.sql',
+    '0048_event_view_count.sql',
   ]) sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
 
   const prepare = (query: string) => {
@@ -243,6 +245,8 @@ test('D1 core event create/replay/publish/edit/hide/unhide/delete projection is 
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM admin_events').get()?.n, 1);
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM public_events').get()?.n, 0);
 
+    assert.equal(await incrementPendingAdminEventView({ DB }, eventId), 1);
+
     const replay = await mutateAdminEvent(
       { DB }, 'create', { title: 'Không được tạo lại' }, undefined, fetch, createRequest
     );
@@ -252,8 +256,11 @@ test('D1 core event create/replay/publish/edit/hide/unhide/delete projection is 
 
     await mutateAdminEvent({ DB }, 'update', { status: 'published' }, eventId);
     assert.equal(sql.prepare('SELECT title FROM public_events WHERE id = ?').get(eventId)?.title, 'Sự kiện D1');
+    assert.equal(sql.prepare('SELECT view_count FROM public_events WHERE id = ?').get(eventId)?.view_count, 1);
+    assert.equal(await incrementPublicEventView({ DB }, eventId), 2);
     await mutateAdminEvent({ DB }, 'update', { title: 'Sự kiện D1 đã sửa' }, eventId);
     assert.equal(sql.prepare('SELECT title FROM public_events WHERE id = ?').get(eventId)?.title, 'Sự kiện D1 đã sửa');
+    assert.equal(sql.prepare('SELECT view_count FROM public_events WHERE id = ?').get(eventId)?.view_count, 2);
 
     await mutateAdminEvent({ DB }, 'update', { is_deleted: true }, eventId);
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM public_events').get()?.n, 0);

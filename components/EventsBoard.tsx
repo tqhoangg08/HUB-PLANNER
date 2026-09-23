@@ -7,7 +7,7 @@ import {
   Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, 
   ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
-  Info, ExternalLink, CalendarClock,
+  Info, ExternalLink, CalendarClock, Eye, ArrowRight,
   Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus, ImageOff
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -23,6 +23,7 @@ import {
   syncAdminEventMirror,
   updateAdminEvent,
 } from '../utils/eventsApi';
+import { formatEventViewCount } from '../utils/eventViewCount';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
@@ -31,6 +32,8 @@ import {
   setEventParticipation,
 } from '../utils/eventParticipationsApi';
 import { EventFilterControls } from './event-filters/EventFilterControls';
+import { AdminEventManagementView } from './AdminEventManagementView';
+import { EventDetailView } from './EventDetailView';
 import {
   compareFilteredEvents,
   createDefaultEventFilters,
@@ -64,6 +67,7 @@ interface HubEvent {
   registration_start_date: string | null;
   registration_start_time: string | null;
   image_url: string | null;
+  view_count?: number;
 }
 
 // --- Helper ---
@@ -971,107 +975,6 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
     );
 };
 
-const EventDetailModal = ({
-    event,
-    onClose,
-    currentDay,
-    isParticipated,
-    onToggleParticipation,
-    onReport,
-    onCopyUrl,
-}: {
-    event: HubEvent | null;
-    onClose: () => void;
-    currentDay: Date;
-    isParticipated: boolean;
-    onToggleParticipation: (id: string) => void;
-    onReport: (event: HubEvent) => void;
-    onCopyUrl: (event: HubEvent) => void;
-}) => {
-    if (!event) return null;
-
-    const isStatusClosed = event.status === 'Đã kết thúc';
-    const isLinkClosed = isStatusClosed || checkIsOverdue(event, currentDay) || event.is_manually_closed;
-    const formattedLink = event.link && !event.link.startsWith('http') ? `https://${event.link}` : event.link;
-    const scoreText = event.score?.includes('+') ? event.score : `+${event.score || 0}`;
-    const fallback = 'Chưa cập nhật';
-    const details = [
-        ['BTC', event.organizer],
-        ['Loại hình', event.type],
-        ['Mục ĐRL', event.category],
-        ['Điểm', scoreText],
-        ['Hình thức', event.location],
-        ['Khu vực', event.scope],
-        ['Phân loại', event.classification],
-        ['Trạng thái', event.status],
-        ['Mở đăng ký', event.registration_start_date ? `${formatTimeString(event.registration_start_time)} ${formatDateString(event.registration_start_date)}` : fallback],
-        ['Hạn đăng ký', event.close_on_full ? 'Đóng khi đủ số lượng' : (event.deadlineDate ? `${formatTimeString(event.deadline_time)} ${event.time}` : fallback)],
-        ['Diễn ra', event.event_date ? `${formatTimeString(event.event_time)} ${formatDateString(event.event_date)}` : fallback],
-    ];
-
-    return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/65 flex items-center justify-center p-3 sm:p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-xl w-full max-w-5xl max-h-[92vh] overflow-hidden border border-gray-300 shadow-2xl animate-scaleIn flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#003375] text-white px-4 sm:px-5 py-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <h3 className="text-lg sm:text-xl font-black line-clamp-2">{event.name}</h3>
-                        <p className="text-xs sm:text-sm text-white/80 mt-1 truncate">{event.organizer}</p>
-                    </div>
-                    <button onClick={onClose} className="shrink-0 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <div className="border-b border-gray-200 bg-white px-4 sm:px-5 py-3 text-sm font-bold text-[#003375]">
-                    Chi tiết
-                </div>
-
-                <div className="overflow-y-auto custom-scrollbar p-4 sm:p-5">
-                        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5">
-                            <div className="space-y-4">
-                                <div className="aspect-video rounded-xl border border-gray-300 bg-gray-50 overflow-hidden">
-                                    <EventImage src={event.image_url} alt={event.name} className="w-full h-full object-cover" iconSize={38} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button type="button" onClick={() => onToggleParticipation(event.id)} className={`rounded-lg border px-3 py-2 text-sm font-bold flex items-center justify-center gap-2 ${isParticipated ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
-                                        {isParticipated ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-                                        {isParticipated ? 'Đã lưu' : 'Lưu'}
-                                    </button>
-                                    <button type="button" onClick={() => onCopyUrl(event)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2">
-                                        <LinkIcon size={16} /> Link
-                                    </button>
-                                    <button type="button" onClick={() => onReport(event)} className="rounded-lg border border-orange-200 px-3 py-2 text-sm font-bold text-orange-700 hover:bg-orange-50 flex items-center justify-center gap-2">
-                                        <AlertTriangle size={16} /> Báo lỗi
-                                    </button>
-                                    {formattedLink && !isLinkClosed && !event.is_deleted ? (
-                                        <a href={formattedLink} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#003375] px-3 py-2 text-sm font-bold text-white hover:bg-[#002855] flex items-center justify-center gap-2">
-                                            <ExternalLink size={16} /> Đăng ký
-                                        </a>
-                                    ) : (
-                                        <button type="button" disabled className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-bold text-gray-400 flex items-center justify-center gap-2">
-                                            <Lock size={16} /> Đã đóng
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {details.map(([label, value]) => (
-                                        <div key={label} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                            <div className="text-[11px] font-bold uppercase text-gray-500">{label}</div>
-                                            <div className="mt-1 text-sm font-semibold text-gray-900 break-words">{value || fallback}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                </div>
-            </div>
-        </div>, document.body
-    );
-};
-
 const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boolean; onClose: () => void; event: HubEvent | null; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     const { session } = useUserRole(); 
     
@@ -1225,6 +1128,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   const [showCTVModal, setShowCTVModal] = useState(false);
   const showManagementView = canManage && !isStudentPreview;
+  const showAdminManagementPage = (isAdmin || isAuditor) && !isStudentPreview && !eventId;
 
   useEffect(() => {
       if (!canPreviewStudentUI) setIsStudentPreview(false);
@@ -1331,7 +1235,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const [showContributeModal, setShowContributeModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
-  const [detailEvent, setDetailEvent] = useState<HubEvent | null>(null);
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
@@ -1348,7 +1251,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   const handleOpenEventDetail = (evt: HubEvent) => {
       playClick();
-      setDetailEvent(evt);
       if (eventId !== evt.id) navigate(getEventPath(evt.id));
   };
 
@@ -1370,6 +1272,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     try {
       if (!showManagementView) {
         const params = new URLSearchParams({ limit: '100' });
+        if (eventId) params.set('ids', eventId);
         if (options.bypassCache) params.set('refresh', '1');
         const response = await fetchPublicEvents(`/events?${params.toString()}`);
         const payload = await response.json();
@@ -1406,7 +1309,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                 event_time: row.event_time || null,
                 registration_start_date: row.registration_start_date || null,
                 registration_start_time: row.registration_start_time || null,
-                image_url: row.image_url || null
+                image_url: row.image_url || null,
+                view_count: Number(row.view_count) || 0
             };
         });
 
@@ -1427,6 +1331,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
             state: 'all',
             sort: 'newest',
           });
+          if (eventId) params.set('ids', eventId);
           const response = await fetchAdminEvents(params);
           if (response?.ok) {
             const payload = await response.json();
@@ -1476,7 +1381,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                   event_time: row.event_time || null,
                   registration_start_date: row.registration_start_date || null,
                   registration_start_time: row.registration_start_time || null,
-                  image_url: row.image_url || null
+                  image_url: row.image_url || null,
+                  view_count: Number(row.view_count) || 0
               };
           });
 
@@ -1526,8 +1432,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   };
 
   useEffect(() => {
-    fetchEvents();
-  }, [canManage]);
+    fetchEvents({ bypassCache: !eventId && !showManagementView });
+  }, [canManage, showManagementView, eventId]);
 
   const handleDeleteEvent = async (id: string) => {
       if (!isAdmin) return;
@@ -1638,11 +1544,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const routeEvent = eventId ? events.find(evt => evt.id === eventId) || null : null;
   const displayedEvents = eventId ? (routeEvent ? [routeEvent] : []) : filteredEvents;
 
-  useEffect(() => {
-      if (!eventId || loading) return;
-      if (routeEvent) setDetailEvent(routeEvent);
-  }, [eventId, loading, routeEvent]);
-
   const openingEvents = displayedEvents.filter(evt => {
       const isNotExpired = !checkIsOverdue(evt, today);
       const isOpenStatus = !evt.is_manually_closed && evt.status !== 'Đã kết thúc';
@@ -1698,8 +1599,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     const isManualClose = evt.is_manually_closed;
     const isLinkClosed = isStatusClosed || isOverdue || isManualClose; 
 
-    const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
-    const isParticipated = participatedEvents.includes(evt.id);
 
     let badgeUI = null;
     if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Circle size={6} fill="currentColor" /> Chờ duyệt</span>;
@@ -1711,14 +1610,11 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
     return (
       <div key={evt.id} className={`bg-white rounded-xl border border-gray-300 p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:border-blue-400 hover:-translate-y-1 relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
-        <button
-            type="button"
-            onClick={() => handleOpenEventDetail(evt)}
-            className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3 text-left"
-            title="Xem chi tiết sự kiện"
-        >
+        <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3">
             <EventImage src={evt.image_url} alt={evt.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-        </button>
+            <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-slate-950/75 via-slate-950/25 to-transparent" />
+            <span className="pointer-events-none absolute inset-x-0 bottom-0 line-clamp-2 px-3 pb-3 text-sm font-bold leading-snug text-white drop-shadow-sm sm:text-base">{evt.name}</span>
+        </div>
         
         {/* HEADER: Organizer & Status */}
         <div className="flex justify-between items-start gap-2 mb-2 sm:mb-3">
@@ -1729,11 +1625,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                 {badgeUI}
             </div>
         </div>
-
-        {/* TITLE */}
-        <h3 className={`font-bold text-gray-900 text-sm sm:text-base leading-snug mb-2 sm:mb-3 line-clamp-2 transition-colors ${!isLinkClosed && !evt.is_deleted ? 'group-hover:text-[#003375]' : ''}`} title={evt.name}>
-            {evt.name}
-        </h3>
 
         {/* TAGS */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2.5 sm:mb-4">
@@ -1755,114 +1646,17 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
             )}
         </div>
 
-        <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); handleOpenEventDetail(evt); }}
-            className="mb-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-[#003375] hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
-        >
-            <Info size={14} /> Xem chi tiết
-        </button>
-
-        <div className="hidden">
-        {/* DATETIME */}
-        {evt.type?.toLowerCase().includes('minigame') ? (
-            <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
-                <div className="flex items-start gap-1.5 sm:gap-2">
-                    <Clock size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0 mt-0.5"/>
-                    <div className="flex flex-col">
-                        <span className="font-medium text-gray-500 mb-0.5">Thời gian tham gia:</span>
-                        <span className={`font-bold ${isLinkClosed || evt.is_deleted ? 'text-gray-500' : 'text-[#003375]'}`}>
-                            {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : '...'} 
-                            {' - '} 
-                            {evt.close_on_full ? (
-                                <span className="text-[#990000]">Đóng khi đủ SL</span>
-                            ) : (
-                                evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...'
-                            )}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        ) : (
-            <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
-                <div className="flex items-start gap-1.5 sm:gap-2">
-                    <CalendarClock size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0 mt-0.5"/>
-                    <div className="flex flex-wrap items-baseline gap-x-1.5">
-                        <span className="font-medium text-gray-500">Thời gian đăng ký:</span>
-                        <span className={`font-bold ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`}>
-                            {evt.registration_start_date ? `${formatTimeString(evt.registration_start_time)} ${formatDateString(evt.registration_start_date)}` : '...'}
-                            {' - '}
-                            {evt.close_on_full ? (
-                                <span className="text-[#990000]">Đóng khi đủ SL</span>
-                            ) : (
-                                evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...'
-                            )}
-                        </span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                    <Calendar size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0"/>
-                    <span className="truncate">Thời gian diễn ra: <span className="font-semibold text-gray-700">{evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span></span>
-                </div>
-            </div>
-        )}
-
-        {/* DESCRIPTION TOGGLE */}
-        {evt.description && (
-            <details className="text-[11px] sm:text-xs text-gray-600 group/details w-full mb-3 sm:mb-4">
-                <summary className="font-semibold text-blue-600 cursor-pointer list-none flex items-center gap-1 hover:underline select-none">
-                    <Info size={12}/> Xem chi tiết
-                </summary>
-                <div className="mt-2 p-2.5 sm:p-3 bg-gray-50 border border-gray-200 rounded-lg whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
-                    {evt.description}
-                </div>
-            </details>
-        )}
-
-        </div>
-
-        {/* FOOTER ACTIONS (Pushed to bottom) */}
-        <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-200 flex items-center gap-1.5 sm:gap-2 w-full">
-            
-            {/* Nhóm 3 nút icon (Lưu, Chat, Báo lỗi) */}
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); toggleParticipation(evt.id); }} 
-                    className={`p-1.5 sm:p-2 rounded-lg transition-colors flex items-center justify-center ${isParticipated ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 hover:text-gray-700'}`} 
-                    title={isParticipated ? "Đã tham gia (Bấm hủy)" : "Đánh dấu tham gia"}
-                >
-                    {isParticipated ? <BookmarkCheck size={16} className="sm:w-[18px] sm:h-[18px]"/> : <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]"/>}
-                </button>
-                <button 
-                    onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
-                    className="p-1.5 sm:p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 hover:border-orange-200 transition-colors flex items-center justify-center"
-                    title="Báo lỗi"
-                >
-                    <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]"/>
-                </button>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if (eventId === evt.id) handleCopyEventUrl(evt);
-                        else { playClick(); navigate(getEventPath(evt.id)); }
-                    }}
-                    className="p-1.5 sm:p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-[#003375] hover:border-blue-200 transition-colors flex items-center justify-center"
-                    title={eventId === evt.id ? 'Sao chép link sự kiện' : 'Mở link riêng của sự kiện'}
-                >
-                    <LinkIcon size={16} className="sm:w-[18px] sm:h-[18px]"/>
-                </button>
-            </div>
-
-            {/* Nút Đăng ký ngay (Nằm ngang hàng, kéo dài ra) */}
-            {evt.link && !isLinkClosed && !evt.is_deleted ? (
-                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-1 text-white text-[13px] sm:text-sm font-bold px-2 sm:px-4 py-2 sm:py-2.5 rounded-lg flex items-center justify-center transition-colors border border-transparent ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>
-                    Đăng ký ngay
-                </a>
-            ) : (
-                <button disabled className="flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-lg font-semibold text-[11px] sm:text-xs cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400 flex items-center justify-center gap-1.5">
-                    {evt.is_deleted ? "Đã bị ẩn" : (isLinkClosed ? <><Lock size={12} className="sm:w-[14px] sm:h-[14px]"/> Đã kết thúc</> : "Chưa có link")}
-                </button>
-            )}
+        <div className="mt-auto flex w-full items-center justify-between gap-3 border-t border-gray-200 pt-3 sm:pt-4">
+            <p className="flex min-w-0 items-center gap-1 text-xs text-slate-500"><Eye size={14} aria-hidden="true" />{formatEventViewCount(evt.view_count ?? 0)}</p>
+            <button
+                type="button"
+                onClick={() => handleOpenEventDetail(evt)}
+                aria-label={`Xem chi tiết sự kiện: ${evt.name}`}
+                title="Xem chi tiết sự kiện"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-white text-[#003375] transition-colors hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"
+            >
+                <ArrowRight size={18} aria-hidden="true" />
+            </button>
         </div>
       </div>
     );
@@ -1880,6 +1674,34 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
 return (
     <div className="animate-slideInRight">
+      {eventId && routeEvent ? <div className="w-full min-w-0 bg-white">
+        <EventDetailView event={routeEvent}
+          preview={(isAdmin || isAuditor) && !isStudentPreview}
+          canEdit={(isAdmin || isAuditor) && !isStudentPreview}
+          isRegistrationClosed={routeEvent.status === 'Đã kết thúc' || checkIsOverdue(routeEvent, today) || routeEvent.is_manually_closed}
+          isParticipated={participatedEvents.includes(routeEvent.id)}
+          onBack={() => navigate('/events')}
+          onEdit={() => handleOpenEdit(routeEvent)}
+          onCopy={() => { void handleCopyEventUrl(routeEvent); }}
+          onToggleParticipation={() => { void toggleParticipation(routeEvent.id); }}
+          onReport={() => setReportingEvent(routeEvent)}
+          onViewsUpdated={(id, views) => setEvents((current) => current.map((item) => item.id === id ? { ...item, view_count: views } : item))} />
+      </div> : showAdminManagementPage ? <AdminEventManagementView
+        events={events}
+        filters={appliedFilters}
+        onFiltersChange={setAppliedFilters}
+        loading={loading}
+        error={error}
+        isAdmin={isAdmin}
+        onAdd={handleOpenAdd}
+        onRefresh={() => { playClick(); void fetchEvents({ bypassCache: true }); }}
+        onPreview={() => { playClick(); setIsStudentPreview(true); }}
+        onGuide={() => { playClick(); setShowScoreGuide(true); }}
+        onView={handleOpenEventDetail}
+        onEdit={handleOpenEdit}
+        onToggleClose={(event) => { void handleToggleClose(event); }}
+        onDelete={(id) => { void handleDeleteEvent(id); }}
+      /> : <>
         {/* STICKY HEADER */}
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-3 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
             <div className="flex flex-col gap-2 w-full">
@@ -2150,19 +1972,8 @@ return (
             </div>
         )}
 
+      </>}
       <NotificationToast />
-      <EventDetailModal
-          event={detailEvent}
-          onClose={() => {
-              setDetailEvent(null);
-              if (eventId) navigate('/events');
-          }}
-          currentDay={today}
-          isParticipated={detailEvent ? participatedEvents.includes(detailEvent.id) : false}
-          onToggleParticipation={(id) => toggleParticipation(id)}
-          onReport={(event) => { setDetailEvent(null); setReportingEvent(event); }}
-          onCopyUrl={(event) => handleCopyEventUrl(event)}
-      />
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
       {showManageModal && <ManageEventModal key={editingEvent?.id || 'new-event'} isOpen={showManageModal} onClose={handleCloseManageModal} onShowToast={showToast} editingEvent={editingEvent} fetchEvents={fetchEvents} />}

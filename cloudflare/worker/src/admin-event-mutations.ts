@@ -65,7 +65,7 @@ const PUBLIC_EVENT_COLUMNS = [
   'classification', 'location_type', 'status', 'is_manually_closed',
   'is_deleted', 'created_at', 'event_date', 'event_time',
   'registration_start_date', 'registration_start_time', 'image_url',
-  'title_search', 'organizer_search',
+  'title_search', 'organizer_search', 'view_count',
 ] as const;
 
 const PUBLIC_EVENT_PROJECTION_SQL = `

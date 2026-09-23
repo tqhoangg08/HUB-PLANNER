@@ -7,7 +7,7 @@ import {
   Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, 
   ChevronDown, ChevronLeft, ChevronRight, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
-  Info, ExternalLink, CalendarClock,
+  Info, ExternalLink, CalendarClock, Eye,
   Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -25,12 +25,14 @@ import {
   syncAdminEventMirror,
   updateAdminEvent,
 } from '../utils/eventsApi';
+import { formatEventViewCount } from '../utils/eventViewCount';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import {
   fetchEventParticipations,
   setEventParticipation,
 } from '../utils/eventParticipationsApi';
 import { EventFilterControls } from './event-filters/EventFilterControls';
+import { EventDetailView } from './EventDetailView';
 import { createDefaultEventFilters, getEventFilterCount } from '../utils/eventFilters';
 
 // --- Types ---
@@ -59,6 +61,7 @@ interface HubEvent {
   registration_start_date: string | null;
   registration_start_time: string | null;
   image_url: string | null;
+  view_count?: number;
 }
 
 interface MobileEventsProps {
@@ -767,12 +770,12 @@ const canManage = isAdmin || isAuditor || isCTV;
     setLoading(true); setError(null);
     try {
       const page = options.page ?? eventsPage;
-      if (activeTab === 'participated' && participatedEvents.length === 0) {
+      if (!eventId && activeTab === 'participated' && participatedEvents.length === 0) {
         setEvents([]);
         setEventsTotal(0);
         return;
       }
-      const pageOffset = Math.max(0, page) * EVENTS_PAGE_SIZE;
+      const pageOffset = eventId ? 0 : Math.max(0, page) * EVENTS_PAGE_SIZE;
       const term = searchTerm.trim();
       if (!(isManagementView && canManage)) {
         const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
@@ -783,6 +786,10 @@ const canManage = isAdmin || isAuditor || isCTV;
             limit: String(limit),
             sort: sortOrder,
           });
+          if (eventId) {
+            params.set('ids', eventId);
+            return params;
+          }
           if (options.bypassCache) params.set('refresh', '1');
           if (term) params.set('search', term);
           if (activeScope !== 'all') params.set('scope', activeScope);
@@ -841,7 +848,8 @@ const canManage = isAdmin || isAuditor || isCTV;
                 is_deleted: row.is_deleted || false, created_at: row.created_at || new Date().toISOString(),
                 event_date: row.event_date || null, event_time: row.event_time || null,
                 registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
-                image_url: row.image_url || null
+                image_url: row.image_url || null,
+                view_count: Number(row.view_count) || 0
             };
         });
         setEvents(parsedEvents);
@@ -860,18 +868,17 @@ const canManage = isAdmin || isAuditor || isCTV;
             state: 'all',
             sort: sortOrder,
           });
-          if (term) params.set('search', term);
-          if (activeScope !== 'all') params.set('scope', activeScope);
-          if (appliedFilters.eventType !== 'all') params.set('eventType', appliedFilters.eventType);
-          if (appliedFilters.dateFrom) params.set('dateFrom', appliedFilters.dateFrom);
-          if (appliedFilters.dateTo) params.set('dateTo', appliedFilters.dateTo);
-          if (appliedFilters.registrationStatus !== 'all') params.set('registrationStatus', appliedFilters.registrationStatus);
-          if (activeTab === 'participated') {
-            params.set('ids', participantIds.join(','));
-          } else if (appliedFilters.trainingCategories.length) {
-            params.set('criteria', appliedFilters.trainingCategories.join(','));
-          } else if (activeTab !== 'all') {
-            params.set('criteria', activeTab);
+          if (eventId) params.set('ids', eventId);
+          if (!eventId) {
+            if (term) params.set('search', term);
+            if (activeScope !== 'all') params.set('scope', activeScope);
+            if (appliedFilters.eventType !== 'all') params.set('eventType', appliedFilters.eventType);
+            if (appliedFilters.dateFrom) params.set('dateFrom', appliedFilters.dateFrom);
+            if (appliedFilters.dateTo) params.set('dateTo', appliedFilters.dateTo);
+            if (appliedFilters.registrationStatus !== 'all') params.set('registrationStatus', appliedFilters.registrationStatus);
+            if (activeTab === 'participated') params.set('ids', participantIds.join(','));
+            else if (appliedFilters.trainingCategories.length) params.set('criteria', appliedFilters.trainingCategories.join(','));
+            else if (activeTab !== 'all') params.set('criteria', activeTab);
           }
 
           const response = await fetchAdminEvents(params);
@@ -906,7 +913,8 @@ const canManage = isAdmin || isAuditor || isCTV;
                   is_deleted: row.is_deleted || false, created_at: row.created_at || new Date().toISOString(),
                   event_date: row.event_date || null, event_time: row.event_time || null,
                   registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
-                  image_url: row.image_url || null
+                  image_url: row.image_url || null,
+                  view_count: Number(row.view_count) || 0
                 };
               });
               setEvents(parsedEvents);
@@ -932,8 +940,8 @@ const canManage = isAdmin || isAuditor || isCTV;
   };
 
   useEffect(() => {
-      fetchEvents({ page: eventsPage });
-  }, [canManage, isManagementView, appliedFilters, activeTab, eventsPage, participatedEvents.join(',')]);
+      fetchEvents({ page: eventsPage, bypassCache: !eventId && !(isManagementView && canManage) });
+  }, [canManage, isManagementView, appliedFilters, activeTab, eventsPage, participatedEvents.join(','), eventId]);
 
   const fetchOpenEventsTotal = async () => {
     try {
@@ -1199,119 +1207,9 @@ const canManage = isAdmin || isAuditor || isCTV;
       );
   };
 
-  const renderEventCard = (evt: HubEvent) => {
-    const isParticipated = participatedEvents.includes(evt.id);
-    const isLinkClosed = evt.status === 'Đã kết thúc' || evt.is_manually_closed || checkIsOverdue(evt, today);
-    const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
-
-    return (
-      <div key={evt.id} className={`bg-white rounded-2xl border border-gray-200 p-4 flex flex-col shadow-sm mb-3 relative overflow-hidden
-        ${evt.is_deleted ? 'opacity-60 grayscale' : ''} 
-      `}>
-        <div className="flex justify-between items-start mb-2">
-            <span className="text-xs text-gray-500 font-medium flex items-center gap-1.5 line-clamp-1 pr-2">
-                <Building2 size={14} className="shrink-0 text-[#003375]"/> {evt.organizer}
-            </span>
-            <div className="flex items-center gap-2 shrink-0">
-                <span className={`text-[10px] font-bold px-2 py-1 rounded border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
-                    <Award size={12}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
-                </span>
-                
-                <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === evt.id ? null : evt.id); }} className="p-1 text-gray-400 active:bg-gray-100 rounded-md">
-                    <MoreHorizontal size={18}/>
-                </button>
-                
-                {activeDropdown === evt.id && (
-                    <div className="absolute right-4 top-10 w-44 bg-white border border-gray-200 shadow-xl rounded-xl overflow-hidden z-20 py-1 text-sm font-medium">
-                        <button onClick={(e) => { e.stopPropagation(); setReportingEvent(evt); setActiveDropdown(null); }} className="w-full text-left px-4 py-3 text-orange-600 active:bg-orange-50 flex items-center gap-2">
-                            <AlertTriangle size={16} /> Báo lỗi thông tin
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>
-
-        <h3 className="font-bold text-gray-900 text-[15px] leading-snug mb-3 line-clamp-2 min-h-[2.5rem]">
-            {evt.name}
-        </h3>
-
-        <div className="flex flex-wrap gap-1.5 mb-4">
-            <span className="bg-gray-100 text-gray-600 text-[10px] font-medium px-2 py-1 rounded-md">
-                Mục {evt.category}
-            </span>
-            {evt.location && (
-                <span className="bg-gray-100 text-gray-600 text-[10px] font-medium px-2 py-1 rounded-md flex items-center gap-1">
-                    <MapPin size={10}/> {evt.scope || 'N/A'}
-                </span>
-            )}
-        </div>
-
-        <div className="space-y-2 text-xs text-gray-600 mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
-            {evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame') ? (
-                <div className="flex items-start gap-2">
-                    <Clock size={14} className="text-orange-500 shrink-0 mt-0.5" />
-                    <div className="flex flex-col">
-                        <span className="font-medium text-gray-500">TG tham gia:</span>
-                        <span className={`font-bold ${isLinkClosed || evt.is_deleted ? 'text-gray-500' : 'text-[#003375]'}`}>
-                            {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : '...'}
-                            {' - '}
-                            {evt.close_on_full ? <span className="text-[#990000]">Đóng khi đủ SL</span> : (evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...')}
-                        </span>
-                    </div>
-                </div>
-            ) : (
-                <>
-                    <div className="flex items-start gap-2">
-                        <CalendarClock size={14} className="text-orange-500 shrink-0 mt-0.5" />
-                        <div className="flex flex-col">
-                            <span className="font-medium text-gray-500">TG đăng ký:</span>
-                            <span className={`font-bold ${isLinkClosed || evt.is_deleted ? 'text-gray-500' : 'text-gray-700'}`}>
-                                {evt.registration_start_date ? `${formatTimeString(evt.registration_start_time)} ${formatDateString(evt.registration_start_date)}` : '...'}
-                                {' - '}
-                                {evt.close_on_full ? <span className="text-[#990000]">Đóng khi đủ SL</span> : (evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...')}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Calendar size={14} className="text-[#003375] shrink-0"/>
-                        <span className="truncate">TG diễn ra: <span className="font-semibold text-gray-700">{evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span></span>
-                    </div>
-                </>
-            )}
-        </div>
-
-        <div className="flex items-center gap-2 mt-auto pt-2">
-            <button onClick={() => toggleParticipation(evt.id)} className={`p-3 rounded-xl border flex items-center justify-center transition-colors ${isParticipated ? 'bg-green-50 border-green-300 text-green-600' : 'bg-white border-gray-200 text-gray-500 active:bg-gray-50'}`}>
-                {isParticipated ? <BookmarkCheck size={20}/> : <Bookmark size={20}/>}
-            </button>
-            <button
-                onClick={() => {
-                    if (eventId === evt.id) handleCopyEventUrl(evt);
-                    else { playClick(); navigate(getEventPath(evt.id)); }
-                }}
-                className="p-3 bg-white border border-gray-200 rounded-xl text-gray-500 active:bg-gray-50 flex items-center justify-center"
-            >
-                <LinkIcon size={20}/>
-            </button>
-            
-            {evt.link && !isLinkClosed && !evt.is_deleted ? (
-                <a href={formattedLink} target="_blank" rel="noopener noreferrer" className="flex-1 text-white text-sm font-bold py-3 rounded-xl flex items-center justify-center shadow-sm bg-[#003375] active:bg-[#002855]">
-                    Tham gia ngay
-                </a>
-            ) : (
-                <button disabled className="flex-1 py-3 rounded-xl font-semibold text-sm bg-gray-100 text-gray-400 flex items-center justify-center gap-2">
-                    <Lock size={16}/> Đã đóng
-                </button>
-            )}
-        </div>
-      </div>
-    );
-  };
 
   const renderNativeEventCard = (evt: HubEvent) => {
-    const isParticipated = participatedEvents.includes(evt.id);
     const isLinkClosed = evt.status === 'Đã kết thúc' || evt.is_manually_closed || checkIsOverdue(evt, today);
-    const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
     const isExpiring = isDeadlineEventToday(evt);
     const isMinigame = evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame');
 
@@ -1323,24 +1221,18 @@ const canManage = isAdmin || isAuditor || isCTV;
             <Building2 size={14} className="shrink-0 text-[#1A56FF]" />
             <span className="truncate">{evt.organizer}</span>
           </div>
-          <div className="relative flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-black ${isLinkClosed || evt.is_deleted ? 'border-[#E5EAF4] bg-[#F4F6FA] text-[#7B8AB0]' : 'border-[#FFE0E8] bg-[#FFF0F3] text-[#E11D48]'}`}>
               <Award size={12} /> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
             </span>
-            <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === evt.id ? null : evt.id); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-[#9AA5C0] active:bg-[#F4F6FA]">
-              <MoreHorizontal size={17} />
-            </button>
-            {activeDropdown === evt.id && (
-              <div className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-xl border border-[#E5EAF4] bg-white py-1 text-sm font-bold shadow-xl">
-                <button onClick={(e) => { e.stopPropagation(); setReportingEvent(evt); setActiveDropdown(null); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-orange-600 active:bg-orange-50">
-                  <AlertTriangle size={16} /> Báo lỗi thông tin
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
-        <h3 className="mb-3 text-[15px] font-black leading-snug tracking-normal text-[#0D1B3E]">{evt.name}</h3>
+        <div className="relative mb-3 aspect-[16/9] w-full overflow-hidden rounded-2xl bg-gradient-to-br from-[#003375] to-[#2468ba]">
+          {evt.image_url && <img src={evt.image_url} alt="" loading="lazy" className="h-full w-full object-cover" onError={(error) => { error.currentTarget.hidden = true; }} />}
+          <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-slate-950/75 via-slate-950/25 to-transparent" />
+          <h3 className="absolute inset-x-0 bottom-0 line-clamp-2 px-3 pb-3 text-[15px] font-black leading-snug text-white drop-shadow-sm">{evt.name}</h3>
+        </div>
 
         <div className="mb-3 flex flex-wrap gap-1.5">
           <span className="rounded-lg bg-[#EEF2FF] px-2 py-1 text-[10px] font-black text-[#1A56FF]">Mục {evt.category}</span>
@@ -1369,28 +1261,17 @@ const canManage = isAdmin || isAuditor || isCTV;
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={() => toggleParticipation(evt.id)} className={`flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border ${isParticipated ? 'border-[#D1FAE5] bg-[#EDFAF3] text-[#059669]' : 'border-[#E8EDF6] bg-white text-[#7B8AB0]'}`}>
-            {isParticipated ? <BookmarkCheck size={19} /> : <Bookmark size={19} />}
-          </button>
+        <div className="flex items-center justify-between gap-3 border-t border-[#EEF2FF] pt-3">
+          <p className="flex min-w-0 items-center gap-1 text-xs font-semibold text-[#7B8AB0]"><Eye size={14} aria-hidden="true" />{formatEventViewCount(evt.view_count ?? 0)}</p>
           <button
-            onClick={() => {
-              if (eventId === evt.id) handleCopyEventUrl(evt);
-              else { playClick(); navigate(getEventPath(evt.id)); }
-            }}
-            className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-[#E8EDF6] bg-white text-[#7B8AB0]"
+            type="button"
+            onClick={() => { playClick(); navigate(getEventPath(evt.id)); }}
+            aria-label={`Xem chi tiết sự kiện: ${evt.name}`}
+            title="Xem chi tiết sự kiện"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-white text-[#003375] transition-colors active:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"
           >
-            <LinkIcon size={19} />
+            <ChevronRight size={20} aria-hidden="true" />
           </button>
-          {evt.link && !isLinkClosed && !evt.is_deleted ? (
-            <a href={formattedLink} target="_blank" rel="noopener noreferrer" className="flex h-[42px] flex-1 items-center justify-center rounded-[14px] bg-[#1A56FF] text-[12px] font-black text-white shadow-[0_6px_14px_rgba(26,86,255,0.2)]">
-              Tham gia ngay
-            </a>
-          ) : (
-            <button disabled className="flex h-[42px] flex-1 items-center justify-center gap-1.5 rounded-[14px] bg-[#F2F4F8] text-[12px] font-black text-[#A8B2C8]">
-              <Lock size={14} /> Đã đóng
-            </button>
-          )}
         </div>
       </div>
     );
@@ -1398,6 +1279,18 @@ const canManage = isAdmin || isAuditor || isCTV;
 
 return (
     <div className="mobile-page mobile-events-page w-full min-h-[100dvh] bg-[#E8ECF4] animate-fadeIn">
+      {eventId && routeEvent ? <div className="min-h-[100dvh] w-full bg-white px-3 pb-[calc(110px+env(safe-area-inset-bottom))] pt-[calc(12px+env(safe-area-inset-top))] sm:px-5">
+        <EventDetailView event={routeEvent} preview={isManagementView && (isAdmin || isAuditor)}
+          canEdit={isManagementView && (isAdmin || isAuditor)}
+          isRegistrationClosed={routeEvent.status === 'Đã kết thúc' || routeEvent.is_manually_closed || checkIsOverdue(routeEvent, today)}
+          isParticipated={participatedEvents.includes(routeEvent.id)}
+          onBack={() => navigate('/events')}
+          onEdit={() => openEventEditor(routeEvent)}
+          onCopy={() => { void handleCopyEventUrl(routeEvent); }}
+          onToggleParticipation={() => { void toggleParticipation(routeEvent.id); }}
+          onReport={() => setReportingEvent(routeEvent)}
+          onViewsUpdated={(id, views) => setEvents((current) => current.map((item) => item.id === id ? { ...item, view_count: views } : item))} />
+      </div> : <>
       <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E]">
       <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0" aria-hidden="true" />
       {/* Sticky Mobile Header */}
@@ -1586,6 +1479,7 @@ return (
           </div>
       </div>
       </div>
+      </>}
 
       <NotificationToast />
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}

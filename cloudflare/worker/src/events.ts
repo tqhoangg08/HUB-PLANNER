@@ -26,6 +26,7 @@ export interface CoreEventRow {
   registration_start_date: string | null;
   registration_start_time: string | null;
   image_url: string | null;
+  view_count: number;
 }
 
 interface D1EventRow extends Omit<
@@ -76,7 +77,38 @@ const EVENT_COLUMNS = [
   'registration_start_date',
   'registration_start_time',
   'image_url',
+  'view_count',
 ] as const;
+
+export const parseEventViewId = (value: string): number | null => {
+  if (!/^[1-9]\d*$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
+};
+
+export const incrementPublicEventView = async (env: EventsEnv, id: number) => {
+  const row = await env.DB.prepare(`
+    UPDATE public_events
+       SET view_count = view_count + 1
+     WHERE id = ?
+       AND COALESCE(is_deleted, 0) = 0
+       AND COALESCE(status, '') != 'pending'
+     RETURNING view_count
+  `).bind(id).first<{ view_count: number }>();
+  return row ? Number(row.view_count) : null;
+};
+
+export const incrementPendingAdminEventView = async (env: EventsEnv, id: number) => {
+  const row = await env.DB.prepare(`
+    UPDATE admin_events
+       SET view_count = view_count + 1
+     WHERE id = ?
+       AND COALESCE(is_deleted, 0) = 0
+       AND status = 'pending'
+     RETURNING view_count
+  `).bind(id).first<{ view_count: number }>();
+  return row ? Number(row.view_count) : null;
+};
 
 const MAX_EVENT_IDS = 100;
 

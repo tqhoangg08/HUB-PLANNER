@@ -222,3 +222,17 @@ export const fetchPublicEvents = async (path: string, init?: RequestInit) => {
   }
   return fetchPublicWorker(path, init);
 };
+
+export const recordEventView = async (eventId: string, pendingStaffPreview = false): Promise<number | null> => {
+  if (!/^[1-9]\d*$/.test(eventId) || !Number.isSafeInteger(Number(eventId))) return null;
+  const path = pendingStaffPreview
+    ? `/api/admin/v1/events/${eventId}/view`
+    : `/api/events/${eventId}/view`;
+  const response = pendingStaffPreview
+    ? await fetch(path, { method: 'POST', credentials: 'include', cache: 'no-store' })
+    : await fetchPublicWorker(path, { method: 'POST', cache: 'no-store' });
+  if (!response.ok) return null;
+  const payload = await response.json() as { views?: unknown };
+  const views = Number(payload.views);
+  return Number.isSafeInteger(views) && views >= 0 ? views : null;
+};
