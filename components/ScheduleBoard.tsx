@@ -6,6 +6,7 @@ import { parseWeeks } from '../utils/scheduleLogic';
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
 import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
+import { CalendarExportDialog } from './CalendarExportDialog';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
@@ -597,6 +598,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [reportTurnstileToken, setReportTurnstileToken] = useState('');
   const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
+  const [isCalendarExportOpen, setIsCalendarExportOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState<{ subject_name: string; course_code: string; instructor: string; scheduleSessions: StructuredScheduleSession[] }>({ subject_name: '', course_code: '', instructor: '', scheduleSessions: [createEmptyScheduleSession()] });
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
@@ -3090,14 +3092,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div className="no-scrollbar flex min-h-[34px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 pb-3 pt-1 sm:px-4">
                             {!isPlanMode && (
                                 <div className="flex max-w-[300px] shrink-0 items-center gap-1.5 overflow-hidden rounded-full border border-blue-200 bg-blue-50/80 px-3 py-1 text-[10px] font-bold text-[#003375] transition-colors hover:bg-blue-100 sm:text-xs" title="Click vào môn học trên lịch hoặc dùng Nút Tag để dán nhãn (Label) cho ngày đó!">
-                                    <Zap size={14} className="fill-yellow-500 text-yellow-500 animate-pulse shrink-0" />
-                                    <span className="truncate">✨ Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!</span>
+                                    <span className="truncate">Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!</span>
                                 </div>
                             )}
 
                             <div className="flex shrink-0 items-center gap-1.5">
                                 <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 text-[11px] font-bold text-red-600 transition-colors hover:bg-red-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"><AlertTriangle size={13} /> Báo lỗi môn</button>
                                 <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"><BookPlus size={13} /> Yêu cầu thêm</button>
+                                <button disabled={!isAuthenticated || currentSemesterSchedule.length === 0} onClick={() => setIsCalendarExportOpen(true)} className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-2.5 text-[11px] font-bold text-violet-700 transition-colors hover:bg-violet-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"><CalendarDays size={13} /> Thêm vào lịch</button>
                                 <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#003375] px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-[#002855] active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400">
                                     {isProcessingPdf ? <Loader2 className="animate-spin" size={13} /> : <FileUp size={13} />} {isProcessingPdf ? 'Đang phân tích...' : 'Nhập PDF'}
                                 </button>
@@ -4063,6 +4065,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 </div>
             </div>
         )}
+
+        <CalendarExportDialog
+            open={isCalendarExportOpen}
+            semester={selectedSemester}
+            courses={currentSemesterSchedule}
+            onClose={() => setIsCalendarExportOpen(false)}
+        />
 
         {/* ✨ MODAL GẮN NHÃN NHANH (QUICK TAG) ✨ */}
         {quickTagCourse && (

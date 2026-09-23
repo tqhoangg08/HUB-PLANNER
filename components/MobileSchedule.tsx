@@ -5,6 +5,7 @@ import { parseWeeks } from '../utils/scheduleLogic';
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
 import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
+import { CalendarExportDialog } from './CalendarExportDialog';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
@@ -566,6 +567,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
 
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
+  const [isCalendarExportOpen, setIsCalendarExportOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState<{ subject_name: string; course_code: string; instructor: string; scheduleSessions: StructuredScheduleSession[] }>({ subject_name: '', course_code: '', instructor: '', scheduleSessions: [createEmptyScheduleSession()] });
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
@@ -1731,12 +1733,15 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 />
             </div>
             {!forceManagementView && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
                 <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#FFE0E8] bg-[#FFF0F3] text-[10px] font-black text-[#E11D48] disabled:opacity-50">
                     <AlertTriangle size={16} /> Báo lỗi
                 </button>
                 <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#D1FAE5] bg-[#ECFDF5] text-[10px] font-black text-[#059669] disabled:opacity-50">
                     <Plus size={16} /> Thêm môn
+                </button>
+                <button disabled={!isAuthenticated || currentSemesterSchedule.length === 0} onClick={() => setIsCalendarExportOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-violet-100 bg-violet-50 text-[10px] font-black text-violet-700 disabled:opacity-50">
+                    <CalendarDays size={16} /> Thêm lịch
                 </button>
                 <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#E5EAF4] bg-[#F4F6FA] text-[10px] font-black text-[#5D687E] disabled:opacity-50">
                     {isProcessingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />} Nhập PDF
@@ -2957,6 +2962,13 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 onConfirm={handleConfirmScheduleImport}
             />
         )}
+
+        <CalendarExportDialog
+            open={isCalendarExportOpen}
+            semester={selectedSemester}
+            courses={currentSemesterSchedule}
+            onClose={() => setIsCalendarExportOpen(false)}
+        />
     </div>
   );
 };
