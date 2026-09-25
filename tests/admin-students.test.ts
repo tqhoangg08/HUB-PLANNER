@@ -24,6 +24,25 @@ test('non-admin student management request is denied before a D1 query', async (
   assert.equal(queried, false);
 });
 
+test('student summary is admin-only, read-only, and derives completion from required fields', async () => {
+  const statements: string[] = [];
+  const request = new Request('https://example.invalid/api/admin/students/summary', { headers: { Cookie: 'better-auth.session=test' } });
+  const env = {
+    AUTH_SERVICE: { fetch: async () => Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'admin@example.invalid', role: 'admin' }) },
+    DB: { prepare: (sql: string) => {
+      statements.push(sql);
+      return { bind: () => ({ first: async () => ({ total: 12, onboarded: 8, new_last_7_days: 2 }) }), all: async () => ({ results: [{ student_code: 'SV123456', full_name: 'Sinh viên', class_name: 'A1', created_at: '2026-09-23T00:00:00Z' }] }) };
+    } },
+  } as any;
+  const response = await handleAdminStudents(request, new URL(request.url), env);
+  assert.deepEqual({ total: response.total, onboarded: response.onboarded, pending: response.pending, new_last_7_days: response.new_last_7_days }, { total: 12, onboarded: 8, pending: 4, new_last_7_days: 2 });
+  assert.equal(statements.length, 2);
+  assert.match(statements[0], /p\.student_code IS NOT NULL/);
+  assert.match(statements[0], /q\.specialization_name/);
+  assert.ok(statements.every((sql) => /^SELECT /i.test(sql)));
+  assert.equal('user_id' in response.recent[0], false);
+});
+
 test('admin list uses a bounded cursor query and redacts internal identity/PII', async () => {
   let statement = '';
   let bindings: unknown[] = [];

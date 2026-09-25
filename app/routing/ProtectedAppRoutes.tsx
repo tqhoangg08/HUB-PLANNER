@@ -6,6 +6,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { isOwnProfileRoute } from '../../utils/profileRouteApi';
 import {
     AdminEventCandidates,
+    AdminOperationsDashboard,
     AdminAIDocuments,
     AdminInternalAccounts,
     AdminReports,
@@ -207,7 +208,7 @@ export const ProtectedAppRoutes = ({
                 path="/dashboard"
                 element={(
                     <div className="animate-fadeIn">
-                        <Dashboard
+                        {isManagementUser ? <AdminOperationsDashboard isAdmin={isAdmin} isAuditor={isAuditor} /> : <Dashboard
                             data={data}
                             onSetSemesters={studyActions.setSemesters}
                             onSaveSemesters={saveSemestersNow}
@@ -224,7 +225,7 @@ export const ProtectedAppRoutes = ({
                             isImporting={transcript.isImporting}
                             fileInputRef={transcript.fileInputRef}
                             onFileUpload={transcript.handleFileUpload}
-                        />
+                        />}
                     </div>
                 )}
             />

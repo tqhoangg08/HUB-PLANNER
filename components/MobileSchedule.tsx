@@ -238,10 +238,7 @@ const sortCourseRequestsNewestFirst = (requests: CourseRequest[]) => {
 
 const getCourseRequestStudentCode = (request: CourseRequest) => {
   const profileCode = request.user?.student_code?.trim();
-  if (profileCode) return profileCode;
-  const email = request.user?.email?.trim();
-  if (email) return email.split('@')[0];
-  return request.user_id || '-';
+  return profileCode || 'Chưa có MSSV';
 };
 
 const PDF_SCHEDULE_FILE_MESSAGE = 'Vui lòng tải lên file PDF lịch học, hệ thống chưa hỗ trợ ảnh PNG/JPG.';

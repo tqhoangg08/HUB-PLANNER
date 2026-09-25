@@ -1708,11 +1708,13 @@ async function handleInternalUserNames(
   if (!userIds.length) return jsonResponse({ names: [] });
   const placeholders = userIds.map(() => "?").join(",");
   const rows = await env.AUTH_DB.prepare(
-    `SELECT id,name FROM auth_user WHERE id IN (${placeholders})`,
-  ).bind(...userIds).all<{ id: string; name: string | null }>();
+    `SELECT id,name,email FROM auth_user WHERE id IN (${placeholders})`,
+  ).bind(...userIds).all<{ id: string; name: string | null; email: string | null }>();
   const names = (rows.results || []).flatMap((row) => {
     const name = safeCanonicalDisplayName(row.name);
-    return INTERNAL_USER_NAME_UUID.test(row.id) && name ? [{ userId: row.id.toLowerCase(), name }] : [];
+    return INTERNAL_USER_NAME_UUID.test(row.id)
+      ? [{ userId: row.id.toLowerCase(), name: name || null, email: typeof row.email === "string" ? row.email : null }]
+      : [];
   });
   return jsonResponse({ names });
 }

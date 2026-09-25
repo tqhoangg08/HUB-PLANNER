@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag, PanelLeftOpen, SlidersHorizontal, RotateCcw, Download } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Eye, Tag, PanelLeftOpen, SlidersHorizontal, RotateCcw, Download, Check } from 'lucide-react';
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
@@ -69,7 +69,6 @@ import {
   COURSE_PAGE_SIZE_COMPACT,
   COURSE_REQUEST_CACHE_PREFIX,
   COURSE_REQUEST_CACHE_TTL_MS,
-  COURSE_REQUEST_PAGE_SIZE,
   DEFAULT_ACADEMIC_PROGRAM_OPTIONS,
   PDF_SCHEDULE_FILE_MESSAGE,
   PLAN_KEYS,
@@ -78,6 +77,16 @@ import {
   SYSTEM_COURSE_SUGGESTION_LIMIT,
   createEmptyPlanSchedules,
   getCourseRequestStudentCode,
+  getManagementPage,
+  adminScheduleTabUrl,
+  parseAdminScheduleTab,
+  parseAdminScheduleSort,
+  parseAdminSchedulePage,
+  parseAdminSchedulePageSize,
+  resolveAdminScheduleSemester,
+  sortManagementRequests,
+  sortManagementCourses,
+  sortManagementStudents,
   getPaginationPages,
   getSemesterContainingDate,
   isPdfScheduleFile,
@@ -91,6 +100,7 @@ import {
   type PlanSchedules,
   type ScheduleViewMode,
   type StudentScheduleSummary,
+  type AdminScheduleTab,
   type UserProfile,
 } from '../features/schedule/scheduleBoardModel';
 
@@ -527,6 +537,26 @@ const getColorForCourse = (id: string) => {
 
 export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const adminQuery = new URLSearchParams(location.search);
+  const adminTab = parseAdminScheduleTab(adminQuery.get('tab'));
+  const adminSort = parseAdminScheduleSort(adminQuery.get('sort'));
+  const setAdminQuery = (patch: Record<string, string | null>, replace = false) => {
+    const params = new URLSearchParams(location.search);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null || value === '') params.delete(key);
+      else params.set(key, value);
+    }
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace });
+  };
+  const selectAdminTab = (tab: AdminScheduleTab) => {
+    const params = new URLSearchParams(location.search);
+    params.set('tab', adminScheduleTabUrl(tab));
+    params.set('page', '1');
+    params.delete('status');
+    params.delete('sort');
+    navigate({ pathname: '/schedule', search: params.toString() });
+  };
   const { studentCode: routeStudentCode } = useParams<{ studentCode?: string }>();
   const selectedRouteStudentCode = routeStudentCode ? decodeURIComponent(routeStudentCode) : null;
 
@@ -535,9 +565,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const { session, isAdmin, isAuditor, isStudent, loading } = useUserRole();
   const isAuthenticated = session !== null;
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => adminQuery.get('search') || '');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
-  const [coursePage, setCoursePage] = useState(0);
+  const [coursePage, setCoursePage] = useState(() => parseAdminSchedulePage(adminQuery.get('page')) - 1);
   const [courseTotal, setCourseTotal] = useState(0);
   const [courseHasMore, setCourseHasMore] = useState(false);
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
@@ -549,12 +579,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isCourseResultsOpen, setIsCourseResultsOpen] = useState(false);
   const [openSidebarFilterSections, setOpenSidebarFilterSections] = useState<Set<SidebarFilterSection>>(() => new Set(['semester']));
   const [adminScheduleError, setAdminScheduleError] = useState('');
-  const [adminFacultyFilter, setAdminFacultyFilter] = useState('');
-  const [adminStatusFilter, setAdminStatusFilter] = useState('all');
-  const [adminRequestDateFrom, setAdminRequestDateFrom] = useState('');
-  const [adminRequestDateTo, setAdminRequestDateTo] = useState('');
+  const [adminFacultyFilter, setAdminFacultyFilter] = useState(() => adminQuery.get('faculty') || '');
+  const [adminStatusFilter, setAdminStatusFilter] = useState(() => adminQuery.get('status') || 'all');
+  const [adminRequestDateFrom, setAdminRequestDateFrom] = useState(() => adminQuery.get('from') || '');
+  const [adminRequestDateTo, setAdminRequestDateTo] = useState(() => adminQuery.get('to') || '');
   
-  const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
+  const [selectedSemester, setSelectedSemester] = useState<string>(() => resolveAdminScheduleSemester(adminQuery));
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [selectedSubjectName, setSelectedSubjectName] = useState<string>('all');
   const [selectedMajor, setSelectedMajor] = useState<string>('all');
@@ -721,15 +751,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isAdminView, setIsAdminView] = useState(isAdmin);
-  const [adminTab, setAdminTab] = useState<'system' | 'user' | 'requested' | 'user_changed' | 'student_schedules'>('system');
+  const [managementPageSize, setManagementPageSize] = useState(() => parseAdminSchedulePageSize(adminQuery.get('pageSize')));
   const isSystemCourseCatalog = !isAdminView || adminTab === 'system';
   const hasCatalogPaginationFilters = isAdminView
-    ? Boolean(searchTerm.trim()) || selectedPhase !== 'all'
+    ? Boolean(searchTerm.trim()) || selectedPhase !== 'all' || adminSort !== 'default'
     : hasNonSemesterCourseFilters;
   const isCourseSuggestionMode = isSystemCourseCatalog && !hasCatalogPaginationFilters;
   const coursePageSize = isCourseSuggestionMode
     ? SYSTEM_COURSE_SUGGESTION_LIMIT
-    : COURSE_PAGE_SIZE_COMPACT;
+    : isAdminView ? managementPageSize : COURSE_PAGE_SIZE_COMPACT;
   const courseTotalPages = Math.max(1, Math.ceil(courseTotal / coursePageSize));
   const coursePaginationPages = getPaginationPages(coursePage + 1, courseTotalPages);
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
@@ -737,6 +767,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
   const [courseRequests, setCourseRequests] = useState<CourseRequest[]>([]);
   const [courseRequestPage, setCourseRequestPage] = useState(1);
+  const [managementPage, setManagementPage] = useState(() => parseAdminSchedulePage(adminQuery.get('page')));
+  const [quickApprovingRequestId, setQuickApprovingRequestId] = useState<string | null>(null);
+  const quickApproveInFlightRef = useRef(false);
+  const [quickApproveError, setQuickApproveError] = useState('');
   const [courseRequestTotal, setCourseRequestTotal] = useState(0);
   const courseRequestPageCacheRef = useRef(new Map<string, CourseRequestPageCache>());
   const courseRequestPrefetchRef = useRef(new Set<string>());
@@ -879,7 +913,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const phaseFilters = isAdminView
         ? (selectedPhase === 'all' ? [] : [selectedPhase])
         : selectedFilterPhases;
-    const hasAdditionalFilters = Boolean(term)
+    const hasAdditionalFilters = Boolean(term) || (isAdminView && adminSort !== 'default')
         || phaseFilters.length > 0
         || (!isAdminView && (
             selectedSubjectName !== 'all'
@@ -907,6 +941,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             managingFaculty: isAdminView ? adminFacultyFilter.trim() : '',
             isAdminView,
             adminTab,
+            sort: isAdminView ? adminSort : 'default',
             pageSize: requestPageSize,
         });
 
@@ -916,10 +951,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             setAvailableCourses([]);
             setCourseTotal(0);
             setCourseHasMore(false);
-            if (coursePage !== 0) {
-                setCoursePage(0);
-                return;
-            }
+            // Keep URL-selected page when entering via refresh or browser history.
         }
 
         const pageCacheKey = `${filterKey}:page:${requestPage}`;
@@ -961,6 +993,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         }
         if (isAdminView && (adminTab === 'system' || adminTab === 'user')) {
             baseParams.set('isUserAdded', adminTab === 'user' ? 'true' : 'false');
+            if (adminSort !== 'default') baseParams.set('sort', adminSort);
         }
         if (isSuggestionMode) baseParams.set('suggestions', 'true');
         if (term) baseParams.set('search', term);
@@ -1149,7 +1182,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     try {
         const data = await fetchAdminUserSchedules('changed', {
             phase: selectedPhase,
-            search: searchTerm.trim()
         });
         setChangedUserScheduleCourses(sortChangedUserScheduleCourses(data));
     } catch (err: any) {
@@ -1272,7 +1304,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const openStudentSchedule = async (student: StudentScheduleSummary, options?: { replace?: boolean }) => {
       playClick();
       setSelectedStudentSchedule(student);
-      navigate(`/schedule/${encodeURIComponent(student.student_code || student.user_id)}`, { replace: options?.replace });
+      navigate(`/schedule/${encodeURIComponent(student.student_code || student.user_id)}${location.search}`, { replace: options?.replace });
       await fetchStudentScheduleCourses(student);
   };
 
@@ -1351,6 +1383,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       }
   };
 
+  const clampRequestPage = (rows: CourseRequest[]) => {
+      const term = searchTerm.trim().toLocaleLowerCase('vi-VN');
+      const visible = rows.filter(request => request.semester === selectedSemester
+          && (adminStatusFilter === 'all' || (request.status || 'pending') === adminStatusFilter)
+          && (!adminRequestDateFrom || (request.created_at || '').slice(0, 10) >= adminRequestDateFrom)
+          && (!adminRequestDateTo || (request.created_at || '').slice(0, 10) <= adminRequestDateTo)
+          && (!term || [request.id, request.user?.student_code, request.user?.full_name, request.course_code, request.subject_name, request.request_note, request.instructor]
+              .some(value => String(value || '').toLocaleLowerCase('vi-VN').includes(term))));
+      const lastPage = Math.max(1, Math.ceil(visible.length / managementPageSize));
+      if (managementPage > lastPage) setAdminQuery({ page: String(lastPage) }, true);
+  };
+
   const fetchCourseRequests = async (
       requestedPage = courseRequestPage,
       options: { force?: boolean; prefetch?: boolean } = {},
@@ -1359,8 +1403,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (!session?.user) return;
 
     const page = Math.max(1, requestedPage);
-    const normalizedSearch = searchTerm.trim();
-    const cacheKey = getCourseRequestCacheKey(page, normalizedSearch);
+    const normalizedSearch = '';
+    const cacheKey = getCourseRequestCacheKey(1, normalizedSearch);
     const isPrefetch = options.prefetch === true;
     const fetchId = isPrefetch
         ? courseRequestFetchIdRef.current
@@ -1371,6 +1415,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (!isPrefetch) {
             setCourseRequests(cached.data);
             setCourseRequestTotal(cached.total);
+            clampRequestPage(cached.data);
             setAdminScheduleError('');
             setIsLoading(false);
             if (cached.hasMore) void fetchCourseRequests(page + 1, { prefetch: true });
@@ -1388,11 +1433,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     try {
         const payload = await listD1CourseRequestsForReview();
-        const pendingRequests = (payload.data || []).filter((request: CourseRequest) =>
-            String(request.status || 'pending').trim().toLowerCase() === 'pending'
-              && (!normalizedSearch || `${request.course_code} ${request.subject_name}`.toLocaleLowerCase('vi-VN').includes(normalizedSearch.toLocaleLowerCase('vi-VN')))
-        );
-        const rows = sortCourseRequestsNewestFirst(pendingRequests);
+        const rows = sortCourseRequestsNewestFirst(payload.data || []);
         const total = rows.length;
         const hasMore = false;
         const entry: CourseRequestPageCache = {
@@ -1405,13 +1446,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (fetchId !== courseRequestFetchIdRef.current) return;
         writeCourseRequestCache(page, normalizedSearch, entry);
         if (!isPrefetch) {
-            const resolvedTotalPages = Math.max(1, Math.ceil(total / COURSE_REQUEST_PAGE_SIZE));
-            if (page > resolvedTotalPages) {
-                setCourseRequestPage(resolvedTotalPages);
-                return;
-            }
             setCourseRequests(rows);
             setCourseRequestTotal(total);
+            clampRequestPage(rows);
             if (hasMore) void fetchCourseRequests(page + 1, { prefetch: true });
         }
     } catch (err) {
@@ -1453,14 +1490,30 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           if (!Number.isInteger(request.revision)) throw new Error('Yêu cầu cần được tải lại trước khi xử lý.');
           await rejectD1CourseRequest(request.id, request.revision);
           clearCourseRequestCache();
-          if (courseRequests.length === 1 && courseRequestPage > 1) {
-              setCourseRequestPage(page => page - 1);
-          } else {
-              void fetchCourseRequests(courseRequestPage, { force: true });
-          }
+          void fetchCourseRequests(1, { force: true });
       } catch (err) {
           console.error(err);
           alert((err as Error)?.message || 'Có lỗi xảy ra khi từ chối yêu cầu.');
+      }
+  };
+
+  const quickApproveCourseRequest = async (request: CourseRequest) => {
+      if (isAuditor || request.status !== 'pending' || quickApproveInFlightRef.current) return;
+      quickApproveInFlightRef.current = true;
+      setQuickApprovingRequestId(request.id);
+      setQuickApproveError('');
+      try {
+          if (!Number.isInteger(request.revision)) throw new Error('Yêu cầu cần được tải lại trước khi xử lý.');
+          // Identity, instructor, semester and sessions come from the pending D1 request.
+          // An empty override avoids inventing catalogue metadata such as credits.
+          await approveD1CourseRequest(request.id, request.revision!, {});
+          clearCourseRequestCache();
+          await fetchCourseRequests(1, { force: true });
+      } catch (error) {
+          setQuickApproveError((error as Error)?.message || 'Không thể duyệt yêu cầu. Vui lòng thử lại.');
+      } finally {
+          quickApproveInFlightRef.current = false;
+          setQuickApprovingRequestId(null);
       }
   };
 
@@ -1470,7 +1523,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fetchCourses();
     }, 400);
     return () => window.clearTimeout(timeoutId);
-  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedFilterSemesters, selectedFilterPhases, selectedFilterMajors, selectedFilterCohorts, selectedFilterGroups, selectedFilterPrograms, advancedScheduleFilters, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab, adminFacultyFilter]);
+  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedFilterSemesters, selectedFilterPhases, selectedFilterMajors, selectedFilterCohorts, selectedFilterGroups, selectedFilterPrograms, advancedScheduleFilters, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab, adminFacultyFilter, adminSort]);
   useEffect(() => {
     if (!isAuthenticated || isAdminView) return;
     fetchCourseFilterOptions();
@@ -1530,14 +1583,27 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fetchCourseRequests(courseRequestPage);
     }, 300);
     return () => window.clearTimeout(timeoutId);
-  }, [searchTerm, courseRequestPage, isAuthenticated, isAdminView, adminTab]);
-  useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'user_changed') fetchChangedUserScheduleCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
+  }, [isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'user_changed') fetchChangedUserScheduleCourses(); }, [selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'student_schedules') fetchStudentScheduleSummaries(); }, [selectedSemester, isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => {
+    if (!isAdminView) return;
+    const params = new URLSearchParams(location.search);
+    setSearchTerm(params.get('search') || '');
+    setSelectedSemester(resolveAdminScheduleSemester(params));
+    setAdminStatusFilter(params.get('status') || 'all');
+    setAdminFacultyFilter(params.get('faculty') || '');
+    setAdminRequestDateFrom(params.get('from') || '');
+    setAdminRequestDateTo(params.get('to') || '');
+    setCoursePage(parseAdminSchedulePage(params.get('page')) - 1);
+    setManagementPage(parseAdminSchedulePage(params.get('page')));
+    setManagementPageSize(parseAdminSchedulePageSize(params.get('pageSize')));
+  }, [location.search, isAdminView]);
   useEffect(() => {
     if (!selectedRouteStudentCode) return;
     if (!(isAdmin || isAuditor)) return;
     setIsAdminView(true);
-    setAdminTab('student_schedules');
+    if (adminTab !== 'student_schedules') setAdminQuery({ tab: 'student-schedules' }, true);
   }, [selectedRouteStudentCode, isAdmin, isAuditor]);
 
   useEffect(() => {
@@ -2001,8 +2067,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             alert("Đã thêm môn thành môn chính thức!");
             setActiveCourseRequest(null);
             clearCourseRequestCache();
-            setAdminTab('system');
-            fetchCourses();
+            void fetchCourseRequests(1, { force: true });
         } else if (payload.id) {
             if (!Number.isInteger((payload as Course).revision)) throw new Error('Môn học cần được tải lại trước khi cập nhật.');
             const { id, revision, ...course } = payload as Course;
@@ -2010,7 +2075,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         } else {
             await createD1Course(payload); alert("Thêm môn mới thành công!");
         }
-        setIsAdminEditModalOpen(false); fetchCourses();
+        setIsAdminEditModalOpen(false);
+        if (adminTab === 'system' || adminTab === 'user') void fetchCourses();
     } catch (err) {
         console.error(err);
         alert((err as Error)?.message || "Có lỗi xảy ra khi lưu môn học.");
@@ -2317,7 +2383,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (adminTab === 'user_changed') return fetchChangedUserScheduleCourses();
       if (adminTab === 'requested') {
           clearCourseRequestCache();
-          return fetchCourseRequests(courseRequestPage, { force: true });
+          return fetchCourseRequests(1, { force: true });
       }
       return fetchCourses({ force: true });
   };
@@ -2351,28 +2417,32 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       filteredAdminCourses = filteredAdminCourses.filter(course => adminCourseStatus(course) === adminStatusFilter);
   }
 
+  const managementSearch = searchTerm.trim().toLocaleLowerCase('vi-VN');
   const filteredStudentScheduleSummaries = studentScheduleSummaries.filter(student => {
-      const term = searchTerm.trim().toLowerCase();
+      const term = managementSearch;
       if (!term) return true;
       return (
-          student.full_name.toLowerCase().includes(term) ||
-          student.student_code.toLowerCase().includes(term) ||
-          (student.email || '').toLowerCase().includes(term)
+          (student.full_name || '').toLocaleLowerCase('vi-VN').includes(term) ||
+          (student.student_code || '').toLocaleLowerCase('vi-VN').includes(term) ||
+          (student.email || '').toLocaleLowerCase('vi-VN').includes(term)
       );
   });
-  const courseRequestTotalPages = Math.max(1, Math.ceil(courseRequestTotal / COURSE_REQUEST_PAGE_SIZE));
-  const courseRequestPaginationPages = getPaginationPages(courseRequestPage, courseRequestTotalPages);
-  const courseRequestRangeStart = courseRequestTotal === 0
-      ? 0
-      : (courseRequestPage - 1) * COURSE_REQUEST_PAGE_SIZE + 1;
-  const courseRequestRangeEnd = Math.min(
-      courseRequestPage * COURSE_REQUEST_PAGE_SIZE,
-      courseRequestTotal,
-  );
   const filteredCourseRequests = courseRequests.filter(request => (
-      (adminStatusFilter === 'all' || String(request.status || 'pending') === adminStatusFilter)
+      request.semester === selectedSemester
+      && (adminStatusFilter === 'all' || String(request.status || 'pending') === adminStatusFilter)
       && isWithinAdminRequestDateRange(request.created_at)
+      && (!managementSearch || [request.id, request.user?.student_code, request.user?.full_name, request.course_code, request.subject_name, request.request_note, request.instructor]
+          .some(value => String(value || '').toLocaleLowerCase('vi-VN').includes(managementSearch)))
   ));
+  const filteredChangedCourses = filteredAdminCourses.filter(course => !managementSearch || [
+      course.user?.student_code, course.user?.full_name, course.course_code, course.subject_name,
+      ...getChangedCourseDiffs(course).flatMap(diff => [diff.originalValue, diff.changedValue]),
+  ].some(value => String(value || '').toLocaleLowerCase('vi-VN').includes(managementSearch)));
+  const requestedPageData = getManagementPage(sortManagementRequests(filteredCourseRequests, adminSort), managementPage, managementPageSize);
+  const changedPageData = getManagementPage(sortManagementCourses(filteredChangedCourses, adminSort), managementPage, managementPageSize);
+  const studentPageData = getManagementPage(sortManagementStudents(filteredStudentScheduleSummaries, adminSort), managementPage, managementPageSize);
+  const currentManagementPage = adminTab === 'requested' ? requestedPageData : adminTab === 'user_changed' ? changedPageData : studentPageData;
+  const managementPaginationPages = getPaginationPages(currentManagementPage.page, currentManagementPage.totalPages);
   const selectedChangedCourseDiffs = getChangedCourseDiffs(selectedChangedCourse);
   const changedCourseCodeCounts = changedUserScheduleCourses.reduce((map, course) => {
       const key = (course.course_code || '').trim();
@@ -2486,7 +2556,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 <div role="tablist" aria-label="Danh mục quản lý thời khóa biểu" className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 pt-3 custom-scrollbar sm:px-4">
                     <button
                         onClick={() => {
-                            setAdminTab('system');
+                            selectAdminTab('system');
                             setAdminStatusFilter('all');
                             setAvailableCourses([]);
                             setCourseTotal(0);
@@ -2497,27 +2567,26 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         aria-selected={adminTab === 'system'}
                         className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'system' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}
                     >Môn hệ thống gốc</button>
-                    <button onClick={() => { setAdminTab('user'); setAdminStatusFilter('all'); }} role="tab" aria-selected={adminTab === 'user'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thêm</button>
-                    <button onClick={() => { setAdminTab('requested'); setAdminStatusFilter('all'); setCourseRequestPage(1); }} role="tab" aria-selected={adminTab === 'requested'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'requested' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên yêu cầu thêm</button>
-                    <button onClick={() => { setAdminTab('user_changed'); setAdminStatusFilter('all'); }} role="tab" aria-selected={adminTab === 'user_changed'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user_changed' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thay đổi</button>
-                    <button onClick={() => { setAdminTab('student_schedules'); setAdminStatusFilter('all'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); if (selectedRouteStudentCode) navigate('/schedule'); }} role="tab" aria-selected={adminTab === 'student_schedules'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'student_schedules' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Quản lý TKB sinh viên</button>
+                    <button onClick={() => selectAdminTab('user')} role="tab" aria-selected={adminTab === 'user'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thêm</button>
+                    <button onClick={() => selectAdminTab('requested')} role="tab" aria-selected={adminTab === 'requested'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'requested' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên yêu cầu thêm</button>
+                    <button onClick={() => selectAdminTab('user_changed')} role="tab" aria-selected={adminTab === 'user_changed'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user_changed' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thay đổi</button>
+                    <button onClick={() => { selectAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); }} role="tab" aria-selected={adminTab === 'student_schedules'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'student_schedules' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Quản lý TKB sinh viên</button>
                 </div>
 
-                <section aria-label="Bộ lọc thời khóa biểu" className="border-b border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                {(adminTab === 'system' || adminTab === 'user') ? <section aria-label="Bộ lọc thời khóa biểu" className="border-b border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(245px,1.5fr)_minmax(180px,.9fr)_minmax(170px,.9fr)_minmax(160px,.8fr)_minmax(250px,1fr)]">
                         <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Tìm kiếm</span><span className="relative">
                             <input
                                 type="text"
-                                placeholder={adminTab === 'student_schedules'
-                                    ? 'Tìm tên sinh viên, MSSV, email...'
-                                    : adminTab === 'system'
+                                placeholder={adminTab === 'system'
                                         ? 'Nhập mã hoặc tên môn để tìm tối đa 10 gợi ý...'
                                         : 'Tìm môn học, mã HP, GV...'}
                                 value={searchTerm}
                                 onChange={(e) => {
                                     const nextSearchTerm = e.target.value;
                                     setSearchTerm(nextSearchTerm);
-                                    if (adminTab === 'requested') setCourseRequestPage(1);
+                                    setCoursePage(0);
+                                    setAdminQuery({ search: nextSearchTerm || null, page: '1' }, true);
                                     if (adminTab === 'system' && !nextSearchTerm.trim()) {
                                         setAvailableCourses([]);
                                         setCourseTotal(0);
@@ -2528,38 +2597,55 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             />
                             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         </span></label>
-                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Học kỳ</span><select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Học kỳ</span><select value={selectedSemester} onChange={(e) => { setSelectedSemester(e.target.value); setAdminQuery({ semester: e.target.value, year: e.target.value.split('_').slice(1).join('-'), page: '1' }); }} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
                             {SEMESTER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select></label>
-                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Khoa phụ trách</span><input value={adminFacultyFilter} onChange={(event) => setAdminFacultyFilter(event.target.value)} placeholder="Tất cả khoa" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></label>
-                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => setAdminStatusFilter(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Khoa phụ trách</span><input value={adminFacultyFilter} onChange={(event) => { setAdminFacultyFilter(event.target.value); setAdminQuery({ faculty: event.target.value || null, page: '1' }, true); }} placeholder="Tất cả khoa" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></label>
+                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => { setAdminStatusFilter(event.target.value); setAdminQuery({ status: event.target.value === 'all' ? null : event.target.value, page: '1' }); }} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
                             <option value="all">Tất cả</option>
-                            {adminTab === 'requested' ? <><option value="pending">Chờ duyệt</option><option value="approved">Đã duyệt</option><option value="rejected">Đã từ chối</option></> : <><option value="active">Đang áp dụng</option>{adminTab === 'user_changed' && <option value="updated">Cập nhật mới</option>}</>}
+                            <option value="active">Đang áp dụng</option>
                         </select></label>
                         <fieldset className="grid gap-1.5"><legend className="text-[12px] font-bold text-slate-700">Khoảng thời gian</legend><div className="grid grid-cols-2 gap-2">
-                            <input value={adminRequestDateFrom} onChange={(event) => setAdminRequestDateFrom(event.target.value)} type="date" aria-label="Từ ngày" disabled={adminTab !== 'requested'} title={adminTab !== 'requested' ? 'Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn.' : undefined} className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
-                            <input value={adminRequestDateTo} onChange={(event) => setAdminRequestDateTo(event.target.value)} type="date" aria-label="Đến ngày" disabled={adminTab !== 'requested'} title={adminTab !== 'requested' ? 'Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn.' : undefined} className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
+                            <input value={adminRequestDateFrom} onChange={(event) => setAdminRequestDateFrom(event.target.value)} type="date" aria-label="Từ ngày" disabled title="Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn." className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
+                            <input value={adminRequestDateTo} onChange={(event) => setAdminRequestDateTo(event.target.value)} type="date" aria-label="Đến ngày" disabled title="Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn." className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
                         </div></fieldset>
                     </div>
-                </section>
+                </section> : <section aria-label="Bộ lọc thời khóa biểu" className="border-b border-gray-300 bg-white p-4 sm:p-5">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(230px,1.5fr)_repeat(3,minmax(130px,.8fr))]">
+                        <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Tìm kiếm</span><span className="relative"><Search size={16} className="pointer-events-none absolute left-3 top-3 text-slate-400"/><input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setAdminQuery({ search: event.target.value || null, page: '1' }, true); }} placeholder={adminTab === 'requested' ? 'Mã yêu cầu, MSSV, tên môn...' : adminTab === 'user_changed' ? 'Mã SV, họ tên, môn thay đổi...' : 'Mã SV, họ tên...'} className="h-10 w-full min-w-0 rounded-md border border-gray-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></span></label>
+                        <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Học kỳ</span><select value={selectedSemester.split('_')[0]} onChange={(event) => { const year = selectedSemester.split('_').slice(1).join('_'); const next = SEMESTER_OPTIONS.find(option => option.value === `${event.target.value}_${year}`); if (next) { setSelectedSemester(next.value); setAdminQuery({ semester: next.value, year: year.replace('_', '-'), page: '1' }); } }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">{[['HK1', 'HK1'], ['HK2', 'HK2'], ['HKHE', 'Hè']].map(([term, label]) => <option key={term} value={term} disabled={!SEMESTER_OPTIONS.some(option => option.value === `${term}_${selectedSemester.split('_').slice(1).join('_')}`)}>{label}</option>)}</select></label>
+                        <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Năm học</span><select value={selectedSemester.split('_').slice(1).join('_')} onChange={(event) => { const term = selectedSemester.split('_')[0]; const next = SEMESTER_OPTIONS.find(option => option.value === `${term}_${event.target.value}`) || SEMESTER_OPTIONS.find(option => option.value.endsWith(event.target.value)); if (next) { setSelectedSemester(next.value); setAdminQuery({ semester: next.value, year: event.target.value.replace('_', '-'), page: '1' }); } }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">{[...new Set(SEMESTER_OPTIONS.map(option => option.value.split('_').slice(1).join('_')))].map(year => <option key={year} value={year}>{year.replace('_', '–')}</option>)}</select></label>
+                        {adminTab === 'requested' && <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => { setAdminStatusFilter(event.target.value); setAdminQuery({ status: event.target.value === 'all' ? null : event.target.value, page: '1' }); }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"><option value="all">Tất cả</option><option value="pending">Chờ xử lý</option><option value="approved">Đã duyệt</option><option value="rejected">Đã từ chối</option></select></label>}
+                        {adminTab === 'requested' && <fieldset className="grid gap-1.5 xl:col-span-2"><legend className="text-xs font-bold text-slate-700">Ngày gửi yêu cầu</legend><div className="grid grid-cols-2 gap-2"><input value={adminRequestDateFrom} onChange={(event) => { setAdminRequestDateFrom(event.target.value); setAdminQuery({ from: event.target.value || null, page: '1' }); }} type="date" aria-label="Từ ngày gửi" className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-xs outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"/><input value={adminRequestDateTo} onChange={(event) => { setAdminRequestDateTo(event.target.value); setAdminQuery({ to: event.target.value || null, page: '1' }); }} type="date" aria-label="Đến ngày gửi" className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-xs outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"/></div></fieldset>}
+                    </div>
+                </section>}
 
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-5" aria-label="Thao tác quản lý thời khóa biểu">
                     {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && adminTab !== 'requested' && (
                         <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="inline-flex h-10 items-center gap-2 rounded-md bg-[#0052cc] px-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#003d99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"><Plus size={17}/> Thêm môn</button>
                     )}
-                    <button type="button" disabled title="Xuất Excel cho danh mục thời khóa biểu chưa được cung cấp bởi API hiện tại." className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-500 opacity-60"><Download size={17}/> Xuất Excel</button>
+                    {(adminTab === 'system' || adminTab === 'user') && <button type="button" disabled title="Xuất Excel cho danh mục thời khóa biểu chưa được cung cấp bởi API hiện tại." className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-500 opacity-60"><Download size={17}/> Xuất Excel</button>}
                     <button onClick={() => void refreshAdminScheduleData()} disabled={isLoading} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc] disabled:opacity-50"><RefreshCw size={17} className={isLoading ? 'animate-spin' : ''}/> Làm mới</button>
+                    <label className="ml-auto flex items-center gap-2 text-xs font-bold text-slate-700">Sắp xếp
+                        <select value={adminSort} onChange={(event) => setAdminQuery({ sort: event.target.value === 'default' ? null : event.target.value, page: '1' })} className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                            <option value="default">Mặc định</option>
+                            <option value="name-asc">A → Z</option><option value="name-desc">Z → A</option>
+                            {(adminTab === 'user' || adminTab === 'requested') && <><option value="created-desc">Mới nhất</option><option value="created-asc">Cũ nhất</option></>}
+                            {adminTab === 'student_schedules' && <><option value="student-code-asc">MSSV tăng dần</option><option value="course-count-desc">Số môn nhiều → ít</option><option value="credits-desc">Tổng TC cao → thấp</option></>}
+                        </select>
+                    </label>
+                    {adminTab === 'requested' && quickApproveError && <p role="alert" className="w-full text-sm text-red-700">{quickApproveError}</p>}
                 </div>
 
                 <div className="max-h-[calc(100vh-330px)] min-h-[460px] overflow-auto bg-white custom-scrollbar">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full text-gray-500 gap-2"><Loader2 className="animate-spin" size={20}/> Đang tải dữ liệu...</div>
                     ) : adminTab === 'student_schedules' ? (
-                        selectedStudentSchedule ? (
+                        adminScheduleError ? <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center gap-2 px-4 text-center text-red-700"><AlertTriangle size={28}/><p>{adminScheduleError}</p><button type="button" onClick={() => void fetchStudentScheduleSummaries()} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button></div> : selectedStudentSchedule ? (
                             <div className="h-full flex flex-col">
                                 <div className="p-4 border-b border-gray-300 bg-emerald-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div>
-                                        <button onClick={() => { playClick(); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); navigate('/schedule'); }} className="text-xs font-bold text-emerald-700 hover:text-emerald-900 mb-2">
+                                        <button onClick={() => { playClick(); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); navigate(`/schedule${location.search}`); }} className="text-xs font-bold text-emerald-700 hover:text-emerald-900 mb-2">
                                             ← Quay lại danh sách sinh viên
                                         </button>
                                         <h3 className="text-lg font-extrabold text-[#003375]">{selectedStudentSchedule.full_name}</h3>
@@ -2625,35 +2711,32 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     </table>
                                 )}
                             </div>
-                        ) : filteredStudentScheduleSummaries.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                                <Search size={40} className="mb-3 text-gray-300"/>
-                                <p>Không tìm thấy sinh viên nào đã thêm môn vào TKB.</p>
-                            </div>
+                        ) : studentPageData.total === 0 ? (
+                            <div className="flex min-h-[300px] flex-col items-center justify-center text-gray-500"><Search size={28} className="mb-2 text-gray-400"/><p>Không có dữ liệu phù hợp.</p></div>
                         ) : (
-                                <table className="w-full text-left border-collapse text-sm min-w-[760px]">
-                                <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
+                            <table className="w-full min-w-[760px] border-collapse text-left text-[13px]">
+                                <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
                                     <tr>
-                                        <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold">Sinh viên</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">MSSV</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold">Email</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold text-center">Số môn</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold text-center">Thao tác</th>
+                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Mã SV</th>
+                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Họ tên</th>
+                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Học kỳ</th>
+                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3 text-center">Số môn</th>
+                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3 text-center">Tổng TC</th>
+                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Email</th>
+                                        <th scope="col" className="sticky right-0 z-10 border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {filteredStudentScheduleSummaries.map((student, index) => (
-                                        <tr key={student.user_id} onClick={() => openStudentSchedule(student)} className="border-b border-gray-100 hover:bg-emerald-50/50 transition-colors cursor-pointer group">
-                                            <td className="p-3 text-center font-bold text-gray-500">{index + 1}</td>
-                                            <td className="p-3 font-bold text-gray-800">{student.full_name}</td>
-                                            <td className="p-3 font-mono font-bold text-emerald-700 whitespace-nowrap">{student.student_code}</td>
-                                            <td className="p-3 text-gray-600">{student.email || '-'}</td>
-                                            <td className="p-3 text-center"><span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold text-xs">{student.course_count}</span></td>
-                                            <td className="p-3 text-center">
-                                                <button onClick={(e) => { e.stopPropagation(); openStudentSchedule(student); }} className="px-3 py-1.5 rounded-lg bg-[#003375] text-white text-xs font-bold hover:bg-[#002855] transition-colors">
-                                                    Xem TKB
-                                                </button>
+                                <tbody className="divide-y divide-gray-200">
+                                    {studentPageData.rows.map((student) => (
+                                        <tr key={student.user_id} className="group hover:bg-blue-50/35">
+                                            <td className="border-r border-gray-200 px-4 py-3 font-bold text-[#0052cc]">{student.student_code || '—'}</td>
+                                            <td className="border-r border-gray-200 px-4 py-3 font-semibold text-slate-800">{student.full_name || 'Chưa cập nhật'}</td>
+                                            <td className="border-r border-gray-200 px-4 py-3">{SEMESTER_OPTIONS.find(option => option.value === selectedSemester)?.label || selectedSemester}</td>
+                                            <td className="border-r border-gray-200 px-4 py-3 text-center font-semibold">{student.course_count}</td>
+                                            <td className="border-r border-gray-200 px-4 py-3 text-center font-semibold">{student.total_credits ?? 0}</td>
+                                            <td className="border-r border-gray-200 px-4 py-3 text-slate-600">{student.email || '—'}</td>
+                                            <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35">
+                                                <button type="button" onClick={() => void openStudentSchedule(student)} title="Xem TKB" aria-label={`Xem TKB ${student.student_code || student.full_name}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button>
                                             </td>
                                         </tr>
                                     ))}
@@ -2662,219 +2745,87 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         )
                     ) : adminTab === 'requested' ? (
                         adminScheduleError ? (
-                            <div className="flex flex-col items-center justify-center h-full text-red-600">
-                                <AlertTriangle size={40} className="mb-3 text-red-300"/>
-                                <p className="font-bold">Không tải được yêu cầu thêm môn.</p>
-                                <p className="mt-1 text-sm text-red-500">{adminScheduleError}</p>
-                            </div>
-                        ) : filteredCourseRequests.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có yêu cầu thêm môn đang chờ.</p></div>
+                            <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center gap-2 px-4 text-center text-red-700"><AlertTriangle size={28}/><p>{adminScheduleError}</p><button type="button" onClick={() => void fetchCourseRequests(1, { force: true })} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button></div>
+                        ) : requestedPageData.total === 0 ? (
+                            <div className="flex min-h-[300px] flex-col items-center justify-center text-gray-500"><Search size={28} className="mb-2 text-gray-400"/><p>Không có dữ liệu phù hợp.</p></div>
                         ) : (
-                            <div className="min-w-[1240px]">
-                            <table className="w-full table-fixed text-left border-collapse text-sm">
-                                <colgroup>
-                                    <col className="w-14" />
-                                    <col className="w-[170px]" />
-                                    <col />
-                                    <col className="w-[180px]" />
-                                    <col className="w-[280px]" />
-                                    <col className="w-[190px]" />
-                                    <col className="w-[130px]" />
-                                    <col className="w-[250px]" />
-                                </colgroup>
-                                <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
+                            <table className="w-full min-w-[1120px] table-fixed border-collapse text-left text-[13px]">
+                                <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
                                     <tr>
-                                        <th className="p-3 border-b border-gray-300 font-bold text-center">STT</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Học kỳ</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold">Lịch học</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">MSSV yêu cầu</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Ngày gửi</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold text-center">Thao tác</th>
+                                        <th scope="col" className="w-[105px] border-b border-r border-gray-300 px-3 py-3">Mã yêu cầu</th>
+                                        <th scope="col" className="w-[115px] border-b border-r border-gray-300 px-3 py-3">MSSV</th>
+                                        <th scope="col" className="w-[120px] border-b border-r border-gray-300 px-3 py-3">Mã môn</th>
+                                        <th scope="col" className="border-b border-r border-gray-300 px-3 py-3">Môn học yêu cầu</th>
+                                        <th scope="col" className="w-[125px] border-b border-r border-gray-300 px-3 py-3">Giảng viên</th>
+                                        <th scope="col" className="w-[190px] border-b border-r border-gray-300 px-3 py-3">Lịch đề xuất</th>
+                                        <th scope="col" className="w-[100px] border-b border-r border-gray-300 px-3 py-3">Ngày gửi</th>
+                                        <th scope="col" className="w-[105px] border-b border-r border-gray-300 px-3 py-3">Trạng thái</th>
+                                        <th scope="col" className="sticky right-0 z-10 w-[160px] border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {filteredCourseRequests.map((request, index) => (
-                                        <tr key={request.id} onClick={() => openCourseRequestEditor(request)} className={`border-b border-gray-100 transition-colors ${isAuditor ? '' : 'cursor-pointer hover:bg-emerald-50/40'}`}>
-                                            <td className="p-3 text-center font-bold text-gray-500">{(courseRequestPage - 1) * COURSE_REQUEST_PAGE_SIZE + index + 1}</td>
-                                            <td className="p-3 font-semibold text-[#003375]">
-                                                <div className="truncate">{request.course_code}</div>
-                                                {request.duplicate_course && (
-                                                    <div className="mt-1 truncate text-[10px] font-bold text-amber-700">
-                                                        Trùng {request.duplicate_course.course_code}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="p-3 font-bold text-gray-800 break-words leading-snug">{request.subject_name}</td>
-                                            <td className="p-3 text-gray-600 font-medium break-words leading-snug">{request.instructor || '-'}</td>
-                                            <td className="p-3 text-xs font-semibold text-slate-700 whitespace-nowrap">{request.semester}</td>
-                                            <td className="p-3 text-[11px] leading-relaxed text-slate-600">{(request.scheduleSessions || []).length > 0 ? (request.scheduleSessions || []).map((session, sessionIndex) => <div key={sessionIndex}><span className="font-bold text-slate-700">Buổi {sessionIndex + 1}: </span>{formatScheduleSession(session).join(' · ')}</div>) : <span className="font-semibold text-amber-700">Chưa có lịch cấu trúc</span>}</td>
-                                            <td className="p-3 font-mono font-bold text-emerald-700 whitespace-nowrap overflow-hidden text-ellipsis">{getCourseRequestStudentCode(request)}</td>
-                                            <td className="p-3 text-xs text-gray-500 whitespace-nowrap">{request.created_at ? new Date(request.created_at).toLocaleDateString('vi-VN') : '-'}</td>
-                                            <td className="p-3">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    {request.duplicate_course && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                void showAlert({
-                                                                    title: 'Sinh viên yêu cầu trùng môn',
-                                                                    message: `${request.course_code} được xác định trùng với môn đã có: ${request.duplicate_course?.course_code} – ${request.duplicate_course?.subject_name}.`,
-                                                                    variant: 'warning',
-                                                                });
-                                                            }}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
-                                                            title="Mã học phần này trùng với một môn đã có trong hệ thống"
-                                                        >
-                                                            <AlertTriangle size={14} />
-                                                            Trùng môn
-                                                        </button>
-                                                    )}
-                                                    <button disabled={isAuditor} onClick={(e) => { e.stopPropagation(); openCourseRequestEditor(request); }} className="px-3 py-1.5 rounded-lg bg-[#003375] text-white text-xs font-bold hover:bg-[#002855] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                                        Sửa & thêm
-                                                    </button>
-                                                    <button disabled={isAuditor} onClick={(e) => { e.stopPropagation(); rejectCourseRequest(request); }} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Từ chối yêu cầu"><Trash2 size={16}/></button>
+                                <tbody className="divide-y divide-gray-200">
+                                    {requestedPageData.rows.map((request) => (
+                                        <tr key={request.id} className="group hover:bg-blue-50/35">
+                                            <td className="border-r border-gray-200 px-3 py-3 font-mono text-xs text-slate-600" title={request.id.toUpperCase()}>{request.id.slice(0, 8).toUpperCase()}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3 font-mono text-xs text-[#0052cc]">{getCourseRequestStudentCode(request)}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3 font-semibold text-slate-800">{request.course_code}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3"><div className="line-clamp-2 font-semibold" title={request.subject_name}>{request.subject_name}</div>{request.request_note && <p className="mt-0.5 truncate text-xs text-slate-500" title={request.request_note}>{request.request_note}</p>}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3 text-slate-600">{request.instructor || '—'}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{request.scheduleSessions?.length ? `${request.scheduleSessions.length} buổi` : 'Chưa có lịch cấu trúc'}<span className="block text-slate-500">{SEMESTER_OPTIONS.find(option => option.value === request.semester)?.label || request.semester}</span></td>
+                                            <td className="border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{request.created_at ? new Date(request.created_at).toLocaleDateString('vi-VN') : '—'}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3"><span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-bold ${request.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : request.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{request.status === 'approved' ? 'Đã duyệt' : request.status === 'rejected' ? 'Đã từ chối' : 'Chờ xử lý'}</span></td>
+                                            <td className="sticky right-0 z-[1] bg-white px-2 py-2.5 group-hover:bg-blue-50/35">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <button type="button" onClick={() => void showAlert({ title: `${request.id.slice(0, 8).toUpperCase()} · ${request.subject_name}`, message: [`MSSV: ${getCourseRequestStudentCode(request)}`, request.user?.full_name ? `Họ tên: ${request.user.full_name}` : '', request.user?.email ? `Email: ${request.user.email}` : '', `Mã môn: ${request.course_code}`, `Giảng viên: ${request.instructor || 'Chưa cập nhật'}`, `Lịch: ${request.scheduleSessions?.map(session => formatScheduleSession(session).join(' · ')).join('; ') || 'Chưa có lịch cấu trúc'}`, request.request_note ? `Ghi chú: ${request.request_note}` : ''].filter(Boolean).join('\n') })} title="Xem yêu cầu" aria-label={`Xem yêu cầu ${request.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button>
+                                                    {!isAuditor && request.status === 'pending' && <button type="button" disabled={Boolean(quickApprovingRequestId)} onClick={() => void quickApproveCourseRequest(request)} title="Duyệt nhanh" aria-label={`Duyệt yêu cầu ${request.id.slice(0, 8).toUpperCase()}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-emerald-700 hover:border-emerald-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-50">{quickApprovingRequestId === request.id ? <Loader2 size={15} className="animate-spin"/> : <Check size={15}/>}</button>}
+                                                    {!isAuditor && request.status === 'pending' && <><button type="button" onClick={() => openCourseRequestEditor(request)} title="Duyệt yêu cầu" aria-label={`Duyệt yêu cầu ${request.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Edit size={15}/></button><button type="button" onClick={() => void rejectCourseRequest(request)} title="Từ chối yêu cầu" aria-label={`Từ chối yêu cầu ${request.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-red-600 hover:border-red-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"><Trash2 size={15}/></button></>}
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
-                            <div className="sticky bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-gray-300 bg-white px-4 py-3">
-                                <p className="text-xs font-medium text-slate-500">
-                                    {(adminStatusFilter !== 'all' || adminRequestDateFrom || adminRequestDateTo)
-                                        ? <>Hiển thị <span className="font-bold text-slate-700">{filteredCourseRequests.length}</span> yêu cầu trên trang hiện tại</>
-                                        : <>Hiển thị <span className="font-bold text-slate-700">{courseRequestRangeStart}-{courseRequestRangeEnd}</span> trong <span className="font-bold text-slate-700">{courseRequestTotal}</span> yêu cầu</>}
-                                </p>
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => setCourseRequestPage(page => Math.max(1, page - 1))}
-                                        disabled={courseRequestPage <= 1}
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
-                                        aria-label="Trang trước"
-                                    >
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                    {courseRequestPaginationPages.map((page, index) => {
-                                        const previousPage = courseRequestPaginationPages[index - 1];
-                                        return (
-                                            <React.Fragment key={page}>
-                                                {previousPage && page - previousPage > 1 && (
-                                                    <span className="px-1 text-xs text-gray-400">…</span>
-                                                )}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setCourseRequestPage(page)}
-                                                    className={`h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition-colors ${courseRequestPage === page ? 'bg-[#0052cc] text-white' : 'border border-gray-300 text-gray-600 hover:border-[#0052cc] hover:text-[#0052cc]'}`}
-                                                    aria-current={courseRequestPage === page ? 'page' : undefined}
-                                                >
-                                                    {page}
-                                                </button>
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                    <button
-                                        type="button"
-                                        onClick={() => setCourseRequestPage(page => Math.min(courseRequestTotalPages, page + 1))}
-                                        disabled={courseRequestPage >= courseRequestTotalPages}
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
-                                        aria-label="Trang sau"
-                                    >
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
-                                <div aria-hidden="true" />
-                            </div>
-                            </div>
                         )
                     ) : adminScheduleError ? (
-                        <div className="flex flex-col items-center justify-center h-full text-red-600">
+                        <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center text-red-600">
                             <AlertTriangle size={40} className="mb-3 text-red-300"/>
                             <p className="font-bold">Không tải được dữ liệu TKB sinh viên.</p>
                             <p className="mt-1 text-sm text-red-500">{adminScheduleError}</p>
+                            <button type="button" onClick={() => void refreshAdminScheduleData()} className="mt-3 rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button>
                         </div>
-                    ) : filteredAdminCourses.length === 0 ? (
+                    ) : (adminTab === 'user_changed' ? changedPageData.total === 0 : filteredAdminCourses.length === 0) ? (
                         <div className="flex flex-col items-center justify-center h-full px-6 text-center text-gray-500">
                             <Search size={40} className="mb-3 text-gray-300"/>
                             <p>
                                 {adminTab === 'system' && !searchTerm.trim()
                                     ? 'Nhập mã học phần hoặc tên môn để xem tối đa 10 gợi ý.'
-                                    : 'Không có dữ liệu phù hợp trong mục này.'}
+                                    : adminTab === 'user_changed' ? 'Không có dữ liệu phù hợp.' : 'Không có dữ liệu phù hợp trong mục này.'}
                             </p>
                         </div>
                     ) : adminTab === 'user_changed' ? (
-                        <table className="w-full table-fixed text-left border-collapse text-sm min-w-[1080px]">
-                            <colgroup>
-                                <col className="w-14" />
-                                <col className="w-[170px]" />
-                                <col className="w-[110px]" />
-                                <col className="w-[150px]" />
-                                <col className="w-[220px]" />
-                                <col className="w-[150px]" />
-                                <col className="w-[220px]" />
-                                <col className="w-[88px]" />
-                            </colgroup>
-                            <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
-                                <tr>
-                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Tên Sinh Viên</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">MSSV</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold">Lịch Học & Phòng</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-28">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredAdminCourses.map((c, index) => {
-                                    const duplicateCount = changedCourseCodeCounts.get((c.course_code || '').trim()) || 0;
-                                    const isDuplicateCourse = duplicateCount > 1;
-                                    return (
-                                    <tr
-                                        key={c.user_schedule_id}
-                                        onClick={() => setSelectedChangedCourse(c)}
-                                        className={`border-b transition-colors group cursor-pointer ${isDuplicateCourse ? 'bg-amber-50/80 hover:bg-amber-100/80 border-amber-200' : 'hover:bg-blue-50/50'}`}
-                                    >
-                                        <td className={`p-3 text-center font-bold ${isDuplicateCourse ? 'text-amber-700' : 'text-gray-500'}`}>{index + 1}</td>
-                                        <td className="p-3 font-bold text-gray-800 break-words leading-snug">{c.user?.full_name || 'Không xác định'}</td>
-                                        <td className="p-3 font-semibold text-orange-700 whitespace-nowrap overflow-hidden text-ellipsis">{c.user?.student_code || '-'}</td>
-                                        <td className={`p-3 font-semibold whitespace-nowrap ${isDuplicateCourse ? 'text-amber-800' : 'text-[#003375]'}`}>
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span>{c.course_code}</span>
-                                                {isDuplicateCourse && (
-                                                    <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold border border-amber-300">
-                                                        Trùng {duplicateCount}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-3 font-bold text-gray-800 break-words leading-snug">{c.subject_name}</td>
-                                        <td className="p-3 text-gray-600 font-medium break-words leading-snug">{c.instructor || '-'}</td>
-                                        <td className="p-3 text-xs text-gray-600 leading-relaxed break-words">
-                                            <span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>
-                                            Tuần: {c.weeks}
-                                            {c.labels && c.labels.length > 0 && (
-                                                <div className="flex gap-1 mt-1 flex-wrap">
-                                                    {c.labels.map((l: any) => (
-                                                        <span key={l.id} className={`text-[9px] px-1 rounded border font-semibold ${getLabelStyle(l.color)}`}>{l.date} - {l.type === 'Khác' ? l.text : l.type}</span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="p-3 text-center">
-                                            <button onClick={(e) => { e.stopPropagation(); setSelectedChangedCourse(c); }} className="px-3 py-1.5 rounded-lg bg-orange-50 text-orange-700 border border-orange-100 text-xs font-bold hover:bg-orange-100 transition-colors">
-                                                Chi tiết
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    );
-                                })}
-                            </tbody>
+                        <table className="w-full min-w-[1020px] table-fixed border-collapse text-left text-[13px]">
+                            <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600"><tr>
+                                <th scope="col" className="w-[115px] border-b border-r border-gray-300 px-3 py-3">Mã SV</th>
+                                <th scope="col" className="w-[165px] border-b border-r border-gray-300 px-3 py-3">Họ tên</th>
+                                <th scope="col" className="w-[135px] border-b border-r border-gray-300 px-3 py-3">Mã môn</th>
+                                <th scope="col" className="w-[205px] border-b border-r border-gray-300 px-3 py-3">Môn học</th>
+                                <th scope="col" className="border-b border-r border-gray-300 px-3 py-3">Nội dung thay đổi</th>
+                                <th scope="col" className="w-[130px] border-b border-r border-gray-300 px-3 py-3">Học kỳ</th>
+                                <th scope="col" className="sticky right-0 z-10 w-[80px] border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
+                            </tr></thead>
+                            <tbody className="divide-y divide-gray-200">{changedPageData.rows.map((course) => {
+                                const diffs = getChangedCourseDiffs(course);
+                                const duplicateCount = changedCourseCodeCounts.get((course.course_code || '').trim()) || 0;
+                                return <tr key={course.user_schedule_id || course.id} className="group hover:bg-blue-50/35">
+                                    <td className="border-r border-gray-200 px-3 py-3 font-semibold text-[#0052cc]">{course.user?.student_code || '—'}</td>
+                                    <td className="border-r border-gray-200 px-3 py-3 font-semibold">{course.user?.full_name || 'Chưa cập nhật'}</td>
+                                    <td className="border-r border-gray-200 px-3 py-3 font-semibold">{course.course_code}{duplicateCount > 1 && <span className="ml-1 text-xs text-amber-700">Trùng {duplicateCount}</span>}</td>
+                                    <td className="border-r border-gray-200 px-3 py-3"><div className="line-clamp-2 font-semibold" title={course.subject_name}>{course.subject_name}</div></td>
+                                    <td className="border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{diffs.length ? diffs.slice(0, 2).map(diff => <div key={String(diff.key)} className="truncate" title={`${diff.label}: ${normalizeDiffValue(diff.originalValue)} → ${normalizeDiffValue(diff.changedValue)}`}><span className="font-bold">{diff.label}:</span> {normalizeDiffValue(diff.originalValue) || 'Trống'} → {normalizeDiffValue(diff.changedValue) || 'Trống'}</div>) : 'Chi tiết thay đổi'}</td>
+                                    <td className="border-r border-gray-200 px-3 py-3 text-slate-600">{SEMESTER_OPTIONS.find(option => option.value === course.semester)?.label || course.semester}</td>
+                                    <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35"><button type="button" onClick={() => setSelectedChangedCourse(course)} title="Xem thay đổi" aria-label={`Xem thay đổi ${course.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button></td>
+                                </tr>;
+                            })}</tbody>
                         </table>
                     ) : (
                         <>
@@ -2922,22 +2873,33 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="text-xs text-slate-500">Trang {coursePage + 1} · Hiển thị {filteredAdminCourses.length} kết quả của trang hiện tại</span>
                                 <div className="flex items-center gap-1.5">
-                                    <span className="mr-1 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-600">{coursePageSize} / trang</span>
-                                    <button type="button" disabled={coursePage === 0 || isLoading} onClick={() => setCoursePage(page => Math.max(0, page - 1))} aria-label="Trang trước" title="Trang trước" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16}/></button>
+                                    <label className="mr-1 text-xs text-slate-600">Số dòng <select value={managementPageSize} onChange={(event) => setAdminQuery({ pageSize: event.target.value, page: '1' })} className="h-8 rounded-md border border-gray-300 bg-white px-2"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select></label>
+                                    <button type="button" disabled={coursePage === 0 || isLoading} onClick={() => setAdminQuery({ page: String(Math.max(1, coursePage)) })} aria-label="Trang trước" title="Trang trước" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16}/></button>
                                     {coursePaginationPages.map((pageNumber, index) => {
                                         const previousPage = coursePaginationPages[index - 1];
                                         return <React.Fragment key={pageNumber}>
                                             {previousPage && pageNumber - previousPage > 1 && <span className="px-1 text-xs text-slate-400">…</span>}
-                                            <button type="button" onClick={() => setCoursePage(pageNumber - 1)} disabled={isLoading} aria-label={`Trang ${pageNumber}`} aria-current={coursePage + 1 === pageNumber ? 'page' : undefined} className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs font-bold transition ${coursePage + 1 === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>{pageNumber}</button>
+                                            <button type="button" onClick={() => setAdminQuery({ page: String(pageNumber) })} disabled={isLoading} aria-label={`Trang ${pageNumber}`} aria-current={coursePage + 1 === pageNumber ? 'page' : undefined} className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs font-bold transition ${coursePage + 1 === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>{pageNumber}</button>
                                         </React.Fragment>;
                                     })}
-                                    <button type="button" disabled={!courseHasMore || isLoading} onClick={() => setCoursePage(page => page + 1)} aria-label="Trang sau" title="Trang sau" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16}/></button>
+                                    <button type="button" disabled={!courseHasMore || isLoading} onClick={() => setAdminQuery({ page: String(coursePage + 2) })} aria-label="Trang sau" title="Trang sau" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16}/></button>
                                 </div>
                             </footer>
                         )}
                         </>
                     )}
                 </div>
+                {(adminTab === 'requested' || adminTab === 'user_changed' || adminTab === 'student_schedules') && !isLoading && !adminScheduleError && !(adminTab === 'student_schedules' && selectedStudentSchedule) && (
+                    <footer aria-label="Phân trang quản lý thời khóa biểu" className="flex flex-col gap-3 border-t border-gray-300 bg-white px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+                        <span className="text-xs text-slate-600">Hiển thị {currentManagementPage.start}–{currentManagementPage.end} của {currentManagementPage.total} kết quả{adminTab === 'requested' && courseRequestTotal >= 200 ? ' (trong 200 yêu cầu gần nhất)' : adminTab !== 'requested' && studentScheduleSummaries.length >= 500 ? ' (trong tối đa 500 sinh viên)' : ''}</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <label className="mr-2 flex items-center gap-2 text-xs text-slate-600">Số dòng<select value={managementPageSize} onChange={(event) => setAdminQuery({ pageSize: event.target.value, page: '1' })} aria-label="Số kết quả mỗi trang" className="h-9 rounded-md border border-gray-300 bg-white px-2 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select></label>
+                            <button type="button" disabled={currentManagementPage.page <= 1} onClick={() => setAdminQuery({ page: String(Math.max(1, currentManagementPage.page - 1)) })} aria-label="Trang trước" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc] disabled:opacity-40"><ChevronLeft size={16}/></button>
+                            {managementPaginationPages.map((pageNumber, index) => <React.Fragment key={pageNumber}>{index > 0 && pageNumber - managementPaginationPages[index - 1] > 1 && <span className="px-1 text-xs text-slate-400">…</span>}<button type="button" onClick={() => setAdminQuery({ page: String(pageNumber) })} aria-label={`Trang ${pageNumber}`} aria-current={currentManagementPage.page === pageNumber ? 'page' : undefined} className={`h-8 min-w-8 rounded-md px-2 text-xs font-bold ${currentManagementPage.page === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc]'}`}>{pageNumber}</button></React.Fragment>)}
+                            <button type="button" disabled={currentManagementPage.page >= currentManagementPage.totalPages} onClick={() => setAdminQuery({ page: String(Math.min(currentManagementPage.totalPages, currentManagementPage.page + 1)) })} aria-label="Trang sau" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc] disabled:opacity-40"><ChevronRight size={16}/></button>
+                        </div>
+                    </footer>
+                )}
                 </div>
             </div>
         ) : (
