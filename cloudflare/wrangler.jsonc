@@ -58,7 +58,10 @@
     "PROFILE_D1_SHADOW_READ_ENABLED": "true",
     "PROFILE_D1_SHADOW_WRITE_ENABLED": "true",
     "PROFILE_D1_SHADOW_WRITE_PERCENT": "100",
-    "PROFILE_D1_SHADOW_INTERNAL_ENABLED": "true"
+    "PROFILE_D1_SHADOW_INTERNAL_ENABLED": "true",
+    "AI_ADVISOR_V2_MODE": "off",
+    "AI_ADVISOR_V2_CANARY_PERCENT": "0",
+    "AI_ADVISOR_V2_GENERATOR_MODEL": "@cf/zai-org/glm-4.7-flash"
   },
   "triggers": {
     "crons": ["*/15 * * * *", "7 * * * *", "37 19 * * *"]
@@ -116,6 +119,12 @@
       "bucket_name": "hub-planner"
     }
   ],
+  "ai_search_namespaces": [
+    { "binding": "AI_ADVISOR_SEARCH", "namespace": "hub-ai-production" }
+  ],
+  "ai": {
+    "binding": "AI"
+  },
   "services": [
     {
       "binding": "AUTH_SERVICE",

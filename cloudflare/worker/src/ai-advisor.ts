@@ -4,18 +4,49 @@ import {
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
 import {
-  answerWithGeminiFileSearch,
-  buildDocumentCandidateMetadataFilter,
   extractOfficialDocumentApplicability,
   extractOfficialDocumentLocators,
-  GeminiFileSearchError,
-  geminiFileSearchConfigured,
-  publicDocumentMetadataFilter,
-  readCloudflareRequestLocation,
-  type GeminiFileSearchFailureReason,
-  type GeminiFileSearchEnv,
-  type GeminiDocumentApplicability,
 } from './gemini-file-search.ts';
+import {
+  readAdvisorProviderLocation,
+  resolveAiAdvisorProviders,
+  type AiAdvisorProviders,
+  type DocumentProviderFailureReason,
+  type GroundedDocumentAnswer,
+  type GroundedDocumentApplicability,
+  type GeminiLegacyProviderEnv,
+  type GroqLegacyProviderEnv,
+} from './ai-advisor-providers.ts';
+import {
+  buildAnswerCacheKey,
+  fingerprintStructuredSources,
+  type AnswerCache,
+  type AdvisorCacheScope,
+} from './ai-advisor-cache.ts';
+import { evaluateAdvisorQuota, type QuotaUsageSnapshot } from './ai-advisor-quota.ts';
+import { resolveZeroAiStructuredAnswer } from './ai-advisor-zero-ai.ts';
+import {
+  executeAiAdvisorV2Document,
+  readAiAdvisorV2RuntimeConfig,
+  shouldUseAiAdvisorV2,
+  type AiAdvisorV2Answer,
+  type AiAdvisorV2Candidate,
+  type AiAdvisorV2ConfigEnv,
+  type AiAdvisorV2Execution,
+} from './ai-advisor-v2-runtime.ts';
+import type { EvidenceGenerationProvider } from './ai-advisor-providers.ts';
+import type { RetrievalCache } from './ai-advisor-cache.ts';
+import {
+  classifyAiSearchRetrievalError,
+  type AiSearchClient,
+  type AiSearchInstanceNames,
+  type AiSearchRetrievalErrorReporter,
+  type AiSearchRetrievalResult,
+} from './ai-search-retrieval.ts';
+import {
+  createWorkersAiEvidenceGenerator,
+  type WorkersAiBinding,
+} from './ai-advisor-workers-ai.ts';
 import {
   calculateCumulativeStats,
   calculateSubjectAverage,
@@ -23,19 +54,105 @@ import {
 import type { Subject } from '../../../types.ts';
 import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 
-export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiFileSearchEnv {
+export type AdvisorAnswerPath = 'CACHE' | 'D1' | 'FAQ' | 'SEARCH_ONLY' | 'SEARCH_GENERATE';
+
+export type AdvisorTelemetryEvent = {
+  requestId: string;
+  intent: AdvisorIntent[];
+  answerPath: AdvisorAnswerPath;
+  cacheHit: boolean;
+  providerUsed: string | null;
+  latencyMs: number;
+  errorClass?: string;
+  mode?: 'off' | 'shadow' | 'canary' | 'on';
+  zeroAiUsed?: boolean;
+  answerCacheHit?: boolean;
+  retrievalCacheHit?: boolean;
+  searchCallCount?: number;
+  retrievedChunkCount?: number;
+  authorizedChunkCount?: number;
+  generatorCalled?: boolean;
+  abstained?: boolean;
+  abstentionReason?: string;
+  quotaMode?: string;
+};
+
+export type AdvisorShadowEvent = {
+  event: 'ai_advisor_v2_shadow';
+  mode: 'shadow';
+  shadow_trace_id: string;
+  v2_path: 'document';
+  outcome: 'SUPPORTED_VALID_CITATIONS' | 'INSUFFICIENT_EVIDENCE' | 'NO_AUTHORIZED_DOCUMENTS' | 'QUOTA_ABSTENTION' | 'RETRIEVAL_EMPTY' | 'RETRIEVAL_ERROR' | 'GENERATOR_ERROR' | 'INVALID_CITATIONS' | 'V2_INTERNAL_ERROR';
+  search_attempted: boolean;
+  search_calls: number;
+  retrieved_count: number;
+  authorized_chunk_count: number;
+  generator_attempted: boolean;
+  generator_calls: number;
+  generator_supported: boolean;
+  citation_validation: 'pass' | 'fail' | 'not_applicable';
+  safe_error_class: 'none' | 'identity' | 'retrieval' | 'generation' | 'internal' | 'scheduling';
+  retrieval_error_stage: 'INSTANCE_RESOLUTION' | 'SEARCH_INVOCATION' | 'SEARCH_RESPONSE' | 'RESPONSE_NORMALIZATION' | 'POST_AUTHORIZATION' | null;
+  retrieval_error_name: 'Error' | 'TypeError' | 'TimeoutError' | 'AbortError' | 'AI_SEARCH_ERROR' | 'UNKNOWN' | null;
+  retrieval_status: number | null;
+  retrieval_provider_error_count: number;
+  retrieval_timeout: boolean;
+  quota_mode: 'NORMAL' | 'ECONOMY' | 'CONSERVATIVE' | 'SURVIVAL';
+  duration_ms: number;
+};
+
+type AdvisorCanaryFallbackReason = 'abstention' | 'retrieval_error' | 'generator_error' | 'timeout' | 'invalid_grounding' | 'other_safe_failure';
+export type AdvisorCanaryEvent = {
+  event: 'ai_advisor_v2_canary';
+  mode: 'canary';
+  canary_selected: true;
+  v2_result_class: 'SUPPORTED_VALID_CITATIONS' | 'INSUFFICIENT_EVIDENCE' | 'RETRIEVAL_ERROR' | 'GENERATOR_ERROR' | 'TIMEOUT' | 'INVALID_GROUNDING' | 'OTHER_SAFE_FAILURE';
+  response_source: 'v2' | 'legacy_fallback';
+  fallback_reason: AdvisorCanaryFallbackReason | null;
+  search_calls: number;
+  generator_calls: number;
+  retrieved_count: number;
+  authorized_count: number;
+  duration_ms: number;
+};
+
+type AdvisorShadowLifecycleName =
+  | 'ai_advisor_v2_shadow_dispatch'
+  | 'ai_advisor_v2_shadow_scheduled'
+  | 'ai_advisor_v2_shadow_started'
+  | 'ai_advisor_v2_shadow_skip';
+type AdvisorShadowSkipReason = 'SENSITIVE_GUARD' | 'ZERO_AI' | 'NON_DOCUMENT_INTENT';
+
+type AdvisorCachedAnswer = { reply: string; answerSources: AdvisorSource[] };
+
+export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProviderEnv, GroqLegacyProviderEnv, AiAdvisorV2ConfigEnv {
   DB?: D1Database;
-  GROQ_API_KEY?: string;
-  GROQ_API_KEY_2?: string;
-  GROQ_API_KEY_3?: string;
-  GROQ_API_KEY_4?: string;
-  GROQ_API_KEY_5?: string;
-  GROQ_MODEL?: string;
-  /** Dependency seam for deterministic Worker tests; production leaves this unset. */
-  fileSearchAnswer?: typeof answerWithGeminiFileSearch;
-  /** Dependency seam for deterministic Worker timeout tests; never configured in production. */
-  fileSearchTimeoutMs?: number;
+  /** Optional test override; production resolves the two legacy providers. */
+  advisorProviders?: Partial<AiAdvisorProviders>;
+  /** No default is installed. A cache backend must be explicitly reviewed first. */
+  advisorAnswerCache?: AnswerCache<AdvisorCachedAnswer>;
+  /** Optional V2 seams. No real AI Search binding is required in Stage 6. */
+  advisorV2AiSearchClient?: AiSearchClient;
+  advisorV2AiSearchInstances?: AiSearchInstanceNames;
+  advisorV2EvidenceGenerator?: EvidenceGenerationProvider;
+  advisorV2RetrievalCache?: RetrievalCache<AiSearchRetrievalResult>;
+  advisorV2AnswerCache?: AnswerCache<AiAdvisorV2Answer>;
+  /** Optional future production bindings. OFF mode never resolves or invokes them. */
+  AI?: WorkersAiBinding;
+  AI_ADVISOR_SEARCH?: { get(name: string): { search(request: unknown): Promise<{ chunks?: unknown[] }> } };
+  AI_ADVISOR_V2_GENERATOR_MODEL?: unknown;
+  /** Optional test/integration seam; production has no fabricated quota source. */
+  advisorQuotaUsage?: QuotaUsageSnapshot;
+  /** Safe structured telemetry sink; it never receives question text or sources. */
+  advisorTelemetry?: { record(event: AdvisorTelemetryEvent): void };
+  /** Optional test sink; production always emits a content-free console event. */
+  advisorShadowTelemetry?: { record(event: AdvisorShadowEvent): void | Promise<void> };
+  /** Optional test sink; production emits a bounded, content-free console event. */
+  advisorCanaryTelemetry?: { record(event: AdvisorCanaryEvent): void };
 }
+
+type AdvisorShadowLifetime = { waitUntil(promise: Promise<unknown>): void };
+const SHADOW_BACKGROUND_DEADLINE_MS = 28_000;
 
 export class AiAdvisorError extends Error {
   readonly status: number;
@@ -51,12 +168,27 @@ const FILE_SEARCH_MIN_RETRY_BUDGET_MS = 1_000;
 const MAX_DOCUMENT_CANDIDATES = 12;
 const DOCUMENT_CANDIDATE_QUERY_LIMIT = 48;
 const MAX_POLICY_PRIOR_CONTEXT_CHARS = 1_500;
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const SAFE_TECH_REPLY = 'Mình không thể chia sẻ thông tin kỹ thuật hoặc bảo mật nội bộ của website. HUB Planner được xây dựng để hỗ trợ sinh viên quản lý học tập, theo dõi GPA, lịch học, thông báo, sự kiện và các tiện ích sinh viên thuận tiện hơn.';
 const UNVERIFIED_HUB_REPLY = 'Mình chưa thể xác minh thông tin hiện hành của HUB Planner hoặc BUH từ nguồn chính thức. Bạn có thể hỏi rõ hơn hoặc kiểm tra thông báo/tài liệu chính thức mới nhất.';
 const EMPTY_AUTHORITATIVE_REPLY = 'Mình chưa tìm thấy thông tin này trong dữ liệu hiện hành của HUB Planner.';
 const INSUFFICIENT_GROUNDED_EVIDENCE_REPLY = 'Mình đã tìm thấy văn bản liên quan nhưng đoạn nguồn truy xuất hiện chưa chứa đủ dữ liệu để xác nhận thông tin này.';
+const QUOTA_SURVIVAL_REPLY = 'Trợ lý đang ưu tiên các câu trả lời có dữ liệu xác thực. Vui lòng thử câu hỏi cụ thể hơn hoặc quay lại sau.';
 const CONVERSATION_ID_PATTERN = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|legacy-[1-9]\d*)$/i;
+const PRODUCTION_AI_SEARCH_INSTANCE = 'hub-ai-text-production';
+
+const productionAiSearchClient = (env: AiAdvisorEnv, onError?: AiSearchRetrievalErrorReporter): AiSearchClient | undefined => env.AI_ADVISOR_SEARCH
+  ? { search: async (instanceName, request) => {
+    let instance: ReturnType<NonNullable<AiAdvisorEnv['AI_ADVISOR_SEARCH']>['get']>;
+    try { instance = env.AI_ADVISOR_SEARCH!.get(instanceName); }
+    catch (error) { try { onError?.('INSTANCE_RESOLUTION', error); } catch { /* diagnostic only */ } throw error; }
+    try { return await instance.search(request); }
+    catch (error) { try { onError?.('SEARCH_INVOCATION', error); } catch { /* diagnostic only */ } throw error; }
+  } }
+  : undefined;
+
+const productionAiSearchInstances = (env: AiAdvisorEnv): AiSearchInstanceNames | undefined => env.AI_ADVISOR_SEARCH
+  ? { text: PRODUCTION_AI_SEARCH_INSTANCE, ocr: PRODUCTION_AI_SEARCH_INSTANCE }
+  : undefined;
 
 export type AdvisorIntent =
   | 'student_academic'
@@ -128,9 +260,6 @@ const readBody = async (request: Request) => {
     return body as Record<string, unknown>;
   } catch { throw new AiAdvisorError(400, 'Yêu cầu trợ lý không hợp lệ.'); }
 };
-
-const keys = (env: AiAdvisorEnv) => [env.GROQ_API_KEY, env.GROQ_API_KEY_2, env.GROQ_API_KEY_3, env.GROQ_API_KEY_4, env.GROQ_API_KEY_5]
-  .map((value) => String(value || '').trim()).filter(Boolean);
 
 const safeHistory = (value: unknown) => Array.isArray(value) ? value.slice(-4).flatMap((entry) => {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
@@ -318,18 +447,7 @@ export const isGroundedPolicyDeflection = (reply: string) => {
   ].some((phrase) => normalized.includes(phrase));
 };
 
-/** Bounds both production SDK calls and deterministic test seams. */
-export const withFileSearchDeadline = async <T>(operation: Promise<T>, timeoutMs: number, model: string): Promise<T> => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const timeout = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new GeminiFileSearchError('GEMINI_REQUEST_TIMEOUT', { model, durationMs: timeoutMs })), timeoutMs);
-    });
-    return await Promise.race([operation, timeout]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-};
+export { withGeminiLegacyDeadline as withFileSearchDeadline } from './ai-advisor-providers.ts';
 
 /**
  * This router picks a policy domain, not a document. Gemini File Search and
@@ -795,7 +913,7 @@ type ResolvedDocumentSource = {
   pageNumber: number | null;
   pageNumbers?: number[];
   locators?: string[];
-  applicability?: GeminiDocumentApplicability[];
+  applicability?: GroundedDocumentApplicability[];
   category: string | null;
   academicYear: string | null;
   programCode: string;
@@ -814,7 +932,7 @@ const mergeGroundedLocators = (...values: unknown[]) => [...new Set(values.flatM
 
 /** Re-parse only grounded raw labels before persisting/returning scope metadata. */
 const mergeGroundedApplicability = (...values: unknown[]) => {
-  const byKey = new Map<string, GeminiDocumentApplicability>();
+  const byKey = new Map<string, GroundedDocumentApplicability>();
   for (const value of values) {
     if (!Array.isArray(value)) continue;
     for (const candidate of value) {
@@ -868,7 +986,7 @@ type DocumentCitationRow = {
 
 type DocumentSourceResolution = {
   sources: ResolvedDocumentSource[];
-  reason: Extract<GeminiFileSearchFailureReason,
+  reason: Extract<DocumentProviderFailureReason,
     'D1_CITATION_NOT_FOUND' | 'D1_CITATION_NOT_ACTIVE' | 'D1_CITATION_CATEGORY_REJECTED' | 'SUCCESS'>;
   citationCount: number;
   resolvedCitationCount: number;
@@ -933,6 +1051,16 @@ const documentCategoryPriority = (route: AdvisorDocumentRoute, category: string 
 type DocumentCandidateRow = Pick<DocumentCitationRow,
   'id' | 'category' | 'academic_year' | 'program_code' | 'version' | 'updated_at' | 'created_at'>;
 
+type DocumentCandidateIdentityRow = DocumentCandidateRow & {
+  content_hash?: string | null;
+  canonical_hash?: string | null;
+  index_source_kind?: string | null;
+  derived_source_kind?: string | null;
+  extraction_pipeline_version?: string | null;
+  derived_content_hash?: string | null;
+  indexing_status?: string | null;
+};
+
 export type AdvisorDocumentCandidate = {
   id: string;
   category: AiDocumentCategory;
@@ -941,6 +1069,16 @@ export type AdvisorDocumentCandidate = {
   version: number;
   updatedAt: string;
   createdAt: string;
+};
+
+export type AdvisorDocumentCandidateWithIndexIdentity = AdvisorDocumentCandidate & {
+  contentHash: string | null;
+  canonicalHash: string | null;
+  indexSourceKind: string | null;
+  derivedSourceKind: string | null;
+  extractionPipelineVersion: string | null;
+  derivedContentHash: string | null;
+  indexingStatus: string | null;
 };
 
 const candidateScopeScore = (candidate: AdvisorDocumentCandidate, scope: AdvisorPolicyScope) => {
@@ -988,6 +1126,65 @@ export const selectAdvisorDocumentCandidates = async (env: AiAdvisorEnv, route: 
     .filter((candidate) => compatibleDocumentCategory(route, candidate.category))
     .sort((left, right) => candidatePrecedence(route, left, right))
     .slice(0, MAX_DOCUMENT_CANDIDATES);
+};
+
+/**
+ * Reads Stage 5's additive derived-index identity only for the gated V2 path.
+ * Pre-0049 databases deliberately fall back to the legacy candidate shape, so
+ * an absent migration cannot alter the default legacy request path.
+ */
+export const selectAdvisorDocumentCandidatesWithIndexIdentity = async (
+  env: AiAdvisorEnv,
+  route: AdvisorDocumentRoute,
+): Promise<AdvisorDocumentCandidateWithIndexIdentity[]> => {
+  const db = requireDb(env);
+  try {
+    const rows = await db.prepare(
+      `SELECT id, category, academic_year, program_code, version, updated_at, created_at,
+              content_hash, canonical_hash, index_source_kind, derived_source_kind,
+              extraction_pipeline_version, derived_content_hash, indexing_status
+         FROM ai_documents
+        WHERE deleted_at IS NULL
+          AND indexing_status = 'completed'
+          AND visibility = 'public'
+        ORDER BY created_at DESC
+        LIMIT ${DOCUMENT_CANDIDATE_QUERY_LIMIT}`,
+    ).all<DocumentCandidateIdentityRow>();
+    return (rows.results || [])
+      .map((row) => ({
+        id: String(row.id),
+        category: normalizeAiDocumentCategory(row.category),
+        academicYear: row.academic_year || null,
+        programCode: row.program_code || null,
+        version: Number(row.version || 1),
+        updatedAt: String(row.updated_at || ''),
+        createdAt: String(row.created_at || ''),
+        contentHash: row.content_hash || null,
+        canonicalHash: row.canonical_hash || null,
+        indexSourceKind: row.index_source_kind || null,
+        derivedSourceKind: row.derived_source_kind || null,
+        extractionPipelineVersion: row.extraction_pipeline_version || null,
+        derivedContentHash: row.derived_content_hash || null,
+        indexingStatus: row.indexing_status || null,
+      }))
+      .filter((candidate) => compatibleDocumentCategory(route, candidate.category))
+      .sort((left, right) => candidatePrecedence(route, left, right))
+      .slice(0, MAX_DOCUMENT_CANDIDATES);
+  } catch (error) {
+    // The only tolerated read failure is an intentionally unapplied additive
+    // migration. Other database errors must retain the legacy error behavior.
+    if (!/no such column: (?:derived_source_kind|extraction_pipeline_version|derived_content_hash|index_source_kind)/i.test(String(error))) throw error;
+    return (await selectAdvisorDocumentCandidates(env, route)).map((candidate) => ({
+      ...candidate,
+      contentHash: null,
+      canonicalHash: null,
+      indexSourceKind: 'legacy',
+      derivedSourceKind: 'legacy',
+      extractionPipelineVersion: null,
+      derivedContentHash: null,
+      indexingStatus: 'completed',
+    }));
+  }
 };
 
 /** D1, not model output, is the authority for every official citation. */
@@ -1075,7 +1272,7 @@ export const resolveDocumentSources = async (
 ) => (await resolveDocumentSourcesWithDiagnostics(env, sources, route)).sources;
 
 const logFileSearchDiagnostic = (
-  reason: GeminiFileSearchFailureReason,
+  reason: DocumentProviderFailureReason,
   route: AdvisorDocumentRoute,
   strategy: 'candidate_ids' | 'visibility_fallback',
   filterKind: 'document_ids' | 'visibility_fallback',
@@ -1123,14 +1320,203 @@ const logFileSearchDiagnostic = (
   }));
 };
 
-const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, unknown>, userId: string) => {
+const emitAdvisorTelemetry = (
+  env: AiAdvisorEnv,
+  event: AdvisorTelemetryEvent,
+) => {
+  try { env.advisorTelemetry?.record(event); } catch { /* telemetry cannot affect an answer */ }
+};
+
+const emitShadowConsole = (event: AdvisorShadowEvent) => {
+  try {
+    if (event.safe_error_class === 'none') console.info(JSON.stringify(event));
+    else console.warn(JSON.stringify(event));
+  } catch { /* logging cannot affect an answer */ }
+};
+
+const emitCanaryTelemetry = (env: AiAdvisorEnv, event: AdvisorCanaryEvent) => {
+  try { console.info(JSON.stringify(event)); } catch { /* telemetry cannot affect a response */ }
+  try { env.advisorCanaryTelemetry?.record(event); } catch { /* optional sink cannot affect a response */ }
+};
+
+const isV2Timeout = (error: unknown) => error instanceof Error && (
+  error.name === 'TimeoutError' || error.name === 'AbortError' || error.message === 'WORKERS_AI_EVIDENCE_TIMEOUT'
+);
+
+const canaryFallbackClassification = (reason: string, timedOut: boolean): Pick<AdvisorCanaryEvent, 'v2_result_class' | 'fallback_reason'> => {
+  if (timedOut || reason === 'AI_SEARCH_TIMEOUT') return { v2_result_class: 'TIMEOUT', fallback_reason: 'timeout' };
+  if (reason === 'AI_SEARCH_ERROR' || reason === 'AI_SEARCH_UNAVAILABLE') return { v2_result_class: 'RETRIEVAL_ERROR', fallback_reason: 'retrieval_error' };
+  if (reason === 'GENERATOR_ERROR') return { v2_result_class: 'GENERATOR_ERROR', fallback_reason: 'generator_error' };
+  if (reason === 'INVALID_CITATIONS') return { v2_result_class: 'INVALID_GROUNDING', fallback_reason: 'invalid_grounding' };
+  return { v2_result_class: 'INSUFFICIENT_EVIDENCE', fallback_reason: 'abstention' };
+};
+
+const shadowTraceId = () => {
+  try { return crypto.randomUUID(); } catch { return 'unavailable'; }
+};
+
+const emitShadowLifecycle = (
+  event: AdvisorShadowLifecycleName,
+  traceId: string,
+  routingClass: 'document' | 'sensitive_guard' | 'zero_ai' | 'non_document',
+  skipReason?: AdvisorShadowSkipReason,
+) => {
+  try {
+    console.info(JSON.stringify({
+      event, mode: 'shadow', shadow_trace_id: traceId, routing_class: routingClass,
+      zero_ai: routingClass === 'zero_ai', document_path_eligible: routingClass === 'document',
+      ...(skipReason ? { skip_reason: skipReason } : {}),
+    }));
+  } catch { /* lifecycle logging cannot affect the legacy answer */ }
+};
+
+const shadowModeEnabled = (env: AiAdvisorEnv) => {
+  try { return readAiAdvisorV2RuntimeConfig(env).mode === 'shadow'; }
+  catch { return false; }
+};
+
+const logShadowSchedulingFailure = (quotaMode: AdvisorShadowEvent['quota_mode'], traceId: string) => {
+  emitShadowConsole({
+    event: 'ai_advisor_v2_shadow', mode: 'shadow', shadow_trace_id: traceId, v2_path: 'document',
+    outcome: 'V2_INTERNAL_ERROR', search_attempted: false, search_calls: 0, retrieved_count: 0, authorized_chunk_count: 0,
+    generator_attempted: false, generator_calls: 0, generator_supported: false,
+    citation_validation: 'not_applicable', safe_error_class: 'scheduling', quota_mode: quotaMode, duration_ms: 0,
+    retrieval_error_stage: null, retrieval_error_name: null, retrieval_status: null,
+    retrieval_provider_error_count: 0, retrieval_timeout: false,
+  });
+};
+
+const emitShadowTelemetry = async (env: AiAdvisorEnv, event: AdvisorShadowEvent) => {
+  emitShadowConsole(event);
+  try { await env.advisorShadowTelemetry?.record(event); } catch { /* optional sink cannot affect an answer */ }
+};
+
+const shadowOutcome = (reason: string): Pick<AdvisorShadowEvent, 'outcome' | 'safe_error_class' | 'citation_validation'> => {
+  switch (reason) {
+    case 'NO_AUTHORIZED_DOCUMENTS': return { outcome: 'NO_AUTHORIZED_DOCUMENTS', safe_error_class: 'none', citation_validation: 'not_applicable' };
+    case 'QUOTA_SURVIVAL': return { outcome: 'QUOTA_ABSTENTION', safe_error_class: 'none', citation_validation: 'not_applicable' };
+    case 'NO_RETRIEVAL_RESULTS': case 'ALL_RESULTS_DROPPED': return { outcome: 'RETRIEVAL_EMPTY', safe_error_class: 'none', citation_validation: 'not_applicable' };
+    case 'AI_SEARCH_TIMEOUT': case 'AI_SEARCH_ERROR': case 'AI_SEARCH_UNAVAILABLE': return { outcome: 'RETRIEVAL_ERROR', safe_error_class: 'retrieval', citation_validation: 'not_applicable' };
+    case 'GENERATOR_ERROR': return { outcome: 'GENERATOR_ERROR', safe_error_class: 'generation', citation_validation: 'not_applicable' };
+    case 'INVALID_CITATIONS': return { outcome: 'INVALID_CITATIONS', safe_error_class: 'none', citation_validation: 'fail' };
+    default: return { outcome: 'INSUFFICIENT_EVIDENCE', safe_error_class: 'none', citation_validation: 'not_applicable' };
+  }
+};
+
+const runAdvisorShadow = async (
+  env: AiAdvisorEnv,
+  question: string,
+  route: AdvisorDocumentRoute,
+  quota: ReturnType<typeof evaluateAdvisorQuota>,
+  traceId: string,
+) => {
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + SHADOW_BACKGROUND_DEADLINE_MS;
+  const event: AdvisorShadowEvent = {
+    event: 'ai_advisor_v2_shadow', mode: 'shadow', shadow_trace_id: traceId, v2_path: 'document',
+    outcome: 'V2_INTERNAL_ERROR', search_attempted: false, search_calls: 0, retrieved_count: 0, authorized_chunk_count: 0,
+    generator_attempted: false, generator_calls: 0, generator_supported: false,
+    citation_validation: 'not_applicable', safe_error_class: 'internal', quota_mode: quota.mode, duration_ms: 0,
+    retrieval_error_stage: null, retrieval_error_name: null, retrieval_status: null,
+    retrieval_provider_error_count: 0, retrieval_timeout: false,
+  };
+  const recordRetrievalError: AiSearchRetrievalErrorReporter = (stage, error) => {
+    if (event.retrieval_error_stage !== null) return;
+    const diagnostic = classifyAiSearchRetrievalError(stage, error);
+    Object.assign(event, diagnostic);
+    event.retrieval_provider_error_count = stage === 'SEARCH_INVOCATION' ? 1 : 0;
+  };
+  let phase: string = 'identity';
+  const withinDeadline = async <T>(operation: () => Promise<T>): Promise<T> => {
+    const remaining = deadlineAt - Date.now();
+    if (remaining <= 0) throw new DOMException('Shadow deadline elapsed', 'TimeoutError');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.resolve().then(operation),
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new DOMException('Shadow deadline elapsed', 'TimeoutError')), remaining);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+  try {
+    const candidates = await withinDeadline(() => selectAdvisorDocumentCandidatesWithIndexIdentity(env, route));
+    const v2Candidates: AiAdvisorV2Candidate[] = candidates.map((candidate) => ({
+      id: candidate.id, category: candidate.category, visibility: 'public', revision: candidate.version, active: true,
+      contentHash: candidate.contentHash, canonicalHash: candidate.canonicalHash,
+      indexSourceKind: candidate.indexSourceKind || 'legacy', derivedSourceKind: candidate.derivedSourceKind || 'legacy',
+      extractionPipelineVersion: candidate.extractionPipelineVersion, derivedContentHash: candidate.derivedContentHash,
+      indexingStatus: candidate.indexingStatus || 'completed',
+    }));
+    phase = 'retrieval';
+    const client = env.advisorV2AiSearchClient || productionAiSearchClient(env, recordRetrievalError);
+    const generator = env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env);
+    const countedClient: AiSearchClient | undefined = client && {
+      search(instance, request) {
+        event.search_attempted = true;
+        event.search_calls += 1;
+        return withinDeadline(() => client.search(instance, request)).catch((error) => {
+          recordRetrievalError('SEARCH_INVOCATION', error);
+          throw error;
+        });
+      },
+    };
+    const countedGenerator: EvidenceGenerationProvider = {
+      id: generator.id,
+      isConfigured(value) { return generator.isConfigured(value); },
+      generate(request) {
+        phase = 'generation';
+        event.generator_attempted = true;
+        event.generator_calls += 1;
+        return withinDeadline(() => generator.generate(request)).then((result) => {
+          event.generator_supported = result.supported;
+          return result;
+        });
+      },
+    };
+    const v2 = await withinDeadline(() => executeAiAdvisorV2Document(question, v2Candidates, {
+      aiSearchClient: countedClient,
+      aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
+      onRetrievalError: recordRetrievalError,
+      evidenceGenerator: countedGenerator,
+      retrievalCache: env.advisorV2RetrievalCache,
+      answerCache: env.advisorV2AnswerCache,
+      quota,
+    }));
+    event.retrieved_count = v2.retrievedChunkCount;
+    event.authorized_chunk_count = v2.retrievedChunkCount;
+    if (v2.kind === 'ANSWER') {
+      event.outcome = 'SUPPORTED_VALID_CITATIONS';
+      event.citation_validation = 'pass';
+      event.safe_error_class = 'none';
+    } else {
+      Object.assign(event, shadowOutcome(v2.reason));
+    }
+  } catch (error) {
+    event.outcome = 'V2_INTERNAL_ERROR';
+    event.safe_error_class = phase === 'identity' ? 'identity' : phase === 'generation' ? 'generation' : 'retrieval';
+    if (phase === 'retrieval') recordRetrievalError(event.search_attempted ? 'SEARCH_INVOCATION' : 'SEARCH_RESPONSE', error);
+  } finally {
+    event.duration_ms = Math.min(SHADOW_BACKGROUND_DEADLINE_MS, Math.max(0, Date.now() - startedAt));
+    await emitShadowTelemetry(env, event);
+  }
+};
+
+const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, unknown>, userId: string, shadowLifetime?: AdvisorShadowLifetime) => {
+  const requestStartedAt = Date.now();
+  const requestId = crypto.randomUUID();
   const question = String(body.question || body.message || '').trim().slice(0, 2000);
   if (!question) throw new AiAdvisorError(400, 'Vui lòng nhập câu hỏi.');
-  const diagnosticLocation = readCloudflareRequestLocation(request);
+  const diagnosticLocation = readAdvisorProviderLocation(request);
+  const providers = resolveAiAdvisorProviders(env.advisorProviders);
   const conversationId = await resolveConversationId(env, userId, body.conversationId);
   const logId = await createLog(env, userId, conversationId, question);
   const sensitive = /api.?key|secret|password|token|source code|supabase|database|backend|prompt/i.test(question);
   if (sensitive) {
+    if (shadowModeEnabled(env)) emitShadowLifecycle('ai_advisor_v2_shadow_skip', shadowTraceId(), 'sensitive_guard', 'SENSITIVE_GUARD');
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: SAFE_TECH_REPLY });
     return { reply: SAFE_TECH_REPLY, logId, conversationId };
   }
@@ -1139,8 +1525,214 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
   const routingHistory = recentUserQuestions(body.history).map((content) => ({ role: 'user', content }));
   const retrieval = await retrieveAdvisorContext(env, userId, question, routingHistory);
   const documentIntent = retrieval.documentRoute.documentSearch;
+  const emitPath = (answerPath: AdvisorAnswerPath, cacheHit: boolean, providerUsed: string | null, errorClass?: string) =>
+    emitAdvisorTelemetry(env, {
+      requestId,
+      intent: retrieval.intents,
+      answerPath,
+      cacheHit,
+      providerUsed,
+      latencyMs: Date.now() - requestStartedAt,
+      ...(errorClass ? { errorClass } : {}),
+    });
+  const quota = evaluateAdvisorQuota(env.advisorQuotaUsage);
+  const zeroAi = resolveZeroAiStructuredAnswer({
+    question,
+    intents: retrieval.intents,
+    documentSearch: documentIntent,
+    context: retrieval.context,
+    userId,
+  });
+  if (zeroAi) {
+    if (shadowModeEnabled(env)) emitShadowLifecycle('ai_advisor_v2_shadow_skip', shadowTraceId(), 'zero_ai', 'ZERO_AI');
+    // Persistent caching is intentionally inactive. The optional injected cache
+    // is restricted to public deterministic answers until a backend is reviewed.
+    const cacheScope: AdvisorCacheScope = zeroAi.cacheScope;
+    let cacheKey: string | null = null;
+    if (cacheScope.kind === 'PUBLIC' && env.advisorAnswerCache) {
+      try {
+        cacheKey = await buildAnswerCacheKey({
+          question,
+          scope: cacheScope,
+          sourceRevisionFingerprint: await fingerprintStructuredSources(zeroAi.structuredRows),
+          providerOrFormatterVersion: 'zero-ai-formatter-v1',
+          promptVersion: 'none',
+          answerPathVersion: 'd1-direct-v1',
+        });
+        const cached = await env.advisorAnswerCache.get(cacheKey);
+        if (cached) {
+          if (logId) await patchTurnLog(env, userId, logId, { bot_reply: cached.reply, answer_sources: cached.answerSources, document_search_unavailable: false });
+          emitPath('CACHE', true, null);
+          return { reply: cached.reply, logId, conversationId, documentSources: [], answerSources: cached.answerSources, documentSearchUnavailable: false };
+        }
+      } catch { cacheKey = null; }
+    }
+    const cachedAnswer = { reply: zeroAi.reply, answerSources: retrieval.sources };
+    if (cacheKey && env.advisorAnswerCache) {
+      try { await env.advisorAnswerCache.put(cacheKey, cachedAnswer, 120); } catch { /* cache is optional */ }
+    }
+    if (logId) await patchTurnLog(env, userId, logId, { bot_reply: zeroAi.reply, answer_sources: retrieval.sources, document_search_unavailable: false });
+    emitPath('D1', false, null);
+    return { reply: zeroAi.reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: false };
+  }
+  // V2 is deliberately evaluated after deterministic zero-AI answers. With no
+  // configured mode it does nothing, preserving the legacy request path byte
+  // for byte at the behavioral level.
+  let v2Config: ReturnType<typeof readAiAdvisorV2RuntimeConfig>;
+  try { v2Config = readAiAdvisorV2RuntimeConfig(env); }
+  catch { v2Config = { mode: 'off', canaryPercent: 0 }; }
+  if (v2Config.mode === 'shadow' && !documentIntent) {
+    emitShadowLifecycle('ai_advisor_v2_shadow_skip', shadowTraceId(), 'non_document', 'NON_DOCUMENT_INTENT');
+  }
+  if (documentIntent && v2Config.mode === 'shadow') {
+    // The first V2 instruction runs in a microtask only after waitUntil has
+    // accepted the task. A failed registration therefore cannot start an
+    // untracked V2 request or change the legacy response.
+    const traceId = shadowTraceId();
+    emitShadowLifecycle('ai_advisor_v2_shadow_dispatch', traceId, 'document');
+    let registered = false;
+    if (shadowLifetime) {
+      const task = Promise.resolve().then(() => {
+        if (!registered) return undefined;
+        emitShadowLifecycle('ai_advisor_v2_shadow_started', traceId, 'document');
+        return runAdvisorShadow(env, question, retrieval.documentRoute, quota, traceId);
+      })
+        .catch(() => { /* the background task must never reject outward */ });
+      try {
+        shadowLifetime.waitUntil(task);
+        registered = true;
+        emitShadowLifecycle('ai_advisor_v2_shadow_scheduled', traceId, 'document');
+      } catch {
+        logShadowSchedulingFailure(quota.mode, traceId);
+      }
+    } else logShadowSchedulingFailure(quota.mode, traceId);
+  } else if (documentIntent && v2Config.mode !== 'off' && await shouldUseAiAdvisorV2(v2Config, userId)) {
+    const canarySelected = v2Config.mode === 'canary';
+    const canaryStartedAt = Date.now();
+    let searchCalls = 0;
+    let generatorCalls = 0;
+    let generatorTimedOut = false;
+    let v2: AiAdvisorV2Execution | undefined;
+    let canaryFailure: Pick<AdvisorCanaryEvent, 'v2_result_class' | 'fallback_reason'> | undefined;
+    try {
+      const candidates = await selectAdvisorDocumentCandidatesWithIndexIdentity(env, retrieval.documentRoute);
+      const v2Candidates: AiAdvisorV2Candidate[] = candidates.map((candidate) => ({
+        id: candidate.id,
+        category: candidate.category,
+        visibility: 'public',
+        revision: candidate.version,
+        active: true,
+        contentHash: candidate.contentHash,
+        canonicalHash: candidate.canonicalHash,
+        indexSourceKind: candidate.indexSourceKind || 'legacy',
+        derivedSourceKind: candidate.derivedSourceKind || 'legacy',
+        extractionPipelineVersion: candidate.extractionPipelineVersion,
+        derivedContentHash: candidate.derivedContentHash,
+        indexingStatus: candidate.indexingStatus || 'completed',
+      }));
+      const client = env.advisorV2AiSearchClient || productionAiSearchClient(env);
+      const generator = env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env);
+      const countedClient: AiSearchClient | undefined = canarySelected && client ? {
+        search(instance, searchRequest) {
+          searchCalls += 1;
+          return client.search(instance, searchRequest);
+        },
+      } : client;
+      const countedGenerator: EvidenceGenerationProvider = canarySelected ? {
+        id: generator.id,
+        isConfigured(value) { return generator.isConfigured(value); },
+        generate(generationRequest) {
+          generatorCalls += 1;
+          return Promise.resolve().then(() => generator.generate(generationRequest)).catch((error) => {
+            if (isV2Timeout(error)) generatorTimedOut = true;
+            throw error;
+          });
+        },
+      } : generator;
+      v2 = await executeAiAdvisorV2Document(question, v2Candidates, {
+        aiSearchClient: countedClient,
+        aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
+        evidenceGenerator: countedGenerator,
+        retrievalCache: env.advisorV2RetrievalCache,
+        answerCache: env.advisorV2AnswerCache,
+        quota,
+      });
+    } catch (error) {
+      if (!canarySelected) throw error;
+      canaryFailure = isV2Timeout(error)
+        ? { v2_result_class: 'TIMEOUT', fallback_reason: 'timeout' }
+        : { v2_result_class: 'OTHER_SAFE_FAILURE', fallback_reason: 'other_safe_failure' };
+    }
+    if (v2?.kind === 'ANSWER') {
+      const answerSources = [
+        ...retrieval.sources,
+        ...v2.answer.evidence.map((source) => ({ type: 'document' as const, id: source.documentId, title: 'Tài liệu chính thức' })),
+      ];
+      if (logId) await patchTurnLog(env, userId, logId, {
+        bot_reply: v2.answer.reply,
+        document_sources: v2.answer.evidence.map((source) => ({ documentId: source.documentId, sourceId: source.sourceId })),
+        answer_sources: answerSources,
+        document_search_unavailable: false,
+      });
+      if (canarySelected) emitCanaryTelemetry(env, {
+        event: 'ai_advisor_v2_canary', mode: 'canary', canary_selected: true,
+        v2_result_class: 'SUPPORTED_VALID_CITATIONS', response_source: 'v2', fallback_reason: null,
+        search_calls: searchCalls, generator_calls: generatorCalls,
+        retrieved_count: v2.retrievedChunkCount, authorized_count: v2.retrievedChunkCount,
+        duration_ms: Math.max(0, Date.now() - canaryStartedAt),
+      });
+      emitAdvisorTelemetry(env, {
+        requestId, intent: retrieval.intents, answerPath: 'SEARCH_GENERATE', cacheHit: v2.answerCacheHit,
+        providerUsed: (env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env)).id,
+        latencyMs: Date.now() - requestStartedAt, mode: v2Config.mode, zeroAiUsed: false,
+        answerCacheHit: v2.answerCacheHit, retrievalCacheHit: v2.retrievalCacheHit,
+        searchCallCount: v2.searchCallCount, retrievedChunkCount: v2.retrievedChunkCount,
+        authorizedChunkCount: v2.answer.evidence.length, generatorCalled: v2.generatorCalled,
+        abstained: false, quotaMode: quota.mode,
+      });
+      return { reply: v2.answer.reply, logId, conversationId, documentSources: [], answerSources, documentSearchUnavailable: false };
+    }
+    if (canarySelected) {
+      const failure = canaryFailure || canaryFallbackClassification(v2?.reason || '', generatorTimedOut);
+      emitCanaryTelemetry(env, {
+        event: 'ai_advisor_v2_canary', mode: 'canary', canary_selected: true,
+        ...failure, response_source: 'legacy_fallback', search_calls: searchCalls, generator_calls: generatorCalls,
+        retrieved_count: v2?.retrievedChunkCount || 0, authorized_count: v2?.retrievedChunkCount || 0,
+        duration_ms: Math.max(0, Date.now() - canaryStartedAt),
+      });
+    } else if (v2) {
+      const v2Telemetry = {
+        requestId,
+        intent: retrieval.intents,
+        answerPath: 'SEARCH_GENERATE' as const,
+        cacheHit: false,
+        providerUsed: null,
+        latencyMs: Date.now() - requestStartedAt,
+        mode: v2Config.mode,
+        zeroAiUsed: false,
+        answerCacheHit: false,
+        retrievalCacheHit: v2.kind !== 'UNAVAILABLE' && v2.retrievalCacheHit,
+        searchCallCount: v2.kind === 'UNAVAILABLE' ? 0 : v2.searchCallCount,
+        retrievedChunkCount: v2.retrievedChunkCount,
+        authorizedChunkCount: 0,
+        generatorCalled: v2.generatorCalled,
+        abstained: v2.kind === 'ABSTAIN',
+        abstentionReason: v2.reason,
+        quotaMode: quota.mode,
+      };
+      const reply = v2.kind === 'UNAVAILABLE' ? UNVERIFIED_HUB_REPLY : INSUFFICIENT_GROUNDED_EVIDENCE_REPLY;
+      if (logId) await patchTurnLog(env, userId, logId, {
+        bot_reply: reply,
+        answer_sources: retrieval.sources,
+        document_search_unavailable: v2.kind === 'UNAVAILABLE',
+      });
+      emitAdvisorTelemetry(env, v2Telemetry);
+      return { reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: v2.kind === 'UNAVAILABLE' };
+    }
+  }
   if (retrieval.needsAuthoritativeSource && !retrieval.sources.length && !documentIntent) {
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: EMPTY_AUTHORITATIVE_REPLY, answer_sources: [] });
+    emitPath('D1', false, null, 'authoritative_source_missing');
     return { reply: EMPTY_AUTHORITATIVE_REPLY, logId, conversationId, documentSources: [], answerSources: [], documentSearchUnavailable: false };
   }
   const system = [
@@ -1168,24 +1760,23 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       : []),
   ].join('\n');
   let documentSearchUnavailable = false;
-  if (documentIntent) {
-    if (!geminiFileSearchConfigured(env)) {
-      logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, 'candidate_ids', 'document_ids', 0, 0, 0, 0);
+  if (documentIntent && quota.allowGeneration) {
+    if (!providers.groundedDocument.isConfigured(env)) {
+      logFileSearchDiagnostic(providers.groundedDocument.disabledReason, retrieval.documentRoute, 'candidate_ids', 'document_ids', 0, 0, 0, 0);
       documentSearchUnavailable = true;
     } else {
       type DocumentSearchOutcome =
-        | { success: true; result: NonNullable<Awaited<ReturnType<typeof answerWithGeminiFileSearch>>>; documentSources: ResolvedDocumentSource[] }
-        | { success: false; reason: GeminiFileSearchFailureReason };
+        | { success: true; result: GroundedDocumentAnswer; documentSources: ResolvedDocumentSource[] }
+        | { success: false; reason: DocumentProviderFailureReason };
       const retrievalInput = buildPolicyRetrievalInput(body.history, question, retrieval.documentRoute);
       const searchStartedAt = Date.now();
       let transientRetryUsed = false;
       const search = async (
-        metadataFilter: string,
+        allowedDocumentIds: readonly string[] | undefined,
         strategy: 'candidate_ids' | 'visibility_fallback',
         filterKind: 'document_ids' | 'visibility_fallback',
         candidateCount: number,
       ): Promise<DocumentSearchOutcome> => {
-        const answer = env.fileSearchAnswer || answerWithGeminiFileSearch;
         const configuredTimeout = Number(env.fileSearchTimeoutMs) || FILE_SEARCH_ATTEMPT_TIMEOUT_MS;
         const maxAttempts = transientRetryUsed ? 1 : FILE_SEARCH_TRANSIENT_MAX_ATTEMPTS;
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -1193,7 +1784,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
           const remainingAtStart = FILE_SEARCH_TOTAL_BUDGET_MS - elapsed;
           const timeoutMs = Math.min(Math.max(1, configuredTimeout), FILE_SEARCH_ATTEMPT_TIMEOUT_MS, remainingAtStart);
           if (timeoutMs <= 0) {
-            logFileSearchDiagnostic('GEMINI_REQUEST_TIMEOUT', retrieval.documentRoute, strategy, filterKind, candidateCount, elapsed, 0, 0, {
+            logFileSearchDiagnostic(providers.groundedDocument.timeoutReason, retrieval.documentRoute, strategy, filterKind, candidateCount, elapsed, 0, 0, {
               attempt,
               maxAttempts,
               remainingBudgetMs: 0,
@@ -1202,24 +1793,27 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
           }
           const startedAt = Date.now();
           try {
-            const result = await withFileSearchDeadline(
-              answer(env, system, retrievalInput, { metadataFilter, timeoutMs, diagnosticLocation }),
+            const result = await providers.groundedDocument.retrieve({
+              env,
+              system,
+              retrievalInput,
+              allowedDocumentIds,
               timeoutMs,
-              String(env.GEMINI_CHAT_MODEL || 'gemini-3.1-flash-lite'),
-            );
+              diagnosticLocation,
+            });
             const durationMs = Date.now() - startedAt;
             const remainingBudgetMs = Math.max(0, FILE_SEARCH_TOTAL_BUDGET_MS - (Date.now() - searchStartedAt));
             const attemptDiagnostic = { attempt, maxAttempts, providerStatus: 200, remainingBudgetMs, inputContentCount: 1 };
             if (!result) {
-              logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, attemptDiagnostic);
-              return { success: false, reason: 'CONFIG_DISABLED' };
+              logFileSearchDiagnostic(providers.groundedDocument.disabledReason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, attemptDiagnostic);
+              return { success: false, reason: providers.groundedDocument.disabledReason };
             }
             const citations = Array.isArray(result.documentSources)
               ? result.documentSources as unknown as Array<Record<string, unknown>>
               : [];
             if (!citations.length) {
-              logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, attemptDiagnostic);
-              return { success: false, reason: 'GEMINI_NO_FILE_CITATION' };
+              logFileSearchDiagnostic(providers.groundedDocument.noCitationReason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0, attemptDiagnostic);
+              return { success: false, reason: providers.groundedDocument.noCitationReason };
             }
             const resolution = await resolveDocumentSourcesWithDiagnostics(env, citations, retrieval.documentRoute);
             if (!resolution.sources.length) {
@@ -1233,11 +1827,11 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
             });
             return { success: true, result, documentSources: resolution.sources };
           } catch (error) {
-            const fileSearchError = error instanceof GeminiFileSearchError ? error : null;
-            const reason = fileSearchError?.reason || 'GEMINI_REQUEST_FAILED';
-            const providerStatus = Number(fileSearchError?.diagnostics.status);
+            const providerFailure = providers.groundedDocument.classifyError(error);
+            const reason = providerFailure.reason;
+            const providerStatus = Number(providerFailure.diagnostics?.status);
             const remainingBudgetMs = Math.max(0, FILE_SEARCH_TOTAL_BUDGET_MS - (Date.now() - searchStartedAt));
-            const transientProviderFailure = reason === 'GEMINI_REQUEST_FAILED'
+            const transientProviderFailure = providerFailure.errorClass === 'provider_unavailable'
               && Number.isInteger(providerStatus)
               && providerStatus >= 500
               && providerStatus <= 599;
@@ -1246,7 +1840,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
               && attempt < maxAttempts
               && remainingBudgetMs >= FILE_SEARCH_RETRY_BACKOFF_MS + FILE_SEARCH_MIN_RETRY_BUDGET_MS;
             logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, filterKind, candidateCount, Date.now() - startedAt, 0, 0, {
-              ...fileSearchError?.diagnostics,
+              ...providerFailure.diagnostics,
               attempt,
               maxAttempts,
               ...(Number.isInteger(providerStatus) ? { providerStatus } : {}),
@@ -1258,17 +1852,17 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
             await new Promise((resolve) => setTimeout(resolve, FILE_SEARCH_RETRY_BACKOFF_MS));
           }
         }
-        return { success: false, reason: 'GEMINI_REQUEST_FAILED' };
+        return { success: false, reason: providers.groundedDocument.unknownFailureReason };
       };
       // D1 is the authority for the candidate set. This one bounded query
       // replaces expensive visibility-only searches over the entire store.
       const candidates = await selectAdvisorDocumentCandidates(env, retrieval.documentRoute);
-      const candidateFilter = buildDocumentCandidateMetadataFilter(candidates.map((candidate) => candidate.id));
-      if (!candidateFilter) {
+      const candidateIds = candidates.map((candidate) => candidate.id);
+      if (!providers.groundedDocument.hasUsableCandidateIds(candidateIds)) {
         logFileSearchDiagnostic('D1_CITATION_NOT_FOUND', retrieval.documentRoute, 'candidate_ids', 'document_ids', 0, 0, 0, 0);
         documentSearchUnavailable = true;
       } else {
-        const first = await search(candidateFilter, 'candidate_ids', 'document_ids', candidates.length);
+        const first = await search(candidateIds, 'candidate_ids', 'document_ids', candidates.length);
         const firstFailure = !first.success
           ? first as Extract<DocumentSearchOutcome, { success: false }>
           : null;
@@ -1276,8 +1870,8 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         // candidate result without usable citations. A timeout never starts a
         // second full-store request and cannot exceed the total turn budget.
         const broadFallback = firstFailure
-          && (firstFailure.reason === 'GEMINI_NO_FILE_CITATION' || firstFailure.reason === 'GEMINI_EMPTY_REPLY')
-          ? await search(publicDocumentMetadataFilter(), 'visibility_fallback', 'visibility_fallback', candidates.length)
+          && providers.groundedDocument.shouldUsePublicFallback(firstFailure.reason)
+          ? await search(undefined, 'visibility_fallback', 'visibility_fallback', candidates.length)
           : null;
         const grounded = first.success ? first : broadFallback?.success ? broadFallback : null;
         if (grounded) {
@@ -1306,6 +1900,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
             ? INSUFFICIENT_GROUNDED_EVIDENCE_REPLY
             : result.reply;
           if (logId) await patchTurnLog(env, userId, logId, { bot_reply: reply, document_sources: sourcesWithGrounding, answer_sources: answerSources, document_search_unavailable: false });
+          emitPath('SEARCH_GENERATE', false, providers.groundedDocument.id);
           return { reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };
         }
         documentSearchUnavailable = true;
@@ -1314,38 +1909,29 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
   }
   if (documentIntent) {
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: UNVERIFIED_HUB_REPLY, answer_sources: retrieval.sources, document_search_unavailable: true });
+    emitPath('SEARCH_GENERATE', false, null, quota.allowGeneration ? 'document_provider_unavailable' : 'quota_survival');
     return { reply: UNVERIFIED_HUB_REPLY, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: true };
   }
-  const availableKeys = keys(env);
-  if (!availableKeys.length) throw new AiAdvisorError(503, 'Dịch vụ trợ lý tạm thời chưa sẵn sàng.');
-  let lastStatus = 502;
-  for (const key of availableKeys.slice(0, 3)) {
-    try {
-      const response = await fetch(GROQ_URL, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: String(env.GROQ_MODEL || 'openai/gpt-oss-20b'),
-          messages: [{ role: 'system', content: system }, ...safeHistory(body.history), { role: 'user', content: question }],
-          temperature: 0.2,
-          max_completion_tokens: 2048,
-        }),
-        signal: AbortSignal.timeout(25_000),
-      });
-      lastStatus = response.status;
-      const payload = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
-      if (!response.ok) continue;
-      const reply = String(payload.choices?.[0]?.message?.content || '').trim();
-      if (!reply) continue;
-      if (logId) await patchTurnLog(env, userId, logId, { bot_reply: reply, document_sources: [], answer_sources: retrieval.sources, document_search_unavailable: documentSearchUnavailable });
-      return { reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable };
-    } catch { lastStatus = 502; }
+  if (!quota.allowGeneration) {
+    if (logId) await patchTurnLog(env, userId, logId, { bot_reply: QUOTA_SURVIVAL_REPLY, answer_sources: retrieval.sources, document_search_unavailable: false });
+    emitPath('D1', false, null, 'quota_survival');
+    return { reply: QUOTA_SURVIVAL_REPLY, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: false };
+  }
+  if (!providers.generalGeneration.isConfigured(env)) throw new AiAdvisorError(503, 'Dịch vụ trợ lý tạm thời chưa sẵn sàng.');
+  const generation = await providers.generalGeneration.generate({
+    env,
+    messages: [{ role: 'system', content: system }, ...safeHistory(body.history), { role: 'user', content: question }],
+  });
+  if (generation.reply) {
+    if (logId) await patchTurnLog(env, userId, logId, { bot_reply: generation.reply, document_sources: [], answer_sources: retrieval.sources, document_search_unavailable: documentSearchUnavailable });
+    emitPath('SEARCH_GENERATE', false, providers.generalGeneration.id);
+    return { reply: generation.reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable };
   }
   if (logId) await patchTurnLog(env, userId, logId, { bot_reply: 'Hệ thống AI đang tạm thời không phản hồi.' });
-  throw new AiAdvisorError(lastStatus === 429 ? 429 : 502, 'Hệ thống AI đang tạm thời không phản hồi.');
+  throw new AiAdvisorError(generation.lastStatus === 429 ? 429 : 502, 'Hệ thống AI đang tạm thời không phản hồi.');
 };
 
-export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisorEnv) => {
+export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisorEnv, shadowLifetime?: AdvisorShadowLifetime) => {
   const identity = await requireBetterAuthSession(request, env);
   if (request.method === 'GET') {
     const conversationId = url.searchParams.get('conversationId');
@@ -1385,7 +1971,7 @@ export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisor
   }
   const body = await readBody(request);
   if ('userId' in body || 'user_id' in body || 'role' in body) throw new AiAdvisorError(400, 'Không cho phép chỉ định chủ sở hữu.');
-  if (request.method === 'POST') return chat(request, env, body, identity.userId);
+  if (request.method === 'POST') return chat(request, env, body, identity.userId, shadowLifetime);
   if (request.method === 'PATCH') {
     if (body.conversationId !== undefined) {
       if (!validConversationId(body.conversationId)) throw new AiAdvisorError(400, 'Cuộc trò chuyện không hợp lệ.');

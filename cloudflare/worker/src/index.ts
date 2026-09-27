@@ -1538,7 +1538,7 @@ const worker = {
 
     if (requestUrl.pathname === '/api/private/v1/ai-advisor') {
       try {
-        return json(await handleAiAdvisor(request, requestUrl, env), 200, {
+        return json(await handleAiAdvisor(request, requestUrl, env, ctx), 200, {
           ...cors, 'Cache-Control': 'private, no-store',
         });
       } catch (error) {

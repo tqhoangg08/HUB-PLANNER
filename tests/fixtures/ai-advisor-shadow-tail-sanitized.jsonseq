@@ -1,0 +1,37 @@
+{
+  "wallTime": 12,
+  "outcome": "ok",
+  "scriptVersion": "synthetic-version",
+  "scriptName": "synthetic-worker",
+  "logs": [],
+  "event": {
+    "request": {
+      "method": "POST",
+      "url": "https://example.invalid/api/private/v1/ai-advisor"
+    }
+  }
+}
+
+{
+  "wallTime": 34,
+  "outcome": "ok",
+  "scriptVersion": "synthetic-version",
+  "scriptName": "synthetic-worker",
+  "logs": [
+    {
+      "level": "info",
+      "message": [
+        "{\"event\":\"ai_advisor_v2_shadow_skip\",\"mode\":\"shadow\",\"shadow_trace_id\":\"11111111-2222-4333-8444-555555555555\",\"routing_class\":\"non_document\",\"skip_reason\":\"NON_DOCUMENT_INTENT\",\"zero_ai\":false,\"document_path_eligible\":false}"
+      ]
+    }
+  ],
+  "event": {
+    "request": {
+      "method": "POST",
+      "url": "https://example.invalid/api/private/v1/ai-advisor?private=DO_NOT_EMIT",
+      "headers": {
+        "authorization": "DO_NOT_EMIT"
+      }
+    }
+  }
+}

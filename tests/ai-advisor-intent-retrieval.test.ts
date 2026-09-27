@@ -20,6 +20,8 @@ import {
   sourceCoversRequestedScope,
   shouldUseDocumentSearch,
   withFileSearchDeadline,
+  type AdvisorShadowEvent,
+  type AdvisorCanaryEvent,
 } from '../cloudflare/worker/src/ai-advisor.ts';
 import {
   buildDocumentCandidateMetadataFilter,
@@ -33,12 +35,27 @@ import {
   GeminiFileSearchError,
 } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
+import type { AiAdvisorProviders, GroundedDocumentAnswerProvider } from '../cloudflare/worker/src/ai-advisor-providers.ts';
+import {
+  buildAnswerCacheKey,
+  buildRetrievalCacheKey,
+  fingerprintDocumentRevisions,
+  MemoryAdvisorCache,
+} from '../cloudflare/worker/src/ai-advisor-cache.ts';
+import { evaluateAdvisorQuota } from '../cloudflare/worker/src/ai-advisor-quota.ts';
+import { resolveZeroAiStructuredAnswer } from '../cloudflare/worker/src/ai-advisor-zero-ai.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
 const DOCUMENT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const DOCUMENT_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const DOCUMENT_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const DOCUMENT_D = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+const v2RequestFor = (question: string) => new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+  method: 'POST',
+  headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+  body: JSON.stringify({ question }),
+});
 
 const assertCandidateFilter = (filter: string | undefined, ids: string[]) => {
   assert.match(String(filter), /^visibility = "public" AND \(/);
@@ -1219,5 +1236,900 @@ test('unavailable official-document retrieval fails safely instead of asking the
     const result = await handleAiAdvisor(request, new URL(request.url), env(fixture.DB)) as { reply: string; documentSearchUnavailable: boolean };
     assert.match(result.reply, /chưa thể xác minh/i);
     assert.equal(result.documentSearchUnavailable, true);
+  } finally { fixture.sql.close(); }
+});
+
+test('provider abstraction injects the document adapter and passes D1 candidate IDs unchanged', async () => {
+  const fixture = makeDatabase();
+  const receivedCandidateIds: string[][] = [];
+  let generalCalls = 0;
+  const groundedDocument: GroundedDocumentAnswerProvider = {
+    id: 'test-grounded-document',
+    isConfigured: () => true,
+    hasUsableCandidateIds: (ids) => ids.length > 0,
+    disabledReason: 'CONFIG_DISABLED',
+    timeoutReason: 'GEMINI_REQUEST_TIMEOUT',
+    noCitationReason: 'GEMINI_NO_FILE_CITATION',
+    unknownFailureReason: 'GEMINI_REQUEST_FAILED',
+    shouldUsePublicFallback: () => false,
+    classifyError: () => ({ reason: 'GEMINI_REQUEST_FAILED', errorClass: 'unknown' }),
+    async retrieve(request) {
+      receivedCandidateIds.push([...(request.allowedDocumentIds || [])]);
+      return { reply: 'Nguồn từ adapter test.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che.pdf', title: null, pageNumber: null }], groundingChunkCount: 0, documentIdMetadataCount: 0, pageNumberCount: 0 };
+    },
+  };
+  const providers: Partial<AiAdvisorProviders> = {
+    groundedDocument,
+    generalGeneration: {
+      id: 'test-general',
+      isConfigured: () => true,
+      async generate() { generalCalls += 1; return { reply: 'Không được gọi.', lastStatus: 200 }; },
+    },
+  };
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'Quy đổi điểm ở HUB như nào?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), { ...env(fixture.DB), advisorProviders: providers }) as { reply: string; documentSources: Array<{ documentId: string }> };
+    assert.equal(result.reply, 'Nguồn từ adapter test.');
+    assert.deepEqual(receivedCandidateIds, [[DOCUMENT_A]]);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.equal(generalCalls, 0);
+  } finally { fixture.sql.close(); }
+});
+
+test('provider abstraction injects the general adapter without a network call', async () => {
+  const fixture = makeDatabase();
+  let generationCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('network should not be called'); };
+  try {
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'Phương pháp Pomodoro là gì?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB),
+      advisorProviders: {
+        generalGeneration: {
+          id: 'test-general',
+          isConfigured: () => true,
+          async generate({ messages }) {
+            generationCalls += 1;
+            assert.equal(messages.at(-1)?.content, 'Phương pháp Pomodoro là gì?');
+            return { reply: 'Trả lời từ adapter test.', lastStatus: 200 };
+          },
+        },
+      },
+    }) as { reply: string };
+    assert.equal(result.reply, 'Trả lời từ adapter test.');
+    assert.equal(generationCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    fixture.sql.close();
+  }
+});
+
+test('provider adapters contain no Advisor auth or D1 authority code; V2 remains explicit and feature-gated', () => {
+  const core = readFileSync('cloudflare/worker/src/ai-advisor.ts', 'utf8');
+  const adapters = readFileSync('cloudflare/worker/src/ai-advisor-providers.ts', 'utf8');
+  assert.doesNotMatch(adapters, /requireBetterAuthSession|ai_documents|R2Bucket/);
+  assert.match(core, /readAiAdvisorV2RuntimeConfig/);
+  assert.match(core, /v2Config\.mode !== 'off'/);
+  assert.doesNotMatch(adapters, /CloudflareAiSearchRetrievalProvider/);
+});
+
+test('Stage 2 zero-AI router returns only exact authoritative structured answers', async () => {
+  const fixture = makeDatabase();
+  let providerCalls = 0;
+  const providers: Partial<AiAdvisorProviders> = {
+    generalGeneration: {
+      id: 'test-general', isConfigured: () => true,
+      async generate() { providerCalls += 1; return { reply: 'Provider response', lastStatus: 200 }; },
+    },
+  };
+  try {
+    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', 'Sáng', 'Thứ 2', 'A101', 'Cơ sở A',
+      'published', null, 'en101', 'advanced writing', 1,
+    );
+    fixture.sql.prepare('INSERT INTO user_schedules VALUES (?,?,?,?,?)').run('schedule-1', USER, 'course-en101', 'HK1', '2026-09-20T00:00:00.000Z');
+    const requestFor = (question: string) => new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' }, body: JSON.stringify({ question }),
+    });
+    const courseRequest = requestFor('EN101 có mấy tín chỉ?');
+    const course = await handleAiAdvisor(courseRequest, new URL(courseRequest.url), { ...env(fixture.DB), advisorProviders: providers }) as { reply: string; documentSources: unknown[]; answerSources: unknown[] };
+    assert.equal(course.reply, 'Môn Advanced Writing (EN101) có 3 tín chỉ.');
+    assert.deepEqual(course.documentSources, []);
+    assert.equal(course.answerSources.length, 1);
+    const scheduleRequest = requestFor('Lịch học của tôi?');
+    const schedule = await handleAiAdvisor(scheduleRequest, new URL(scheduleRequest.url), { ...env(fixture.DB), advisorProviders: providers }) as { reply: string };
+    assert.match(schedule.reply, /Lịch học hiện có của bạn/);
+    assert.match(schedule.reply, /Advanced Writing/);
+    assert.equal(providerCalls, 0, 'eligible deterministic answers must bypass all providers');
+
+    const explanatoryRequest = requestFor('Giải thích lịch học của tôi?');
+    const explanatory = await handleAiAdvisor(explanatoryRequest, new URL(explanatoryRequest.url), { ...env(fixture.DB), advisorProviders: providers }) as { reply: string };
+    assert.equal(explanatory.reply, 'Provider response');
+    assert.equal(providerCalls, 1, 'explanatory structured questions retain the legacy generation path');
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 2 answer cache is injectable, public-only in runtime, and a cache hit bypasses providers', async () => {
+  const fixture = makeDatabase();
+  const cache = new MemoryAdvisorCache<{ reply: string; answerSources: Array<{ type: string; title: string }> }>();
+  const telemetry: string[] = [];
+  let providerCalls = 0;
+  try {
+    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', null, null, null, null,
+      'published', null, 'en101', 'advanced writing', 1,
+    );
+    const requestFor = () => new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'EN101 có mấy tín chỉ?' }),
+    });
+    const runtimeEnv = {
+      ...env(fixture.DB),
+      advisorAnswerCache: cache,
+      advisorTelemetry: { record(event: { answerPath: string }) { telemetry.push(event.answerPath); } },
+      advisorProviders: { generalGeneration: { id: 'test-general', isConfigured: () => true, async generate() { providerCalls += 1; return { reply: 'not used', lastStatus: 200 }; } } },
+    };
+    const first = requestFor();
+    await handleAiAdvisor(first, new URL(first.url), runtimeEnv);
+    const second = requestFor();
+    const cached = await handleAiAdvisor(second, new URL(second.url), runtimeEnv) as { reply: string };
+    assert.equal(cached.reply, 'Môn Advanced Writing (EN101) có 3 tín chỉ.');
+    assert.deepEqual(telemetry, ['D1', 'CACHE']);
+    assert.equal(providerCalls, 0);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 2 zero-AI router remains owner-scoped and never treats policy or explanatory prompts as direct facts', () => {
+  const personal = resolveZeroAiStructuredAnswer({
+    question: 'Tôi đã tích lũy bao nhiêu tín chỉ?', intents: ['student_academic'], documentSearch: false, userId: USER,
+    context: { studentAcademic: { summary: { accumulatedCredits: 42 } } },
+  });
+  assert.equal(personal?.reply, 'Bạn đã tích lũy 42 tín chỉ.');
+  assert.deepEqual(personal?.cacheScope, { kind: 'USER', userId: USER });
+  assert.equal(resolveZeroAiStructuredAnswer({
+    question: 'Tại sao tôi đã tích lũy bao nhiêu tín chỉ?', intents: ['student_academic'], documentSearch: false, userId: USER,
+    context: { studentAcademic: { summary: { accumulatedCredits: 42 } } },
+  }), null);
+  assert.equal(resolveZeroAiStructuredAnswer({
+    question: 'Theo quy chế, EN101 có mấy tín chỉ?', intents: ['course_catalog', 'regulation_document'], documentSearch: true, userId: USER,
+    context: { courses: [{ subject_name: 'Advanced Writing', course_code: 'EN101', credits: 3 }] },
+  }), null);
+});
+
+test('Stage 2 cache keys isolate scope and naturally invalidate on a revision change', async () => {
+  const publicA = await buildAnswerCacheKey({
+    question: ' EN101 có mấy tín chỉ? ', scope: { kind: 'PUBLIC' }, sourceRevisionFingerprint: 'source-r1',
+    providerOrFormatterVersion: 'zero-ai-formatter-v1', promptVersion: 'none', answerPathVersion: 'd1-direct-v1',
+  });
+  const publicEquivalent = await buildAnswerCacheKey({
+    question: 'en101 có mấy tín chỉ', scope: { kind: 'PUBLIC' }, sourceRevisionFingerprint: 'source-r1',
+    providerOrFormatterVersion: 'zero-ai-formatter-v1', promptVersion: 'none', answerPathVersion: 'd1-direct-v1',
+  });
+  const userA = await buildAnswerCacheKey({
+    question: 'en101 có mấy tín chỉ', scope: { kind: 'USER', userId: USER }, sourceRevisionFingerprint: 'source-r1',
+    providerOrFormatterVersion: 'zero-ai-formatter-v1', promptVersion: 'none', answerPathVersion: 'd1-direct-v1',
+  });
+  const userB = await buildAnswerCacheKey({
+    question: 'en101 có mấy tín chỉ', scope: { kind: 'USER', userId: '22222222-2222-4222-8222-222222222222' }, sourceRevisionFingerprint: 'source-r1',
+    providerOrFormatterVersion: 'zero-ai-formatter-v1', promptVersion: 'none', answerPathVersion: 'd1-direct-v1',
+  });
+  const role = await buildAnswerCacheKey({
+    question: 'en101 có mấy tín chỉ', scope: { kind: 'ROLE', role: 'admin' }, sourceRevisionFingerprint: 'source-r1',
+    providerOrFormatterVersion: 'zero-ai-formatter-v1', promptVersion: 'none', answerPathVersion: 'd1-direct-v1',
+  });
+  const anotherRole = await buildAnswerCacheKey({
+    question: 'en101 có mấy tín chỉ', scope: { kind: 'ROLE', role: 'student' }, sourceRevisionFingerprint: 'source-r1',
+    providerOrFormatterVersion: 'zero-ai-formatter-v1', promptVersion: 'none', answerPathVersion: 'd1-direct-v1',
+  });
+  assert.equal(publicA, publicEquivalent);
+  assert.notEqual(publicA, userA);
+  assert.notEqual(userA, userB);
+  assert.notEqual(role, publicA);
+  assert.notEqual(role, anotherRole);
+  const revisionOne = await fingerprintDocumentRevisions([{
+    id: DOCUMENT_A, version: 1, contentHash: 'hash-a', indexSourceKind: 'ocr_text', derivedSourceKind: 'ocr',
+    extractionPipelineVersion: 'ocr-page-markdown-v2-pinned', derivedContentHash: 'derived-a', indexingStatus: 'completed',
+  }]);
+  const revisionSameDifferentOrder = await fingerprintDocumentRevisions([
+    { id: DOCUMENT_B, version: 1, contentHash: 'hash-b', indexingStatus: 'completed' },
+    { id: DOCUMENT_A, version: 1, contentHash: 'hash-a', indexingStatus: 'completed' },
+  ]);
+  const revisionSameReordered = await fingerprintDocumentRevisions([
+    { id: DOCUMENT_A, version: 1, contentHash: 'hash-a', indexingStatus: 'completed' },
+    { id: DOCUMENT_B, version: 1, contentHash: 'hash-b', indexingStatus: 'completed' },
+  ]);
+  const revisionChanged = await fingerprintDocumentRevisions([{ id: DOCUMENT_A, version: 2, contentHash: 'hash-a', indexingStatus: 'completed' }]);
+  const pipelineChanged = await fingerprintDocumentRevisions([{
+    id: DOCUMENT_A, version: 1, contentHash: 'hash-a', indexSourceKind: 'ocr_text', derivedSourceKind: 'ocr',
+    extractionPipelineVersion: 'ocr-page-markdown-v3-pinned', derivedContentHash: 'derived-a', indexingStatus: 'completed',
+  }]);
+  const derivedHashChanged = await fingerprintDocumentRevisions([{
+    id: DOCUMENT_A, version: 1, contentHash: 'hash-a', indexSourceKind: 'ocr_text', derivedSourceKind: 'ocr',
+    extractionPipelineVersion: 'ocr-page-markdown-v2-pinned', derivedContentHash: 'derived-b', indexingStatus: 'completed',
+  }]);
+  assert.notEqual(revisionOne, revisionChanged);
+  assert.notEqual(revisionOne, pipelineChanged);
+  assert.notEqual(revisionOne, derivedHashChanged);
+  assert.equal(revisionSameDifferentOrder, revisionSameReordered);
+  const retrievalOne = await buildRetrievalCacheKey({ question: 'quy đổi điểm', scope: { kind: 'PUBLIC' }, allowedDocumentRevisionFingerprint: revisionOne, retrievalConfigVersion: 'v1' });
+  const retrievalChanged = await buildRetrievalCacheKey({ question: 'quy đổi điểm', scope: { kind: 'PUBLIC' }, allowedDocumentRevisionFingerprint: revisionChanged, retrievalConfigVersion: 'v1' });
+  assert.notEqual(retrievalOne, retrievalChanged);
+  const cache = new MemoryAdvisorCache<string>();
+  await cache.put(retrievalOne, 'old retrieval', 60);
+  assert.equal(await cache.get(retrievalChanged), null, 'a revision change must naturally miss without a global purge');
+});
+
+test('Stage 2 quota governor calculates modes from supplied measurements and defaults to NORMAL without one', () => {
+  assert.deepEqual(evaluateAdvisorQuota(undefined), {
+    mode: 'NORMAL', measured: false, highestUsageRatio: null, preferCache: false, preferDirectAnswer: false, allowGeneration: true,
+  });
+  assert.equal(evaluateAdvisorQuota({ generationUsageRatio: 0.7 }).mode, 'ECONOMY');
+  assert.equal(evaluateAdvisorQuota({ searchUsageRatio: 0.85 }).mode, 'CONSERVATIVE');
+  const survival = evaluateAdvisorQuota({ ingestionUsageRatio: 0.95 });
+  assert.equal(survival.mode, 'SURVIVAL');
+  assert.equal(survival.allowGeneration, false);
+  assert.deepEqual(evaluateAdvisorQuota({ generationUsageRatio: 1.2 }), {
+    mode: 'NORMAL', measured: false, highestUsageRatio: null, preferCache: false, preferDirectAnswer: false, allowGeneration: true,
+  });
+});
+
+test('Stage 6 OFF preserves the legacy document provider and makes zero V2 searches', async () => {
+  const fixture = makeDatabase();
+  let legacyCalls = 0;
+  let searchCalls = 0;
+  let workersAiCalls = 0;
+  let backgroundTasks = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => {
+        legacyCalls += 1;
+        return { reply: 'Legacy grounded', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] };
+      },
+      advisorV2AiSearchClient: { async search() { searchCalls += 1; return { chunks: [] }; } },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      AI: { async run() { workersAiCalls += 1; return { choices: [] }; } },
+    }, { waitUntil() { backgroundTasks += 1; } }) as { reply: string };
+    assert.equal(result.reply, 'Legacy grounded');
+    assert.equal(legacyCalls, 1);
+    assert.equal(searchCalls, 0);
+    assert.equal(workersAiCalls, 0);
+    assert.equal(backgroundTasks, 0);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 7B1C ON uses the configured local bindings and validates Workers AI citations', async () => {
+  const fixture = makeDatabase();
+  let searchCalls = 0;
+  let workersAiCalls = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB),
+      AI_ADVISOR_V2_MODE: 'on',
+      AI_ADVISOR_SEARCH: {
+        get(instance) {
+          assert.equal(instance, 'hub-ai-text-production');
+          return {
+            async search() {
+              searchCalls += 1;
+              return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10', item: { key: 'safe-part.md', metadata: { document_id: DOCUMENT_A, active: true } } }] };
+            },
+          };
+        },
+      },
+      AI: {
+        async run(_model, input) {
+          workersAiCalls += 1;
+          assert.equal(input.tool_choice, 'required');
+          assert.equal(input.max_completion_tokens, 300);
+          return { choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'submit_grounded_answer', arguments: JSON.stringify({ supported: true, answer: 'V2 có dẫn nguồn.', source_ids: ['S1'], support_spans: [{ source_id: 'S1', quote: 'Điều 10' }] }) } }] } }] };
+        },
+      },
+    }) as { reply: string };
+    assert.equal(result.reply, 'V2 có dẫn nguồn.');
+    assert.equal(searchCalls, 1);
+    assert.equal(workersAiCalls, 1);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 6 SHADOW discards V2 success or failure and keeps the legacy user response', async () => {
+  const fixture = makeDatabase();
+  let legacyCalls = 0;
+  let searchCalls = 0;
+  const background: Promise<unknown>[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const runtime = {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => {
+        legacyCalls += 1;
+        return { reply: 'Legacy wins in shadow', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] };
+      },
+      advisorV2AiSearchClient: { async search() { searchCalls += 1; throw new Error('injected V2 failure'); } },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { return { supported: true, answer: 'must not expose', sourceIds: ['S1'] }; } },
+    };
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), runtime, { waitUntil(task) { background.push(task); } }) as { reply: string };
+    await Promise.all(background);
+    assert.equal(result.reply, 'Legacy wins in shadow');
+    assert.equal(searchCalls, 1);
+    assert.equal(legacyCalls, 1);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 7B2A1 SHADOW returns legacy before pending V2 and emits one content-free final event', async () => {
+  const fixture = makeDatabase();
+  const background: Promise<unknown>[] = [];
+  const events: AdvisorShadowEvent[] = [];
+  let releaseSearch!: (value: { chunks: Array<Record<string, unknown>> }) => void;
+  let searchCalls = 0;
+  let generatorCalls = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const question = 'Quy đổi điểm ở HUB như nào?';
+    const request = v2RequestFor(question);
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true',
+      GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => ({ reply: 'Legacy only', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }),
+      advisorV2AiSearchClient: { search() { searchCalls += 1; return new Promise((resolve) => { releaseSearch = resolve; }); } },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      advisorV2EvidenceGenerator: { id: 'test-v2', isConfigured: () => true, async generate() { generatorCalls += 1; return { supported: true, answer: 'V2 secret answer', sourceIds: ['S1'] }; } },
+      advisorShadowTelemetry: { record(event) { events.push(event); } },
+    }, { waitUntil(task) { background.push(task); } }) as { reply: string };
+    assert.equal(result.reply, 'Legacy only');
+    assert.equal(background.length, 1);
+    for (let step = 0; step < 200 && searchCalls === 0; step += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(searchCalls, 1, 'V2 should still be pending after the legacy response');
+    assert.equal(events.length, 0, 'final event is emitted only after V2 settles');
+    releaseSearch({ chunks: [{ id: 'chunk', score: 0.7, text: 'SECRET_EVIDENCE_SENTINEL', item: { key: 'private-r2-path', metadata: { document_id: DOCUMENT_A, active: true } } }] });
+    await Promise.all(background);
+    assert.equal(generatorCalls, 1);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].outcome, 'SUPPORTED_VALID_CITATIONS');
+    assert.equal(events[0].search_calls, 1);
+    assert.equal(events[0].generator_calls, 1);
+    assert.equal(events[0].citation_validation, 'pass');
+    assert.equal(events[0].retrieval_error_stage, null);
+    assert.equal(events[0].retrieval_error_name, null);
+    assert.equal(events[0].retrieval_status, null);
+    assert.equal(events[0].retrieval_provider_error_count, 0);
+    assert.equal(events[0].retrieval_timeout, false);
+    const logged = JSON.stringify(events[0]);
+    for (const forbidden of [question, 'V2 secret answer', 'SECRET_EVIDENCE_SENTINEL', USER, 'private-r2-path', 'student@example.test']) {
+      assert.ok(!logged.includes(forbidden), `shadow telemetry leaked ${forbidden}`);
+    }
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 7B2A3C shadow safely classifies instance resolution failure without changing legacy output', async () => {
+  const fixture = makeDatabase();
+  const background: Promise<unknown>[] = [];
+  const events: AdvisorShadowEvent[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true',
+      GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => ({ reply: 'Legacy remains visible', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }),
+      AI_ADVISOR_SEARCH: { get() { throw new Error('PRIVATE_PROVIDER_MESSAGE'); } },
+      advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { throw new Error('must not run'); } },
+      advisorShadowTelemetry: { record(event) { events.push(event); } },
+    }, { waitUntil(task) { background.push(task); } }) as { reply: string };
+    assert.equal(result.reply, 'Legacy remains visible');
+    await Promise.all(background);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].safe_error_class, 'retrieval');
+    assert.equal(events[0].retrieval_error_stage, 'INSTANCE_RESOLUTION');
+    assert.equal(events[0].retrieval_error_name, 'Error');
+    assert.equal(events[0].retrieval_provider_error_count, 0);
+    assert.equal(events[0].search_calls, 1);
+    assert.equal(events[0].generator_calls, 0);
+    assert.equal(JSON.stringify(events[0]).includes('PRIVATE_PROVIDER_MESSAGE'), false);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 7B2A3C shadow classifies provider, timeout, normalization and post-auth errors without content leakage', async () => {
+  const secret = 'PRIVATE_QUERY_EVIDENCE_USER_STACK_PROVIDER_MESSAGE';
+  const scenarios = [
+    { expected: 'SEARCH_INVOCATION', name: 'Error', status: 503, timeout: false, run: () => { throw Object.assign(new Error(secret), { status: 503 }); } },
+    { expected: 'SEARCH_INVOCATION', name: 'TypeError', status: null, timeout: false, run: () => { throw new TypeError(secret); } },
+    { expected: 'SEARCH_INVOCATION', name: 'AbortError', status: null, timeout: true, run: () => { throw new DOMException(secret, 'AbortError'); } },
+    { expected: 'SEARCH_RESPONSE', name: 'TypeError', status: null, timeout: false, run: () => ({ chunks: 'bad' }) },
+    { expected: 'POST_AUTHORIZATION', name: 'Error', status: null, timeout: false, run: () => ({ chunks: [{ item: { metadata: { get document_id() { throw new Error(secret); } } } }] }) },
+    { expected: 'RESPONSE_NORMALIZATION', name: 'Error', status: null, timeout: false, run: () => ({ chunks: [{
+      id: 'chunk', item: { key: 'PRIVATE_R2_PATH', metadata: { document_id: DOCUMENT_A, active: true } },
+      get text() { throw new Error(secret); },
+    }] }) },
+  ] as const;
+  for (const scenario of scenarios) {
+    const fixture = makeDatabase();
+    const background: Promise<unknown>[] = [];
+    const events: AdvisorShadowEvent[] = [];
+    let providerCalls = 0;
+    try {
+      insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+      const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+      const result = await handleAiAdvisor(request, new URL(request.url), {
+        ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true',
+        GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+        fileSearchAnswer: async () => ({ reply: 'Legacy remains visible', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }),
+        advisorV2AiSearchClient: { async search() { providerCalls += 1; return scenario.run() as { chunks: never[] }; } },
+        advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+        advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { throw new Error('must not run'); } },
+        advisorShadowTelemetry: { record(event) { events.push(event); } },
+      }, { waitUntil(task) { background.push(task); } }) as { reply: string };
+      assert.equal(result.reply, 'Legacy remains visible');
+      await Promise.all(background);
+      assert.equal(providerCalls, 1);
+      assert.equal(events.length, 1);
+      assert.equal(events[0].safe_error_class, 'retrieval');
+      assert.equal(events[0].retrieval_error_stage, scenario.expected);
+      assert.equal(events[0].retrieval_error_name, scenario.name);
+      assert.equal(events[0].retrieval_status, scenario.status);
+      assert.equal(events[0].retrieval_timeout, scenario.timeout);
+      assert.equal(events[0].retrieval_provider_error_count, scenario.expected === 'SEARCH_INVOCATION' ? 1 : 0);
+      assert.equal(events[0].search_calls, 1);
+      assert.equal(events[0].generator_calls, 0);
+      assert.equal(JSON.stringify(events[0]).includes(secret), false);
+      assert.equal(JSON.stringify(events[0]).includes('PRIVATE_R2_PATH'), false);
+    } finally { fixture.sql.close(); }
+  }
+});
+
+test('Stage 7B2A1 SHADOW isolates identity, retrieval, generator, citation and telemetry failures', async () => {
+  const cases = [
+    { name: 'identity', identityFails: true, expected: 'V2_INTERNAL_ERROR', searches: 0, generations: 0 },
+    { name: 'setup', expected: 'V2_INTERNAL_ERROR', searches: 0, generations: 0 },
+    { name: 'search', searchFails: true, expected: 'RETRIEVAL_ERROR', searches: 1, generations: 0 },
+    { name: 'empty', chunks: [], expected: 'RETRIEVAL_EMPTY', searches: 1, generations: 0 },
+    { name: 'generator', generatorFails: true, expected: 'GENERATOR_ERROR', searches: 1, generations: 1 },
+    { name: 'citation', citation: 'S9', expected: 'INVALID_CITATIONS', searches: 1, generations: 1 },
+    { name: 'abstention', supported: false, expected: 'INSUFFICIENT_EVIDENCE', searches: 1, generations: 1 },
+    { name: 'survival', survival: true, expected: 'QUOTA_ABSTENTION', searches: 0, generations: 0 },
+  ] as const;
+  for (const scenario of cases) {
+    const fixture = makeDatabase();
+    const background: Promise<unknown>[] = [];
+    const events: AdvisorShadowEvent[] = [];
+    let searches = 0;
+    let generations = 0;
+    try {
+      insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+      const db = scenario.name === 'identity' ? {
+        prepare(query: string) {
+          if (query.includes('derived_content_hash')) throw new Error('identity failure');
+          return fixture.DB.prepare(query);
+        },
+      } as D1Database : fixture.DB;
+      const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+      const runtime = {
+        ...env(db), AI_ADVISOR_V2_MODE: 'shadow',
+        ...(scenario.name === 'survival' ? { advisorQuotaUsage: { searchUsageRatio: 0.95 } } : {}),
+        GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+        fileSearchAnswer: async () => ({ reply: 'Legacy survives', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }),
+        advisorV2AiSearchClient: { async search() {
+          searches += 1;
+          if (scenario.name === 'search') throw new Error('provider detail must not be logged');
+          return { chunks: scenario.name === 'empty' ? [] : [{ id: 'chunk', score: 0.7, text: 'Public support', item: { key: 'r2-secret-path', metadata: { document_id: DOCUMENT_A, active: true } } }] };
+        } },
+        advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+        advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() {
+          generations += 1;
+          if (scenario.name === 'generator') throw new Error('generator detail must not be logged');
+          return { supported: scenario.name !== 'abstention', answer: 'V2 answer', sourceIds: [scenario.name === 'citation' ? 'S9' : 'S1'] };
+        } },
+        advisorShadowTelemetry: { async record(event) { events.push(event); throw new Error('sink failure'); } },
+      };
+      if (scenario.name === 'setup') Object.defineProperty(runtime, 'advisorV2AiSearchClient', { get() { throw new Error('V2 setup failed'); } });
+      const result = await handleAiAdvisor(request, new URL(request.url), runtime, { waitUntil(task) { background.push(task); } }) as { reply: string };
+      if (scenario.name === 'survival') assert.match(result.reply, /chưa thể xác minh/i);
+      else assert.equal(result.reply, 'Legacy survives', scenario.name);
+      await Promise.all(background);
+      assert.equal(events.length, 1, scenario.name);
+      assert.equal(events[0].outcome, scenario.expected, scenario.name);
+      assert.equal(events[0].search_calls, scenario.searches, scenario.name);
+      assert.equal(events[0].generator_calls, scenario.generations, scenario.name);
+      assert.equal(searches, scenario.searches, scenario.name);
+      assert.equal(generations, scenario.generations, scenario.name);
+      assert.ok(!JSON.stringify(events[0]).includes('r2-secret-path'));
+    } finally { fixture.sql.close(); }
+  }
+});
+
+test('Stage 7B2A1 SHADOW with no authorized documents makes no provider calls', async () => {
+  const fixture = makeDatabase();
+  const background: Promise<unknown>[] = [];
+  const events: AdvisorShadowEvent[] = [];
+  let calls = 0;
+  try {
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow',
+      advisorV2AiSearchClient: { async search() { calls += 1; return { chunks: [] }; } },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { calls += 1; return { supported: false, answer: '', sourceIds: [] }; } },
+      advisorShadowTelemetry: { record(event) { events.push(event); } },
+    }, { waitUntil(task) { background.push(task); } });
+    await Promise.all(background);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].outcome, 'NO_AUTHORIZED_DOCUMENTS');
+    assert.equal(events[0].search_calls, 0);
+    assert.equal(events[0].generator_calls, 0);
+    assert.equal(calls, 0);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 7B2A1 SHADOW scheduling failure never starts V2 or changes legacy', async () => {
+  const fixture = makeDatabase();
+  let searches = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true',
+      GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => ({ reply: 'Legacy despite scheduler', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }),
+      advisorV2AiSearchClient: { async search() { searches += 1; return { chunks: [] }; } },
+    }, { waitUntil() { throw new Error('scheduler unavailable'); } }) as { reply: string };
+    await Promise.resolve();
+    assert.equal(result.reply, 'Legacy despite scheduler');
+    assert.equal(searches, 0);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 7B2A2 synthetic public-document shapes schedule correlated content-free shadow lifecycle events', async () => {
+  const fixture = makeDatabase();
+  const originalInfo = console.info;
+  const logs: Array<Record<string, unknown>> = [];
+  const background: Promise<unknown>[] = [];
+  const questions = [
+    'Theo sổ tay sinh viên, cần chuẩn bị giấy tờ gì?',
+    'Theo quy chế đào tạo, điều kiện bảo lưu học phần là gì?',
+    'Theo quy định học bổng, điều kiện xét học bổng là gì?',
+    'Theo quy chế, có học bổng cho sinh viên trên sao Hỏa không?',
+  ];
+  try {
+    console.info = (value: unknown) => {
+      if (typeof value !== 'string') return;
+      try {
+        const parsed = JSON.parse(value) as Record<string, unknown>;
+        if (String(parsed.event).startsWith('ai_advisor_v2_shadow')) logs.push(parsed);
+      } catch { /* unrelated console message */ }
+    };
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    for (const question of questions) {
+      const route = routeAdvisorDocuments(question);
+      const intents = classifyAdvisorIntents(question);
+      assert.equal(route.documentSearch, true);
+      assert.equal(intents.includes('regulation_document'), true);
+      assert.equal(resolveZeroAiStructuredAnswer({ question, intents, documentSearch: route.documentSearch, context: {}, userId: USER }), null);
+      const start = logs.length;
+      const request = v2RequestFor(question);
+      const result = await handleAiAdvisor(request, new URL(request.url), {
+        ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true',
+        GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+        fileSearchAnswer: async () => ({ reply: 'Legacy only', documentSources: [] }),
+        advisorV2AiSearchClient: { async search() { return { chunks: [] }; } },
+        advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+        advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { return { supported: false, answer: '', sourceIds: [] }; } },
+      }, { waitUntil(task) { background.push(task); } }) as { reply: string };
+      assert.ok(result.reply.length > 0);
+      assert.notEqual(result.reply, 'V2 text');
+      assert.equal(background.length, 1);
+      await Promise.all(background.splice(0));
+      const events = logs.slice(start);
+      assert.deepEqual(events.map((event) => event.event), [
+        'ai_advisor_v2_shadow_dispatch', 'ai_advisor_v2_shadow_scheduled',
+        'ai_advisor_v2_shadow_started', 'ai_advisor_v2_shadow',
+      ]);
+      assert.equal(new Set(events.map((event) => event.shadow_trace_id)).size, 1);
+      assert.equal(events[3].mode, 'shadow');
+      assert.ok(!JSON.stringify(events).includes(question));
+    }
+  } finally { console.info = originalInfo; fixture.sql.close(); }
+});
+
+test('Stage 7B2A3A fixed public handbook and scholarship questions schedule document shadow work', async () => {
+  const fixture = makeDatabase();
+  const questions = [
+    'Theo sổ tay sinh viên, cần chuẩn bị giấy tờ gì?',
+    'Theo quy định học bổng, điều kiện xét học bổng là gì?',
+  ];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Cẩm nang sinh viên', category: 'student_handbook' });
+    insertOfficialDocument(fixture, { id: DOCUMENT_B, title: 'Quy chế học bổng', category: 'scholarship' });
+    for (const [index, question] of questions.entries()) {
+      const route = routeAdvisorDocuments(question);
+      const intents = classifyAdvisorIntents(question);
+      assert.equal(route.documentSearch, true);
+      assert.equal(route.domain, index === 0 ? 'student_handbook' : 'scholarship');
+      assert.equal(intents.includes('regulation_document'), true);
+      assert.equal(resolveZeroAiStructuredAnswer({ question, intents, documentSearch: route.documentSearch, context: {}, userId: USER }), null);
+      const candidates = await selectAdvisorDocumentCandidates(env(fixture.DB), route);
+      assert.ok(candidates.some((candidate) => candidate.id === (index === 0 ? DOCUMENT_A : DOCUMENT_B)));
+      const background: Promise<unknown>[] = [];
+      const request = v2RequestFor(question);
+      const result = await handleAiAdvisor(request, new URL(request.url), {
+        ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true',
+        GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+        fileSearchAnswer: async () => ({ reply: 'Legacy answer', documentSources: [] }),
+        advisorV2AiSearchClient: { async search() { return { chunks: [] }; } },
+        advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      }, { waitUntil(task) { background.push(task); } }) as { reply: string };
+      assert.ok(result.reply.length > 0);
+      assert.equal(background.length, 1);
+      await Promise.all(background);
+    }
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 7B2A2 shadow emits safe skip events for zero-AI and non-document requests, but never OFF or anonymous', async () => {
+  const fixture = makeDatabase();
+  const originalInfo = console.info;
+  const logs: Array<Record<string, unknown>> = [];
+  try {
+    console.info = (value: unknown) => {
+      if (typeof value !== 'string') return;
+      try {
+        const parsed = JSON.parse(value) as Record<string, unknown>;
+        if (String(parsed.event).startsWith('ai_advisor_v2_shadow')) logs.push(parsed);
+      } catch { /* unrelated console message */ }
+    };
+    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', null, null, null, null,
+      'published', null, 'en101', 'advanced writing', 1,
+    );
+    const zeroRequest = v2RequestFor('EN101 có mấy tín chỉ?');
+    await handleAiAdvisor(zeroRequest, new URL(zeroRequest.url), { ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow' });
+    assert.equal(logs.at(-1)?.event, 'ai_advisor_v2_shadow_skip');
+    assert.equal(logs.at(-1)?.skip_reason, 'ZERO_AI');
+
+    const generalRequest = v2RequestFor('Xin chào');
+    await handleAiAdvisor(generalRequest, new URL(generalRequest.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow',
+      advisorProviders: { generalGeneration: { id: 'fake', isConfigured: () => true, async generate() { return { reply: 'Legacy greeting', lastStatus: 200 }; } } },
+    });
+    assert.equal(logs.at(-1)?.event, 'ai_advisor_v2_shadow_skip');
+    assert.equal(logs.at(-1)?.skip_reason, 'NON_DOCUMENT_INTENT');
+    const beforeOff = logs.length;
+    const offRequest = v2RequestFor('Xin chào');
+    await handleAiAdvisor(offRequest, new URL(offRequest.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'off',
+      advisorProviders: { generalGeneration: { id: 'fake', isConfigured: () => true, async generate() { return { reply: 'Legacy greeting', lastStatus: 200 }; } } },
+    });
+    assert.equal(logs.length, beforeOff);
+    const anonymous = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: 'Xin chào' }),
+    });
+    await assert.rejects(() => handleAiAdvisor(anonymous, new URL(anonymous.url), { ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow' }));
+    assert.equal(logs.length, beforeOff);
+    const printed = JSON.stringify(logs);
+    for (const forbidden of ['EN101 có mấy tín chỉ?', 'Xin chào', USER, 'student@example.test', 'private-r2-path']) {
+      assert.ok(!printed.includes(forbidden));
+    }
+  } finally { console.info = originalInfo; fixture.sql.close(); }
+});
+
+test('Stage 7B2A2 shadow lifecycle and final console failures cannot change the legacy answer', async () => {
+  const fixture = makeDatabase();
+  const originalInfo = console.info;
+  const originalWarn = console.warn;
+  const background: Promise<unknown>[] = [];
+  let searchCalls = 0;
+  try {
+    const failShadowLog = (value: unknown) => {
+      if (typeof value === 'string' && value.includes('"event":"ai_advisor_v2_shadow')) throw new Error('telemetry failed');
+    };
+    console.info = failShadowLog;
+    console.warn = failShadowLog;
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'shadow', GEMINI_FILE_SEARCH_ENABLED: 'true',
+      GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => ({ reply: 'Legacy survives telemetry failure', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }),
+      advisorV2AiSearchClient: { async search() { searchCalls += 1; throw new Error('provider unavailable'); } },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { return { supported: false, answer: '', sourceIds: [] }; } },
+    }, { waitUntil(task) { background.push(task); } }) as { reply: string };
+    await Promise.all(background);
+    assert.equal(result.reply, 'Legacy survives telemetry failure');
+    assert.equal(searchCalls, 1);
+  } finally { console.info = originalInfo; console.warn = originalWarn; fixture.sql.close(); }
+});
+
+test('Stage 6 CANARY zero percent remains legacy and ON exposes only citation-validated V2 evidence', async () => {
+  const fixture = makeDatabase();
+  let legacyCalls = 0;
+  let searchCalls = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const common = {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => {
+        legacyCalls += 1;
+        return { reply: 'Legacy canary', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] };
+      },
+      advisorV2AiSearchClient: {
+        async search() {
+          searchCalls += 1;
+          return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10', item: { key: 'private-key-never-returned', metadata: { document_id: DOCUMENT_A, active: true } } }] };
+        },
+      },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { return { supported: true, answer: 'V2 grounded', sourceIds: ['S1'] }; } },
+    };
+    const canaryRequest = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const canary = await handleAiAdvisor(canaryRequest, new URL(canaryRequest.url), { ...common, AI_ADVISOR_V2_MODE: 'canary', AI_ADVISOR_V2_CANARY_PERCENT: '0' }) as { reply: string };
+    assert.equal(canary.reply, 'Legacy canary');
+    assert.equal(searchCalls, 0);
+    const onRequest = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const on = await handleAiAdvisor(onRequest, new URL(onRequest.url), { ...common, AI_ADVISOR_V2_MODE: 'on' }) as { reply: string; documentSources: unknown[] };
+    assert.equal(on.reply, 'V2 grounded');
+    assert.equal(searchCalls, 1);
+    assert.equal(legacyCalls, 1);
+    assert.deepEqual(on.documentSources, []);
+  } finally { fixture.sql.close(); }
+});
+
+test('selected CANARY serves a validated V2 answer without invoking legacy or retrying providers', async () => {
+  const fixture = makeDatabase();
+  const events: AdvisorCanaryEvent[] = [];
+  let legacyCalls = 0;
+  let searchCalls = 0;
+  let generatorCalls = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'canary', AI_ADVISOR_V2_CANARY_PERCENT: '100',
+      GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => { legacyCalls += 1; return { reply: 'Legacy fallback', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }; },
+      advisorV2AiSearchClient: { async search() { searchCalls += 1; return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10 quy định thang điểm 4.', item: { key: 'private-path', metadata: { document_id: DOCUMENT_A, active: true } } }] }; } },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { generatorCalls += 1; return { supported: true, answer: 'V2 grounded answer', sourceIds: ['S1'] }; } },
+      advisorCanaryTelemetry: { record(event: AdvisorCanaryEvent) { events.push(event); } },
+    }) as { reply: string };
+    assert.equal(result.reply, 'V2 grounded answer');
+    assert.equal(legacyCalls, 0);
+    assert.equal(searchCalls, 1);
+    assert.equal(generatorCalls, 1);
+    assert.equal(events.length, 1);
+    assert.equal(events[0]?.response_source, 'v2');
+    assert.equal(events[0]?.v2_result_class, 'SUPPORTED_VALID_CITATIONS');
+    assert.equal(events[0]?.fallback_reason, null);
+    assert.equal(events[0]?.search_calls, 1);
+    assert.equal(events[0]?.generator_calls, 1);
+    const safeEvent = JSON.stringify(events[0]);
+    for (const forbidden of ['Quy đổi điểm', 'V2 grounded answer', 'Điều 10', USER, 'private-path']) {
+      assert.equal(safeEvent.includes(forbidden), false);
+    }
+  } finally { fixture.sql.close(); }
+});
+
+test('selected CANARY falls back once for abstention, retrieval/generator errors, timeout, and invalid grounding', async () => {
+  const chunk = { id: 'chunk', score: 0.7, text: 'Điều 10 quy định thang điểm 4.', item: { key: 'private-path', metadata: { document_id: DOCUMENT_A, active: true } } };
+  const scenarios = [
+    { name: 'abstention', search: async () => ({ chunks: [chunk] }), generate: async () => ({ supported: false, answer: '', sourceIds: [] }), reason: 'abstention', searchCalls: 1, generatorCalls: 1 },
+    { name: 'retrieval error', search: async () => { throw new Error('provider failed'); }, generate: async () => ({ supported: true, answer: 'bad', sourceIds: ['S1'] }), reason: 'retrieval_error', searchCalls: 1, generatorCalls: 0 },
+    { name: 'generator error', search: async () => ({ chunks: [chunk] }), generate: async () => { throw new Error('provider failed'); }, reason: 'generator_error', searchCalls: 1, generatorCalls: 1 },
+    { name: 'timeout', search: async () => ({ chunks: [chunk] }), generate: async () => { throw new DOMException('timed out', 'TimeoutError'); }, reason: 'timeout', searchCalls: 1, generatorCalls: 1 },
+    { name: 'invalid citation', search: async () => ({ chunks: [chunk] }), generate: async () => ({ supported: true, answer: 'bad citation', sourceIds: ['S9'] }), reason: 'invalid_grounding', searchCalls: 1, generatorCalls: 1 },
+  ] as const;
+  for (const scenario of scenarios) {
+    const fixture = makeDatabase();
+    const events: AdvisorCanaryEvent[] = [];
+    let legacyCalls = 0;
+    let searchCalls = 0;
+    let generatorCalls = 0;
+    try {
+      insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+      const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+      const result = await handleAiAdvisor(request, new URL(request.url), {
+        ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'canary', AI_ADVISOR_V2_CANARY_PERCENT: '100',
+        GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+        fileSearchAnswer: async () => { legacyCalls += 1; return { reply: 'Legacy fallback', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }; },
+        advisorV2AiSearchClient: { async search() { searchCalls += 1; return scenario.search(); } },
+        advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+        advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { generatorCalls += 1; return scenario.generate(); } },
+        advisorCanaryTelemetry: { record(event: AdvisorCanaryEvent) { events.push(event); } },
+      }) as { reply: string };
+      assert.equal(result.reply, 'Legacy fallback', scenario.name);
+      assert.equal(legacyCalls, 1, scenario.name);
+      assert.equal(searchCalls, scenario.searchCalls, scenario.name);
+      assert.equal(generatorCalls, scenario.generatorCalls, scenario.name);
+      assert.equal(events.length, 1, scenario.name);
+      assert.equal(events[0]?.response_source, 'legacy_fallback', scenario.name);
+      assert.equal(events[0]?.fallback_reason, scenario.reason, scenario.name);
+      assert.equal(events[0]?.search_calls, scenario.searchCalls, scenario.name);
+      assert.equal(events[0]?.generator_calls, scenario.generatorCalls, scenario.name);
+      assert.ok(searchCalls <= 1 && generatorCalls <= 1, scenario.name);
+    } finally { fixture.sql.close(); }
+  }
+});
+
+test('selected CANARY falls back for a support span rejected by the unchanged Workers AI validator', async () => {
+  const fixture = makeDatabase();
+  const events: AdvisorCanaryEvent[] = [];
+  let legacyCalls = 0;
+  let searchCalls = 0;
+  let generatorCalls = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'canary', AI_ADVISOR_V2_CANARY_PERCENT: '100',
+      GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => { legacyCalls += 1; return { reply: 'Legacy fallback', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }; },
+      advisorV2AiSearchClient: { async search() { searchCalls += 1; return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10 quy định thang điểm 4.', item: { key: 'private-path', metadata: { document_id: DOCUMENT_A, active: true } } }] }; } },
+      advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+      AI: { async run() { generatorCalls += 1; return { choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'submit_grounded_answer', arguments: JSON.stringify({ supported: true, answer: 'unsupported', source_ids: ['S1'], support_spans: [{ source_id: 'S1', quote: 'fabricated quotation' }] }) } }] } }] }; } },
+      advisorCanaryTelemetry: { record(event: AdvisorCanaryEvent) { events.push(event); } },
+    }) as { reply: string };
+    assert.equal(result.reply, 'Legacy fallback');
+    assert.equal(legacyCalls, 1);
+    assert.equal(searchCalls, 1);
+    assert.equal(generatorCalls, 1);
+    assert.equal(events[0]?.response_source, 'legacy_fallback');
+    assert.equal(events[0]?.fallback_reason, 'invalid_grounding');
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 6 keeps deterministic zero-AI answers ahead of V2 in every feature mode', async () => {
+  const fixture = makeDatabase();
+  let searchCalls = 0;
+  let generationCalls = 0;
+  try {
+    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', null, null, null, null,
+      'published', null, 'en101', 'advanced writing', 1,
+    );
+    fixture.sql.prepare('INSERT INTO user_schedules VALUES (?,?,?,?,?)').run('schedule-1', USER, 'course-en101', 'HK1', '2026-09-20T00:00:00.000Z');
+    for (const [mode, percent] of [['off', undefined], ['shadow', undefined], ['canary', '100'], ['on', undefined]] as const) {
+      const request = v2RequestFor('EN101 có mấy tín chỉ?');
+      const result = await handleAiAdvisor(request, new URL(request.url), {
+        ...env(fixture.DB),
+        AI_ADVISOR_V2_MODE: mode,
+        AI_ADVISOR_V2_CANARY_PERCENT: percent,
+        advisorV2AiSearchClient: { async search() { searchCalls += 1; return { chunks: [] }; } },
+        advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
+        advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { generationCalls += 1; return { supported: true, answer: 'must not run', sourceIds: ['S1'] }; } },
+        advisorProviders: { generalGeneration: { id: 'legacy', isConfigured: () => true, async generate() { generationCalls += 1; return { reply: 'must not run', lastStatus: 200 }; } } },
+      }) as { reply: string };
+      assert.equal(result.reply, 'Môn Advanced Writing (EN101) có 3 tín chỉ.', `${mode} must retain zero-AI priority`);
+    }
+    assert.equal(searchCalls, 0);
+    assert.equal(generationCalls, 0);
+  } finally { fixture.sql.close(); }
+});
+
+test('Stage 6 ON fails closed when the optional AI Search binding is unavailable', async () => {
+  const fixture = makeDatabase();
+  let legacyCalls = 0;
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'on',
+      GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => { legacyCalls += 1; return { reply: 'must not expose', documentSources: [] }; },
+    }) as { reply: string; documentSearchUnavailable: boolean };
+    assert.match(result.reply, /chưa thể xác minh/i);
+    assert.equal(result.documentSearchUnavailable, true);
+    assert.equal(legacyCalls, 0, 'ON must not fall through to an ungrounded legacy provider');
   } finally { fixture.sql.close(); }
 });
