@@ -59,9 +59,15 @@
     "PROFILE_D1_SHADOW_WRITE_ENABLED": "true",
     "PROFILE_D1_SHADOW_WRITE_PERCENT": "100",
     "PROFILE_D1_SHADOW_INTERNAL_ENABLED": "true",
-    "AI_ADVISOR_V2_MODE": "off",
-    "AI_ADVISOR_V2_CANARY_PERCENT": "0",
+    "AI_ADVISOR_V2_MODE": "canary",
+    "AI_ADVISOR_V2_CANARY_PERCENT": "7",
     "AI_ADVISOR_V2_GENERATOR_MODEL": "@cf/zai-org/glm-4.7-flash"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": { "enabled": true, "head_sampling_rate": 1, "invocation_logs": false, "persist": true },
+    "traces": { "enabled": false }
   },
   "triggers": {
     "crons": ["*/15 * * * *", "7 * * * *", "37 19 * * *"]

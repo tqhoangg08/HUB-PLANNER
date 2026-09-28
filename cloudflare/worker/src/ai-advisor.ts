@@ -104,6 +104,7 @@ export type AdvisorShadowEvent = {
 type AdvisorCanaryFallbackReason = 'abstention' | 'retrieval_error' | 'generator_error' | 'timeout' | 'invalid_grounding' | 'other_safe_failure';
 export type AdvisorCanaryEvent = {
   event: 'ai_advisor_v2_canary';
+  trace_id: string;
   mode: 'canary';
   canary_selected: true;
   v2_result_class: 'SUPPORTED_VALID_CITATIONS' | 'INSUFFICIENT_EVIDENCE' | 'RETRIEVAL_ERROR' | 'GENERATOR_ERROR' | 'TIMEOUT' | 'INVALID_GROUNDING' | 'OTHER_SAFE_FAILURE';
@@ -114,6 +115,8 @@ export type AdvisorCanaryEvent = {
   retrieved_count: number;
   authorized_count: number;
   duration_ms: number;
+  retrieval_duration_ms: number;
+  generator_duration_ms: number;
 };
 
 type AdvisorShadowLifecycleName =
@@ -1339,6 +1342,15 @@ const emitCanaryTelemetry = (env: AiAdvisorEnv, event: AdvisorCanaryEvent) => {
   try { env.advisorCanaryTelemetry?.record(event); } catch { /* optional sink cannot affect a response */ }
 };
 
+const emitCanaryDispatch = (traceId: string) => {
+  try {
+    console.info(JSON.stringify({
+      event: 'ai_advisor_v2_canary_dispatch', trace_id: traceId,
+      canary_selected: true, mode: 'canary',
+    }));
+  } catch { /* dispatch logging cannot affect a response */ }
+};
+
 const isV2Timeout = (error: unknown) => error instanceof Error && (
   error.name === 'TimeoutError' || error.name === 'AbortError' || error.message === 'WORKERS_AI_EVIDENCE_TIMEOUT'
 );
@@ -1609,6 +1621,10 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
   } else if (documentIntent && v2Config.mode !== 'off' && await shouldUseAiAdvisorV2(v2Config, userId)) {
     const canarySelected = v2Config.mode === 'canary';
     const canaryStartedAt = Date.now();
+    const canaryTraceId = canarySelected ? shadowTraceId() : '';
+    if (canarySelected) emitCanaryDispatch(canaryTraceId);
+    let retrievalDurationMs = 0;
+    let generatorDurationMs = 0;
     let searchCalls = 0;
     let generatorCalls = 0;
     let generatorTimedOut = false;
@@ -1633,9 +1649,11 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       const client = env.advisorV2AiSearchClient || productionAiSearchClient(env);
       const generator = env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env);
       const countedClient: AiSearchClient | undefined = canarySelected && client ? {
-        search(instance, searchRequest) {
+        async search(instance, searchRequest) {
           searchCalls += 1;
-          return client.search(instance, searchRequest);
+          const startedAt = Date.now();
+          try { return await client.search(instance, searchRequest); }
+          finally { retrievalDurationMs += Math.max(0, Date.now() - startedAt); }
         },
       } : client;
       const countedGenerator: EvidenceGenerationProvider = canarySelected ? {
@@ -1643,10 +1661,11 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         isConfigured(value) { return generator.isConfigured(value); },
         generate(generationRequest) {
           generatorCalls += 1;
+          const startedAt = Date.now();
           return Promise.resolve().then(() => generator.generate(generationRequest)).catch((error) => {
             if (isV2Timeout(error)) generatorTimedOut = true;
             throw error;
-          });
+          }).finally(() => { generatorDurationMs += Math.max(0, Date.now() - startedAt); });
         },
       } : generator;
       v2 = await executeAiAdvisorV2Document(question, v2Candidates, {
@@ -1675,11 +1694,12 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         document_search_unavailable: false,
       });
       if (canarySelected) emitCanaryTelemetry(env, {
-        event: 'ai_advisor_v2_canary', mode: 'canary', canary_selected: true,
+        event: 'ai_advisor_v2_canary', trace_id: canaryTraceId, mode: 'canary', canary_selected: true,
         v2_result_class: 'SUPPORTED_VALID_CITATIONS', response_source: 'v2', fallback_reason: null,
         search_calls: searchCalls, generator_calls: generatorCalls,
         retrieved_count: v2.retrievedChunkCount, authorized_count: v2.retrievedChunkCount,
         duration_ms: Math.max(0, Date.now() - canaryStartedAt),
+        retrieval_duration_ms: retrievalDurationMs, generator_duration_ms: generatorDurationMs,
       });
       emitAdvisorTelemetry(env, {
         requestId, intent: retrieval.intents, answerPath: 'SEARCH_GENERATE', cacheHit: v2.answerCacheHit,
@@ -1695,10 +1715,11 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
     if (canarySelected) {
       const failure = canaryFailure || canaryFallbackClassification(v2?.reason || '', generatorTimedOut);
       emitCanaryTelemetry(env, {
-        event: 'ai_advisor_v2_canary', mode: 'canary', canary_selected: true,
+        event: 'ai_advisor_v2_canary', trace_id: canaryTraceId, mode: 'canary', canary_selected: true,
         ...failure, response_source: 'legacy_fallback', search_calls: searchCalls, generator_calls: generatorCalls,
         retrieved_count: v2?.retrievedChunkCount || 0, authorized_count: v2?.retrievedChunkCount || 0,
         duration_ms: Math.max(0, Date.now() - canaryStartedAt),
+        retrieval_duration_ms: retrievalDurationMs, generator_duration_ms: generatorDurationMs,
       });
     } else if (v2) {
       const v2Telemetry = {

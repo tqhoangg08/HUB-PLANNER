@@ -28,6 +28,31 @@ const binding = (result: unknown, onRun?: (input: WorkersAiEvidenceRunInput) => 
   async run(_model, input) { onRun?.(input); return result as { choices?: Array<{ message?: { tool_calls?: unknown } }> }; },
 });
 
+test('CASE3 formatting regression: two omitted spaces before plus list markers preserve exact support', async () => {
+  // Sanitized structural fixture: no captured production evidence or tool output.
+  const snippet = 'Có 3 mức.\n+ Mức A không tự động áp dụng.\n+ Mức B cần xét duyệt.';
+  const quote = 'Có 3 mức.+ Mức A không tự động áp dụng.+ Mức B cần xét duyệt.';
+  const input = { question: 'Có mấy mức?', evidence: [{ sourceId: 'S1', documentId: 'fixture', snippet, score: 0.5 }] };
+  let calls = 0;
+  const evaluate = async (text: string, source = 'S1', supported = true) => {
+    const generator = createWorkersAiEvidenceGenerator({ AI: binding(toolCall({
+      supported, answer: supported ? 'Có 3 mức.' : '', source_ids: supported ? [source] : [],
+      support_spans: supported ? [{ source_id: source, quote: text }] : [],
+    }), () => { calls++; }) });
+    const before = calls;
+    const result = await generator.generate(input);
+    assert.equal(calls - before, 1);
+    return result.supported;
+  };
+  assert.equal(await evaluate(quote), true);
+  for (const invalid of [quote.replace('3', '4'), quote.replace('xét duyệt', 'tự duyệt'),
+    quote.replace('không ', ''), 'Nội dung bịa đặt.', '', quote.replace('.+', ';+')]) {
+    assert.equal(await evaluate(invalid), false);
+  }
+  assert.equal(await evaluate(quote, 'S9'), false);
+  assert.equal(await evaluate('', 'S1', false), false);
+});
+
 test('Workers AI evidence adapter sends bounded authorized evidence and normalizes a supported function call', async () => {
   let input: WorkersAiEvidenceRunInput | undefined;
   const provider = createWorkersAiEvidenceGenerator({

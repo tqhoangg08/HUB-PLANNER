@@ -1989,6 +1989,11 @@ test('Stage 6 CANARY zero percent remains legacy and ON exposes only citation-va
 test('selected CANARY serves a validated V2 answer without invoking legacy or retrying providers', async () => {
   const fixture = makeDatabase();
   const events: AdvisorCanaryEvent[] = [];
+  const consoleEvents: Record<string, unknown>[] = [];
+  const originalInfo = console.info;
+  console.info = (value: unknown) => {
+    if (typeof value === 'string' && value.includes('"event":"ai_advisor_v2_canary')) consoleEvents.push(JSON.parse(value));
+  };
   let legacyCalls = 0;
   let searchCalls = 0;
   let generatorCalls = 0;
@@ -1999,7 +2004,10 @@ test('selected CANARY serves a validated V2 answer without invoking legacy or re
       ...env(fixture.DB), AI_ADVISOR_V2_MODE: 'canary', AI_ADVISOR_V2_CANARY_PERCENT: '100',
       GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
       fileSearchAnswer: async () => { legacyCalls += 1; return { reply: 'Legacy fallback', documentSources: [{ documentId: DOCUMENT_A, fileName: 'q.pdf', title: 'Quy chế' }] }; },
-      advisorV2AiSearchClient: { async search() { searchCalls += 1; return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10 quy định thang điểm 4.', item: { key: 'private-path', metadata: { document_id: DOCUMENT_A, active: true } } }] }; } },
+      advisorV2AiSearchClient: { async search() {
+        assert.equal(consoleEvents[0]?.event, 'ai_advisor_v2_canary_dispatch', 'dispatch precedes retrieval');
+        searchCalls += 1; return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10 quy định thang điểm 4.', item: { key: 'private-path', metadata: { document_id: DOCUMENT_A, active: true } } }] };
+      } },
       advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
       advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { generatorCalls += 1; return { supported: true, answer: 'V2 grounded answer', sourceIds: ['S1'] }; } },
       advisorCanaryTelemetry: { record(event: AdvisorCanaryEvent) { events.push(event); } },
@@ -2014,11 +2022,17 @@ test('selected CANARY serves a validated V2 answer without invoking legacy or re
     assert.equal(events[0]?.fallback_reason, null);
     assert.equal(events[0]?.search_calls, 1);
     assert.equal(events[0]?.generator_calls, 1);
+    assert.deepEqual(consoleEvents.map(event => event.event), ['ai_advisor_v2_canary_dispatch', 'ai_advisor_v2_canary']);
+    assert.match(events[0]!.trace_id, /^[0-9a-f-]{36}$/);
+    assert.equal(consoleEvents[0]?.trace_id, events[0]?.trace_id);
+    assert.deepEqual(Object.keys(consoleEvents[0]!).sort(), ['canary_selected', 'event', 'mode', 'trace_id']);
+    assert.ok(events[0]!.retrieval_duration_ms >= 0);
+    assert.ok(events[0]!.generator_duration_ms >= 0);
     const safeEvent = JSON.stringify(events[0]);
     for (const forbidden of ['Quy đổi điểm', 'V2 grounded answer', 'Điều 10', USER, 'private-path']) {
       assert.equal(safeEvent.includes(forbidden), false);
     }
-  } finally { fixture.sql.close(); }
+  } finally { console.info = originalInfo; fixture.sql.close(); }
 });
 
 test('selected CANARY falls back once for abstention, retrieval/generator errors, timeout, and invalid grounding', async () => {
@@ -2033,6 +2047,11 @@ test('selected CANARY falls back once for abstention, retrieval/generator errors
   for (const scenario of scenarios) {
     const fixture = makeDatabase();
     const events: AdvisorCanaryEvent[] = [];
+    const lifecycle: Record<string, unknown>[] = [];
+    const originalInfo = console.info;
+    console.info = (value: unknown) => {
+      if (typeof value === 'string' && value.includes('"event":"ai_advisor_v2_canary')) lifecycle.push(JSON.parse(value));
+    };
     let legacyCalls = 0;
     let searchCalls = 0;
     let generatorCalls = 0;
@@ -2053,12 +2072,18 @@ test('selected CANARY falls back once for abstention, retrieval/generator errors
       assert.equal(searchCalls, scenario.searchCalls, scenario.name);
       assert.equal(generatorCalls, scenario.generatorCalls, scenario.name);
       assert.equal(events.length, 1, scenario.name);
+      assert.deepEqual(lifecycle.map(event => event.event), ['ai_advisor_v2_canary_dispatch', 'ai_advisor_v2_canary'], scenario.name);
+      assert.equal(lifecycle[0]?.trace_id, events[0]?.trace_id, scenario.name);
+      assert.ok(events[0]!.retrieval_duration_ms >= 0 && events[0]!.generator_duration_ms >= 0);
+      for (const forbidden of ['Quy đổi điểm', 'Điều 10', USER, 'private-path', 'provider failed']) {
+        assert.equal(JSON.stringify(lifecycle).includes(forbidden), false, scenario.name);
+      }
       assert.equal(events[0]?.response_source, 'legacy_fallback', scenario.name);
       assert.equal(events[0]?.fallback_reason, scenario.reason, scenario.name);
       assert.equal(events[0]?.search_calls, scenario.searchCalls, scenario.name);
       assert.equal(events[0]?.generator_calls, scenario.generatorCalls, scenario.name);
       assert.ok(searchCalls <= 1 && generatorCalls <= 1, scenario.name);
-    } finally { fixture.sql.close(); }
+    } finally { console.info = originalInfo; fixture.sql.close(); }
   }
 });
 

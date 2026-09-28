@@ -54,7 +54,9 @@ const abstain = (invalidGrounding = false): EvidenceGenerationResult => ({
   supported: false, answer: '', sourceIds: [],
   ...(invalidGrounding ? { rejectionReason: 'INVALID_GROUNDING' as const } : {}),
 });
-const normalizedSupportText = (value: string) => value.normalize('NFC').replace(/\s+/gu, ' ').trim();
+// Preserve all words and punctuation; tolerate the observed omitted space
+// between a sentence-ending period and a following '+ ' list marker only.
+const normalizedSupportText = (value: string) => value.normalize('NFC').replace(/\s+/gu, ' ').trim().replace(/\. +(?=\+ )/gu, '.');
 
 const normalizeSources = (request: EvidenceGenerationRequest) => {
   const result = [] as Array<{ sourceId: string; snippet: string }>;
