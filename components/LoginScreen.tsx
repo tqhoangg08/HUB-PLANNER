@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
+import { PASSWORD_RECOVERY_ENABLED } from '../utils/rescueMode';
 import type { AuthRefresh } from '../hooks/useUserRole';
 import { getRecoverySession } from '../app/auth/recoveryAuthClient';
 import {
@@ -54,7 +55,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onRefreshAuth }) => {
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState<'form' | 'google' | 'resend' | null>(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(params.get('password-reset') === 'success'
+    ? 'Mật khẩu đã được đặt lại. Vui lòng đăng nhập.' : '');
   const [token, setToken] = useState('');
   const [googleToken, setGoogleToken] = useState('');
   const [turnstileKey, setTurnstileKey] = useState(0);
@@ -195,7 +197,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onRefreshAuth }) => {
             <button type="submit" disabled={busy !== null || !token || !siteKey || (flow === 'register' && !otpPending && !agreed)} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-sm font-black text-white disabled:bg-slate-300">{busy === 'form' && <Loader2 className="animate-spin" size={18} />}{otpPending ? 'Xác nhận đăng ký' : flow === 'login' ? 'Đăng nhập' : 'Gửi mã OTP'}</button>
             {otpPending && <><button type="button" onClick={resend} disabled={busy !== null || !token} className="h-11 rounded-xl border border-slate-200 text-sm font-bold text-[#003B7A]">{busy === 'resend' ? 'Đang gửi…' : 'Gửi lại mã OTP'}</button><button type="button" onClick={() => { setOtpPending(false); setOtp(''); resetChallenge(); }} className="h-10 text-sm font-bold text-slate-500">Quay lại chỉnh MSSV/email</button></>}
           </form>
-          {!otpPending && <div className="auth-oauth"><div className="auth-divider"><span className="h-px flex-1 bg-slate-200" />hoặc<span className="h-px flex-1 bg-slate-200" /></div>{siteKey && <div className="mb-3"><Turnstile key={`${flow}-google-${googleTurnstileKey}`} siteKey={siteKey} options={{ action: flow === 'login' ? 'google_login' : 'google_signup', appearance: 'interaction-only', language: 'vi' }} onSuccess={setGoogleToken} onExpire={() => setGoogleToken('')} onError={() => setGoogleToken('')} /></div>}<button type="button" onClick={google} disabled={busy !== null || !googleToken || (flow === 'register' && !agreed)} className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-900 disabled:bg-slate-100">{busy === 'google' ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}{flow === 'login' ? 'Đăng nhập bằng Google HUB' : 'Đăng ký bằng Google HUB'}</button>{flow === 'login' && <Link to="/forgot-password" className="mt-4 block text-center text-sm font-bold text-[#003B7A]">Quên mật khẩu?</Link>}</div>}
+          {!otpPending && <div className="auth-oauth"><div className="auth-divider"><span className="h-px flex-1 bg-slate-200" />hoặc<span className="h-px flex-1 bg-slate-200" /></div>{siteKey && <div className="mb-3"><Turnstile key={`${flow}-google-${googleTurnstileKey}`} siteKey={siteKey} options={{ action: flow === 'login' ? 'google_login' : 'google_signup', appearance: 'interaction-only', language: 'vi' }} onSuccess={setGoogleToken} onExpire={() => setGoogleToken('')} onError={() => setGoogleToken('')} /></div>}<button type="button" onClick={google} disabled={busy !== null || !googleToken || (flow === 'register' && !agreed)} className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-900 disabled:bg-slate-100">{busy === 'google' ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}{flow === 'login' ? 'Đăng nhập bằng Google HUB' : 'Đăng ký bằng Google HUB'}</button>{flow === 'login' && PASSWORD_RECOVERY_ENABLED && <Link to="/forgot-password" className="mt-4 block text-center text-sm font-bold text-[#003B7A] underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#003B7A]">Quên mật khẩu?</Link>}</div>}
         </section>
       </div></main>
     </div>
