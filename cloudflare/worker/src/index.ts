@@ -53,7 +53,7 @@ import {
   listRankingSemesters,
   parseRankingSemester,
   RankingError,
-  readOwnBenchmarkRanking,
+  readOwnRanking,
   readRankingForecastBody,
 } from './rankings.ts';
 import {
@@ -1984,7 +1984,7 @@ const worker = {
           requestUrl.searchParams.get('semester')
         );
         return json(
-          await readOwnBenchmarkRanking(env, identity.userId, semester),
+          await readOwnRanking(env, identity.userId, semester),
           200,
           {
             ...cors,

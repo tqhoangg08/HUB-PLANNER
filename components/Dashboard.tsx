@@ -18,7 +18,7 @@ import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import SchoolAnnouncements from './SchoolAnnouncements';
-import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
+import { formatRankingPosition, mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 import { useUserRole } from '../hooks/useUserRole';
@@ -579,7 +579,6 @@ interface SemesterTableProps {
   isReadOnly?: boolean;
   onReadOnlyEditAttempt?: () => void;
   rankContext?: {
-    studentCode?: string | null;
     classCode?: string | null;
     major?: string | null;
     currentSemesterId?: string | null;
@@ -600,7 +599,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   const { 
       fetchRank, result: rankingResult, loading: rankingLoading, error: rankingError, resetResult,
       fetchAvailableSemesters, availableSemesters, loadingSemesters, prepareSemesterRanks,
-      resetSemesterRanks, semesterRanks, loadingSemesterRanks
+      resetSemesterRanks, semesterRanks, loadingSemesterRanks, semesterModes
   } = useForecastRank();
 
   const [showRankMenu, setShowRankMenu] = useState(false);
@@ -707,6 +706,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
     return { label: '💰 HB Giỏi', className: 'bg-green-50 text-green-700 border-green-200' };
   })();
   const scholarshipRankAssessment = getScholarshipRankAssessment(rankingResult?.rank);
+  const exactRankingStatus = rankingResult?.rankingMode === 'exact'
+    ? rankingResult.found ? 'Chính thức'
+      : `Không tìm thấy MSSV trong dữ liệu xếp hạng ${mapIdToDisplay(rankingResult.semesterId)}.`
+    : null;
 
   const handleOpenRankMenu = () => {
       playClick(); setShowRankMenu(true);
@@ -828,6 +831,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                               <div>
                                                   <h4 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h4>
                                                   <p className="text-xs text-[#64748B] mt-0.5">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                                                  {exactRankingStatus && <p className="mt-1 text-xs text-[#64748B]">{exactRankingStatus}</p>}
                                               </div>
 
                                               <div className="grid grid-cols-2 gap-2">
@@ -844,7 +848,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                               <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
                                                   <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
                                                       <span className="text-xs font-semibold text-[#64748B]">Top toàn trường</span>
-                                                      <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                                                      <span className="text-sm font-bold text-[#0F172A]">{formatRankingPosition(rankingResult.rank, rankingResult.totalStudents)}</span>
                                                   </div>
                                                   {rankingResult.rankInClass && (
                                                       <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
@@ -865,8 +869,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                               </div>
 
                                               <div className="rounded-lg border border-emerald-200 bg-[#ECFDF5] p-3">
-                                                  <p className="text-sm font-bold text-[#0F172A]">Đánh giá học bổng</p>
-                                                  <p className="mt-1 text-xs leading-5 text-[#334155]">Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.</p>
+                                                  <p className="text-sm font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
+                                                  <p className="mt-1 text-xs leading-5 text-[#334155]">{rankingResult.rankingMode === 'exact'
+                                                    ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
+                                                    : 'Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'}</p>
                                               </div>
                                           </div>
                                       </div>
@@ -882,7 +888,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                                       const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải...' : 'Chưa có hạng';
                                                       return (
                                                       <button key={semId} onClick={() => handleSelectReferenceSemester(semId)} className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group">
-                                                          <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
+                                                          <span>Dữ liệu {mapIdToDisplay(semId)}{semesterModes[semId] === 'exact' ? ' · Chính thức' : ''} - {rankLabel}</span>
                                                           <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#003375]"/>
                                                       </button>
                                                       );
@@ -1012,7 +1018,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                             }`}
                           >
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-[13px] font-bold leading-snug sm:text-sm">{mapIdToDisplay(semId)}</span>
+                              <span className="text-[13px] font-bold leading-snug sm:text-sm">{mapIdToDisplay(semId)}{semesterModes[semId] === 'exact' ? ' · Chính thức' : ''}</span>
                               <ChevronRight size={16} className="shrink-0" />
                             </div>
                             <div className="mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-1 sm:text-xs">Hạng: {rankLabel}</div>
@@ -1037,6 +1043,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     <div className="mb-4">
                       <h5 className="text-2xl font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
                       <p className="mt-1 text-sm text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                      {exactRankingStatus && <p className="mt-1 text-xs text-[#64748B]">{exactRankingStatus}</p>}
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1057,7 +1064,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     <div className="mt-4 overflow-hidden rounded-xl border border-[#E2E8F0]">
                       <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
                         <span className="text-sm font-semibold text-[#64748B]">Top toàn trường</span>
-                        <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                        <span className="text-base font-bold text-[#0F172A]">{formatRankingPosition(rankingResult.rank, rankingResult.totalStudents)}</span>
                       </div>
                       {rankingResult.rankInClass && (
                         <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
@@ -1078,9 +1085,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     </div>
 
                     <div className={`mt-4 rounded-xl border p-4 ${scholarshipRankAssessment.className}`}>
-                      <p className="text-base font-bold text-[#0F172A]">Đánh giá học bổng</p>
+                      <p className="text-base font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
                       <p className="mt-1 text-sm leading-6 text-[#334155]">
-                        {scholarshipRankAssessment.text}
+                        {rankingResult.rankingMode === 'exact'
+                          ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
+                          : scholarshipRankAssessment.text}
                       </p>
                     </div>
 
@@ -1144,6 +1153,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <div>
                     <h5 className="text-lg font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
                     <p className="mt-1 text-sm text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                    {exactRankingStatus && <p className="mt-1 text-xs text-[#64748B]">{exactRankingStatus}</p>}
                   </div>
                   <button
                     onClick={() => resetResult()}
@@ -1176,7 +1186,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
                     <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
                       <span className="text-sm font-semibold text-[#64748B]">Top toàn trường</span>
-                      <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                      <span className="text-base font-bold text-[#0F172A]">{formatRankingPosition(rankingResult.rank, rankingResult.totalStudents)}</span>
                     </div>
                     {rankingResult.rankInClass && (
                       <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
@@ -1198,9 +1208,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 </div>
 
                 <div className="mt-3 rounded-xl border border-emerald-200 bg-[#ECFDF5] p-4">
-                  <p className="text-base font-bold text-[#0F172A]">Đánh giá học bổng</p>
+                  <p className="text-base font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
                   <p className="mt-1 text-sm leading-6 text-[#334155]">
-                    Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.
+                    {rankingResult.rankingMode === 'exact'
+                      ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
+                      : 'Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'}
                   </p>
                 </div>
               </div>
@@ -1223,7 +1235,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                           onClick={() => handleSelectReferenceSemester(semId)}
                           className="flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-3 text-left text-sm font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
                         >
-                          <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
+                          <span>Dữ liệu {mapIdToDisplay(semId)}{semesterModes[semId] === 'exact' ? ' · Chính thức' : ''} - {rankLabel}</span>
                           <ChevronRight size={16} className="shrink-0 text-[#003375]" />
                         </button>
                       );
@@ -2798,7 +2810,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     isReadOnly={isViewingAsAuditor || (!selectedUserOverview && !isTranscriptEditing)}
                                     onReadOnlyEditAttempt={!selectedUserOverview && !isViewingAsAuditor ? handleReadOnlyTranscriptEditAttempt : undefined}
                                     rankContext={{
-                                        studentCode: (activeData as any).studentCode || (activeData as any).student_code || null,
                                         classCode: (activeData as any).className || (activeData as any).class_name || (activeData as any).classCode || (activeData as any).class_code || null,
                                         major: activeData.majorName || (activeData as any).major || null,
                                         currentSemesterId: normalizeSemesterId(sem.name)

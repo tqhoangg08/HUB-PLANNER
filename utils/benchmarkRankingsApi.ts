@@ -7,7 +7,15 @@ export interface CloudflareRankingForecastRow {
   major: string | null;
 }
 
-export interface CloudflareOwnRanking {
+export type RankingMode = 'forecast' | 'exact';
+
+export interface CloudflareRankingSemester {
+  semester: string;
+  totalStudents: number;
+  rankingMode: RankingMode;
+}
+
+export interface CloudflareOwnForecastRanking {
   studentRank: number | null;
   totalStudents: number;
   rankInClass: number | null;
@@ -17,6 +25,26 @@ export interface CloudflareOwnRanking {
   totalInMajor: number | null;
   major: string | null;
 }
+
+export interface CloudflareOwnExactRanking {
+  semester: string;
+  rankingMode: 'exact';
+  found: boolean;
+  rank?: number;
+  totalStudents: number;
+  rankInClass?: number | null;
+  totalInClass?: number | null;
+  rankInMajor?: number | null;
+  totalInMajor?: number | null;
+  gpa?: number | null;
+  trainingScore?: number | null;
+  credits?: number | null;
+  classCode?: string | null;
+  major?: string | null;
+  scholarshipStatus?: string | null;
+}
+
+export type CloudflareOwnRanking = CloudflareOwnForecastRanking | CloudflareOwnExactRanking;
 
 const REQUEST_TIMEOUT_MS = 6_000;
 
@@ -85,10 +113,7 @@ export const fetchCloudflareRankingSemesters = async () => {
   if (!payload?.success || !Array.isArray(payload.data)) {
     throw new Error('Cloudflare trả về danh sách học kỳ không hợp lệ.');
   }
-  return payload.data as Array<{
-    semester: string;
-    totalStudents: number;
-  }>;
+  return payload.data as CloudflareRankingSemester[];
 };
 
 export const forecastCloudflareRankings = async (input: {

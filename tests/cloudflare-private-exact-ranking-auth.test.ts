@@ -6,6 +6,8 @@ import worker from '../cloudflare/worker/src/index.ts';
 const USER_A = 'd9428888-122b-4f0f-b88f-1c8f4f762b22';
 const USER_B = '57768d5d-e2a7-49c3-92a5-3956cd05de69';
 const SEMESTER = '2025-2026_HK1';
+const EXACT_SEMESTER = '2025-2026_HK2';
+const STUDENT_CODE = '012345678901';
 const COOKIE = 'hubplanner_auth.session_token=opaque-session';
 
 const rankingRow = (rank: number) => ({
@@ -26,6 +28,7 @@ const authIdentity = (
 
 const createDb = (options: {
   rowForUser?: (userId: string) => ReturnType<typeof rankingRow> | null;
+  exactRow?: Record<string, unknown> | null;
   bindings?: unknown[][];
   calls?: string[];
 } = {}) => ({
@@ -39,6 +42,16 @@ const createDb = (options: {
         return statement;
       },
       async first() {
+        if (sql.includes('semester_exact_ranking_datasets')) {
+          return values[0] === EXACT_SEMESTER
+            ? { semester: EXACT_SEMESTER, total_students: 10478 } : null;
+        }
+        if (sql.includes('FROM user_profiles')) {
+          return values[0] === USER_A ? { student_code: STUDENT_CODE } : null;
+        }
+        if (sql.includes('FROM semester_exact_rankings')) {
+          return values[1] === STUDENT_CODE ? options.exactRow ?? null : null;
+        }
         if (sql.includes('benchmark_ranking_semesters')) {
           return { semester: values[0] };
         }
@@ -69,12 +82,13 @@ const exactRankingRequest = (
     headers?: HeadersInit;
     method?: string;
     query?: string;
+    semester?: string;
   } = {}
 ) => {
   const headers = new Headers(options.headers);
   if (options.cookie) headers.set('Cookie', options.cookie);
   return new Request(
-    `https://hotrosinhvienhub.id.vn/api/user/v1/rankings/exact?semester=${SEMESTER}${options.query || ''}`,
+    `https://hotrosinhvienhub.id.vn/api/user/v1/rankings/exact?semester=${options.semester || SEMESTER}${options.query || ''}`,
     { method: options.method || 'GET', headers }
   );
 };
@@ -123,6 +137,56 @@ test('authenticated user without a ranking receives the stable null contract', a
   );
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { success: true, data: null });
+});
+
+test('HK2 exact rank is selected by authenticated profile MSSV, never a client parameter', async () => {
+  const bindings: unknown[][] = [];
+  const calls: string[] = [];
+  const response = await worker.fetch(
+    exactRankingRequest({
+      semester: EXACT_SEMESTER,
+      cookie: COOKIE,
+      query: '&student_code=999999999999&userId=other',
+    }),
+    createEnv(() => Response.json(authIdentity(USER_A)), createDb({
+      bindings, calls,
+      exactRow: {
+        rank: 325, total_students: 10478, gpa: 3.5,
+        training_score: 90, credits: 18,
+        class_code: 'K27CNTT1', major: 'Công nghệ thông tin',
+        scholarship_status: 'Giỏi', rank_in_class: 3, total_in_class: 40,
+        rank_in_major: 12, total_in_major: 100,
+      },
+    })),
+    {} as never
+  );
+  assert.equal(response.status, 200);
+  const payload = await response.json() as { data: Record<string, unknown> };
+  assert.equal(payload.data.rankingMode, 'exact');
+  assert.equal(payload.data.found, true);
+  assert.equal(payload.data.rank, 325);
+  assert.equal(payload.data.rankInClass, 3);
+  assert.equal(payload.data.scholarshipStatus, 'Giỏi');
+  assert.equal('studentCode' in payload.data, false);
+  assert.deepEqual(bindings.at(-1), [EXACT_SEMESTER, STUDENT_CODE]);
+  assert.equal(calls.some((sql) => sql.includes('benchmark_ranking_users')), false);
+  assert.equal(response.headers.get('Cache-Control'), 'private, no-store');
+});
+
+test('HK2 profile MSSV missing from exact data returns no-data without forecast', async () => {
+  const calls: string[] = [];
+  const response = await worker.fetch(
+    exactRankingRequest({ semester: EXACT_SEMESTER, cookie: COOKIE }),
+    createEnv(() => Response.json(authIdentity(USER_A)), createDb({ calls, exactRow: null })),
+    {} as never
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    data: { semester: EXACT_SEMESTER, rankingMode: 'exact', found: false, totalStudents: 10478 },
+  });
+  assert.equal(calls.some((sql) => sql.includes('benchmark_ranking_users') ||
+    sql.includes('benchmark_ranking_buckets')), false);
 });
 
 test('no cookie and bearer-only requests cannot authenticate', async () => {

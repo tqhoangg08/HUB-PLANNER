@@ -24,6 +24,26 @@ interface RankingUserRow {
   major: string | null;
 }
 
+interface ExactRankingDatasetRow {
+  semester: string;
+  total_students: number;
+}
+
+interface ExactRankingRow {
+  rank: number;
+  total_students: number;
+  gpa: number | null;
+  training_score: number | null;
+  credits: number | null;
+  class_code: string | null;
+  major: string | null;
+  scholarship_status: string | null;
+  rank_in_class: number | null;
+  total_in_class: number | null;
+  rank_in_major: number | null;
+  total_in_major: number | null;
+}
+
 export interface RankingForecastInput {
   semesters: string[];
   gpa: number;
@@ -229,10 +249,19 @@ const readForecastRank = async (
 
 export const listRankingSemesters = async (env: RankingsEnv) => {
   const result = await env.DB.prepare(
-    `SELECT semester, total_students
-       FROM benchmark_ranking_semesters
-      ORDER BY semester DESC`
-  ).all<{ semester: string; total_students: number }>();
+    `SELECT semester, total_students, ranking_mode FROM (
+       SELECT b.semester, b.total_students, 'forecast' AS ranking_mode
+         FROM benchmark_ranking_semesters b
+        WHERE NOT EXISTS (
+          SELECT 1 FROM semester_exact_ranking_datasets d
+           WHERE d.semester = b.semester AND d.status = 'ready'
+        )
+       UNION ALL
+       SELECT semester, total_students, 'exact' AS ranking_mode
+         FROM semester_exact_ranking_datasets
+        WHERE status = 'ready'
+     ) ORDER BY semester DESC`
+  ).all<{ semester: string; total_students: number; ranking_mode: string }>();
 
   if (!result.results.length) {
     throw new RankingError(
@@ -246,6 +275,7 @@ export const listRankingSemesters = async (env: RankingsEnv) => {
     data: result.results.map((row) => ({
       semester: row.semester,
       totalStudents: Number(row.total_students),
+      rankingMode: row.ranking_mode === 'exact' ? 'exact' : 'forecast',
     })),
   };
 };
@@ -256,6 +286,13 @@ export const forecastBenchmarkRankings = async (
 ) => {
   const rows = [];
   for (const semester of input.semesters) {
+    const exactDataset = await env.DB.prepare(
+      `SELECT semester FROM semester_exact_ranking_datasets
+        WHERE semester = ? AND status = 'ready' LIMIT 1`
+    ).bind(semester).first<{ semester: string }>();
+    if (exactDataset) {
+      throw new RankingError(400, 'Học kỳ này sử dụng xếp hạng chính thức.');
+    }
     const school = await readForecastRank(
       env,
       semester,
@@ -286,6 +323,61 @@ export const forecastBenchmarkRankings = async (
   }
 
   return { success: true, data: rows };
+};
+
+export const readOwnRanking = async (
+  env: RankingsEnv,
+  userId: string,
+  semester: string
+) => {
+  const dataset = await env.DB.prepare(
+    `SELECT semester, total_students
+       FROM semester_exact_ranking_datasets
+      WHERE semester = ? AND status = 'ready' LIMIT 1`
+  ).bind(semester).first<ExactRankingDatasetRow>();
+  if (!dataset) return readOwnBenchmarkRanking(env, userId, semester);
+
+  const profile = await env.DB.prepare(
+    `SELECT student_code FROM user_profiles WHERE user_id = ? LIMIT 1`
+  ).bind(userId).first<{ student_code: string | null }>();
+  const studentCode = profile?.student_code?.trim();
+  const row = studentCode
+    ? await env.DB.prepare(
+      `SELECT rank, total_students, gpa, training_score, credits,
+              class_code, major, scholarship_status,
+              rank_in_class, total_in_class, rank_in_major, total_in_major
+         FROM semester_exact_rankings
+        WHERE semester = ? AND student_code = ? LIMIT 1`
+    ).bind(semester, studentCode).first<ExactRankingRow>()
+    : null;
+
+  return {
+    success: true,
+    data: row
+      ? {
+          semester,
+          rankingMode: 'exact' as const,
+          found: true,
+          rank: Number(row.rank),
+          totalStudents: Number(row.total_students),
+          rankInClass: row.rank_in_class,
+          totalInClass: row.total_in_class,
+          rankInMajor: row.rank_in_major,
+          totalInMajor: row.total_in_major,
+          gpa: row.gpa,
+          trainingScore: row.training_score,
+          credits: row.credits,
+          classCode: row.class_code,
+          major: row.major,
+          scholarshipStatus: row.scholarship_status,
+        }
+      : {
+          semester,
+          rankingMode: 'exact' as const,
+          found: false,
+          totalStudents: Number(dataset.total_students),
+        },
+  };
 };
 
 export const readOwnBenchmarkRanking = async (

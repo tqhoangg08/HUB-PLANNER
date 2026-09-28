@@ -4,13 +4,17 @@ import {
   fetchCloudflareOwnRanking,
   fetchCloudflareRankingSemesters,
   forecastCloudflareRankings,
+  type RankingMode,
 } from '../utils/benchmarkRankingsApi';
 
 interface ForecastRankResult {
-  rank: number;
+  rank: number | null;
   totalStudents: number;
-  topPercent: number;
+  topPercent: number | null;
   semesterId: string;
+  rankingMode: RankingMode;
+  found: boolean;
+  scholarshipStatus?: string | null;
   rankInClass?: number | null;
   totalInClass?: number | null;
   classCode?: string | null;
@@ -26,13 +30,13 @@ interface RankInputs {
 }
 
 interface RankContext {
-  studentCode?: string | null;
   classCode?: string | null;
   major?: string | null;
   currentSemesterId?: string | null;
 }
 
 const finiteNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') return null;
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
@@ -52,6 +56,7 @@ export const useForecastRank = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ForecastRankResult | null>(null);
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+  const [semesterModes, setSemesterModes] = useState<Record<string, RankingMode>>({});
   const [loadingSemesters, setLoadingSemesters] = useState(false);
   const [semesterRanks, setSemesterRanks] = useState<Record<string, number>>({});
   const [loadingSemesterRanks, setLoadingSemesterRanks] = useState(false);
@@ -62,6 +67,9 @@ export const useForecastRank = () => {
     setLoadingSemesters(true);
     try {
       const rows = await fetchCloudflareRankingSemesters();
+      setSemesterModes(Object.fromEntries(rows.map((item) => [
+        item.semester, item.rankingMode === 'exact' ? 'exact' : 'forecast',
+      ])));
       setAvailableSemesters(
         rows
           .map((item) => item.semester)
@@ -72,6 +80,7 @@ export const useForecastRank = () => {
     } catch {
       // Ranking controls remain empty until the Worker mirror is available.
       setAvailableSemesters([]);
+      setSemesterModes({});
     } finally {
       setLoadingSemesters(false);
     }
@@ -84,22 +93,32 @@ export const useForecastRank = () => {
     if (!semesters.length) return;
     setLoadingSemesterRanks(true);
     try {
-      const rows = await forecastCloudflareRankings({
-        semesters,
+      const forecastSemesters = semesters.filter((semester) => semesterModes[semester] !== 'exact');
+      const exactSemesters = semesters.filter((semester) => semesterModes[semester] === 'exact');
+      const rows = forecastSemesters.length ? await forecastCloudflareRankings({
+        semesters: forecastSemesters,
         ...normalizeInputs(inputs),
-      });
-      setSemesterRanks(rows.reduce<Record<string, number>>((accumulator, row) => {
+      }) : [];
+      const nextRanks = rows.reduce<Record<string, number>>((accumulator, row) => {
         if (row.semester && Number.isFinite(row.rank)) {
           accumulator[row.semester] = row.rank;
         }
         return accumulator;
-      }, {}));
+      }, {});
+      for (const semester of exactSemesters) {
+        const own = await fetchCloudflareOwnRanking(semester);
+        if (own && 'rankingMode' in own && own.rankingMode === 'exact' &&
+            own.found && Number.isFinite(own.rank)) {
+          nextRanks[semester] = own.rank as number;
+        }
+      }
+      setSemesterRanks(nextRanks);
     } catch {
       setSemesterRanks({});
     } finally {
       setLoadingSemesterRanks(false);
     }
-  }, []);
+  }, [semesterModes]);
 
   const prepareSemesterRanks = useCallback((gpa: number, credits: number, trainingScore: number) => {
     setRankInputs({ gpa, credits, trainingScore });
@@ -132,9 +151,36 @@ export const useForecastRank = () => {
         context?.currentSemesterId || null;
       const isCurrentSemester = Boolean(currentSemester && currentSemester === selectedSemester);
 
+      if (semesterModes[selectedSemester] === 'exact') {
+        const own = await fetchCloudflareOwnRanking(selectedSemester);
+        if (!own || !('rankingMode' in own) || own.rankingMode !== 'exact') {
+          throw new Error('Invalid exact ranking response');
+        }
+        const rank = own.found ? finiteNumber(own.rank) : null;
+        if (own.found && !rank) throw new Error('Invalid exact ranking rank');
+        setResult({
+          semesterId: selectedSemester,
+          rankingMode: 'exact',
+          found: own.found,
+          rank,
+          totalStudents: own.totalStudents,
+          topPercent: rank ? (rank / own.totalStudents) * 100 : null,
+          rankInClass: own.rankInClass ?? null,
+          totalInClass: own.totalInClass ?? null,
+          classCode: own.classCode ?? null,
+          rankInMajor: own.rankInMajor ?? null,
+          totalInMajor: own.totalInMajor ?? null,
+          major: own.major ?? null,
+          scholarshipStatus: own.scholarshipStatus ?? null,
+        });
+        return;
+      }
+
       const ownRanking = isCurrentSemester
         ? await fetchCloudflareOwnRanking(semesterId).catch(() => null)
         : null;
+      const legacyOwn = ownRanking && !('rankingMode' in ownRanking)
+        ? ownRanking : null;
       const rows = await forecastCloudflareRankings({
         semesters: [semesterId],
         ...normalizeInputs({
@@ -142,11 +188,11 @@ export const useForecastRank = () => {
           credits: myCredits,
           trainingScore: myTrainingScore,
         }),
-        major: ownRanking?.major || context?.major || null,
+        major: legacyOwn?.major || context?.major || null,
       });
       const forecast = rows[0];
-      const rank = finiteNumber(ownRanking?.studentRank) ?? finiteNumber(forecast?.rank);
-      const totalStudents = finiteNumber(ownRanking?.totalStudents) ??
+      const rank = finiteNumber(legacyOwn?.studentRank) ?? finiteNumber(forecast?.rank);
+      const totalStudents = finiteNumber(legacyOwn?.totalStudents) ??
         finiteNumber(forecast?.totalStudents);
 
       if (!rank || !totalStudents) {
@@ -158,19 +204,21 @@ export const useForecastRank = () => {
         totalStudents,
         topPercent: (rank / totalStudents) * 100,
         semesterId,
-        rankInClass: ownRanking?.rankInClass ?? null,
-        totalInClass: ownRanking?.totalInClass ?? null,
-        classCode: ownRanking?.classCode ?? context?.classCode ?? null,
-        rankInMajor: ownRanking?.rankInMajor ?? forecast?.rankInMajor ?? null,
-        totalInMajor: ownRanking?.totalInMajor ?? forecast?.totalInMajor ?? null,
-        major: ownRanking?.major ?? forecast?.major ?? context?.major ?? null,
+        rankingMode: 'forecast',
+        found: true,
+        rankInClass: legacyOwn?.rankInClass ?? null,
+        totalInClass: legacyOwn?.totalInClass ?? null,
+        classCode: legacyOwn?.classCode ?? context?.classCode ?? null,
+        rankInMajor: legacyOwn?.rankInMajor ?? forecast?.rankInMajor ?? null,
+        totalInMajor: legacyOwn?.totalInMajor ?? forecast?.totalInMajor ?? null,
+        major: legacyOwn?.major ?? forecast?.major ?? context?.major ?? null,
       });
     } catch {
       setError('Lỗi kết nối máy chủ xếp hạng.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [semesterModes]);
 
   const resetResult = useCallback(() => {
     setResult(null);
@@ -190,6 +238,7 @@ export const useForecastRank = () => {
     resetResult,
     fetchAvailableSemesters,
     availableSemesters,
+    semesterModes,
     loadingSemesters,
     prepareSemesterRanks,
     resetSemesterRanks,

@@ -179,3 +179,32 @@ test('ranking semester list fails closed before seed', async () => {
       error instanceof RankingError && error.status === 503
   );
 });
+
+test('semester metadata distinguishes ready exact data from unchanged forecast semesters', async () => {
+  const db = { prepare() { return { async all() { return { results: [
+    { semester: '2025-2026_HK2', total_students: 10478, ranking_mode: 'exact' },
+    { semester: '2025-2026_HK1', total_students: 100, ranking_mode: 'forecast' },
+  ] }; } }; } };
+  const result = await listRankingSemesters({ DB: db } as never);
+  assert.deepEqual(result.data, [
+    { semester: '2025-2026_HK2', totalStudents: 10478, rankingMode: 'exact' },
+    { semester: '2025-2026_HK1', totalStudents: 100, rankingMode: 'forecast' },
+  ]);
+});
+
+test('ready exact semester cannot enter public forecast calculation', async () => {
+  let touchedForecast = false;
+  const db = { prepare(sql: string) { return {
+    bind() { return this; },
+    async first() {
+      if (sql.includes('semester_exact_ranking_datasets')) return { semester: '2025-2026_HK2' };
+      touchedForecast = true;
+      return null;
+    },
+  }; } };
+  await assert.rejects(() => forecastBenchmarkRankings({ DB: db } as never, {
+    semesters: ['2025-2026_HK2'], gpa: 4, credits: 20,
+    trainingScore: 100, major: null,
+  }), (error: unknown) => error instanceof RankingError && error.status === 400);
+  assert.equal(touchedForecast, false);
+});
