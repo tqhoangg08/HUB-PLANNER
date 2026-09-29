@@ -4,7 +4,7 @@ import { calculateSemesterStats, calculateSubjectAverage, getGradeDetails, getSc
 import { normalizeSemesterId } from '../utils/rankingData';
 import { getLocalSessionUser } from '../utils/clientSession';
 import { fetchOwnPrivateProfile } from '../utils/privateProfileApi';
-import { fetchCloudflareOwnRanking } from '../utils/benchmarkRankingsApi';
+import { fetchCloudflareImportedBenchmarkRanking } from '../utils/benchmarkRankingsApi';
 
 export const LOOKBACK_SEMESTER_ID = '2025-2026_HK2';
 export const LOOKBACK_SEMESTER_LABEL = 'Học kỳ 2, Năm học 2025-2026';
@@ -25,8 +25,7 @@ export interface SemesterLookbackData {
     classCode: string | null;
     topPercent: number | null;
     scholarshipLabel: string;
-    officialScholarship: boolean;
-    exactRankingFound: boolean;
+    benchmarkRankingFound: boolean;
     bestSubject: {
         name: string;
         score10: number;
@@ -120,17 +119,23 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                     .sort((a, b) => b.score10 - a.score10 || b.credits - a.credits)[0] || null;
                 const excellentSubjectCount = scoredSubjects.filter(subject => subject.letter.startsWith('A')).length;
                 const passedSubjectCount = scoredSubjects.filter(subject => subject.score10 >= 4).length;
-                const ownRanking = await fetchCloudflareOwnRanking(LOOKBACK_SEMESTER_ID);
-                const exactRanking = ownRanking && 'rankingMode' in ownRanking && ownRanking.rankingMode === 'exact'
-                    ? ownRanking : null;
-                const rank = exactRanking?.found && typeof exactRanking.rank === 'number'
-                    ? exactRanking.rank : null;
-                const totalStudents = exactRanking?.totalStudents ?? null;
-
                 const gpa4 = semesterStats?.hasData ? semesterStats.gpa4 : 0;
                 const gpa10 = semesterStats?.hasData ? semesterStats.gpa10 : 0;
                 const credits = semesterStats?.hasData ? semesterStats.totalCredits : 0;
                 const trainingScore = resolvedSemester?.trainingScore ?? 0;
+                // Match the ranking card's registered-credit input, including
+                // courses whose grades are still incomplete.
+                const rankingCredits = (resolvedSemester?.subjects || [])
+                    .filter(subject => !subject.isNonGPA)
+                    .reduce((total, subject) => total + (Number.isFinite(subject.credits) ? subject.credits : 0), 0);
+                const ranking = await fetchCloudflareImportedBenchmarkRanking({
+                    semester: LOOKBACK_SEMESTER_ID,
+                    gpa: semesterStats?.hasData ? gpa4 : null,
+                    trainingScore: resolvedSemester?.trainingScore ?? null,
+                    credits: rankingCredits,
+                });
+                const rank = ranking.found && typeof ranking.rank === 'number' ? ranking.rank : null;
+                const totalStudents = ranking.totalStudents;
                 const scholarship = getScholarshipStatus(gpa4, trainingScore, credits);
 
                 if (cancelled) return;
@@ -143,18 +148,15 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                     trainingScore,
                     rank,
                     totalStudents,
-                    rankInClass: exactRanking?.rankInClass ?? null,
-                    totalInClass: exactRanking?.totalInClass ?? null,
-                    rankInMajor: exactRanking?.rankInMajor ?? null,
-                    totalInMajor: exactRanking?.totalInMajor ?? null,
-                    major: exactRanking?.major || activeData.majorName || null,
-                    classCode: exactRanking?.classCode || null,
+                    rankInClass: ranking.rankInClass ?? null,
+                    totalInClass: ranking.totalInClass ?? null,
+                    rankInMajor: ranking.rankInMajor ?? null,
+                    totalInMajor: ranking.totalInMajor ?? null,
+                    major: ranking.major || activeData.majorName || null,
+                    classCode: ranking.classCode || null,
                     topPercent: rank && totalStudents ? (rank / totalStudents) * 100 : null,
-                    scholarshipLabel: exactRanking?.found
-                        ? exactRanking.scholarshipStatus || 'Chưa có dữ liệu'
-                        : credits > 0 ? scholarship.label : 'Chưa đủ dữ liệu',
-                    officialScholarship: Boolean(exactRanking?.found),
-                    exactRankingFound: Boolean(exactRanking?.found),
+                    scholarshipLabel: credits > 0 ? scholarship.label : 'Chưa đủ dữ liệu',
+                    benchmarkRankingFound: Boolean(ranking.found),
                     bestSubject,
                     excellentSubjectCount,
                     passedSubjectCount,

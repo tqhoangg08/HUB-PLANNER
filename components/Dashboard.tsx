@@ -706,7 +706,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
     return { label: '💰 HB Giỏi', className: 'bg-green-50 text-green-700 border-green-200' };
   })();
   const scholarshipRankAssessment = getScholarshipRankAssessment(rankingResult?.rank);
-  const exactRankingStatus = rankingResult?.rankingMode === 'exact'
+  const rankingStatus = rankingResult?.benchmarkSource === 'imported'
+    ? rankingResult.found ? 'Xếp hạng tham khảo từ dữ liệu HUB Planner'
+      : 'Chưa đủ dữ liệu GPA, điểm rèn luyện hoặc tín chỉ để xếp hạng.'
+    : rankingResult?.rankingMode === 'exact'
     ? rankingResult.found ? 'Chính thức'
       : `Không tìm thấy MSSV trong dữ liệu xếp hạng ${mapIdToDisplay(rankingResult.semesterId)}.`
     : null;
@@ -714,14 +717,14 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   const handleOpenRankMenu = () => {
       playClick(); setShowRankMenu(true);
       setIsSemesterChooserOpen(false);
-      prepareSemesterRanks(semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
+      prepareSemesterRanks(semGPA4, totalRegisteredCredits, semester.trainingScore);
       fetchAvailableSemesters(); 
   };
 
   const handleSelectReferenceSemester = (refId: string) => {
       playClick();
       setIsSemesterChooserOpen(false);
-      fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0, rankContext);
+      fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore, rankContext);
   };
 
   const handleReadOnlyEditableClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -831,7 +834,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                               <div>
                                                   <h4 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h4>
                                                   <p className="text-xs text-[#64748B] mt-0.5">{mapIdToDisplay(rankingResult.semesterId)}</p>
-                                                  {exactRankingStatus && <p className="mt-1 text-xs text-[#64748B]">{exactRankingStatus}</p>}
+                                                  {rankingStatus && <p className="mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
                                               </div>
 
                                               <div className="grid grid-cols-2 gap-2">
@@ -872,7 +875,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                                   <p className="text-sm font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
                                                   <p className="mt-1 text-xs leading-5 text-[#334155]">{rankingResult.rankingMode === 'exact'
                                                     ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
-                                                    : 'Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'}</p>
+                                                    : rankingResult.benchmarkSource === 'imported'
+                                                      ? scholarshipStatus.label
+                                                      : 'Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'}</p>
                                               </div>
                                           </div>
                                       </div>
@@ -1043,7 +1048,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     <div className="mb-4">
                       <h5 className="text-2xl font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
                       <p className="mt-1 text-sm text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
-                      {exactRankingStatus && <p className="mt-1 text-xs text-[#64748B]">{exactRankingStatus}</p>}
+                      {rankingStatus && <p className="mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1089,7 +1094,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                       <p className="mt-1 text-sm leading-6 text-[#334155]">
                         {rankingResult.rankingMode === 'exact'
                           ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
-                          : scholarshipRankAssessment.text}
+                          : rankingResult.benchmarkSource === 'imported'
+                            ? scholarshipStatus.label
+                            : scholarshipRankAssessment.text}
                       </p>
                     </div>
 
@@ -1153,7 +1160,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <div>
                     <h5 className="text-lg font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
                     <p className="mt-1 text-sm text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
-                    {exactRankingStatus && <p className="mt-1 text-xs text-[#64748B]">{exactRankingStatus}</p>}
+                    {rankingStatus && <p className="mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
                   </div>
                   <button
                     onClick={() => resetResult()}
@@ -1212,7 +1219,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <p className="mt-1 text-sm leading-6 text-[#334155]">
                     {rankingResult.rankingMode === 'exact'
                       ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
-                      : 'Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'}
+                      : rankingResult.benchmarkSource === 'imported'
+                        ? scholarshipStatus.label
+                        : 'Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'}
                   </p>
                 </div>
               </div>

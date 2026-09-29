@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { normalizeSemesterId } from '../utils/rankingData';
 import {
   fetchCloudflareOwnRanking,
+  fetchCloudflareImportedBenchmarkRanking,
   fetchCloudflareRankingSemesters,
   forecastCloudflareRankings,
   type RankingMode,
@@ -15,6 +16,7 @@ interface ForecastRankResult {
   rankingMode: RankingMode;
   found: boolean;
   scholarshipStatus?: string | null;
+  benchmarkSource?: 'imported';
   rankInClass?: number | null;
   totalInClass?: number | null;
   classCode?: string | null;
@@ -26,7 +28,7 @@ interface ForecastRankResult {
 interface RankInputs {
   gpa: number;
   credits: number;
-  trainingScore: number;
+  trainingScore: number | null;
 }
 
 interface RankContext {
@@ -41,10 +43,11 @@ const finiteNumber = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const normalizeInputs = (inputs: RankInputs): RankInputs => ({
+const normalizeInputs = (inputs: RankInputs) => ({
   gpa: Number.isFinite(inputs.gpa) ? inputs.gpa : 0,
   credits: Number.isFinite(inputs.credits) ? inputs.credits : 0,
-  trainingScore: Number.isFinite(inputs.trainingScore) ? inputs.trainingScore : 0,
+  trainingScore: inputs.trainingScore !== null && Number.isFinite(inputs.trainingScore)
+    ? inputs.trainingScore : 0,
 });
 
 /**
@@ -57,6 +60,7 @@ export const useForecastRank = () => {
   const [result, setResult] = useState<ForecastRankResult | null>(null);
   const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
   const [semesterModes, setSemesterModes] = useState<Record<string, RankingMode>>({});
+  const [semesterSources, setSemesterSources] = useState<Record<string, 'legacy' | 'imported'>>({});
   const [loadingSemesters, setLoadingSemesters] = useState(false);
   const [semesterRanks, setSemesterRanks] = useState<Record<string, number>>({});
   const [loadingSemesterRanks, setLoadingSemesterRanks] = useState(false);
@@ -70,6 +74,9 @@ export const useForecastRank = () => {
       setSemesterModes(Object.fromEntries(rows.map((item) => [
         item.semester, item.rankingMode === 'exact' ? 'exact' : 'forecast',
       ])));
+      setSemesterSources(Object.fromEntries(rows.map((item) => [
+        item.semester, item.rankingSource === 'imported' ? 'imported' : 'legacy',
+      ])));
       setAvailableSemesters(
         rows
           .map((item) => item.semester)
@@ -81,6 +88,7 @@ export const useForecastRank = () => {
       // Ranking controls remain empty until the Worker mirror is available.
       setAvailableSemesters([]);
       setSemesterModes({});
+      setSemesterSources({});
     } finally {
       setLoadingSemesters(false);
     }
@@ -93,8 +101,10 @@ export const useForecastRank = () => {
     if (!semesters.length) return;
     setLoadingSemesterRanks(true);
     try {
-      const forecastSemesters = semesters.filter((semester) => semesterModes[semester] !== 'exact');
+      const forecastSemesters = semesters.filter((semester) =>
+        semesterModes[semester] !== 'exact' && semesterSources[semester] !== 'imported');
       const exactSemesters = semesters.filter((semester) => semesterModes[semester] === 'exact');
+      const importedSemesters = semesters.filter((semester) => semesterSources[semester] === 'imported');
       const rows = forecastSemesters.length ? await forecastCloudflareRankings({
         semesters: forecastSemesters,
         ...normalizeInputs(inputs),
@@ -112,15 +122,24 @@ export const useForecastRank = () => {
           nextRanks[semester] = own.rank as number;
         }
       }
+      for (const semester of importedSemesters) {
+        const own = await fetchCloudflareImportedBenchmarkRanking({
+          semester,
+          gpa: inputs.credits > 0 ? inputs.gpa : null,
+          trainingScore: inputs.trainingScore,
+          credits: inputs.credits,
+        });
+        if (own.found && Number.isFinite(own.rank)) nextRanks[semester] = own.rank as number;
+      }
       setSemesterRanks(nextRanks);
     } catch {
       setSemesterRanks({});
     } finally {
       setLoadingSemesterRanks(false);
     }
-  }, [semesterModes]);
+  }, [semesterModes, semesterSources]);
 
-  const prepareSemesterRanks = useCallback((gpa: number, credits: number, trainingScore: number) => {
+  const prepareSemesterRanks = useCallback((gpa: number, credits: number, trainingScore: number | null) => {
     setRankInputs({ gpa, credits, trainingScore });
   }, []);
 
@@ -133,7 +152,7 @@ export const useForecastRank = () => {
     semesterId: string,
     myGpa: number,
     myCredits: number,
-    myTrainingScore: number,
+    myTrainingScore: number | null,
     context?: RankContext
   ) => {
     if (!semesterId) {
@@ -150,6 +169,33 @@ export const useForecastRank = () => {
       const currentSemester = normalizeSemesterId(context?.currentSemesterId) ||
         context?.currentSemesterId || null;
       const isCurrentSemester = Boolean(currentSemester && currentSemester === selectedSemester);
+
+      if (semesterSources[selectedSemester] === 'imported') {
+        const own = await fetchCloudflareImportedBenchmarkRanking({
+          semester: selectedSemester,
+          gpa: myCredits > 0 ? myGpa : null,
+          trainingScore: myTrainingScore,
+          credits: myCredits,
+        });
+        const rank = own.found ? finiteNumber(own.rank) : null;
+        if (own.found && !rank) throw new Error('Invalid imported ranking rank');
+        setResult({
+          semesterId: selectedSemester,
+          rankingMode: 'forecast',
+          benchmarkSource: 'imported',
+          found: own.found,
+          rank,
+          totalStudents: own.totalStudents,
+          topPercent: rank ? (rank / own.totalStudents) * 100 : null,
+          rankInClass: own.rankInClass ?? null,
+          totalInClass: own.totalInClass ?? null,
+          classCode: own.classCode ?? null,
+          rankInMajor: own.rankInMajor ?? null,
+          totalInMajor: own.totalInMajor ?? null,
+          major: own.major ?? null,
+        });
+        return;
+      }
 
       if (semesterModes[selectedSemester] === 'exact') {
         const own = await fetchCloudflareOwnRanking(selectedSemester);
@@ -218,7 +264,7 @@ export const useForecastRank = () => {
     } finally {
       setLoading(false);
     }
-  }, [semesterModes]);
+  }, [semesterModes, semesterSources]);
 
   const resetResult = useCallback(() => {
     setResult(null);

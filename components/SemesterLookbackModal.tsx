@@ -91,9 +91,9 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
                                     <span className="font-semibold text-[#64748B]">Top toàn trường</span>
                                     <span className="shrink-0 text-right font-bold text-[#0F172A]">{hasRank ? `#${data.rank} / ${data.totalStudents}` : 'Chưa có dữ liệu'}</span>
                                 </div>
-                                {!data.exactRankingFound && (
+                                {!data.benchmarkRankingFound && (
                                     <p className="border-b border-[#E2E8F0] px-3 py-2 text-xs text-[#64748B] sm:px-4">
-                                        Không tìm thấy MSSV trong dữ liệu xếp hạng Học kỳ 2, Năm học 2025–2026.
+                                        Chưa đủ dữ liệu GPA, điểm rèn luyện hoặc tín chỉ để xếp hạng học kỳ này.
                                     </p>
                                 )}
                                 <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4">
@@ -120,7 +120,7 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
 
                             <div className="mx-auto mt-2.5 max-w-2xl rounded-lg border border-[#D8EFE0] bg-[#F3FAF6] p-3 text-left sm:mt-3">
                                 <p className="text-[13px] font-bold text-[#0F172A] sm:text-sm">
-                                    {data.officialScholarship ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng từ dữ liệu cá nhân'}
+                                    Đánh giá học bổng từ dữ liệu cá nhân
                                 </p>
                                 <p className="mt-1 text-[13px] font-medium leading-5 text-[#334155] sm:text-sm sm:leading-6">
                                     {data.scholarshipLabel}

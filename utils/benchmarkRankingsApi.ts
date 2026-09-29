@@ -13,6 +13,22 @@ export interface CloudflareRankingSemester {
   semester: string;
   totalStudents: number;
   rankingMode: RankingMode;
+  rankingSource?: 'legacy' | 'imported';
+}
+
+export interface CloudflareOwnImportedRanking {
+  semester: string;
+  rankingMode: 'forecast';
+  rankingSource: 'imported';
+  found: boolean;
+  rank?: number | null;
+  totalStudents: number;
+  rankInClass?: number | null;
+  totalInClass?: number | null;
+  rankInMajor?: number | null;
+  totalInMajor?: number | null;
+  classCode?: string | null;
+  major?: string | null;
 }
 
 export interface CloudflareOwnForecastRanking {
@@ -150,4 +166,23 @@ export const fetchCloudflareOwnRanking = async (
     throw new Error('Cloudflare trả về xếp hạng cá nhân không hợp lệ.');
   }
   return (payload.data || null) as CloudflareOwnRanking | null;
+};
+
+export const fetchCloudflareImportedBenchmarkRanking = async (input: {
+  semester: string;
+  gpa: number | null;
+  trainingScore: number | null;
+  credits: number | null;
+}): Promise<CloudflareOwnImportedRanking> => {
+  const response = await cloudflareRequest(
+    '/api/user/v1/rankings/benchmark',
+    { method: 'POST', body: JSON.stringify(input) },
+    true
+  );
+  const payload = await response.json();
+  if (!payload?.success || payload.data?.rankingMode !== 'forecast' ||
+      payload.data?.rankingSource !== 'imported') {
+    throw new Error('Cloudflare trả về xếp hạng tham chiếu không hợp lệ.');
+  }
+  return payload.data as CloudflareOwnImportedRanking;
 };

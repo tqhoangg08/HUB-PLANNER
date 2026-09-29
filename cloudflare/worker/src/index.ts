@@ -50,10 +50,12 @@ import {
 } from './user-schedules.ts';
 import {
   forecastBenchmarkRankings,
+  forecastOwnImportedRanking,
   listRankingSemesters,
   parseRankingSemester,
   RankingError,
   readOwnRanking,
+  readImportedBenchmarkBody,
   readRankingForecastBody,
 } from './rankings.ts';
 import {
@@ -1966,6 +1968,33 @@ const worker = {
         });
       } catch (error) {
         return rankingErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/rankings/benchmark') {
+      if (request.method !== 'POST') {
+        return json({ error: 'Chỉ hỗ trợ phương thức POST.' }, 405, {
+          ...cors,
+          Allow: 'POST, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+      if (!String(request.headers.get('Content-Type') || '')
+        .toLowerCase().startsWith('application/json')) {
+        return json({ error: 'Content-Type phải là application/json.' }, 415, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
+      try {
+        const identity = await requireBetterAuthSession(request, env);
+        const input = await readImportedBenchmarkBody(request);
+        return json(await forecastOwnImportedRanking(env, identity.userId, input), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        return exactRankingErrorResponse(error, requestUrl, cors);
       }
     }
 

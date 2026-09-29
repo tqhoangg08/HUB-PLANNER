@@ -97,7 +97,7 @@ test('migration and import SQL preserve official order and stay non-ready until 
   } finally { db.close(); await item.cleanup(); }
 });
 
-test('frontend selects exact mode from API and keeps personal lookback metrics separate', () => {
+test('frontend uses imported HK2 benchmark mode and personal lookback metrics', () => {
   const api = readFileSync('utils/benchmarkRankingsApi.ts', 'utf8');
   const rankHook = readFileSync('hooks/useForecastRank.ts', 'utf8');
   const lookback = readFileSync('hooks/useSemesterLookback.ts', 'utf8');
@@ -105,15 +105,18 @@ test('frontend selects exact mode from API and keeps personal lookback metrics s
   const desktop = readFileSync('components/Dashboard.tsx', 'utf8');
   const mobile = readFileSync('components/MobileDashboard.tsx', 'utf8');
   assert.match(api, /rankingMode: RankingMode/);
-  assert.match(api, /rankings\/exact\?semester=\$\{encodeURIComponent\(semester\)\}/);
-  assert.doesNotMatch(api.split('export const fetchCloudflareOwnRanking')[1], /student_code|studentCode|MSSV/);
-  assert.match(rankHook, /semesterModes\[selectedSemester\] === 'exact'/);
-  assert.match(rankHook, /if \(semesterModes\[selectedSemester\] === 'exact'\) \{[\s\S]*?return;[\s\S]*?forecastCloudflareRankings/);
+  assert.match(api, /\/api\/user\/v1\/rankings\/benchmark/);
+  assert.doesNotMatch(api.split('export const fetchCloudflareImportedBenchmarkRanking')[1], /student_code|studentCode|MSSV/);
+  assert.match(rankHook, /semesterSources\[selectedSemester\] === 'imported'/);
+  assert.match(rankHook, /fetchCloudflareImportedBenchmarkRanking/);
   assert.match(lookback, /LOOKBACK_SEMESTER_ID = '2025-2026_HK2'/);
   assert.match(lookback, /calculateSemesterStats\(resolvedSemester.subjects\)/);
-  assert.match(lookback, /scholarshipStatus/);
+  assert.match(lookback, /getScholarshipStatus\(gpa4, trainingScore, credits\)/);
+  assert.match(lookback, /fetchCloudflareImportedBenchmarkRanking/);
+  assert.doesNotMatch(lookback, /fetchCloudflareOwnRanking/);
   assert.doesNotMatch(modal, /Khả năng đạt học bổng: Rất cao/);
-  assert.match(modal, /Không tìm thấy MSSV trong dữ liệu xếp hạng/);
+  assert.doesNotMatch(modal, /Không tìm thấy MSSV trong dữ liệu xếp hạng/);
+  assert.match(modal, /Chưa đủ dữ liệu GPA, điểm rèn luyện hoặc tín chỉ/);
   assert.match(desktop, /formatRankingPosition\(rankingResult.rank, rankingResult.totalStudents\)/);
   assert.match(mobile, /formatRankingPosition\(rankingResult.rank, rankingResult.totalStudents\)/);
 });
