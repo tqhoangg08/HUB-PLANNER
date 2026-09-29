@@ -259,7 +259,7 @@ test("production source matches the deployed D1 limiter schema and bounds outbou
   assert.match(source, /body\.redirectTo = isStaffPasswordActivation \? "\/staff\/reset-password" : config\.resetPage/);
   assert.match(source, /isStaffPasswordActivationEligible\(eligibility\)/);
   assert.match(source, /isStaffPasswordActivation \? "\/staff\/reset-password" : config\.resetPage/);
-  assert.match(source, /isStaffPasswordActivation\s*\? new Request\(new URL\(`\$\{AUTH_BASE_PATH\}\/request-password-reset`, request\.url\)/);
+  assert.match(source, /isStaffPasswordActivation \|\|\s*url\.pathname === `\$\{AUTH_BASE_PATH\}\/mssv\/request-password-reset`\s*\? new Request\(new URL\(`\$\{AUTH_BASE_PATH\}\/request-password-reset`, request\.url\)/);
   assert.match(source, /auth\.handler\(requestWithJsonBody\(betterAuthRequest, body\)\)/);
   assert.match(source, /requestSignals\.passwordResetEmailScheduled/);
   assert.match(source, /reset-password\/:token/);

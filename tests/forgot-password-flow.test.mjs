@@ -42,6 +42,7 @@ test('production reset request is a same-origin MSSV flow with one generic publi
   assert.match(route, /normalizeStudentIdentity\(body\.identifier\)/);
   assert.match(route, /identifierRateLimiter\(env\)\.limit/);
   assert.match(route, /isPasswordResetEligible\(eligibility\)/);
+  assert.match(route, /isStaffPasswordActivation \|\|\s*url\.pathname === `\$\{AUTH_BASE_PATH\}\/mssv\/request-password-reset`\s*\? new Request\(new URL\(`\$\{AUTH_BASE_PATH\}\/request-password-reset`, request\.url\)/);
   assert.match(route, /auth\.handler\(requestWithJsonBody\(betterAuthRequest, body\)\)/);
   assert.equal((route.match(/jsonResponse\(GENERIC_PASSWORD_RESET_RESPONSE\)/g) || []).length, 4);
   assert.doesNotMatch(route, /jsonResponse\([^\n]*(?:email|studentCode|userId|token)/);
@@ -78,9 +79,20 @@ test('Better Auth reset tokens are single-use and expiring; new password replace
     const newPassword = 'new-password-67890';
     await auth.api.signUpEmail({ body: { name: 'Test Student', email, password: oldPassword } });
 
-    const existing = await auth.api.requestPasswordReset({ body: { email } });
-    const missing = await auth.api.requestPasswordReset({ body: { email: 'missing@st.buh.edu.vn' } });
-    assert.deepEqual(existing, missing);
+    const requestReset = (path, targetEmail) => auth.handler(new Request(`http://localhost:3000${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: targetEmail, redirectTo: '/reset-password' }),
+    }));
+    const alias = await requestReset('/api/auth/mssv/request-password-reset', email);
+    assert.equal(alias.status, 404);
+    assert.equal(sent.length, 0);
+
+    const existing = await requestReset('/api/auth/request-password-reset', email);
+    const missing = await requestReset('/api/auth/request-password-reset', 'missing@st.buh.edu.vn');
+    assert.equal(existing.status, 200);
+    assert.equal(missing.status, 200);
+    assert.deepEqual(await existing.json(), await missing.json());
     assert.equal(sent.length, 1);
 
     const token = sent[0];

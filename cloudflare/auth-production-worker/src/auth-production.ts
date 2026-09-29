@@ -2221,7 +2221,8 @@ async function handleAuthRoute(
       try {
         // The staff route is an outer authorization gate only. Better Auth
         // owns the reset-token endpoint at the canonical route below.
-        const betterAuthRequest = isStaffPasswordActivation
+        const betterAuthRequest = isStaffPasswordActivation ||
+          url.pathname === `${AUTH_BASE_PATH}/mssv/request-password-reset`
           ? new Request(new URL(`${AUTH_BASE_PATH}/request-password-reset`, request.url), {
               method: request.method,
               headers: request.headers,
