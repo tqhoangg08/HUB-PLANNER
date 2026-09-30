@@ -4,6 +4,7 @@ import { isManualTotalCreditsCohort, type Major, type Program, type Specializati
 interface AccountAcademicProfileFieldsProps {
     selectedProgram: Program | null;
     selectedCohort: string;
+    cohortLocked: boolean;
     selectedMajor: Major | null;
     selectedSpecialization: Specialization | null;
     programs: Program[];
@@ -20,6 +21,7 @@ interface AccountAcademicProfileFieldsProps {
 export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFieldsProps> = ({
     selectedProgram,
     selectedCohort,
+    cohortLocked,
     selectedMajor,
     selectedSpecialization,
     programs,
@@ -61,7 +63,7 @@ export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFields
                     <select
                         value={selectedCohort}
                         onChange={event => onCohortChange(event.target.value)}
-                        disabled={!selectedProgram}
+                        disabled={!selectedProgram || cohortLocked}
                         className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[#003375] disabled:bg-gray-100 disabled:text-gray-400"
                     >
                         <option value="" disabled>Chọn khóa</option>
@@ -69,7 +71,7 @@ export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFields
                             <option key={cohort} value={cohort}>{cohort}</option>
                         ))}
                     </select>
-                </div>
+
 
                 <div className="flex-[2] space-y-1.5">
                     <label className="text-xs font-bold text-gray-500">

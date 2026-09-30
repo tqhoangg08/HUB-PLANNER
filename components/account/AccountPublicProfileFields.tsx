@@ -7,6 +7,9 @@ import {
 
 interface AccountPublicProfileFieldsProps {
     fullName: string;
+    fullNameLocked: boolean;
+    gender: string;
+    majorClass: string;
     bio: string;
     className: string;
     defaultClassName: string;
@@ -17,6 +20,8 @@ interface AccountPublicProfileFieldsProps {
     avatarPreview: string;
     avatarSeed: string;
     onFullNameChange: (value: string) => void;
+    onGenderChange: (value: string) => void;
+    onMajorClassChange: (value: string) => void;
     onBioChange: (value: string) => void;
     onClassNameChange: (value: string) => void;
     onProfileTagsChange: (value: string) => void;
@@ -29,6 +34,9 @@ interface AccountPublicProfileFieldsProps {
 
 export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProps> = ({
     fullName,
+    fullNameLocked,
+    gender,
+    majorClass,
     bio,
     className,
     defaultClassName,
@@ -39,6 +47,8 @@ export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProp
     avatarPreview,
     avatarSeed,
     onFullNameChange,
+    onGenderChange,
+    onMajorClassChange,
     onBioChange,
     onClassNameChange,
     onProfileTagsChange,
@@ -58,11 +68,23 @@ export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProp
                 <input
                     type="text"
                     value={fullName}
+                    readOnly={fullNameLocked}
                     onChange={event => onFullNameChange(event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
                     placeholder="Nhập tên..."
                     required
                 />
+
+
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500">Giới tính</label>
+                <input value={gender} onChange={event => onGenderChange(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Có thể bổ sung hoặc chỉnh sửa" />
+            </div>
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500">Lớp chuyên ngành</label>
+                <input value={majorClass} onChange={event => onMajorClassChange(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Có thể bổ sung hoặc chỉnh sửa" />
             </div>
 
             <div className="space-y-1.5">

@@ -42,6 +42,9 @@ export const AccountSettingsOverlays = ({
         >
             <AccountPublicProfileFields
                 fullName={profile.draftFullName}
+                fullNameLocked={profile.fullNameLocked}
+                gender={profile.draftGender}
+                majorClass={profile.draftMajorClass}
                 bio={profile.draftBio}
                 className={profile.draftClassName}
                 defaultClassName={profile.defaultClassName}
@@ -52,6 +55,8 @@ export const AccountSettingsOverlays = ({
                 avatarPreview={profile.draftAvatarPreview}
                 avatarSeed={avatarSeed}
                 onFullNameChange={profile.setDraftFullName}
+                onGenderChange={profile.setDraftGender}
+                onMajorClassChange={profile.setDraftMajorClass}
                 onBioChange={profile.setDraftBio}
                 onClassNameChange={profile.setDraftClassName}
                 onProfileTagsChange={profile.setDraftProfileTags}
@@ -96,6 +101,7 @@ export const AccountSettingsOverlays = ({
             <AccountAcademicProfileFields
                 selectedProgram={profile.draftProgram}
                 selectedCohort={profile.draftCohort}
+                cohortLocked={profile.cohortLocked}
                 selectedMajor={profile.draftMajor}
                 selectedSpecialization={profile.draftSpecialization}
                 programs={profile.programOptions}

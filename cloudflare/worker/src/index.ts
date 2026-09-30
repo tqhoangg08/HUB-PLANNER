@@ -93,6 +93,7 @@ import {
   privateProfileErrorStatus,
   PrivateProfileError,
 } from './private-profile.ts';
+import { handleOwnStudentDirectory, StudentDirectoryError } from './student-directory.ts';
 import {
   handleProfileAuthorityInternal,
   profileAuthorityInternalErrorStatus,
@@ -1598,6 +1599,20 @@ const worker = {
             ? error.code
             : 'PUSH_TEST_FAILED',
         }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/student-directory') {
+      try {
+        return json(await handleOwnStudentDirectory(request, env), 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = error instanceof BetterAuthIdentityError || error instanceof StudentDirectoryError
+          ? error.status : 503;
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+          : status === 400 || status === 405 ? (error as StudentDirectoryError).message
+            : 'Không thể tải dữ liệu sinh viên.' }, status, { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 

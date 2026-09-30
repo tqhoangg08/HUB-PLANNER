@@ -12,6 +12,8 @@ import {
   writeProfileD1Authority,
   type ProfileShadowEnv,
 } from './profile-shadow.ts';
+import { readOwnStudentDirectory, type StudentDirectoryRow, StudentDirectoryError } from './student-directory.ts';
+import { directoryCohortToProfile } from '../../../shared/student-directory-academic.ts';
 
 export interface PrivateProfileEnv extends BetterAuthIdentityEnv, ProfileShadowEnv {
   SUPABASE_URL?: string;
@@ -198,6 +200,46 @@ const validatePrivateProfile = (profile: Record<string, unknown>) => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw invalid();
 };
 
+const nonblank = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+
+export const enforceProfileIdentityLocks = (
+  publicProfile: Record<string, unknown>,
+  privateProfile: Record<string, unknown>,
+  existingPublic: Record<string, unknown> | null,
+  existingPrivate: Record<string, unknown> | null,
+  directory: StudentDirectoryRow | null,
+) => {
+  const existingData = existingPrivate?.data && typeof existingPrivate.data === 'object'
+    ? existingPrivate.data as Record<string, unknown> : {};
+  const authoritativeName = nonblank(directory?.full_name) || nonblank(existingPublic?.full_name)
+    || nonblank(existingData.studentName);
+  const authoritativeCohort = directoryCohortToProfile(directory?.cohort, directory?.training_program)
+    || nonblank(existingData.cohort)
+    || nonblank(existingPrivate?.cohort);
+  const nextData = privateProfile.data && typeof privateProfile.data === 'object'
+    ? privateProfile.data as Record<string, unknown> : null;
+  const rejectChanged = (incoming: unknown, locked: string, label: string) => {
+    if (locked && nonblank(incoming) !== locked) {
+      throw new PrivateProfileError(400, `${label} đã được khóa và không thể thay đổi.`);
+    }
+  };
+  if (Object.hasOwn(publicProfile, 'full_name')) {
+    rejectChanged(publicProfile.full_name, authoritativeName, 'Họ tên');
+  }
+  if (nextData && Object.hasOwn(nextData, 'studentName')) {
+    rejectChanged(nextData.studentName, authoritativeName, 'Họ tên');
+  }
+  if (nextData && Object.hasOwn(nextData, 'cohort')) {
+    rejectChanged(nextData.cohort, authoritativeCohort, 'Khóa');
+  }
+  if (directory?.full_name) publicProfile.full_name = directory.full_name;
+  if (nextData) {
+    if (authoritativeName) nextData.studentName = authoritativeName;
+    if (authoritativeCohort) nextData.cohort = authoritativeCohort;
+  }
+  return { fullNameLocked: Boolean(authoritativeName), cohortLocked: Boolean(authoritativeCohort) };
+};
+
 export const mirrorProfileOwnerFromAuthoritativeSource = async (
   env: PrivateProfileEnv,
   userId: string,
@@ -270,6 +312,11 @@ export const handlePrivateProfile = async (
   const privateProfile = pick(body.privateProfile, PRIVATE_FIELDS);
   validatePublicProfile(publicProfile);
   validatePrivateProfile(privateProfile);
+  const existing = isProfileD1ReadAuthority(env)
+    ? await readProfileD1Authority(env, identity.userId)
+    : await readAuthoritativeProfile(env, userId);
+  const directory = await readOwnStudentDirectory(request, env, identity);
+  enforceProfileIdentityLocks(publicProfile, privateProfile, existing.publicRow, existing.privateRow, directory);
   const hasPublicMutation = Object.keys(publicProfile).length > 0;
   const hasPrivateMutation = Object.keys(privateProfile).length > 0;
   if (!hasPublicMutation && !hasPrivateMutation) return { success: true };
@@ -333,6 +380,6 @@ export const handlePrivateProfile = async (
 };
 
 export const privateProfileErrorStatus = (error: unknown) =>
-  error instanceof BetterAuthIdentityError || error instanceof PrivateProfileError
+  error instanceof BetterAuthIdentityError || error instanceof PrivateProfileError || error instanceof StudentDirectoryError
     ? error.status
     : 500;
