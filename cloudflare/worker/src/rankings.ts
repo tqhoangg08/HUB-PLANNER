@@ -24,12 +24,34 @@ interface RankingUserRow {
   major: string | null;
 }
 
+interface ExactRankingDatasetRow {
+  semester: string;
+  total_students: number;
+}
+
+interface ImportedBenchmarkScopeRow {
+  total: number;
+  outranking: number;
+}
+
+interface RankingProfileRow {
+  class_name: string | null;
+  major_name: string | null;
+}
+
 export interface RankingForecastInput {
   semesters: string[];
   gpa: number;
   credits: number;
   trainingScore: number;
   major: string | null;
+}
+
+export interface ImportedBenchmarkInput {
+  semester: string;
+  gpa: number | null;
+  trainingScore: number | null;
+  credits: number | null;
 }
 
 type RankingErrorStatus = 400 | 413 | 503;
@@ -161,6 +183,26 @@ export const readRankingForecastBody = async (request: Request) => {
   }
 };
 
+export const readImportedBenchmarkBody = async (request: Request): Promise<ImportedBenchmarkInput> => {
+  const body = await readBoundedBody(request);
+  if (!body) throw new RankingError(400, 'Thiếu dữ liệu xếp hạng.');
+  let value: unknown;
+  try {
+    value = JSON.parse(body);
+  } catch {
+    throw new RankingError(400, 'Dữ liệu xếp hạng không phải JSON hợp lệ.');
+  }
+  if (!isRecord(value)) throw new RankingError(400, 'Dữ liệu xếp hạng không hợp lệ.');
+  const optionalNumber = (raw: unknown, field: string, maximum: number) =>
+    raw === null || raw === undefined ? null : parseFiniteNumber(raw, field, 0, maximum);
+  return {
+    semester: parseSemester(value.semester),
+    gpa: optionalNumber(value.gpa, 'GPA', 4.5),
+    trainingScore: optionalNumber(value.trainingScore, 'Điểm rèn luyện', 100),
+    credits: optionalNumber(value.credits, 'Số tín chỉ', 300),
+  };
+};
+
 export const parseRankingSemester = parseSemester;
 
 export const buildRankingScoreKey = (
@@ -229,10 +271,21 @@ const readForecastRank = async (
 
 export const listRankingSemesters = async (env: RankingsEnv) => {
   const result = await env.DB.prepare(
-    `SELECT semester, total_students
-       FROM benchmark_ranking_semesters
-      ORDER BY semester DESC`
-  ).all<{ semester: string; total_students: number }>();
+    `SELECT semester, total_students, ranking_mode, ranking_source FROM (
+       SELECT b.semester, b.total_students, 'forecast' AS ranking_mode,
+              'legacy' AS ranking_source
+         FROM benchmark_ranking_semesters b
+        WHERE NOT EXISTS (
+          SELECT 1 FROM semester_exact_ranking_datasets d
+           WHERE d.semester = b.semester AND d.status = 'ready'
+        )
+       UNION ALL
+       SELECT semester, total_students, 'forecast' AS ranking_mode,
+              'imported' AS ranking_source
+         FROM semester_exact_ranking_datasets
+        WHERE status = 'ready'
+     ) ORDER BY semester DESC`
+  ).all<{ semester: string; total_students: number; ranking_mode: string; ranking_source: string }>();
 
   if (!result.results.length) {
     throw new RankingError(
@@ -246,6 +299,8 @@ export const listRankingSemesters = async (env: RankingsEnv) => {
     data: result.results.map((row) => ({
       semester: row.semester,
       totalStudents: Number(row.total_students),
+      rankingMode: row.ranking_mode === 'exact' ? 'exact' : 'forecast',
+      rankingSource: row.ranking_source === 'imported' ? 'imported' : 'legacy',
     })),
   };
 };
@@ -256,6 +311,13 @@ export const forecastBenchmarkRankings = async (
 ) => {
   const rows = [];
   for (const semester of input.semesters) {
+    const exactDataset = await env.DB.prepare(
+      `SELECT semester FROM semester_exact_ranking_datasets
+        WHERE semester = ? AND status = 'ready' LIMIT 1`
+    ).bind(semester).first<{ semester: string }>();
+    if (exactDataset) {
+      throw new RankingError(400, 'Học kỳ này sử dụng xếp hạng theo dữ liệu cá nhân.');
+    }
     const school = await readForecastRank(
       env,
       semester,
@@ -286,6 +348,102 @@ export const forecastBenchmarkRankings = async (
   }
 
   return { success: true, data: rows };
+};
+
+export const readOwnRanking = async (
+  env: RankingsEnv,
+  userId: string,
+  semester: string
+) => {
+  const dataset = await env.DB.prepare(
+    `SELECT semester, total_students
+       FROM semester_exact_ranking_datasets
+      WHERE semester = ? AND status = 'ready' LIMIT 1`
+  ).bind(semester).first<ExactRankingDatasetRow>();
+  if (dataset) {
+    throw new RankingError(400, 'Học kỳ này sử dụng xếp hạng theo dữ liệu cá nhân.');
+  }
+  return readOwnBenchmarkRanking(env, userId, semester);
+};
+
+// A benchmark row wins only when its GPA, then training score, then credits
+// are strictly higher. The stored official STT and MSSV never enter this query.
+const OUTRANKS = `(gpa > ? OR (gpa = ? AND training_score > ?)
+  OR (gpa = ? AND training_score = ? AND credits > ?))`;
+
+const readImportedScope = async (
+  env: RankingsEnv,
+  input: ImportedBenchmarkInput,
+  scope: 'school' | 'class' | 'major',
+  scopeValue?: string,
+) => {
+  const column = scope === 'class' ? 'class_code' : scope === 'major' ? 'major' : null;
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN ${OUTRANKS} THEN 1 ELSE 0 END), 0) AS outranking
+       FROM semester_exact_rankings
+      WHERE semester = ?${column ? ` AND ${column} = ?` : ''}`
+  ).bind(
+    input.gpa, input.gpa, input.trainingScore,
+    input.gpa, input.trainingScore, input.credits,
+    input.semester, ...(column ? [scopeValue] : []),
+  ).first<ImportedBenchmarkScopeRow>();
+  const total = Number(row?.total ?? 0);
+  return { rank: total ? Number(row?.outranking ?? 0) + 1 : null, total };
+};
+
+export const forecastOwnImportedRanking = async (
+  env: RankingsEnv,
+  userId: string,
+  input: ImportedBenchmarkInput,
+) => {
+  const dataset = await env.DB.prepare(
+    `SELECT semester, total_students FROM semester_exact_ranking_datasets
+      WHERE semester = ? AND status = 'ready' LIMIT 1`
+  ).bind(input.semester).first<ExactRankingDatasetRow>();
+  if (!dataset) throw new RankingError(503, 'Dữ liệu học kỳ trên Cloudflare chưa được khởi tạo.');
+
+  const base = {
+    semester: input.semester,
+    rankingMode: 'forecast' as const,
+    rankingSource: 'imported' as const,
+    totalStudents: Number(dataset.total_students),
+  };
+  if (input.gpa === null || input.trainingScore === null ||
+      input.credits === null || input.credits <= 0) {
+    return { success: true, data: { ...base, found: false } };
+  }
+
+  const profile = await env.DB.prepare(
+    `SELECT p.class_name, q.major_name
+       FROM user_profiles p
+       LEFT JOIN user_profile_private q ON q.user_id = p.user_id
+      WHERE p.user_id = ? LIMIT 1`
+  ).bind(userId).first<RankingProfileRow>();
+  const classCode = profile?.class_name?.trim() || null;
+  const major = profile?.major_name?.trim() || null;
+  const school = await readImportedScope(env, input, 'school');
+  if (school.total !== Number(dataset.total_students)) {
+    throw new RankingError(503, 'Dữ liệu xếp hạng tạm thời chưa nhất quán.');
+  }
+  const [classRank, majorRank] = await Promise.all([
+    classCode ? readImportedScope(env, input, 'class', classCode) : null,
+    major ? readImportedScope(env, input, 'major', major) : null,
+  ]);
+  return {
+    success: true,
+    data: {
+      ...base,
+      found: true,
+      rank: school.rank,
+      rankInClass: classRank?.rank ?? null,
+      totalInClass: classRank?.total ?? null,
+      rankInMajor: majorRank?.rank ?? null,
+      totalInMajor: majorRank?.total ?? null,
+      classCode,
+      major,
+    },
+  };
 };
 
 export const readOwnBenchmarkRanking = async (

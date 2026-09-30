@@ -42,8 +42,12 @@ export const AccountSettingsOverlays = ({
         >
             <AccountPublicProfileFields
                 fullName={profile.draftFullName}
+                fullNameLocked={profile.fullNameLocked}
+                gender={profile.draftGender}
+                majorClass={profile.draftMajorClass}
                 bio={profile.draftBio}
                 className={profile.draftClassName}
+                directoryClasses={profile.directoryClasses}
                 defaultClassName={profile.defaultClassName}
                 profileTags={profile.draftProfileTags}
                 publicProfileEnabled={profile.draftPublicProfileEnabled}
@@ -52,6 +56,8 @@ export const AccountSettingsOverlays = ({
                 avatarPreview={profile.draftAvatarPreview}
                 avatarSeed={avatarSeed}
                 onFullNameChange={profile.setDraftFullName}
+                onGenderChange={profile.setDraftGender}
+                onMajorClassChange={profile.setDraftMajorClass}
                 onBioChange={profile.setDraftBio}
                 onClassNameChange={profile.setDraftClassName}
                 onProfileTagsChange={profile.setDraftProfileTags}

@@ -43,6 +43,9 @@ type AiDocumentRow = Record<string, unknown> & {
   ocr_status?: string | null;
   ocr_text_path?: string | null;
   index_source_kind?: string | null;
+  derived_source_kind?: string | null;
+  extraction_pipeline_version?: string | null;
+  derived_content_hash?: string | null;
   public_view_policy?: AiDocumentPublicViewPolicy | null;
   official_source_url?: string | null;
 };
@@ -171,6 +174,7 @@ const UPDATE_FIELDS = new Set([
   'indexing_status', 'indexing_error', 'deleted_at',
   'ocr_status', 'ocr_text_path', 'ocr_text_length', 'ocr_page_count', 'ocr_engine', 'ocr_used',
   'ocr_completed_at', 'index_source_kind',
+  'derived_source_kind', 'extraction_pipeline_version', 'derived_content_hash',
   'public_view_policy', 'official_source_url',
 ]);
 

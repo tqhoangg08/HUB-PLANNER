@@ -19,6 +19,7 @@ CREATE TABLE course_filter_facets (semester TEXT, phase TEXT, is_user_added INTE
 CREATE TABLE course_mutation_receipts (actor_scope TEXT, actor_id TEXT, idempotency_key TEXT, request_hash TEXT, operation TEXT, response_json TEXT, created_at TEXT, PRIMARY KEY(actor_scope,actor_id,idempotency_key));
 CREATE TABLE course_mutation_outbox (id TEXT PRIMARY KEY, dedupe_key TEXT UNIQUE, event_type TEXT, course_id TEXT, request_id TEXT, user_id TEXT, payload_json TEXT, status TEXT DEFAULT 'pending', attempts INTEGER DEFAULT 0, created_at TEXT, delivered_at TEXT);
 CREATE TABLE user_course_requests (id TEXT PRIMARY KEY, user_id TEXT, course_code TEXT, subject_name TEXT, semester TEXT, instructor TEXT, request_note TEXT, schedule_details_json TEXT NOT NULL DEFAULT '[]', status TEXT DEFAULT 'pending', request_hash TEXT, revision INTEGER DEFAULT 0, reviewer_id TEXT, reviewed_at TEXT, approved_course_id TEXT, created_at TEXT, updated_at TEXT);
+CREATE TABLE user_profiles (user_id TEXT PRIMARY KEY, student_code TEXT, full_name TEXT);
 CREATE TABLE course_scraper_runs (run_id TEXT PRIMARY KEY, payload_hash TEXT, status TEXT, attempted_count INTEGER, updated_count INTEGER DEFAULT 0, skipped_admin_count INTEGER DEFAULT 0, conflict_count INTEGER DEFAULT 0, error_code TEXT, created_at TEXT, completed_at TEXT);
 `;
 
@@ -94,8 +95,12 @@ test('course D1 APIs enforce roles, CAS, idempotency, ownership and atomic appro
 
     const request = await app.request('/api/private/v1/course-requests', { method: 'POST', headers: headers('user', 'request-create-0001'), body: JSON.stringify({ courseCode: 'REQ_001', subjectName: 'Request fixture', instructor: 'Teacher', semester: 'HK1_2099', note: 'fixture', scheduleSessions }) });
     assert.equal(request.status, 200); const requested = await request.json();
+    await app.sql(`INSERT INTO user_profiles (user_id,student_code,full_name) VALUES ('${USER}','SV2026001','Sinh viên thật')`);
     const own = await app.request('/api/private/v1/course-requests', { headers: { Origin: ORIGIN, Cookie: 'session=user' } }); assert.equal(own.status, 200);
     const review = await app.request('/api/private/v1/course-requests/review', { headers: { Origin: ORIGIN, Cookie: 'session=auditor' } }); assert.equal(review.status, 200);
+    const reviewed = await review.json();
+    assert.equal(reviewed.data.find((row) => row.id === requested.id)?.user?.student_code, 'SV2026001');
+    assert.equal(reviewed.data.find((row) => row.id === requested.id)?.user?.full_name, 'Sinh viên thật');
     const approve = await app.request(`/api/private/v1/course-requests/${requested.id}/approve`, { method: 'PATCH', headers: headers('admin', 'request-approve-0001', 0) });
     assert.equal(approve.status, 200); const approved = await approve.json();
     const approvalRetry = await app.request(`/api/private/v1/course-requests/${requested.id}/approve`, { method: 'PATCH', headers: headers('admin', 'request-approve-0001', 0) }); assert.deepEqual(await approvalRetry.json(), approved);
@@ -155,5 +160,22 @@ test('D1-native public facet rebuild is internally authenticated and idempotent'
     const countAfterSecond = Number((await app.sql("SELECT COUNT(*) AS count FROM course_filter_facets WHERE subject_name='Facet fixture'"))[0].count);
     assert.equal(countAfterFirst, 1); assert.equal(countAfterSecond, 1);
     assert.equal(Number((await app.sql("SELECT COUNT(*) AS count FROM course_filter_facets WHERE subject_name='Retired fixture'"))[0].count), 0);
+  } finally { await app.dispose(); }
+});
+
+test('Vietnamese catalogue name sorting precedes server pagination', async () => {
+  const app = await harness();
+  try {
+    await app.sql(`INSERT INTO course_schedules (id,course_code,subject_name,semester,is_user_added,updated_at,course_code_search,subject_name_search,instructor_search,source_position)
+      VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Z01','Zebra course','HK1_2099',1,'2026-01-01','z01','zebra course','',1),
+      ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','A02','Ánh course','HK1_2099',1,'2026-01-01','a02','ánh course','',2),
+      ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','A01','An course','HK1_2099',1,'2026-01-01','a01','an course','',3)`);
+    const requestPage = async (offset) => {
+      const response = await app.request(`/courses?view=detail&semester=HK1_2099&isUserAdded=true&search=course&sort=name-asc&limit=2&offset=${offset}`);
+      assert.equal(response.status, 200);
+      return (await response.json()).data.map((row) => row.course_code);
+    };
+    assert.deepEqual(await requestPage(0), ['A01', 'A02']);
+    assert.deepEqual(await requestPage(2), ['Z01']);
   } finally { await app.dispose(); }
 });

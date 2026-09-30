@@ -50,10 +50,12 @@ import {
 } from './user-schedules.ts';
 import {
   forecastBenchmarkRankings,
+  forecastOwnImportedRanking,
   listRankingSemesters,
   parseRankingSemester,
   RankingError,
-  readOwnBenchmarkRanking,
+  readOwnRanking,
+  readImportedBenchmarkBody,
   readRankingForecastBody,
 } from './rankings.ts';
 import {
@@ -91,6 +93,7 @@ import {
   privateProfileErrorStatus,
   PrivateProfileError,
 } from './private-profile.ts';
+import { handleOwnStudentDirectory, handleStudentDirectoryClasses, StudentDirectoryError } from './student-directory.ts';
 import {
   handleProfileAuthorityInternal,
   profileAuthorityInternalErrorStatus,
@@ -1538,7 +1541,7 @@ const worker = {
 
     if (requestUrl.pathname === '/api/private/v1/ai-advisor') {
       try {
-        return json(await handleAiAdvisor(request, requestUrl, env), 200, {
+        return json(await handleAiAdvisor(request, requestUrl, env, ctx), 200, {
           ...cors, 'Cache-Control': 'private, no-store',
         });
       } catch (error) {
@@ -1596,6 +1599,24 @@ const worker = {
             ? error.code
             : 'PUSH_TEST_FAILED',
         }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/student-directory' ||
+        requestUrl.pathname === '/api/user/v1/student-directory/classes') {
+      try {
+        const payload = requestUrl.pathname.endsWith('/classes')
+          ? await handleStudentDirectoryClasses(request, env)
+          : await handleOwnStudentDirectory(request, env);
+        return json(payload, 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = error instanceof BetterAuthIdentityError || error instanceof StudentDirectoryError
+          ? error.status : 503;
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+          : status === 400 || status === 405 ? (error as StudentDirectoryError).message
+            : 'Không thể tải dữ liệu sinh viên.' }, status, { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 
@@ -1969,6 +1990,33 @@ const worker = {
       }
     }
 
+    if (requestUrl.pathname === '/api/user/v1/rankings/benchmark') {
+      if (request.method !== 'POST') {
+        return json({ error: 'Chỉ hỗ trợ phương thức POST.' }, 405, {
+          ...cors,
+          Allow: 'POST, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+      if (!String(request.headers.get('Content-Type') || '')
+        .toLowerCase().startsWith('application/json')) {
+        return json({ error: 'Content-Type phải là application/json.' }, 415, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
+      try {
+        const identity = await requireBetterAuthSession(request, env);
+        const input = await readImportedBenchmarkBody(request);
+        return json(await forecastOwnImportedRanking(env, identity.userId, input), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        return exactRankingErrorResponse(error, requestUrl, cors);
+      }
+    }
+
     if (requestUrl.pathname === '/api/user/v1/rankings/exact') {
       if (request.method !== 'GET') {
         return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
@@ -1984,7 +2032,7 @@ const worker = {
           requestUrl.searchParams.get('semester')
         );
         return json(
-          await readOwnBenchmarkRanking(env, identity.userId, semester),
+          await readOwnRanking(env, identity.userId, semester),
           200,
           {
             ...cors,

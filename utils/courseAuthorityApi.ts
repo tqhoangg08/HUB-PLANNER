@@ -14,6 +14,8 @@ export type CourseAuthorityRequest = {
   revision: number;
   created_at?: string;
   scheduleSessions?: StructuredScheduleSession[];
+  user_id?: string;
+  user?: { student_code: string | null; full_name: string | null };
 };
 
 const mutationKey = (scope: string) => `${scope}:${crypto.randomUUID()}`;

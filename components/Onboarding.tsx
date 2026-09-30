@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import { UserData } from '../types';
 import {
@@ -13,6 +13,10 @@ import {
 } from '../utils/programs';
 import { playClick } from '../utils/audio';
 import { signOutBetterAuth } from '../utils/privateApi';
+import { fetchOwnPrivateProfile, fetchOwnStudentDirectory, fetchStudentDirectoryClasses, type OwnStudentDirectory } from '../utils/privateProfileApi';
+import { directoryCohortToProfile, directoryProgramToProfile } from '../shared/student-directory-academic';
+import { genderForSelect, PROFILE_GENDERS } from '../shared/profile-directory-fields';
+import { StudentClassPicker } from './StudentClassPicker';
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserData> & { fullName: string; className: string }) => Promise<void> | void;
@@ -21,7 +25,8 @@ interface OnboardingProps {
   initialClassName?: string;
 }
 
-const normalize = (value?: string) => (value || '').trim().toLocaleLowerCase('vi');
+const normalize = (value?: string) => (value || '').trim().toLocaleLowerCase('vi')
+  .replace(/[–—]/gu, '-').replace(/\s+/gu, ' ');
 
 const findProgramFromName = (programName?: string) =>
   ACADEMIC_PROGRAMS.find((program) => program.name === programName) || null;
@@ -34,7 +39,7 @@ const findMajorFromInitialData = (
 ) => {
   if (!program || !cohort) return null;
 
-  const majors = getMajors(program.id, cohort);
+  const majors = getMajors(program.id, cohort).length ? getMajors(program.id, cohort) : program.majors;
   const majorKey = normalize(majorName);
   const specializationKey = normalize(specializationName);
 
@@ -70,6 +75,8 @@ const buildInitialFormData = (initialData?: Partial<UserData>, initialFullName?:
   return {
     fullName: initialFullName || initialData?.studentName || '',
     className: initialClassName || '',
+    gender: genderForSelect(initialData?.gender),
+    majorClass: initialData?.majorClass || '',
     cohort,
     program,
     major,
@@ -86,12 +93,51 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
   const [submitted, setSubmitted] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [directory, setDirectory] = useState<OwnStudentDirectory | null>(null);
+  const [directoryClasses, setDirectoryClasses] = useState<string[]>([]);
+  const [savedName, setSavedName] = useState('');
+  const nameLocked = Boolean(directory?.fullName || savedName);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.allSettled([fetchOwnStudentDirectory(), fetchOwnPrivateProfile(),
+      fetchStudentDirectoryClasses()]).then(([directoryResult, profileResult, classesResult]) => {
+      if (!active) return;
+      if (profileResult.status === 'fulfilled') {
+        const name = profileResult.value.publicProfile?.full_name;
+        setSavedName(typeof name === 'string' ? name.trim() : '');
+      }
+      if (classesResult.status === 'fulfilled') setDirectoryClasses(classesResult.value);
+      if (directoryResult.status !== 'fulfilled' || !directoryResult.value.matched) return;
+      const found = directoryResult.value;
+      setDirectory(found);
+      setFormData((previous) => {
+        const program = previous.program || findProgramFromName(directoryProgramToProfile(found.trainingProgram));
+        const cohort = previous.cohort || directoryCohortToProfile(found.cohort, found.trainingProgram);
+        const major = previous.major || findMajorFromInitialData(program, cohort,
+          found.major || undefined, found.specialization || undefined);
+        return { ...previous,
+          fullName: found.fullName || previous.fullName,
+          className: previous.className || found.generalClass || '',
+          gender: previous.gender || genderForSelect(found.gender),
+          majorClass: previous.majorClass || found.majorClass || '',
+          cohort, program, major,
+          specialization: previous.specialization || findSpecializationFromInitialData(major,
+            found.specialization || undefined),
+        };
+      });
+    });
+    return () => { active = false; };
+  }, []);
 
   const cohortOptions = formData.program
-    ? ACADEMIC_COHORT_OPTIONS[formData.program.id] || []
+    ? [...new Set([...(ACADEMIC_COHORT_OPTIONS[formData.program.id] || []),
+      ...(formData.cohort ? [formData.cohort] : [])])]
     : [];
   const majorOptions = useMemo(
-    () => (formData.program && formData.cohort ? getMajors(formData.program.id, formData.cohort) : []),
+    () => (formData.program && formData.cohort
+      ? getMajors(formData.program.id, formData.cohort).length
+        ? getMajors(formData.program.id, formData.cohort) : formData.program.majors : []),
     [formData.program, formData.cohort],
   );
   const specializationOptions = formData.major?.specializations || [];
@@ -164,6 +210,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
       fullName: formData.fullName.trim(),
       className: formData.className.trim(),
       studentName: formData.fullName.trim(),
+      gender: formData.gender.trim(),
+      majorClass: formData.majorClass.trim(),
       cohort: formData.cohort,
       programName: formData.program!.name,
       majorName: formData.major!.name,
@@ -241,12 +289,31 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
                   type="text"
                   autoComplete="name"
                   value={formData.fullName}
+                  readOnly={nameLocked}
                   onChange={(event) =>
                     setFormData((previous) => ({ ...previous, fullName: event.target.value }))
                   }
                   placeholder="Nhập họ tên đầy đủ của bạn"
                   aria-invalid={submitted && !formData.fullName.trim()}
                 />
+              </div>
+            </div>
+
+            {directory?.studentCode && <div className="onboarding-field">
+              <label>MSSV</label>
+              <div className="onboarding-input-wrap"><input value={directory.studentCode} readOnly /></div>
+            </div>}
+
+            <div className="onboarding-field">
+              <label htmlFor="onboarding-gender">Giới tính</label>
+              <div className="onboarding-select-wrap">
+                <select id="onboarding-gender" className={selectClassName} value={formData.gender}
+                  onChange={(event) => setFormData((previous) => ({ ...previous,
+                    gender: genderForSelect(event.target.value) }))}>
+                  <option value="">-- Chọn giới tính --</option>
+                  {PROFILE_GENDERS.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
+                </select>
+                <ChevronDown size={18} aria-hidden="true" />
               </div>
             </div>
 
@@ -339,16 +406,18 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
 
             <div className="onboarding-field">
               <label htmlFor="onboarding-class">Lớp *</label>
-              <div className="onboarding-input-wrap">
-                <input
-                  id="onboarding-class"
-                  type="text"
-                  value={formData.className}
-                  onChange={(event) => setFormData((previous) => ({ ...previous, className: event.target.value }))}
-                  placeholder="Ví dụ: DH22KTA"
-                  aria-invalid={submitted && !formData.className.trim()}
-                />
-              </div>
+              <StudentClassPicker id="onboarding-class" value={formData.className}
+                classes={directoryClasses}
+                onChange={(className) => setFormData((previous) => ({ ...previous, className }))}
+                inputClassName={selectClassName} invalid={submitted && !formData.className.trim()} />
+            </div>
+
+            <div className="onboarding-field">
+              <label htmlFor="onboarding-major-class">Lớp chuyên ngành</label>
+              <div className="onboarding-input-wrap"><input id="onboarding-major-class"
+                value={formData.majorClass}
+                onChange={(event) => setFormData((previous) => ({ ...previous, majorClass: event.target.value }))}
+                placeholder="Có thể bổ sung hoặc chỉnh sửa" /></div>
             </div>
 
             {manualCredits && (

@@ -16,7 +16,9 @@ import { getSafeAvatarColor } from '../utils/avatarColors';
 import { blobToBase64, resizeAvatarImage } from '../utils/avatarImage';
 import { calculateCumulativeStats } from '../utils/calculations';
 import { upsertProfilePrivate } from '../utils/profilePrivate';
-import { fetchOwnPrivateProfile, updateOwnPrivateProfile } from '../utils/privateProfileApi';
+import { fetchOwnPrivateProfile, fetchOwnStudentDirectory, fetchStudentDirectoryClasses, updateOwnPrivateProfile } from '../utils/privateProfileApi';
+import { directoryCohortToProfile, directoryProgramToProfile } from '../shared/student-directory-academic';
+import { genderForSelect } from '../shared/profile-directory-fields';
 
 interface UseAccountProfileDraftOptions {
     open: boolean;
@@ -38,8 +40,10 @@ const findMajorFromSavedProfile = (
     savedMajorName?: string,
     savedSpecializationName?: string,
 ) => {
-    const majors = getMajors(program.id, cohort);
-    const normalize = (value?: string) => (value || '').trim().toLowerCase();
+    const catalogMajors = getMajors(program.id, cohort);
+    const majors = catalogMajors.length ? catalogMajors : program.majors;
+    const normalize = (value?: string) => (value || '').trim().toLowerCase()
+        .replace(/[–—]/gu, '-').replace(/\s+/gu, ' ');
     const majorKey = normalize(savedMajorName);
     const specializationKey = normalize(savedSpecializationName);
 
@@ -97,6 +101,10 @@ export const useAccountProfileDraft = ({
     const [profileError, setProfileError] = useState<string | null>(null);
     const [draftProgram, setDraftProgram] = useState<Program | null>(null);
     const [draftCohort, setDraftCohort] = useState('');
+    const [draftGender, setDraftGender] = useState('');
+    const [draftMajorClass, setDraftMajorClass] = useState('');
+    const [directoryClasses, setDirectoryClasses] = useState<string[]>([]);
+    const [fullNameLocked, setFullNameLocked] = useState(false);
     const [draftMajor, setDraftMajor] = useState<Major | null>(null);
     const [draftSpecialization, setDraftSpecialization] = useState<Specialization | null>(null);
     const [draftManualTotalCredits, setDraftManualTotalCredits] = useState('');
@@ -104,10 +112,12 @@ export const useAccountProfileDraft = ({
     const sessionUserId = session?.user?.id || null;
     const sessionEmail = session?.user?.email || '';
     const cohortOptions = draftProgram
-        ? ACADEMIC_COHORT_OPTIONS[draftProgram.id] || []
+        ? [...new Set([...(ACADEMIC_COHORT_OPTIONS[draftProgram.id] || []),
+            ...(draftCohort ? [draftCohort] : [])])]
         : [];
     const majorOptions = draftProgram && draftCohort
-        ? getMajors(draftProgram.id, draftCohort)
+        ? getMajors(draftProgram.id, draftCohort).length
+            ? getMajors(draftProgram.id, draftCohort) : draftProgram.majors
         : [];
 
     useEffect(() => {
@@ -123,6 +133,8 @@ export const useAccountProfileDraft = ({
         const program = ACADEMIC_PROGRAMS.find(item => item.name === data.programName) || null;
         setDraftProgram(program);
         setDraftCohort(data.cohort || '');
+        setDraftGender(genderForSelect(data.gender));
+        setDraftMajorClass(data.majorClass || '');
         const savedManualCredits = program && isManualTotalCreditsCohort(program.id, data.cohort || '')
             ? normalizeManualTotalCredits(data.totalCreditsRequired)
             : 0;
@@ -150,13 +162,38 @@ export const useAccountProfileDraft = ({
             if (!sessionUserId) return;
 
             const studentCode = sessionEmail.split('@')[0] || '';
-            const { publicProfile } = await fetchOwnPrivateProfile();
+            const [{ publicProfile }, directory, classes] = await Promise.all([
+                fetchOwnPrivateProfile(), fetchOwnStudentDirectory(),
+                fetchStudentDirectoryClasses().catch(() => []),
+            ]);
             const officialClassName = await fetchDefaultClassName(studentCode);
             if (!active) return;
 
+            const persistedName = typeof publicProfile?.full_name === 'string' ? publicProfile.full_name.trim() : '';
+            setFullNameLocked(Boolean(directory.fullName || persistedName));
+            setDirectoryClasses(classes);
+            if (directory.fullName) setDraftFullName(directory.fullName);
+            if (!data.cohort && directory.cohort) setDraftCohort(previous => previous
+                || directoryCohortToProfile(directory.cohort, directory.trainingProgram));
+            if (!data.gender && directory.gender) setDraftGender(genderForSelect(directory.gender));
+            if (!data.majorClass && directory.majorClass) setDraftMajorClass(directory.majorClass);
+            const selectedProgram = program || ACADEMIC_PROGRAMS.find(item => item.name ===
+                directoryProgramToProfile(directory.trainingProgram)) || null;
+            const selectedCohort = data.cohort || directoryCohortToProfile(directory.cohort,
+                directory.trainingProgram);
+            if (!program && selectedProgram) setDraftProgram(selectedProgram);
+            if (!data.majorName && directory.major && selectedProgram && selectedCohort) {
+                const selectedMajor = findMajorFromSavedProfile(selectedProgram, selectedCohort,
+                    directory.major, directory.specialization || undefined);
+                setDraftMajor(selectedMajor);
+                if (selectedMajor) setDraftSpecialization(findSpecializationFromSavedProfile(
+                    selectedMajor, directory.specialization || undefined));
+            }
+
             setDefaultClassName(officialClassName);
             setDraftBio((publicProfile as any)?.bio || '');
-            setDraftClassName((publicProfile as any)?.class_name || profileClassName || officialClassName || '');
+            setDraftClassName((publicProfile as any)?.class_name || profileClassName
+                || directory.generalClass || officialClassName || '');
             setDraftProfileTags(
                 Array.isArray((publicProfile as any)?.profile_tags)
                     ? (publicProfile as any).profile_tags.join(', ')
@@ -166,7 +203,9 @@ export const useAccountProfileDraft = ({
             setDraftShowProfileStats(Boolean((publicProfile as any)?.show_profile_stats));
         };
 
-        void loadPublicProfileDraft();
+        void loadPublicProfileDraft().catch(() => {
+            if (active) setProfileError('Không thể tải dữ liệu hồ sơ. Vui lòng thử lại.');
+        });
         return () => {
             active = false;
         };
@@ -233,7 +272,8 @@ export const useAccountProfileDraft = ({
 
     const selectMajor = useCallback((majorCode: string) => {
         const majors = draftProgram && draftCohort
-            ? getMajors(draftProgram.id, draftCohort)
+            ? getMajors(draftProgram.id, draftCohort).length
+                ? getMajors(draftProgram.id, draftCohort) : draftProgram.majors
             : [];
         const major = majors.find(item => item.code === majorCode) || null;
         setDraftMajor(major);
@@ -328,6 +368,8 @@ export const useAccountProfileDraft = ({
         const nextData = {
             ...data,
             studentName: draftFullName.trim(),
+            gender: draftGender.trim(),
+            majorClass: draftMajorClass.trim(),
             programName: draftProgram.name || data.programName,
             cohort: draftCohort || data.cohort,
             majorName: draftMajor.name || data.majorName,
@@ -368,6 +410,8 @@ export const useAccountProfileDraft = ({
         commitDataUpdate(previousData => ({
             ...previousData,
             studentName: draftFullName.trim(),
+            gender: draftGender.trim(),
+            majorClass: draftMajorClass.trim(),
             programName: draftProgram.name || previousData.programName,
             cohort: draftCohort || previousData.cohort,
             majorName: draftMajor.name || previousData.majorName,
@@ -391,6 +435,8 @@ export const useAccountProfileDraft = ({
         draftBio,
         draftClassName,
         draftCohort,
+        draftGender,
+        draftMajorClass,
         draftFullName,
         draftMajor,
         draftManualTotalCredits,
@@ -432,6 +478,12 @@ export const useAccountProfileDraft = ({
         draftProgram,
         selectProgram,
         draftCohort,
+        draftGender,
+        setDraftGender,
+        draftMajorClass,
+        setDraftMajorClass,
+        directoryClasses,
+        fullNameLocked,
         selectCohort,
         draftMajor,
         selectMajor,

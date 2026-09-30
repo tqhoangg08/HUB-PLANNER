@@ -290,6 +290,12 @@ export const parseCourseListPaging = (params: URLSearchParams) => {
 
 const courseList = async (url: URL, env: CourseEnv) => {
   const { suggestions, limit, offset } = parseCourseListPaging(url.searchParams);
+  const sort = url.searchParams.get('sort');
+  const orderBy = sort === 'name-asc' ? 'subject_name COLLATE NOCASE ASC, course_code COLLATE NOCASE ASC, id ASC'
+    : sort === 'name-desc' ? 'subject_name COLLATE NOCASE DESC, course_code COLLATE NOCASE ASC, id ASC'
+    : sort === 'created-desc' ? 'created_at DESC, id ASC'
+    : sort === 'created-asc' ? 'created_at ASC, id ASC'
+    : 'source_position ASC, id ASC';
   const { whereSql, bindings } = buildWhere(url.searchParams);
   const columns = url.searchParams.get('view') === 'detail' ? DETAIL_COLUMNS : SUMMARY_COLUMNS;
   const groupNames = getFilterValues(url.searchParams, 'groupName');
@@ -299,24 +305,52 @@ const courseList = async (url: URL, env: CourseEnv) => {
   if (groupNames.length > 0 && !suggestions) {
     const candidates = await env.DB.prepare(
       `SELECT ${SUMMARY_COLUMNS.join(', ')}, source_position
-       FROM course_schedules ${whereSql} ORDER BY source_position`
+       FROM course_schedules ${whereSql} ORDER BY ${orderBy}`
     ).bind(...bindings).all<Record<string, unknown>>();
     const matching = (candidates.results || []).filter((row) => {
       const rowGroups = parseCourseGroupTokens(row.group_name);
       return groupNames.some(groupName => rowGroups.includes(groupName));
     });
+    if (sort === 'name-asc' || sort === 'name-desc') {
+      matching.sort((a, b) => (sort === 'name-asc' ? 1 : -1) * String(a.subject_name || '').localeCompare(String(b.subject_name || ''), 'vi', { numeric: true, sensitivity: 'base' })
+        || String(a.course_code || '').localeCompare(String(b.course_code || ''), 'vi', { numeric: true, sensitivity: 'base' })
+        || String(a.id || '').localeCompare(String(b.id || '')));
+    }
     total = matching.length;
     rows = matching.slice(offset, offset + limit);
   } else {
     if (!suggestions) {
       total = await countCourses(url.searchParams, env);
     }
-    const result = await env.DB.prepare(
-      `SELECT ${columns.join(', ')}, source_position
-       FROM course_schedules ${whereSql}
-       ORDER BY source_position LIMIT ? OFFSET ?`
-    ).bind(...bindings, limit, offset).all<Record<string, unknown>>();
-    rows = result.results || [];
+    if (!suggestions && (sort === 'name-asc' || sort === 'name-desc')) {
+      // D1's NOCASE collation is not Vietnamese-aware. Sort the filtered ID set
+      // before taking a page, then fetch only that page's detail rows.
+      const keys: Array<{ id: string; name: string; code: string }> = [];
+      for (let next = 0; next < total; next += 1000) {
+        const chunk = await env.DB.prepare(`SELECT id,subject_name AS name,course_code AS code
+          FROM course_schedules ${whereSql} ORDER BY id LIMIT 1000 OFFSET ?`)
+          .bind(...bindings, next).all<{ id: string; name: string; code: string }>();
+        keys.push(...(chunk.results || []));
+      }
+      const direction = sort === 'name-asc' ? 1 : -1;
+      keys.sort((a, b) => direction * a.name.localeCompare(b.name, 'vi', { numeric: true, sensitivity: 'base' })
+        || a.code.localeCompare(b.code, 'vi', { numeric: true, sensitivity: 'base' })
+        || a.id.localeCompare(b.id));
+      const ids = keys.slice(offset, offset + limit).map((entry) => entry.id);
+      if (ids.length) {
+        const page = await env.DB.prepare(`SELECT ${columns.join(', ')}, source_position FROM course_schedules
+          WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all<Record<string, unknown>>();
+        const byId = new Map((page.results || []).map((row) => [String(row.id), row]));
+        rows = ids.flatMap((id) => byId.has(id) ? [byId.get(id)!] : []);
+      }
+    } else {
+      const result = await env.DB.prepare(
+        `SELECT ${columns.join(', ')}, source_position
+         FROM course_schedules ${whereSql}
+         ORDER BY ${orderBy} LIMIT ? OFFSET ?`
+      ).bind(...bindings, limit, offset).all<Record<string, unknown>>();
+      rows = result.results || [];
+    }
     if (suggestions) total = rows.length;
   }
 

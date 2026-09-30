@@ -15,11 +15,6 @@ const formatCompactPercent = (value: number | null) => {
     return `Top ${Math.max(0.01, value as number).toFixed((value as number) < 1 ? 2 : 1)}%`;
 };
 
-const formatPercent = (value: number | null) => {
-    if (!Number.isFinite(value ?? NaN)) return 'chưa có dữ liệu';
-    return `${formatCompactPercent(value)} toàn trường`;
-};
-
 export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ isOpen, data, loading, onClose }) => {
     if (!isOpen) return null;
 
@@ -96,6 +91,11 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
                                     <span className="font-semibold text-[#64748B]">Top toàn trường</span>
                                     <span className="shrink-0 text-right font-bold text-[#0F172A]">{hasRank ? `#${data.rank} / ${data.totalStudents}` : 'Chưa có dữ liệu'}</span>
                                 </div>
+                                {!data.benchmarkRankingFound && (
+                                    <p className="border-b border-[#E2E8F0] px-3 py-2 text-xs text-[#64748B] sm:px-4">
+                                        Chưa đủ dữ liệu GPA, điểm rèn luyện hoặc tín chỉ để xếp hạng học kỳ này.
+                                    </p>
+                                )}
                                 <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4">
                                     <span className="font-semibold text-[#64748B]">Tỷ lệ toàn trường</span>
                                     <span className="shrink-0 text-right font-bold text-[#0F172A]">{formatCompactPercent(data.topPercent)}</span>
@@ -120,12 +120,10 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
 
                             <div className="mx-auto mt-2.5 max-w-2xl rounded-lg border border-[#D8EFE0] bg-[#F3FAF6] p-3 text-left sm:mt-3">
                                 <p className="text-[13px] font-bold text-[#0F172A] sm:text-sm">
-                                    Khả năng đạt học bổng: Rất cao
+                                    Đánh giá học bổng từ dữ liệu cá nhân
                                 </p>
                                 <p className="mt-1 text-[13px] font-medium leading-5 text-[#334155] sm:text-sm sm:leading-6">
-                                    {hasRank
-                                        ? `Điều kiện nổi bật: GPA ${data.gpa4.toFixed(2)}, ĐRL ${data.trainingScore}, ${formatPercent(data.topPercent)}.`
-                                        : 'Tiếp tục cập nhật bảng điểm để hệ thống ghi nhận đầy đủ kết quả học kỳ.'}
+                                    {data.scholarshipLabel}
                                 </p>
                             </div>
                         </>

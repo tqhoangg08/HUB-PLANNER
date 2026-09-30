@@ -313,9 +313,17 @@ export const handleCourseAuthority = async (request: Request, url: URL, env: Cou
     }
     if (url.pathname === '/api/private/v1/course-requests/review' && request.method === 'GET') {
       const staff = await requireBetterAuthStaff(request, env);
-      const result = await env.DB.prepare('SELECT id,user_id,course_code,subject_name,semester,instructor,request_note,schedule_details_json,status,revision,reviewer_id,reviewed_at,approved_course_id,created_at,updated_at FROM user_course_requests ORDER BY created_at DESC LIMIT 200').all<Record<string, unknown>>();
+      const result = await env.DB.prepare(`SELECT r.id,r.user_id,r.course_code,r.subject_name,r.semester,r.instructor,
+        r.request_note,r.schedule_details_json,r.status,r.revision,r.reviewer_id,r.reviewed_at,
+        r.approved_course_id,r.created_at,r.updated_at,p.student_code AS requester_student_code,
+        p.full_name AS requester_full_name
+        FROM user_course_requests r LEFT JOIN user_profiles p ON p.user_id=r.user_id
+        ORDER BY r.created_at DESC,r.id DESC LIMIT 200`).all<Record<string, unknown>>();
       // Auditors may inspect the review queue, but only admins may transition it.
-      return { status: 200, payload: { success: true, role: staff.role, data: (result.results || []).map(requestResponseRow) } };
+      return { status: 200, payload: { success: true, role: staff.role, data: (result.results || []).map((row) => {
+        const { requester_student_code: studentCode, requester_full_name: fullName, ...requestRow } = row;
+        return { ...requestResponseRow(requestRow), user: { student_code: studentCode || null, full_name: fullName || null } };
+      }) } };
     }
     if (requestMatch && request.method === 'PATCH') return { status: 200, payload: await reviewRequest(env, await requireBetterAuthStaff(request, env), request, parseId(requestMatch[1]), requestMatch[2] === 'approve') };
     return { status: 404, payload: { error: 'Không tìm thấy endpoint.' } };

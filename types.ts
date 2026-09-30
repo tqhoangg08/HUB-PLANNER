@@ -23,6 +23,8 @@ export interface UserData {
   programName: string; // Chương trình (Chuẩn/TABP/Đặc biệt)
   majorName: string; // Ngành
   specializationName: string; // Chuyên ngành
+  gender?: string;
+  majorClass?: string;
   
   // Academic Data
   semesters: Semester[];

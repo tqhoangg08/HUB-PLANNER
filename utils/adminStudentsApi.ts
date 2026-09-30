@@ -17,6 +17,7 @@ export type AdminStudent = {
 };
 
 export type AdminStudentPage = { success: true; data: AdminStudent[]; next_cursor: string | null; has_more: boolean };
+export type AdminStudentSummary = { success: true; total: number; onboarded: number; pending: number; new_last_7_days: number; recent: Array<{ student_code: string; full_name: string | null; class_name: string | null; created_at: string }> };
 export type AdminStudentFilters = { q?: string; className?: string; major?: string; status?: string; start?: string; end?: string };
 export type AdminStudentCreateInput = { studentCode: string; fullName: string; className?: string; cohort?: string; programName?: string; majorName?: string; specializationName?: string };
 
@@ -35,6 +36,12 @@ const query = (filters: AdminStudentFilters, limit: number, cursor: string | nul
 export const fetchAdminStudents = async (filters: AdminStudentFilters, limit: number, cursor: string | null) => {
   const response = await privateApiRequest(`/api/admin/students?${query(filters, limit, cursor)}`);
   return response.json() as Promise<AdminStudentPage>;
+};
+
+export const fetchAdminStudentSummary = async (): Promise<AdminStudentSummary> => {
+  const response = await privateApiRequest('/api/admin/students/summary');
+  if (!response.ok) throw new Error('Không tải được tổng quan sinh viên.');
+  return response.json() as Promise<AdminStudentSummary>;
 };
 
 export const updateAdminStudent = async (studentCode: string, patch: Record<string, string>) => {

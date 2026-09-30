@@ -152,6 +152,28 @@ const rowResponse = (row: Record<string, unknown>, names: Map<string, string>) =
   });
 };
 
+const completeProfileSql = `TRIM(COALESCE(p.full_name,'')) <> '' AND TRIM(COALESCE(p.class_name,'')) <> ''
+  AND TRIM(COALESCE(NULLIF(TRIM(q.program_name),''), json_extract(q.data_json, '$.programName'),'')) <> ''
+  AND TRIM(COALESCE(NULLIF(TRIM(q.cohort),''), json_extract(q.data_json, '$.cohort'),'')) <> ''
+  AND TRIM(COALESCE(NULLIF(TRIM(q.major_name),''), json_extract(q.data_json, '$.majorName'),'')) <> ''
+  AND TRIM(COALESCE(NULLIF(TRIM(q.specialization_name),''), json_extract(q.data_json, '$.specializationName'),'')) <> ''`;
+
+const readSummary = async (env: AdminStudentsEnv) => {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [counts, recent] = await Promise.all([
+    env.DB.prepare(`SELECT COUNT(*) AS total,
+      COALESCE(SUM(CASE WHEN ${completeProfileSql} THEN 1 ELSE 0 END),0) AS onboarded,
+      COALESCE(SUM(CASE WHEN p.created_at >= ? THEN 1 ELSE 0 END),0) AS new_last_7_days
+      FROM user_profiles p LEFT JOIN user_profile_private q ON q.user_id=p.user_id
+      WHERE p.student_code IS NOT NULL`).bind(since).first<{ total: number; onboarded: number; new_last_7_days: number }>(),
+    env.DB.prepare(`SELECT student_code,full_name,class_name,created_at FROM user_profiles
+      WHERE student_code IS NOT NULL ORDER BY created_at DESC,user_id DESC LIMIT 3`).all<{ student_code: string; full_name: string | null; class_name: string | null; created_at: string }>(),
+  ]);
+  const total = Number(counts?.total || 0);
+  const onboarded = Number(counts?.onboarded || 0);
+  return { success: true, total, onboarded, pending: Math.max(0, total - onboarded), new_last_7_days: Number(counts?.new_last_7_days || 0), recent: recent.results || [] };
+};
+
 const readList = async (request: Request, url: URL, env: AdminStudentsEnv) => {
   const query = parseAdminStudentQuery(url.searchParams);
   const where: string[] = [];
@@ -171,12 +193,7 @@ const readList = async (request: Request, url: URL, env: AdminStudentsEnv) => {
   if (query.className) { where.push('p.class_name = ?'); values.push(query.className); }
   if (query.major) { where.push('q.major_name = ?'); values.push(query.major); }
   if (query.status) {
-    const completeSql = `TRIM(COALESCE(p.full_name,'')) <> '' AND TRIM(COALESCE(p.class_name,'')) <> ''
-      AND TRIM(COALESCE(q.program_name, json_extract(q.data_json, '$.programName'),'')) <> ''
-      AND TRIM(COALESCE(q.cohort, json_extract(q.data_json, '$.cohort'),'')) <> ''
-      AND TRIM(COALESCE(q.major_name, json_extract(q.data_json, '$.majorName'),'')) <> ''
-      AND TRIM(COALESCE(q.specialization_name, json_extract(q.data_json, '$.specializationName'),'')) <> ''`;
-    where.push(query.status === 'onboarded' ? `(${completeSql})` : `NOT (${completeSql})`);
+    where.push(query.status === 'onboarded' ? `(${completeProfileSql})` : `NOT (${completeProfileSql})`);
   }
   if (query.start) { where.push('p.updated_at >= ?'); values.push(`${query.start}T00:00:00.000Z`); }
   if (query.end) { where.push('p.updated_at < ?'); values.push(`${query.end}T23:59:59.999Z`); }
@@ -253,6 +270,10 @@ const updateStudent = async (request: Request, studentCode: string, env: AdminSt
 
 export const handleAdminStudents = async (request: Request, url: URL, env: AdminStudentsEnv) => {
   const actor = await requireAdmin(request, env);
+  if (url.pathname === '/api/admin/students/summary') {
+    if (request.method !== 'GET') throw new AdminStudentsError(405, 'Phương thức không được hỗ trợ.');
+    return readSummary(env);
+  }
   if (url.pathname === '/api/admin/students') {
     if (request.method === 'GET') return readList(request, url, env);
     if (request.method === 'POST') {

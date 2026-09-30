@@ -4,11 +4,17 @@ import {
     getAvatarColorClass,
     isAvatarImageUrl,
 } from '../../utils/avatarColors';
+import { PROFILE_GENDERS, genderForSelect } from '../../shared/profile-directory-fields';
+import { StudentClassPicker } from '../StudentClassPicker';
 
 interface AccountPublicProfileFieldsProps {
     fullName: string;
+    fullNameLocked: boolean;
+    gender: string;
+    majorClass: string;
     bio: string;
     className: string;
+    directoryClasses: string[];
     defaultClassName: string;
     profileTags: string;
     publicProfileEnabled: boolean;
@@ -17,6 +23,8 @@ interface AccountPublicProfileFieldsProps {
     avatarPreview: string;
     avatarSeed: string;
     onFullNameChange: (value: string) => void;
+    onGenderChange: (value: string) => void;
+    onMajorClassChange: (value: string) => void;
     onBioChange: (value: string) => void;
     onClassNameChange: (value: string) => void;
     onProfileTagsChange: (value: string) => void;
@@ -29,8 +37,12 @@ interface AccountPublicProfileFieldsProps {
 
 export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProps> = ({
     fullName,
+    fullNameLocked,
+    gender,
+    majorClass,
     bio,
     className,
+    directoryClasses,
     defaultClassName,
     profileTags,
     publicProfileEnabled,
@@ -39,6 +51,8 @@ export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProp
     avatarPreview,
     avatarSeed,
     onFullNameChange,
+    onGenderChange,
+    onMajorClassChange,
     onBioChange,
     onClassNameChange,
     onProfileTagsChange,
@@ -58,11 +72,26 @@ export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProp
                 <input
                     type="text"
                     value={fullName}
+                    readOnly={fullNameLocked}
                     onChange={event => onFullNameChange(event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
                     placeholder="Nhập tên..."
                     required
                 />
+            </div>
+
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500">Giới tính</label>
+                <select value={genderForSelect(gender)} onChange={event => onGenderChange(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                    <option value="">Chọn giới tính</option>
+                    {PROFILE_GENDERS.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+            </div>
+            <div className="space-y-1.5">
+                <label className="text-xs font-bold text-gray-500">Lớp chuyên ngành</label>
+                <input value={majorClass} onChange={event => onMajorClassChange(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="Có thể bổ sung hoặc chỉnh sửa" />
             </div>
 
             <div className="space-y-1.5">
@@ -79,14 +108,10 @@ export const AccountPublicProfileFields: React.FC<AccountPublicProfileFieldsProp
 
             <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-500">Lớp <span className="text-red-500">*</span></label>
-                <input
-                    type="text"
-                    value={className}
-                    onChange={event => onClassNameChange(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                    placeholder={defaultClassName ? `Mặc định: ${defaultClassName}` : 'VD: DH22KTA'}
-                    required
-                />
+                <StudentClassPicker id="profile-class" value={className} classes={directoryClasses}
+                    onChange={onClassNameChange}
+                    inputClassName="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                    placeholder={defaultClassName ? `Mặc định: ${defaultClassName}` : 'Tìm lớp của bạn'} />
             </div>
 
             <div className="space-y-1.5">

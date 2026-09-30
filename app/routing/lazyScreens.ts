@@ -3,6 +3,9 @@ import { lazy } from 'react';
 export const Dashboard = lazy(() =>
     import('../../components/Dashboard').then(module => ({ default: module.Dashboard }))
 );
+export const AdminOperationsDashboard = lazy(() =>
+    import('../../components/AdminOperationsDashboard').then(module => ({ default: module.AdminOperationsDashboard }))
+);
 export const Onboarding = lazy(() =>
     import('../../components/Onboarding').then(module => ({ default: module.Onboarding }))
 );

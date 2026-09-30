@@ -14,6 +14,31 @@ export class StaffSchedulesError extends Error {
 
 const USER_ID = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i;
 const text = (value: unknown, max = 96) => String(value || '').trim().slice(0, max);
+const authEmails = async (request: Request, env: StaffSchedulesEnv, userIds: string[]) => {
+  const emails = new Map<string, string>();
+  if (!env.AUTH_SERVICE) return emails;
+  const headers = new Headers({ Accept: 'application/json', 'Content-Type': 'application/json' });
+  const overrides = request.headers.get('Cloudflare-Workers-Version-Overrides');
+  if (overrides) headers.set('Cloudflare-Workers-Version-Overrides', overrides);
+  // The internal Auth endpoint accepts at most 50 IDs per call; never query per student.
+  const batches = Array.from({ length: Math.ceil(userIds.length / 50) }, (_, index) => userIds.slice(index * 50, index * 50 + 50));
+  await Promise.all(batches.map(async (userIdsBatch) => {
+    try {
+      const response = await env.AUTH_SERVICE.fetch(new Request('https://auth-service.internal/internal/auth/user-names', {
+        method: 'POST', headers, body: JSON.stringify({ userIds: userIdsBatch }),
+        signal: AbortSignal.timeout(5_000),
+      }));
+      if (!response.ok) return;
+      const payload = await response.json() as { names?: Array<{ userId?: unknown; email?: unknown }> };
+      for (const entry of payload.names || []) {
+        if (typeof entry.userId === 'string' && USER_ID.test(entry.userId) && typeof entry.email === 'string') {
+          emails.set(entry.userId.toLowerCase(), entry.email);
+        }
+      }
+    } catch { /* Email is optional; never invent one when Auth is unavailable. */ }
+  }));
+  return emails;
+};
 
 export const handleStaffSchedules = async (request: Request, url: URL, env: StaffSchedulesEnv) => {
   const staff = await requireBetterAuthStaff(request, env);
@@ -30,17 +55,34 @@ export const handleStaffSchedules = async (request: Request, url: URL, env: Staf
   }
 
   const rows = await env.DB.prepare(
-    `SELECT us.user_id, up.student_code, up.full_name, COUNT(*) AS course_count
+    `WITH effective_courses AS (
+       SELECT us.user_id, up.student_code, up.full_name,
+         CASE
+           WHEN json_type(CASE WHEN json_valid(us.custom_data) THEN us.custom_data ELSE '{}' END,'$.credits') IS NOT NULL
+             THEN json_extract(us.custom_data,'$.credits')
+           WHEN (CASE WHEN json_valid(snapshots.course_json) THEN json_type(snapshots.course_json) ELSE NULL END) = 'object'
+             THEN json_extract(snapshots.course_json,'$.credits')
+           ELSE cs.credits
+         END AS effective_credits
        FROM user_schedules us
        LEFT JOIN user_profiles up ON up.user_id = us.user_id
-      WHERE us.semester = ?
-      GROUP BY us.user_id, up.student_code, up.full_name
-      ORDER BY COALESCE(up.student_code, us.user_id) ASC
-      LIMIT 500`
-  ).bind(semester).all<{ user_id: string; student_code: string | null; full_name: string | null; course_count: number }>();
+       LEFT JOIN course_schedules cs ON cs.id = us.course_id
+       LEFT JOIN user_schedule_course_snapshots snapshots ON snapshots.schedule_id=us.id
+         AND snapshots.user_id=us.user_id AND snapshots.course_id=us.course_id
+       WHERE us.semester = ?
+     )
+     SELECT user_id, student_code, full_name, COUNT(*) AS course_count,
+       SUM(CASE WHEN typeof(effective_credits) IN ('integer','real') AND effective_credits >= 0
+         THEN effective_credits ELSE 0 END) AS total_credits
+     FROM effective_courses
+     GROUP BY user_id, student_code, full_name
+     ORDER BY COALESCE(student_code, user_id) ASC
+     LIMIT 500`
+  ).bind(semester).all<{ user_id: string; student_code: string | null; full_name: string | null; course_count: number; total_credits: number }>();
 
   if (mode === 'summaries') {
-    return { success: true, data: (rows.results || []).map((row) => ({ ...row, email: null })), role: staff.role };
+    const emails = await authEmails(request, env, (rows.results || []).map((row) => row.user_id));
+    return { success: true, data: (rows.results || []).map((row) => ({ ...row, email: emails.get(row.user_id.toLowerCase()) || null, semesters: [semester] })), role: staff.role };
   }
   if (mode === 'changed') {
     const changed = await env.DB.prepare(

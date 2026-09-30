@@ -4,10 +4,10 @@ import { calculateSemesterStats, calculateSubjectAverage, getGradeDetails, getSc
 import { normalizeSemesterId } from '../utils/rankingData';
 import { getLocalSessionUser } from '../utils/clientSession';
 import { fetchOwnPrivateProfile } from '../utils/privateProfileApi';
-import { fetchCloudflareOwnRanking } from '../utils/benchmarkRankingsApi';
+import { fetchCloudflareImportedBenchmarkRanking } from '../utils/benchmarkRankingsApi';
 
-export const LOOKBACK_SEMESTER_ID = '2025-2026_HK1';
-export const LOOKBACK_SEMESTER_LABEL = 'Học kỳ 1, Năm học 2025-2026';
+export const LOOKBACK_SEMESTER_ID = '2025-2026_HK2';
+export const LOOKBACK_SEMESTER_LABEL = 'Học kỳ 2, Năm học 2025-2026';
 
 export interface SemesterLookbackData {
     semester: Semester | null;
@@ -25,6 +25,7 @@ export interface SemesterLookbackData {
     classCode: string | null;
     topPercent: number | null;
     scholarshipLabel: string;
+    benchmarkRankingFound: boolean;
     bestSubject: {
         name: string;
         score10: number;
@@ -41,15 +42,12 @@ const findLookbackSemester = (semesters?: Semester[] | null): Semester | null =>
     return (semesters || []).find(sem => normalizeSemesterId(sem.name) === LOOKBACK_SEMESTER_ID) || null;
 };
 
-const getCurrentUserIdentity = async (): Promise<{ studentCode: string | null; userId: string | null }> => {
+const getCurrentUserIdentity = async (): Promise<{ userId: string | null }> => {
     const user = await getLocalSessionUser();
-    const emailCode = user?.email?.split('@')[0]?.trim();
-    if (emailCode) return { studentCode: emailCode, userId: user?.id || null };
-    return { studentCode: null, userId: user?.id || null };
+    return { userId: user?.id || null };
 };
 
 export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
-    const [studentCode, setStudentCode] = useState<string | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
     const [lookback, setLookback] = useState<SemesterLookbackData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -71,7 +69,6 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
         let cancelled = false;
         getCurrentUserIdentity().then(identity => {
             if (!cancelled) {
-                setStudentCode(identity.studentCode);
                 setUserId(identity.userId);
             }
         });
@@ -82,7 +79,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
     }, [enabled]);
 
     useEffect(() => {
-        if (!enabled || !isOpen || !studentCode) return;
+        if (!enabled || !isOpen || !userId) return;
 
         let cancelled = false;
 
@@ -122,24 +119,23 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                     .sort((a, b) => b.score10 - a.score10 || b.credits - a.credits)[0] || null;
                 const excellentSubjectCount = scoredSubjects.filter(subject => subject.letter.startsWith('A')).length;
                 const passedSubjectCount = scoredSubjects.filter(subject => subject.score10 >= 4).length;
-                const ownRanking = await fetchCloudflareOwnRanking(LOOKBACK_SEMESTER_ID);
-                const rankRow = ownRanking ? {
-                    student_rank: ownRanking.studentRank,
-                    rank_in_class: ownRanking.rankInClass,
-                    total_in_class: ownRanking.totalInClass,
-                    class_code: ownRanking.classCode,
-                    rank_in_major: ownRanking.rankInMajor,
-                    total_in_major: ownRanking.totalInMajor,
-                    major: ownRanking.major,
-                } : null;
-
-                const rank = typeof rankRow?.student_rank === 'number' ? rankRow.student_rank : null;
-                const totalStudents = ownRanking?.totalStudents ?? null;
-
                 const gpa4 = semesterStats?.hasData ? semesterStats.gpa4 : 0;
                 const gpa10 = semesterStats?.hasData ? semesterStats.gpa10 : 0;
                 const credits = semesterStats?.hasData ? semesterStats.totalCredits : 0;
                 const trainingScore = resolvedSemester?.trainingScore ?? 0;
+                // Match the ranking card's registered-credit input, including
+                // courses whose grades are still incomplete.
+                const rankingCredits = (resolvedSemester?.subjects || [])
+                    .filter(subject => !subject.isNonGPA)
+                    .reduce((total, subject) => total + (Number.isFinite(subject.credits) ? subject.credits : 0), 0);
+                const ranking = await fetchCloudflareImportedBenchmarkRanking({
+                    semester: LOOKBACK_SEMESTER_ID,
+                    gpa: semesterStats?.hasData ? gpa4 : null,
+                    trainingScore: resolvedSemester?.trainingScore ?? null,
+                    credits: rankingCredits,
+                });
+                const rank = ranking.found && typeof ranking.rank === 'number' ? ranking.rank : null;
+                const totalStudents = ranking.totalStudents;
                 const scholarship = getScholarshipStatus(gpa4, trainingScore, credits);
 
                 if (cancelled) return;
@@ -152,14 +148,15 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                     trainingScore,
                     rank,
                     totalStudents,
-                    rankInClass: rankRow?.rank_in_class ?? null,
-                    totalInClass: rankRow?.total_in_class ?? null,
-                    rankInMajor: rankRow?.rank_in_major ?? null,
-                    totalInMajor: rankRow?.total_in_major ?? null,
-                    major: rankRow?.major || activeData.majorName || null,
-                    classCode: rankRow?.class_code || null,
+                    rankInClass: ranking.rankInClass ?? null,
+                    totalInClass: ranking.totalInClass ?? null,
+                    rankInMajor: ranking.rankInMajor ?? null,
+                    totalInMajor: ranking.totalInMajor ?? null,
+                    major: ranking.major || activeData.majorName || null,
+                    classCode: ranking.classCode || null,
                     topPercent: rank && totalStudents ? (rank / totalStudents) * 100 : null,
-                    scholarshipLabel: scholarship.label,
+                    scholarshipLabel: credits > 0 ? scholarship.label : 'Chưa đủ dữ liệu',
+                    benchmarkRankingFound: Boolean(ranking.found),
                     bestSubject,
                     excellentSubjectCount,
                     passedSubjectCount,
@@ -179,7 +176,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
         return () => {
             cancelled = true;
         };
-    }, [activeData.majorName, enabled, isOpen, semester, studentCode, userId]);
+    }, [activeData.majorName, enabled, isOpen, semester, userId]);
 
     return {
         lookback,

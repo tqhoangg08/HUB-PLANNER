@@ -142,7 +142,7 @@ test('Cloudflare AI response and history persist document-source metadata', () =
 });
 
 test('Cloudflare AI keeps provider fallback attempts bounded', () => {
-  const source=fs.readFileSync('cloudflare/worker/src/ai-advisor.ts','utf8');
-  assert.match(source,/availableKeys\.slice\(0, 3\)/);
+  const source=fs.readFileSync('cloudflare/worker/src/ai-advisor-providers.ts','utf8');
+  assert.match(source,/groqKeys\(env\)\.slice\(0, 3\)/);
   assert.match(source,/AbortSignal\.timeout\(25_000\)/);
 });

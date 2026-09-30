@@ -84,7 +84,7 @@ test('ordinary dashboard bootstrap helpers resolve identity through Better Auth'
     assert.doesNotMatch(source, /isBrowserSupabaseConfigured|utils\/supabase|supabase\.(?:from|auth|rpc)/);
   }
   assert.match(lookback, /fetchOwnPrivateProfile/);
-  assert.match(lookback, /fetchCloudflareOwnRanking/);
+  assert.match(lookback, /fetchCloudflareImportedBenchmarkRanking/);
   assert.doesNotMatch(lookback, /utils\/supabase|supabase\.(?:from|auth|rpc)/);
 });
 

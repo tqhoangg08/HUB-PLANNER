@@ -55,3 +55,6 @@ export const mapIdToDisplay = (id: string): string => {
 
     return `Học kỳ ${match[3]}, Năm học ${match[1]}-${match[2]}`;
 };
+
+export const formatRankingPosition = (rank: number | null, total: number): string =>
+    rank && Number.isFinite(rank) ? `#${rank} / ${total}` : 'Chưa có dữ liệu';
