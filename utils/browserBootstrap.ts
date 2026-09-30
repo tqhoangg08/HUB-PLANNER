@@ -1,12 +1,5 @@
-const GA_MEASUREMENT_ID = 'G-RS87LQMBFC';
-
 type NavigatorWithStandalone = Navigator & {
   standalone?: boolean;
-};
-
-type WindowWithGtag = Window & {
-  dataLayer?: unknown[][];
-  gtag?: (...args: unknown[]) => void;
 };
 
 export const installGlobalErrorFilter = () => {
@@ -41,24 +34,7 @@ export const applyStandaloneDisplayMode = () => {
   }
 };
 
-export const installGoogleAnalytics = () => {
-  const win = window as WindowWithGtag;
-  win.dataLayer = win.dataLayer || [];
-  win.gtag = (...args: unknown[]) => {
-    win.dataLayer?.push(args);
-  };
-
-  const script = document.createElement('script');
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
-  document.head.appendChild(script);
-
-  win.gtag('js', new Date());
-  win.gtag('config', GA_MEASUREMENT_ID);
-};
-
 export const bootstrapBrowser = () => {
   installGlobalErrorFilter();
   applyStandaloneDisplayMode();
-  installGoogleAnalytics();
 };
