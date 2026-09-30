@@ -93,7 +93,7 @@ import {
   privateProfileErrorStatus,
   PrivateProfileError,
 } from './private-profile.ts';
-import { handleOwnStudentDirectory, StudentDirectoryError } from './student-directory.ts';
+import { handleOwnStudentDirectory, handleStudentDirectoryClasses, StudentDirectoryError } from './student-directory.ts';
 import {
   handleProfileAuthorityInternal,
   profileAuthorityInternalErrorStatus,
@@ -1602,9 +1602,13 @@ const worker = {
       }
     }
 
-    if (requestUrl.pathname === '/api/user/v1/student-directory') {
+    if (requestUrl.pathname === '/api/user/v1/student-directory' ||
+        requestUrl.pathname === '/api/user/v1/student-directory/classes') {
       try {
-        return json(await handleOwnStudentDirectory(request, env), 200, {
+        const payload = requestUrl.pathname.endsWith('/classes')
+          ? await handleStudentDirectoryClasses(request, env)
+          : await handleOwnStudentDirectory(request, env);
+        return json(payload, 200, {
           ...cors, 'Cache-Control': 'private, no-store',
         });
       } catch (error) {

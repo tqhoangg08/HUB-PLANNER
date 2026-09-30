@@ -13,8 +13,10 @@ import {
 } from '../utils/programs';
 import { playClick } from '../utils/audio';
 import { signOutBetterAuth } from '../utils/privateApi';
-import { fetchOwnPrivateProfile, fetchOwnStudentDirectory, type OwnStudentDirectory } from '../utils/privateProfileApi';
+import { fetchOwnPrivateProfile, fetchOwnStudentDirectory, fetchStudentDirectoryClasses, type OwnStudentDirectory } from '../utils/privateProfileApi';
 import { directoryCohortToProfile, directoryProgramToProfile } from '../shared/student-directory-academic';
+import { genderForSelect, PROFILE_GENDERS } from '../shared/profile-directory-fields';
+import { StudentClassPicker } from './StudentClassPicker';
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserData> & { fullName: string; className: string }) => Promise<void> | void;
@@ -73,7 +75,7 @@ const buildInitialFormData = (initialData?: Partial<UserData>, initialFullName?:
   return {
     fullName: initialFullName || initialData?.studentName || '',
     className: initialClassName || '',
-    gender: initialData?.gender || '',
+    gender: genderForSelect(initialData?.gender),
     majorClass: initialData?.majorClass || '',
     cohort,
     program,
@@ -92,33 +94,32 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [directory, setDirectory] = useState<OwnStudentDirectory | null>(null);
+  const [directoryClasses, setDirectoryClasses] = useState<string[]>([]);
   const [savedName, setSavedName] = useState('');
-  const [savedCohort, setSavedCohort] = useState('');
   const nameLocked = Boolean(directory?.fullName || savedName);
-  const cohortLocked = Boolean(directory?.cohort || savedCohort);
 
   useEffect(() => {
     let active = true;
-    void Promise.allSettled([fetchOwnStudentDirectory(), fetchOwnPrivateProfile()]).then(([directoryResult, profileResult]) => {
+    void Promise.allSettled([fetchOwnStudentDirectory(), fetchOwnPrivateProfile(),
+      fetchStudentDirectoryClasses()]).then(([directoryResult, profileResult, classesResult]) => {
       if (!active) return;
       if (profileResult.status === 'fulfilled') {
         const name = profileResult.value.publicProfile?.full_name;
-        const cohort = profileResult.value.privateProfile?.data?.cohort;
         setSavedName(typeof name === 'string' ? name.trim() : '');
-        setSavedCohort(typeof cohort === 'string' ? cohort.trim() : '');
       }
+      if (classesResult.status === 'fulfilled') setDirectoryClasses(classesResult.value);
       if (directoryResult.status !== 'fulfilled' || !directoryResult.value.matched) return;
       const found = directoryResult.value;
       setDirectory(found);
       setFormData((previous) => {
         const program = previous.program || findProgramFromName(directoryProgramToProfile(found.trainingProgram));
-        const cohort = directoryCohortToProfile(found.cohort, found.trainingProgram) || previous.cohort;
+        const cohort = previous.cohort || directoryCohortToProfile(found.cohort, found.trainingProgram);
         const major = previous.major || findMajorFromInitialData(program, cohort,
           found.major || undefined, found.specialization || undefined);
         return { ...previous,
           fullName: found.fullName || previous.fullName,
           className: previous.className || found.generalClass || '',
-          gender: previous.gender || found.gender || '',
+          gender: previous.gender || genderForSelect(found.gender),
           majorClass: previous.majorClass || found.majorClass || '',
           cohort, program, major,
           specialization: previous.specialization || findSpecializationFromInitialData(major,
@@ -131,7 +132,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
 
   const cohortOptions = formData.program
     ? [...new Set([...(ACADEMIC_COHORT_OPTIONS[formData.program.id] || []),
-      ...(cohortLocked && formData.cohort ? [formData.cohort] : [])])]
+      ...(formData.cohort ? [formData.cohort] : [])])]
     : [];
   const majorOptions = useMemo(
     () => (formData.program && formData.cohort
@@ -160,7 +161,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
     setFormData((previous) => ({
       ...previous,
       program,
-      cohort: cohortLocked ? previous.cohort : '',
+      cohort: '',
       major: null,
       specialization: null,
       manualTotalCredits: '',
@@ -295,7 +296,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
                   placeholder="Nhập họ tên đầy đủ của bạn"
                   aria-invalid={submitted && !formData.fullName.trim()}
                 />
-
+              </div>
+            </div>
 
             {directory?.studentCode && <div className="onboarding-field">
               <label>MSSV</label>
@@ -304,9 +306,15 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
 
             <div className="onboarding-field">
               <label htmlFor="onboarding-gender">Giới tính</label>
-              <div className="onboarding-input-wrap"><input id="onboarding-gender" value={formData.gender}
-                onChange={(event) => setFormData((previous) => ({ ...previous, gender: event.target.value }))}
-                placeholder="Có thể bổ sung hoặc chỉnh sửa" /></div>
+              <div className="onboarding-select-wrap">
+                <select id="onboarding-gender" className={selectClassName} value={formData.gender}
+                  onChange={(event) => setFormData((previous) => ({ ...previous,
+                    gender: genderForSelect(event.target.value) }))}>
+                  <option value="">-- Chọn giới tính --</option>
+                  {PROFILE_GENDERS.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
+                </select>
+                <ChevronDown size={18} aria-hidden="true" />
+              </div>
             </div>
 
             <div className="onboarding-field">
@@ -338,7 +346,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
                   className={selectClassName}
                   value={formData.cohort}
                   onChange={(event) => handleCohortChange(event.target.value)}
-                  disabled={!formData.program || cohortLocked}
+                  disabled={!formData.program}
                   aria-invalid={submitted && !formData.cohort}
                 >
                   <option value="">-- Chọn khóa --</option>
@@ -349,7 +357,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
                   ))}
                 </select>
                 <ChevronDown size={18} aria-hidden="true" />
-
+              </div>
+            </div>
 
             <div className="onboarding-field">
               <label htmlFor="onboarding-major">Chọn ngành học</label>
@@ -397,16 +406,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData,
 
             <div className="onboarding-field">
               <label htmlFor="onboarding-class">Lớp *</label>
-              <div className="onboarding-input-wrap">
-                <input
-                  id="onboarding-class"
-                  type="text"
-                  value={formData.className}
-                  onChange={(event) => setFormData((previous) => ({ ...previous, className: event.target.value }))}
-                  placeholder="Ví dụ: DH22KTA"
-                  aria-invalid={submitted && !formData.className.trim()}
-                />
-              </div>
+              <StudentClassPicker id="onboarding-class" value={formData.className}
+                classes={directoryClasses}
+                onChange={(className) => setFormData((previous) => ({ ...previous, className }))}
+                inputClassName={selectClassName} invalid={submitted && !formData.className.trim()} />
             </div>
 
             <div className="onboarding-field">

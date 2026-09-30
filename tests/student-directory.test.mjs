@@ -11,11 +11,13 @@ import {
 } from '../scripts/student-directory-workbook.mjs';
 import {
   studentCodeFromVerifiedEmail, handleOwnStudentDirectory,
-  readVerifiedStudentCode,
+  handleStudentDirectoryClasses, readVerifiedStudentCode,
 } from '../cloudflare/worker/src/student-directory.ts';
-import { enforceProfileIdentityLocks } from '../cloudflare/worker/src/private-profile.ts';
+import { enforceProfileIdentityLocks, validatePrivateProfile } from '../cloudflare/worker/src/private-profile.ts';
 import { fillEditableDirectoryField } from '../scripts/student-directory-backfill-core.mjs';
 import { directoryCohortToProfile, directoryProgramToProfile } from '../shared/student-directory-academic.ts';
+import { PROFILE_GENDERS, genderForSelect, isValidProfileGender,
+  filterDirectoryClasses, MANUAL_CLASS_OPTION } from '../shared/profile-directory-fields.ts';
 
 const owner = { userId: '11111111-1111-4111-8111-111111111111',
   email: '012345678901@st.buh.edu.vn', role: 'user' };
@@ -37,7 +39,10 @@ const env = (options = {}) => {
         email: options.emailOverride || owner.email,
         emailVerified: options.verified ?? true } });
     } },
-    DB: { prepare: (sql) => ({ bind: (code) => ({ first: async () => {
+    DB: { prepare: (sql) => ({ all: async () => {
+      calls.push('D1:classes');
+      return { results: [{ class_name: 'C1' }, { class_name: 'C2' }] };
+    }, bind: (code) => ({ first: async () => {
       calls.push(`D1:${sql.includes('WHERE student_code=?')}`);
       return !options.directoryMissing && code === directory.student_code ? directory : null;
     } }) }) },
@@ -75,26 +80,55 @@ test('untrusted session, user mismatch and missing row never expose another reco
     { matched: false });
 });
 
-test('directory name/cohort override only the owner and remain locked', () => {
+test('directory name remains locked while its cohort is an editable prefill', () => {
   const publicPatch = { full_name: 'Student A' };
-  const privatePatch = { data: { studentName: 'Student A', cohort: 'K41', gender: 'Khác' } };
+  const privatePatch = { data: { studentName: 'Student A', cohort: 'K42', gender: 'Nữ' } };
   const locks = enforceProfileIdentityLocks(publicPatch, privatePatch, null, null, directory);
-  assert.deepEqual(locks, { fullNameLocked: true, cohortLocked: true });
-  assert.equal(privatePatch.data.gender, 'Khác');
+  assert.deepEqual(locks, { fullNameLocked: true });
+  assert.equal(privatePatch.data.cohort, 'K42');
   assert.throws(() => enforceProfileIdentityLocks({ full_name: 'Different' }, {}, null, null, directory),
-    { status: 400 });
-  assert.throws(() => enforceProfileIdentityLocks({}, { data: { cohort: '40' } }, null, null, directory),
     { status: 400 });
 });
 
-test('missing name/cohort can be set once, then become immutable', () => {
+test('missing name can be set once; cohort can be changed later', () => {
   assert.deepEqual(enforceProfileIdentityLocks({ full_name: 'First' },
     { data: { studentName: 'First', cohort: '41' } }, null, null, null),
-  { fullNameLocked: false, cohortLocked: false });
+  { fullNameLocked: false });
   assert.throws(() => enforceProfileIdentityLocks({ full_name: 'Second' }, {},
     { full_name: 'First' }, { data: { cohort: '41' } }, null), { status: 400 });
-  assert.throws(() => enforceProfileIdentityLocks({}, { data: { cohort: '42' } },
-    { full_name: 'First' }, { data: { cohort: '41' } }, null), { status: 400 });
+  const patch = { data: { cohort: '42' } };
+  enforceProfileIdentityLocks({}, patch, { full_name: 'First' }, { data: { cohort: '41' } }, null);
+  assert.equal(patch.data.cohort, '42');
+});
+
+test('gender API accepts only Nam, Nữ or blank, never free-form text', () => {
+  assert.deepEqual(PROFILE_GENDERS, ['Nam', 'Nữ']);
+  for (const value of ['Nam', 'Nữ', '']) validatePrivateProfile({ data: { gender: value } });
+  for (const value of ['Khác', 'Male', 'nam', 1]) {
+    assert.equal(isValidProfileGender(value), false);
+    assert.throws(() => validatePrivateProfile({ data: { gender: value } }), { status: 400 });
+  }
+  assert.equal(genderForSelect('Nam'), 'Nam');
+  assert.equal(genderForSelect('Khác'), '');
+});
+
+test('class filtering is searchable and manual choice remains separate', () => {
+  assert.deepEqual(filterDirectoryClasses(['DHB', 'ĐHC', 'KTA'], 'dhc'), ['ĐHC']);
+  assert.deepEqual(filterDirectoryClasses(['C1', 'C2', 'C3'], 'c', 2), ['C1', 'C2']);
+  assert.equal(MANUAL_CLASS_OPTION, 'Không tìm thấy, tự nhập');
+});
+
+test('class list is authenticated, contains labels only, and rejects MSSV query parameters', async () => {
+  const context = env();
+  assert.deepEqual(await handleStudentDirectoryClasses(request('/classes'), context),
+    { classes: ['C1', 'C2'] });
+  assert.deepEqual(context.calls, ['/internal/auth/session', '/api/auth/get-session', 'D1:classes']);
+  await assert.rejects(handleStudentDirectoryClasses(request('/classes?mssv=999999999999'), context),
+    { status: 400 });
+  await assert.rejects(handleStudentDirectoryClasses(request('/classes'), env({ sessionMissing: true })),
+    { status: 401 });
+  assert.deepEqual(await handleStudentDirectoryClasses(request('/classes'), env({ verified: false })),
+    { classes: [] });
 });
 
 test('11-digit code receives exactly one leading zero; invalid remains invalid', () => {
@@ -119,10 +153,11 @@ test('compatible duplicate merges deterministically; conflict names are bounded'
 });
 
 test('existing customized editable fields survive backfill and blanks fill', () => {
-  const profile = { majorName: 'My choice', gender: '' };
+  const profile = { majorName: 'My choice', gender: '', cohort: 'K42' };
   assert.equal(fillEditableDirectoryField(profile, 'majorName', 'Directory major'), 'preserved');
   assert.equal(fillEditableDirectoryField(profile, 'gender', 'Nữ'), 'filled');
-  assert.deepEqual(profile, { majorName: 'My choice', gender: 'Nữ' });
+  assert.equal(fillEditableDirectoryField(profile, 'cohort', 'K41'), 'preserved');
+  assert.deepEqual(profile, { majorName: 'My choice', gender: 'Nữ', cohort: 'K42' });
 });
 
 test('synthetic workbook validates and SQL remains deterministic', async () => {

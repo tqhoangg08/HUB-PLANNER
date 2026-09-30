@@ -103,3 +103,17 @@ export const handleOwnStudentDirectory = async (request: Request, env: StudentDi
     trainingProgram: row.training_program, cohort: row.cohort }
     : { matched: false };
 };
+
+/** Only class labels are returned; no record, MSSV or student lookup is exposed. */
+export const handleStudentDirectoryClasses = async (request: Request, env: StudentDirectoryEnv) => {
+  if (request.method !== 'GET') throw new StudentDirectoryError(405, 'Phương thức không được hỗ trợ.');
+  if (new URL(request.url).search) throw new StudentDirectoryError(400, 'Không hỗ trợ tham số tìm kiếm.');
+  const identity = await requireBetterAuthSession(request, env);
+  if (!await readVerifiedStudentCode(request, env, identity)) return { classes: [] };
+  if (!env.DB) throw new StudentDirectoryError(503, 'Dữ liệu sinh viên tạm thời chưa sẵn sàng.');
+  const result = await env.DB.prepare(`SELECT DISTINCT TRIM(general_class) AS class_name
+    FROM student_directory WHERE general_class IS NOT NULL AND TRIM(general_class) <> ''
+    ORDER BY class_name COLLATE NOCASE`).all<{ class_name: string }>();
+  return { classes: result.results.map((row) => row.class_name)
+    .filter((name) => name.length <= 80) };
+};

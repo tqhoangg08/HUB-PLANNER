@@ -13,7 +13,7 @@ import {
   type ProfileShadowEnv,
 } from './profile-shadow.ts';
 import { readOwnStudentDirectory, type StudentDirectoryRow, StudentDirectoryError } from './student-directory.ts';
-import { directoryCohortToProfile } from '../../../shared/student-directory-academic.ts';
+import { isValidProfileGender } from '../../../shared/profile-directory-fields.ts';
 
 export interface PrivateProfileEnv extends BetterAuthIdentityEnv, ProfileShadowEnv {
   SUPABASE_URL?: string;
@@ -194,10 +194,14 @@ const validatePublicProfile = (profile: Record<string, unknown>) => {
   }
 };
 
-const validatePrivateProfile = (profile: Record<string, unknown>) => {
+export const validatePrivateProfile = (profile: Record<string, unknown>) => {
   if (!Object.hasOwn(profile, 'data')) return;
   const data = profile.data;
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw invalid();
+  const fields = data as Record<string, unknown>;
+  if (Object.hasOwn(fields, 'gender') && !isValidProfileGender(fields.gender)) {
+    throw new PrivateProfileError(400, 'Giới tính phải là Nam hoặc Nữ.');
+  }
 };
 
 const nonblank = (value: unknown) => typeof value === 'string' ? value.trim() : '';
@@ -213,9 +217,6 @@ export const enforceProfileIdentityLocks = (
     ? existingPrivate.data as Record<string, unknown> : {};
   const authoritativeName = nonblank(directory?.full_name) || nonblank(existingPublic?.full_name)
     || nonblank(existingData.studentName);
-  const authoritativeCohort = directoryCohortToProfile(directory?.cohort, directory?.training_program)
-    || nonblank(existingData.cohort)
-    || nonblank(existingPrivate?.cohort);
   const nextData = privateProfile.data && typeof privateProfile.data === 'object'
     ? privateProfile.data as Record<string, unknown> : null;
   const rejectChanged = (incoming: unknown, locked: string, label: string) => {
@@ -229,15 +230,11 @@ export const enforceProfileIdentityLocks = (
   if (nextData && Object.hasOwn(nextData, 'studentName')) {
     rejectChanged(nextData.studentName, authoritativeName, 'Họ tên');
   }
-  if (nextData && Object.hasOwn(nextData, 'cohort')) {
-    rejectChanged(nextData.cohort, authoritativeCohort, 'Khóa');
-  }
   if (directory?.full_name) publicProfile.full_name = directory.full_name;
   if (nextData) {
     if (authoritativeName) nextData.studentName = authoritativeName;
-    if (authoritativeCohort) nextData.cohort = authoritativeCohort;
   }
-  return { fullNameLocked: Boolean(authoritativeName), cohortLocked: Boolean(authoritativeCohort) };
+  return { fullNameLocked: Boolean(authoritativeName) };
 };
 
 export const mirrorProfileOwnerFromAuthoritativeSource = async (

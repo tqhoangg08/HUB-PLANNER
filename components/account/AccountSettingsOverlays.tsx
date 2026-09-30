@@ -47,6 +47,7 @@ export const AccountSettingsOverlays = ({
                 majorClass={profile.draftMajorClass}
                 bio={profile.draftBio}
                 className={profile.draftClassName}
+                directoryClasses={profile.directoryClasses}
                 defaultClassName={profile.defaultClassName}
                 profileTags={profile.draftProfileTags}
                 publicProfileEnabled={profile.draftPublicProfileEnabled}
@@ -101,7 +102,6 @@ export const AccountSettingsOverlays = ({
             <AccountAcademicProfileFields
                 selectedProgram={profile.draftProgram}
                 selectedCohort={profile.draftCohort}
-                cohortLocked={profile.cohortLocked}
                 selectedMajor={profile.draftMajor}
                 selectedSpecialization={profile.draftSpecialization}
                 programs={profile.programOptions}

@@ -54,7 +54,7 @@ const publicRows = allPublicRows('user_profiles');
 const privateRows = new Map(allPublicRows('user_profile_private').map((row) => [row.user_id, row]));
 const metrics = {
   EXISTING_USERS_ELIGIBLE: 0, EXISTING_USERS_DIRECTORY_MATCHED: 0,
-  FULL_NAME_WOULD_UPDATE: 0, COHORT_WOULD_UPDATE: 0,
+  FULL_NAME_WOULD_UPDATE: 0, COHORT_WOULD_FILL: 0,
   GENDER_WOULD_FILL: 0, GENERAL_CLASS_WOULD_FILL: 0,
   MAJOR_CLASS_WOULD_FILL: 0, MAJOR_WOULD_FILL: 0,
   SPECIALIZATION_WOULD_FILL: 0, TRAINING_PROGRAM_WOULD_FILL: 0,
@@ -106,12 +106,12 @@ for (const row of publicRows) {
       if (data[key] !== value) { data[key] = value; metrics[metric] += 1; changed = true; }
     };
     setLocked('studentName', lockedPublic, 'FULL_NAME_WOULD_UPDATE');
-    setLocked('cohort', directoryCohortToProfile(match.cohort, match.training_program), 'COHORT_WOULD_UPDATE');
     const fillData = (key, value, metric) => {
       const outcome = fillEditableDirectoryField(data, key, value);
       if (outcome === 'preserved') metrics.EDITABLE_NONEMPTY_FIELDS_PRESERVED += 1;
       if (outcome === 'filled') { metrics[metric] += 1; changed = true; }
     };
+    fillData('cohort', directoryCohortToProfile(match.cohort, match.training_program), 'COHORT_WOULD_FILL');
     fillData('gender', match.gender, 'GENDER_WOULD_FILL');
     fillData('majorClass', match.major_class, 'MAJOR_CLASS_WOULD_FILL');
     fillData('majorName', match.major, 'MAJOR_WOULD_FILL');

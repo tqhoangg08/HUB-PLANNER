@@ -23,6 +23,13 @@ export const fetchOwnStudentDirectory = async (): Promise<OwnStudentDirectory> =
   return response.json() as Promise<OwnStudentDirectory>;
 };
 
+export const fetchStudentDirectoryClasses = async (): Promise<string[]> => {
+  const response = await privateApiRequest('/api/user/v1/student-directory/classes');
+  const payload = await response.json() as { classes?: unknown };
+  return Array.isArray(payload.classes) ? payload.classes.filter((value): value is string =>
+    typeof value === 'string') : [];
+};
+
 const PROFILE_BOOTSTRAP_RETRY_DELAYS_MS = [0, 300, 900] as const;
 const PROFILE_BOOTSTRAP_REQUEST_TIMEOUT_MS = 4_000;
 export const PROFILE_BOOTSTRAP_MAX_WAIT_SECONDS = 14;
