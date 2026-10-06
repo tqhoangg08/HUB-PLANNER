@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { adminNavGroups, auditorNavGroups, staffGroupForPath } from '../layouts/staffSidebarNav.ts';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
@@ -15,26 +16,47 @@ test('admin navigation separates overview from the cursor-backed student manager
 
 test('admin sidebar preserves only real routes in the requested hierarchy', () => {
   const sidebar = read('layouts/DesktopLayout.tsx');
-  for (const label of ['TỔNG QUAN', 'QUẢN LÝ', 'HỌC TẬP', 'NỘI DUNG & SỰ KIỆN', 'VẬN HÀNH', 'KIỂM DUYỆT', 'HỖ TRỢ', 'DỮ LIỆU', 'HỆ THỐNG', 'Tri thức AI', 'Nhật ký hoạt động', 'Duyệt sự kiện', 'Báo cáo & vi phạm', 'Ticket hỗ trợ', 'Tài khoản nội bộ']) {
-    assert.match(sidebar, new RegExp(label));
-  }
+  assert.deepEqual(adminNavGroups.map(group => group.label), ['QUẢN LÝ', 'NỘI DUNG & SỰ KIỆN', 'VẬN HÀNH', 'DỮ LIỆU', 'HỆ THỐNG']);
+  assert.deepEqual(adminNavGroups.flatMap(group => group.items.map(item => item.label)), ['Sinh viên', 'HỌC TẬP', 'Thời khóa biểu', 'Sự kiện ĐRL', 'Duyệt sự kiện', 'Thông báo trường', 'Đồ thất lạc', 'KIỂM DUYỆT', 'Báo cáo & vi phạm', 'HỖ TRỢ', 'Ticket hỗ trợ', 'Trung tâm dữ liệu', 'Tri thức AI', 'Tài khoản nội bộ', 'Nhật ký hoạt động']);
   assert.match(sidebar, /aria-expanded=\{expanded\}/);
   assert.match(sidebar, /isAdminSidebarCollapsed/);
   assert.match(sidebar, /aria-label="Tổng quan"/);
   assert.match(sidebar, /\? 'Quản lý sinh viên'/);
-  assert.doesNotMatch(sidebar, /to="\/admin\/(?:roles|settings)"/);
+  assert.match(sidebar, /isAdmin \? adminNavGroups : auditorNavGroups/);
 });
 
 test('admin sidebar badges are count based and do not alter backend authorization', () => {
   const sidebar = read('layouts/DesktopLayout.tsx');
   const routes = read('app/routing/ProtectedAppRoutes.tsx');
   const shell = read('app/shell/ProtectedAppShell.tsx');
-  assert.match(sidebar, /pendingCandidateCount > 0/);
-  assert.match(sidebar, /pendingReportCount > 0/);
+  assert.match(sidebar, /item\.badge === 'candidates' \? pendingCandidateCount/);
+  assert.match(sidebar, /item\.badge === 'reports' \? pendingReportCount/);
   assert.match(routes, /admin\/internal-accounts[\s\S]*?isAdmin/);
   assert.match(routes, /admin\/event-candidates[\s\S]*?isManagementUser/);
   assert.match(routes, /if \(mobileLayout && !isManagementUser\)/);
   assert.match(shell, /mobileLayout && !isAdmin && !isAuditor/);
+});
+
+test('auditor has separate, complete navigation without admin-only groups or empty sections', () => {
+  assert.deepEqual(auditorNavGroups.map(group => group.label), ['HỌC TẬP', 'NỘI DUNG & SỰ KIỆN', 'KIỂM DUYỆT', 'HỖ TRỢ']);
+  assert.deepEqual(auditorNavGroups.flatMap(group => group.items.map(item => item.label)), ['Thời khóa biểu', 'Sự kiện ĐRL', 'Duyệt sự kiện', 'Thông báo trường', 'Đồ thất lạc', 'Báo cáo & vi phạm', 'Ticket hỗ trợ']);
+  assert.ok(auditorNavGroups.every(group => group.items.length > 0));
+  assert.equal(auditorNavGroups.some(group => ['QUẢN LÝ', 'DỮ LIỆU', 'HỆ THỐNG'].includes(group.label)), false);
+  assert.deepEqual(auditorNavGroups.flatMap(group => group.items.filter(item => item.kind === 'link' && item.badge).map(item => item.label)), ['Duyệt sự kiện', 'Báo cáo & vi phạm']);
+  assert.equal(staffGroupForPath('/schedule', 'auditor'), 'study');
+  assert.equal(staffGroupForPath('/admin-reports', 'auditor'), 'moderation');
+  assert.equal(staffGroupForPath('/admin/support', 'auditor'), 'support');
+  assert.equal(staffGroupForPath('/admin/students', 'auditor'), null);
+});
+
+test('auditor direct navigation to admin-only routes remains denied', () => {
+  const routes = read('app/routing/ProtectedAppRoutes.tsx');
+  for (const path of ['/admin/students/*', '/admin/data', '/admin/ai-documents', '/admin/internal-accounts', '/admin/activity']) {
+    assert.match(routes, new RegExp(`path="${path.replace(/\*/g, '\\*')}"[\\s\\S]{0,220}isAdmin`));
+  }
+  for (const path of ['/admin-reports', '/admin/support', '/admin/event-candidates']) {
+    assert.match(routes, new RegExp(`path="${path}"[\\s\\S]{0,220}isManagementUser`));
+  }
 });
 
 test('admin sidebar preserves independently expanded groups and auto-expands the active route group', () => {
