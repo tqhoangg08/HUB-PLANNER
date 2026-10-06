@@ -34,6 +34,7 @@ import {
 import { EventFilterControls } from './event-filters/EventFilterControls';
 import { AdminEventManagementView } from './AdminEventManagementView';
 import { EventDetailView } from './EventDetailView';
+import { buildAdminEventPayload } from '../utils/adminEventForm';
 import {
   compareFilteredEvents,
   createDefaultEventFilters,
@@ -732,28 +733,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         playClick();
         
         try {
-            const payload = {
-                title: formData.title,
-                deadline: formData.close_on_full ? null : (formData.deadline ? formData.deadline : null),
-                deadline_time: formData.close_on_full ? null : (formData.deadline_time ? formData.deadline_time : null),
-                close_on_full: formData.close_on_full,
-                event_date: formData.event_date ? formData.event_date : null, 
-                event_time: formData.event_time ? formData.event_time : null, 
-                registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
-                registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
-                category: formData.category,
-                classification: null,
-                criteria: formData.criteria,
-                points: formData.points,
-                organizer: formData.organizer,
-                link: formData.link,
-                image_url: formData.image_url || null,
-                location_type: formData.location_type,
-                format: formData.format,
-                status: formData.status,
-                is_manually_closed: formData.is_manually_closed,
-                description: formData.description
-            };
+            const payload = buildAdminEventPayload(formData);
 
             let mutation;
             if (editingEvent) {
@@ -1477,6 +1457,10 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   const handleOpenAdd = () => {
       playClick();
+      if (isAdmin || isAuditor) {
+          navigate('/events/new');
+          return;
+      }
       setEditingEvent(null);
       setShowManageModal(true);
   };

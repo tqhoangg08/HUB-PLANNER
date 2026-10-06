@@ -6,6 +6,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { isOwnProfileRoute } from '../../utils/profileRouteApi';
 import {
     AdminEventCandidates,
+    AdminEventEditorPage,
     AdminOperationsDashboard,
     AdminAIDocuments,
     AdminInternalAccounts,
@@ -162,6 +163,7 @@ export const ProtectedAppRoutes = ({
                     )}
                 />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUserId} />} />
+                <Route path="/events/new" element={<Navigate to="/mobile-home" replace />} />
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUserId} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUserId} />} />
                 <Route path="/lost-found" element={<MobileLostFound />} />
@@ -256,6 +258,7 @@ export const ProtectedAppRoutes = ({
             <Route path="/schedule" element={<ScheduleBoard viewUserId={viewingUserId} />} />
             <Route path="/schedule/:studentCode" element={<ScheduleBoard viewUserId={viewingUserId} />} />
             <Route path="/events" element={<EventsBoard viewUserId={viewingUserId} />} />
+            <Route path="/events/new" element={isManagementUser ? <AdminEventEditorPage /> : <Navigate to="/dashboard" replace />} />
             <Route path="/events/edit/:eventId" element={<EventsBoard viewUserId={viewingUserId} />} />
             <Route path="/events/:eventId" element={<EventsBoard viewUserId={viewingUserId} />} />
             <Route path="/lost-found" element={<LostFoundBoard />} />

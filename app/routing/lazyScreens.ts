@@ -15,6 +15,9 @@ export const Handbook = lazy(() =>
 export const EventsBoard = lazy(() =>
     import('../../components/EventsBoard').then(module => ({ default: module.EventsBoard }))
 );
+export const AdminEventEditorPage = lazy(() =>
+    import('../../components/AdminEventEditorPage').then(module => ({ default: module.AdminEventEditorPage }))
+);
 export const LostFoundBoard = lazy(() =>
     import('../../components/LostFoundBoard').then(module => ({ default: module.LostFoundBoard }))
 );

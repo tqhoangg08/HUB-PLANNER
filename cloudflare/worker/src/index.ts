@@ -23,6 +23,7 @@ import {
   type LostFoundEnv,
 } from './lost-found.ts';
 import { handleAdminEvents } from './admin-events.ts';
+import { EventBannerError, readEventBanner, uploadEventBanner } from './event-banner.ts';
 import {
   AdminEventMutationError,
   assertAdminEventMutationAllowed,
@@ -1278,6 +1279,17 @@ const worker = {
       }
     }
 
+    const eventBannerMatch = requestUrl.pathname.match(/^\/api\/public\/v1\/event-banners\/(.+)$/);
+    if (eventBannerMatch) {
+      try { return await readEventBanner(request, eventBannerMatch[1], env); }
+      catch (error) {
+        const status = error instanceof EventBannerError ? error.status : 500;
+        return json({ error: status === 404 ? 'Không tìm thấy ảnh.' : 'Không tải được ảnh.' }, status, {
+          ...cors, 'Cache-Control': 'no-store',
+        });
+      }
+    }
+
     if (requestUrl.pathname === '/api/admin/v1/lost-found') {
       try {
         return json(await handleAdminLostFound(request, requestUrl, env), 200, {
@@ -1702,6 +1714,20 @@ const worker = {
               ? (error as PrivatePolicyConsentError).message
               : 'KhÃ´ng thá»ƒ ghi nháº­n Ä‘á»“ng Ã½.',
         }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/v1/events/banner') {
+      try {
+        return json(await uploadEventBanner(request, env), 201, { ...cors, 'Cache-Control': 'private, no-store' });
+      } catch (error) {
+        const status = error instanceof BetterAuthIdentityError ? error.status
+          : error instanceof EventBannerError ? error.status : 500;
+        if (status >= 500) console.error(JSON.stringify({ event: 'event_banner_upload_failed', status }));
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+          : status === 403 ? 'Không có quyền truy cập.'
+            : error instanceof EventBannerError ? error.message : 'Không thể tải ảnh sự kiện.' }, status,
+        { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 

@@ -182,6 +182,12 @@ export const validateAdminEventMutationPayload = (value: unknown, mode: Mutation
       if (field === 'points' && typeof rawValue === 'number' && Number.isFinite(rawValue)) { payload[field] = String(rawValue); continue; }
       if (typeof rawValue !== 'string') throw new AdminEventMutationError(400, `Trường "${field}" phải là chuỗi.`);
       if (rawValue.length > textRule.max) throw new AdminEventMutationError(400, `Trường "${field}" vượt quá độ dài cho phép.`);
+      if (field === 'link' && rawValue.trim()) {
+        try {
+          const url = new URL(rawValue.trim());
+          if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error();
+        } catch { throw new AdminEventMutationError(400, 'Liên kết sự kiện phải là URL HTTP/HTTPS hợp lệ.'); }
+      }
       payload[field] = field === 'title' ? rawValue.trim() : rawValue;
       continue;
     }
