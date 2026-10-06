@@ -10,6 +10,7 @@ import {
   type AdminEventFormValues,
 } from '../utils/adminEventForm';
 import { EventDetailView, type EventDetailData } from './EventDetailView';
+import { EventDrlRulePicker, OrganizerPicker, RecognitionFields, useEventDrlAssistant } from './EventDrlAssistant';
 
 const control = 'min-h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400';
 const secondary = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]';
@@ -41,6 +42,7 @@ export const AdminEventEditorPage: React.FC = () => {
   const [localImageUrl, setLocalImageUrl] = useState('');
   const [preview, setPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const { rules, organizers, prediction } = useEventDrlAssistant(draft, !loading && (isAdmin || isAuditor));
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => { document.title = 'Thêm sự kiện | HUB Planner'; }, []);
@@ -125,11 +127,11 @@ export const AdminEventEditorPage: React.FC = () => {
             {field('category', 'Loại hình', <><select id="event-category" className={control} value={EVENT_CATEGORIES.includes(draft.category as typeof EVENT_CATEGORIES[number]) ? draft.category : 'other'} onChange={(event) => setField('category', event.target.value === 'other' ? '' : event.target.value)}>{EVENT_CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}<option value="other">Khác (tự nhập)</option></select>{!EVENT_CATEGORIES.includes(draft.category as typeof EVENT_CATEGORIES[number]) && <input aria-label="Loại hình khác" className={`${control} mt-2`} value={draft.category} onChange={(event) => setField('category', event.target.value)} maxLength={120} placeholder="Nhập loại hình"/>}</>, true)}
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {text('organizer', 'Đơn vị tổ chức', true)}
-            {field('criteria', 'Mục ĐRL', <select id="event-criteria" className={control} value={draft.criteria} onChange={(event) => setField('criteria', event.target.value)}>{['I', 'II', 'III', 'IV', 'V', 'Chưa biết'].map((item) => <option key={item}>{item}</option>)}</select>, true)}
-            {text('points', 'Điểm rèn luyện', true)}
+            {field('organizer', 'Đơn vị tổ chức', <OrganizerPicker value={draft.organizer} onChange={(value) => setField('organizer', value)} organizers={organizers}/>, true)}
+            <div className="lg:col-span-2">{field('drl_rule_id', 'Mục / Tiểu mục ĐRL', <EventDrlRulePicker rules={rules} selectedRuleId={draft.drl_rule_id || ''} prediction={prediction} onSelect={(rule) => setDraft((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))} />)}</div>
             {field('format', 'Hình thức', <select id="event-format" className={control} value={draft.format} onChange={(event) => setField('format', event.target.value)}>{['Offline', 'Online', 'Hỗn hợp'].map((item) => <option key={item}>{item}</option>)}</select>, true)}
           </div>
+          <div className="mt-4"><RecognitionFields type={draft.recognition_type || 'Không có / Chưa xác định'} note={draft.recognition_note || ''} onType={(value) => setField('recognition_type', value)} onNote={(value) => setField('recognition_note', value)}/></div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">{field('location_type', 'Khu vực', <select id="event-location_type" className={control} value={draft.location_type} onChange={(event) => setField('location_type', event.target.value)}><option>Trong trường</option><option>Ngoài trường</option></select>)}{text('classification', 'Phân loại')}</div>
         </section>
 

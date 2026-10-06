@@ -26,6 +26,7 @@ import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { fetchAdminEventCandidates } from '../utils/adminLegacyDataApi';
 import { privateApiRequest } from '../utils/privateApi';
+import { EventDrlRulePicker, OrganizerPicker, RecognitionFields, useEventDrlAssistant } from './EventDrlAssistant';
 
 type ReviewStatus = 'pending' | 'approved' | 'rejected' | string;
 
@@ -45,6 +46,9 @@ interface EventCandidate {
   approved_event_id?: number | null;
   reviewed_at?: string | null;
   created_at?: string | null;
+  drl_prediction?: { state: 'pending' | 'completed' | 'failed'; rule_id: string | null;
+    confidence: number | null; confidence_label: string | null; historical_support_count: number | null;
+    section: string | null; content: string | null; condition_text: string | null; points: number | null; } | null;
 }
 
 interface EventDraft {
@@ -53,6 +57,9 @@ interface EventDraft {
   category: string;
   criteria: string;
   points: string;
+  drl_rule_id: string;
+  recognition_type: string;
+  recognition_note: string;
   format: string;
   link: string;
   location_type: string;
@@ -103,6 +110,7 @@ const defaultDraft = (): EventDraft => ({
   category: DEFAULT_EVENT_CATEGORY,
   criteria: 'III',
   points: '3',
+  drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
   format: 'Offline',
   link: '',
   location_type: 'Trong trường',
@@ -145,6 +153,7 @@ const buildDraftFromCandidate = (candidate: EventCandidate | null): EventDraft =
     category: normalizeCategory(ai?.category),
     criteria: ai?.criteria || 'III',
     points: ai?.points !== undefined && ai?.points !== null ? String(ai.points) : '3',
+    drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
     format: ai?.format || 'Offline',
     link: candidate?.post_url || ai?.link || '',
     location_type: ai?.location_type || 'Trong trường',
@@ -176,15 +185,25 @@ const getAiBadge = (candidate: EventCandidate) => {
   return 'bg-rose-50 text-rose-700 border-rose-200';
 };
 
+const drlCandidateLabel = (candidate: EventCandidate) => {
+  const prediction = candidate.drl_prediction;
+  if (prediction?.state === 'failed') return 'Chưa thể dự đoán';
+  if (prediction?.state !== 'completed') return 'Đang chờ';
+  if (!prediction.section || prediction.points === null) return 'Chưa đủ dữ liệu';
+  return `Mục ${prediction.section} · ${prediction.condition_text || prediction.content || 'Quy tắc chính thức'} · ${prediction.points > 0 ? '+' : ''}${prediction.points} điểm · ${prediction.confidence_label || 'low'}`;
+};
+
 const CandidateDetailModal = ({
   candidate,
   draft,
   onClose,
   onDraftChange,
   onAnalyze,
+  onRetryDrl,
   onApprove,
   onReject,
   analyzing,
+  retryingDrl,
   approving,
   rejecting,
 }: {
@@ -193,12 +212,15 @@ const CandidateDetailModal = ({
   onClose: () => void;
   onDraftChange: (draft: EventDraft) => void;
   onAnalyze: () => void;
+  onRetryDrl: () => void;
   onApprove: () => void;
   onReject: () => void;
   analyzing: boolean;
+  retryingDrl: boolean;
   approving: boolean;
   rejecting: boolean;
 }) => {
+  const { rules, organizers } = useEventDrlAssistant(draft, Boolean(candidate), false);
   if (!candidate) return null;
 
   const aiResult = normalizeAiResult(candidate);
@@ -362,14 +384,10 @@ const CandidateDetailModal = ({
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
-                  <label className="block sm:col-span-2">
+                  <div className="block sm:col-span-2">
                     <span className="text-xs font-semibold text-gray-500 mb-1 block">Đơn vị tổ chức</span>
-                    <input
-                      value={draft.organizer}
-                      onChange={(e) => onDraftChange({ ...draft, organizer: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
-                    />
-                  </label>
+                    <OrganizerPicker value={draft.organizer} onChange={(value) => onDraftChange({ ...draft, organizer: value })} organizers={organizers}/>
+                  </div>
                   <label className="block">
                     <span className="text-xs font-semibold text-gray-500 mb-1 block">Category</span>
                     <select
@@ -384,22 +402,23 @@ const CandidateDetailModal = ({
                       ))}
                     </select>
                   </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Criteria</span>
-                    <input
-                      value={draft.criteria}
-                      onChange={(e) => onDraftChange({ ...draft, criteria: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Điểm</span>
-                    <input
-                      value={draft.points}
-                      onChange={(e) => onDraftChange({ ...draft, points: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
-                    />
-                  </label>
+                  <div className="sm:col-span-2">
+                    {candidate.drl_prediction?.state === 'completed' ? <p className="mb-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-[#003375]">
+                      AI dự kiến: {drlCandidateLabel(candidate)} · {candidate.drl_prediction.historical_support_count || 0} sự kiện lịch sử hỗ trợ
+                    </p> : <p className="mb-2 text-xs text-slate-500">Dự đoán ĐRL: {candidate.drl_prediction?.state || 'đang chờ'}</p>}
+                    {candidate.drl_prediction?.state === 'failed' && <button type="button" disabled={retryingDrl}
+                      className="mb-2 rounded border border-blue-300 px-2 py-1 text-xs font-semibold text-[#0052cc] disabled:opacity-50"
+                      onClick={onRetryDrl}>{retryingDrl ? 'Đang thử lại…' : 'Thử lại gợi ý ĐRL'}</button>}
+                    <EventDrlRulePicker rules={rules} selectedRuleId={draft.drl_rule_id} prediction={null}
+                      onSelect={(rule) => onDraftChange({ ...draft, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
+                    {candidate.drl_prediction?.rule_id && rules.some((rule) => rule.rule_id === candidate.drl_prediction?.rule_id) &&
+                      <button type="button" className="mt-2 rounded border border-blue-300 px-2 py-1 text-xs font-semibold text-[#0052cc]"
+                        onClick={() => { const rule = rules.find((item) => item.rule_id === candidate.drl_prediction?.rule_id)!;
+                          onDraftChange({ ...draft, drl_rule_id: rule.rule_id, criteria: rule.section, points: String(rule.points) }); }}>Áp dụng gợi ý ĐRL</button>}
+                  </div>
+                  <div className="sm:col-span-2"><RecognitionFields type={draft.recognition_type} note={draft.recognition_note}
+                    onType={(value) => onDraftChange({ ...draft, recognition_type: value })}
+                    onNote={(value) => onDraftChange({ ...draft, recognition_note: value })}/></div>
                   <label className="block">
                     <span className="text-xs font-semibold text-gray-500 mb-1 block">Format</span>
                     <select
@@ -562,6 +581,7 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<EventDraft>(defaultDraft());
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [retryingDrlId, setRetryingDrlId] = useState<string | null>(null);
   const [savingAction, setSavingAction] = useState<'approve' | 'reject' | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const approvalRequestIds = useRef(new Map<string, string>());
@@ -692,6 +712,17 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
     } finally {
       setAnalyzingId(null);
     }
+  };
+
+  const handleRetryDrl = async (candidateId = selectedCandidate?.id) => {
+    if (!candidateId) return;
+    setRetryingDrlId(String(candidateId));
+    try {
+      const payload = await candidateApi({ action: 'retry-drl-prediction', id: candidateId });
+      if (payload?.candidate) updateCandidateInState(payload.candidate);
+    } catch {
+      showToast('Chưa thể dự đoán ĐRL. Candidate vẫn được lưu an toàn.', 'error');
+    } finally { setRetryingDrlId(null); }
   };
 
   const handleReject = async (candidateId = selectedCandidate?.id) => {
@@ -887,6 +918,7 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
                         <div className="text-[11px] text-gray-500 mt-1.5 line-clamp-2 leading-snug">
                           {candidate.ai_reason || '---'}
                         </div>
+                        <div className="mt-1 text-[11px] font-semibold text-[#003375]">AI dự kiến ĐRL: {drlCandidateLabel(candidate)}</div>
                       </td>
                       <td className="px-3 py-2.5 align-middle">
                         <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${getStatusBadge(candidate.review_status)}`}>
@@ -966,6 +998,7 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
                       {candidate.ai_confidence !== null && candidate.ai_confidence !== undefined ? Number(candidate.ai_confidence).toFixed(2) : '--'}
                     </span>
                   </div>
+                  <div className="text-xs font-semibold text-[#003375]">AI dự kiến ĐRL: {drlCandidateLabel(candidate)}</div>
 
                   <div className="grid grid-cols-3 gap-2 pt-1">
                     <button onClick={() => openCandidate(candidate)} className="px-3 py-2 rounded-xl bg-[#1A56FF] text-white text-xs font-bold">
@@ -999,9 +1032,11 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
           onClose={closeCandidate}
           onDraftChange={setDraft}
           onAnalyze={() => handleAnalyze(selectedCandidate.id)}
+          onRetryDrl={() => handleRetryDrl(selectedCandidate.id)}
           onApprove={handleApprove}
           onReject={() => handleReject(selectedCandidate.id)}
           analyzing={analyzingId === selectedCandidate.id}
+          retryingDrl={retryingDrlId === selectedCandidate.id}
           approving={savingAction === 'approve'}
           rejecting={savingAction === 'reject'}
         />

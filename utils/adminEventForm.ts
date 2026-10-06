@@ -13,6 +13,9 @@ export interface AdminEventFormValues {
   organizer: string;
   criteria: string;
   points: string;
+  drl_rule_id?: string;
+  recognition_type?: string;
+  recognition_note?: string;
   format: string;
   location_type: string;
   classification?: string;
@@ -33,6 +36,7 @@ export interface AdminEventFormValues {
 export const createEmptyAdminEventDraft = (): AdminEventFormValues => ({
   title: '', category: 'Hoạt động phong trào', organizer: '', criteria: 'III',
   points: '5', format: 'Offline', location_type: 'Trong trường', classification: '',
+  drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
   registration_start_date: '', registration_start_time: '', deadline: '', deadline_time: '',
   event_date: '', event_time: '', close_on_full: false, description: '', link: '',
   image_url: '', status: EVENT_DRAFT_STATUS, is_manually_closed: false,
@@ -42,8 +46,11 @@ export const buildAdminEventPayload = (draft: AdminEventFormValues) => ({
   title: draft.title.trim(),
   organizer: draft.organizer.trim() || null,
   category: draft.category.trim() || null,
-  criteria: draft.criteria,
-  points: draft.points.trim() || null,
+  criteria: draft.drl_rule_id ? draft.criteria : null,
+  points: draft.drl_rule_id ? draft.points.trim() || null : null,
+  drl_rule_id: draft.drl_rule_id || null,
+  recognition_type: draft.recognition_type || null,
+  recognition_note: draft.recognition_note?.trim() || null,
   format: draft.format,
   deadline: draft.close_on_full ? null : draft.deadline || null,
   deadline_time: draft.close_on_full ? null : draft.deadline_time || null,
@@ -78,9 +85,10 @@ export const validateAdminEventDraft = (draft: AdminEventFormValues): Partial<Re
   else if (draft.category.length > 120) errors.category = 'Loại hình tối đa 120 ký tự.';
   if (!draft.organizer.trim()) errors.organizer = 'Vui lòng nhập đơn vị tổ chức.';
   else if (draft.organizer.length > 300) errors.organizer = 'Đơn vị tổ chức tối đa 300 ký tự.';
-  if (!['I', 'II', 'III', 'IV', 'V', 'Chưa biết'].includes(draft.criteria)) errors.criteria = 'Mục ĐRL không hợp lệ.';
-  if (!draft.points.trim()) errors.points = 'Vui lòng nhập điểm rèn luyện.';
-  else if (draft.points.length > 40) errors.points = 'Điểm rèn luyện tối đa 40 ký tự.';
+  if (!draft.drl_rule_id && draft.status !== EVENT_DRAFT_STATUS) errors.drl_rule_id = 'Vui lòng chọn quy tắc ĐRL chính thức.';
+  if (draft.drl_rule_id && !['I', 'II', 'III', 'IV', 'V'].includes(draft.criteria)) errors.criteria = 'Mục ĐRL không hợp lệ.';
+  if (draft.drl_rule_id && !draft.points.trim()) errors.points = 'Thiếu điểm từ quy tắc ĐRL.';
+  if (draft.points.length > 40) errors.points = 'Điểm rèn luyện tối đa 40 ký tự.';
   if (!['Offline', 'Online', 'Hỗn hợp'].includes(draft.format)) errors.format = 'Hình thức không hợp lệ.';
   if (!['Trong trường', 'Ngoài trường'].includes(draft.location_type)) errors.location_type = 'Khu vực không hợp lệ.';
   if (draft.classification && draft.classification.length > 120) errors.classification = 'Phân loại tối đa 120 ký tự.';

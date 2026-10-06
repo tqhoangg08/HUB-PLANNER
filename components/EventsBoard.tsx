@@ -35,6 +35,7 @@ import { EventFilterControls } from './event-filters/EventFilterControls';
 import { AdminEventManagementView } from './AdminEventManagementView';
 import { EventDetailView } from './EventDetailView';
 import { buildAdminEventPayload } from '../utils/adminEventForm';
+import { EventDrlRulePicker, OrganizerPicker, RecognitionFields, useEventDrlAssistant } from './EventDrlAssistant';
 import {
   compareFilteredEvents,
   createDefaultEventFilters,
@@ -68,6 +69,9 @@ interface HubEvent {
   registration_start_date: string | null;
   registration_start_time: string | null;
   image_url: string | null;
+  drl_rule_id?: string | null;
+  recognition_type?: string | null;
+  recognition_note?: string | null;
   view_count?: number;
 }
 
@@ -371,6 +375,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         category: 'Hoạt động phong trào',
         criteria: 'III',
         points: '5',
+        drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
         organizer: '',
         link: '',
         image_url: '',
@@ -381,6 +386,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
 
     if (!isOpen) return null;
 
@@ -411,8 +417,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
                 registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
                 category: formData.category, 
-                criteria: formData.criteria, 
-                points: formData.points,
+                drl_rule_id: formData.drl_rule_id,
+                recognition_type: formData.recognition_type,
+                recognition_note: formData.recognition_note,
                 organizer: formData.organizer,
                 link: formData.link,
                 image_url: formData.image_url || null,
@@ -433,7 +440,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
             
             setFormData({
-                title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', registration_start_date: '', registration_start_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
+                title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', registration_start_date: '', registration_start_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
                 organizer: '', link: '', image_url: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             onClose();
@@ -590,30 +597,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="col-span-1">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Mục ĐRL</label>
-                                <select 
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
-                                    value={formData.criteria} 
-                                    onChange={e => setFormData({...formData, criteria: e.target.value})}
-                                >
-                                    <option value="I">Mục I</option>
-                                    <option value="II">Mục II</option>
-                                    <option value="III">Mục III</option>
-                                    <option value="IV">Mục IV</option>
-                                    <option value="V">Mục V</option>
-                                    <option value="Chưa biết">Chưa biết</option>
-                                </select>
-                            </div>
-                            <div className="col-span-1">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Điểm cộng</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] text-center font-bold text-[#990000]"
-                                    value={formData.points} 
-                                    onChange={e => setFormData({...formData, points: e.target.value})} 
-                                />
-                            </div>
+                            <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
+                                onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                             <div className="col-span-1">
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
                                 <select 
@@ -644,13 +629,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label>
                                 <div className="relative">
                                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
-                                    <input 
-                                        type="text" 
-                                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#003375]"
-                                        placeholder="VD: Đoàn trường, CLB..."
-                                        value={formData.organizer} 
-                                        onChange={e => setFormData({...formData, organizer: e.target.value})} 
-                                    />
+                                    <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers}/>
                                 </div>
                             </div>
                             <div>
@@ -669,6 +648,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             </div>
                         </div>
 
+                        <RecognitionFields type={formData.recognition_type} note={formData.recognition_note}
+                            onType={(value) => setFormData((current) => ({ ...current, recognition_type: value }))}
+                            onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
                             <textarea 
@@ -710,6 +692,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         category: editingEvent?.type || 'Hoạt động phong trào',
         criteria: editingEvent?.category || 'III',
         points: editingEvent?.score || '5',
+        drl_rule_id: editingEvent?.drl_rule_id || '', recognition_type: editingEvent?.recognition_type || 'Không có / Chưa xác định', recognition_note: editingEvent?.recognition_note || '',
         organizer: editingEvent?.organizer || '',
         link: editingEvent?.link || '',
         image_url: editingEvent?.image_url || '',
@@ -724,6 +707,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
     const [isCustomCategory, setIsCustomCategory] = useState(
         editingEvent?.type ? !predefinedCategories.includes(editingEvent.type) : false
     );
+    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
 
     if (!isOpen) return null;
 
@@ -856,16 +840,8 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="col-span-1">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Mục</label>
-                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.criteria} onChange={e => setFormData({...formData, criteria: e.target.value})}>
-                                <option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="IV">IV</option><option value="V">V</option><option value="Chưa biết">Chưa biết</option>
-                            </select>
-                        </div>
-                        <div className="col-span-1">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Điểm</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.points} onChange={e => setFormData({...formData, points: e.target.value})} />
-                        </div>
+                        <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
+                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                         <div className="col-span-1">
                             <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
@@ -917,7 +893,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">BTC</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.organizer} onChange={e => setFormData({...formData, organizer: e.target.value})} />
+                            <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers}/>
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Link</label>
@@ -935,6 +911,9 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         </select>
                     </div>
 
+                    <RecognitionFields type={formData.recognition_type} note={formData.recognition_note}
+                        onType={(value) => setFormData((current) => ({ ...current, recognition_type: value }))}
+                        onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
                         <textarea 
@@ -1290,6 +1269,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                 registration_start_date: row.registration_start_date || null,
                 registration_start_time: row.registration_start_time || null,
                 image_url: row.image_url || null,
+                drl_rule_id: row.drl_rule_id || null,
+                recognition_type: row.recognition_type || null,
+                recognition_note: row.recognition_note || null,
                 view_count: Number(row.view_count) || 0
             };
         });
@@ -1299,7 +1281,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         return;
       }
 
-      const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
+      const eventColumns = 'id,title,criteria,points,drl_rule_id,recognition_type,recognition_note,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
       let fetchedData: any[] | null = null;
       const mirrorReady =
         !options.bypassCache || (await syncAdminEventMirror());
@@ -1362,6 +1344,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                   registration_start_date: row.registration_start_date || null,
                   registration_start_time: row.registration_start_time || null,
                   image_url: row.image_url || null,
+                  drl_rule_id: row.drl_rule_id || null,
+                  recognition_type: row.recognition_type || null,
+                  recognition_note: row.recognition_note || null,
                   view_count: Number(row.view_count) || 0
               };
           });

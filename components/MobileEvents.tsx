@@ -33,6 +33,7 @@ import {
 } from '../utils/eventParticipationsApi';
 import { EventFilterControls } from './event-filters/EventFilterControls';
 import { EventDetailView } from './EventDetailView';
+import { EventDrlRulePicker, OrganizerPicker, RecognitionFields, useEventDrlAssistant } from './EventDrlAssistant';
 import { createDefaultEventFilters, getEventFilterCount } from '../utils/eventFilters';
 
 // --- Types ---
@@ -61,6 +62,9 @@ interface HubEvent {
   registration_start_date: string | null;
   registration_start_time: string | null;
   image_url: string | null;
+  drl_rule_id?: string | null;
+  recognition_type?: string | null;
+  recognition_note?: string | null;
   view_count?: number;
 }
 
@@ -268,12 +272,13 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [formData, setFormData] = useState({
         title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
         registration_start_date: '', registration_start_time: '',
-        category: 'Hoạt động phong trào', criteria: 'III', points: '5', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: '' 
+        category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
     });
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [isDraftLoaded, setIsDraftLoaded] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -309,7 +314,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             setFormData({
                 title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
                 registration_start_date: '', registration_start_time: '',
-                category: 'Hoạt động phong trào', criteria: 'III', points: '5', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
+                category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             setIsCustomCategory(false);
             localStorage.removeItem(DRAFT_KEY);
@@ -338,7 +343,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 event_time: formData.event_time ? formData.event_time : null, 
                 registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
                 registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
-                category: formData.category, criteria: formData.criteria, points: formData.points,
+                category: formData.category, drl_rule_id: formData.drl_rule_id, recognition_type: formData.recognition_type, recognition_note: formData.recognition_note,
                 organizer: formData.organizer, link: formData.link, format: formData.format,
                 description: formData.description, location_type: formData.location_type,
                 status: 'pending', is_manually_closed: false 
@@ -490,23 +495,17 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Mục ĐRL</label>
-                                <select className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50" value={formData.criteria} onChange={e => setFormData({...formData, criteria: e.target.value})}>
-                                    <option value="I">Mục I</option><option value="II">Mục II</option><option value="III">Mục III</option><option value="IV">Mục IV</option><option value="V">Mục V</option><option value="Chưa biết">Chưa biết</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Điểm cộng</label>
-                                <input type="text" className="w-full border border-gray-300 rounded-xl p-3 text-center font-bold text-[#990000] bg-gray-50" value={formData.points} onChange={e => setFormData({...formData, points: e.target.value})} />
-                            </div>
-                        </div>
+                        <EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id || ''} prediction={prediction}
+                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/>
 
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Ban Tổ Chức</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50" value={formData.organizer} onChange={e => setFormData({...formData, organizer: e.target.value})} />
+                            <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers}/>
                         </div>
+
+                        <RecognitionFields type={formData.recognition_type || 'Không có / Chưa xác định'} note={formData.recognition_note || ''}
+                            onType={(value) => setFormData((current) => ({ ...current, recognition_type: value }))}
+                            onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
 
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia <span className="text-red-500">*</span></label>
@@ -653,6 +652,10 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [isManagementView, setIsManagementView] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [eventEditData, setEventEditData] = useState<any>({});
+  const { rules: editRules, organizers: editOrganizers, prediction: editPrediction } = useEventDrlAssistant({
+    title: String(eventEditData.title || ''), organizer: String(eventEditData.organizer || ''),
+    description: String(eventEditData.description || ''), format: String(eventEditData.format || ''),
+  }, Boolean(editingEvent || Object.keys(eventEditData).length));
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
 
@@ -849,6 +852,9 @@ const canManage = isAdmin || isAuditor || isCTV;
                 event_date: row.event_date || null, event_time: row.event_time || null,
                 registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
                 image_url: row.image_url || null,
+                drl_rule_id: row.drl_rule_id || null,
+                recognition_type: row.recognition_type || null,
+                recognition_note: row.recognition_note || null,
                 view_count: Number(row.view_count) || 0
             };
         });
@@ -914,6 +920,9 @@ const canManage = isAdmin || isAuditor || isCTV;
                   event_date: row.event_date || null, event_time: row.event_time || null,
                   registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
                   image_url: row.image_url || null,
+                  drl_rule_id: row.drl_rule_id || null,
+                  recognition_type: row.recognition_type || null,
+                  recognition_note: row.recognition_note || null,
                   view_count: Number(row.view_count) || 0
                 };
               });
@@ -971,6 +980,9 @@ const canManage = isAdmin || isAuditor || isCTV;
           organizer: evt?.organizer || '',
           criteria: evt?.category || 'III',
           points: evt?.score || '5',
+          drl_rule_id: evt?.drl_rule_id || '',
+          recognition_type: evt?.recognition_type || 'Không có / Chưa xác định',
+          recognition_note: evt?.recognition_note || '',
           category: evt?.type || 'Hoạt động phong trào',
           location_type: evt?.scope || 'Trong trường',
           format: evt?.location || 'Offline',
@@ -1014,6 +1026,9 @@ const canManage = isAdmin || isAuditor || isCTV;
           organizer: target.organizer || '',
           criteria: target.category || 'III',
           points: target.score || '5',
+          drl_rule_id: target.drl_rule_id || '',
+          recognition_type: target.recognition_type || 'Không có / Chưa xác định',
+          recognition_note: target.recognition_note || '',
           category: target.type || 'Hoạt động phong trào',
           location_type: target.scope || 'Trong trường',
           format: target.location || 'Offline',
@@ -1038,6 +1053,9 @@ const canManage = isAdmin || isAuditor || isCTV;
               organizer: eventEditData.organizer,
               criteria: eventEditData.criteria,
               points: eventEditData.points,
+              drl_rule_id: eventEditData.drl_rule_id || null,
+              recognition_type: eventEditData.recognition_type || 'Không có / Chưa xác định',
+              recognition_note: eventEditData.recognition_note || null,
               category: eventEditData.category,
               location_type: eventEditData.location_type,
               format: eventEditData.format,
@@ -1496,13 +1514,12 @@ return (
                   </div>
                   <form onSubmit={saveEventEdit} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
                       <input required placeholder="Tên sự kiện" value={eventEditData.title || ''} onChange={e => setEventEditData({...eventEditData, title: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                      <input placeholder="BTC" value={eventEditData.organizer || ''} onChange={e => setEventEditData({...eventEditData, organizer: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                      <div className="grid grid-cols-2 gap-3">
-                          <select value={eventEditData.criteria || 'III'} onChange={e => setEventEditData({...eventEditData, criteria: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
-                              <option value="I">Mục I</option><option value="II">Mục II</option><option value="III">Mục III</option><option value="IV">Mục IV</option><option value="V">Mục V</option><option value="Chưa biết">Chưa biết</option>
-                          </select>
-                          <input placeholder="Điểm cộng" value={eventEditData.points || ''} onChange={e => setEventEditData({...eventEditData, points: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                      </div>
+                      <OrganizerPicker value={eventEditData.organizer || ''} onChange={(value) => setEventEditData({ ...eventEditData, organizer: value })} organizers={editOrganizers}/>
+                      <EventDrlRulePicker rules={editRules} selectedRuleId={eventEditData.drl_rule_id || ''} prediction={editPrediction}
+                        onSelect={(rule) => setEventEditData({ ...eventEditData, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
+                      <RecognitionFields type={eventEditData.recognition_type || 'Không có / Chưa xác định'} note={eventEditData.recognition_note || ''}
+                        onType={(value) => setEventEditData({ ...eventEditData, recognition_type: value })}
+                        onNote={(value) => setEventEditData({ ...eventEditData, recognition_note: value })}/>
                       <div className="grid grid-cols-2 gap-3">
                           <input placeholder="Loại hình" value={eventEditData.category || ''} onChange={e => setEventEditData({...eventEditData, category: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
                           <select value={eventEditData.status || 'Sắp diễn ra'} onChange={e => setEventEditData({...eventEditData, status: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">

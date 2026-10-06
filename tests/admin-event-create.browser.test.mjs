@@ -16,7 +16,19 @@ const open = async (role, width = 1440) => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/auth/get-session') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ session: { id: 'fixture-session' }, user: { id: 'fixture-user', email: 'staff@example.org' } }) });
     if (path === '/api/private/v1/me') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ userId: 'fixture-user', email: 'staff@example.org', role }) });
-    calls.push({ path, method: route.request().method(), body: path === '/api/admin/v1/events' ? route.request().postDataJSON() : null, key: route.request().headers()['idempotency-key'] });
+    if (path === '/api/private/v1/event-drl/catalog') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      success: true, organizers: ['HUB'], rules: [{ rule_id: 'III_EVENT', section: 'III', rule_group: null,
+        content: 'Hoạt động phong trào', condition_text: 'Tham gia', points: 5, unit: 'điểm' }],
+    }) });
+    if (path === '/api/private/v1/event-drl/predict') {
+      calls.push({ path, method: route.request().method(), body: route.request().postDataJSON() });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      success: true, prediction: { rule_id: 'III_EVENT', section: 'III', points: 5, content: 'Hoạt động phong trào',
+        condition_text: 'Tham gia', confidence: 0.8, confidence_label: 'medium', historical_support_count: 4,
+        closest_matches: [], reason_code: 'historical_ai' },
+      }) });
+    }
+    calls.push({ path, method: route.request().method(), body: ['/api/admin/v1/events', '/api/private/v1/event-drl/predict'].includes(path) ? route.request().postDataJSON() : null, key: route.request().headers()['idempotency-key'] });
     if (path === '/api/admin/v1/events') return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ success: true, data: [{ id: 123 }], mirrorSynced: true }) });
     return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
   });
@@ -36,9 +48,13 @@ test('admin full-page form and preview are read-only', async () => {
     assert.equal(await page.getByText('Vui lòng nhập tên sự kiện.').count(), 1);
     await page.getByRole('button', { name: 'Xem trước' }).click();
     assert.equal(await page.getByRole('dialog', { name: 'Xem trước sự kiện' }).count(), 1);
-    assert.equal(calls.length, 0);
+    assert.equal(calls.filter(call => call.path === '/api/admin/v1/events').length, 0);
     await page.getByRole('button', { name: 'Đóng' }).click();
-    assert.equal(calls.length, 0);
+    assert.equal(calls.filter(call => call.path === '/api/admin/v1/events').length, 0);
+    await page.getByLabel('Tên sự kiện').fill('Ngày hội hiến máu nhân đạo 2027');
+    await page.getByText('AI gợi ý ĐRL').waitFor();
+    const predictionCall = calls.find(call => call.path === '/api/private/v1/event-drl/predict');
+    assert.deepEqual(Object.keys(predictionCall.body).sort(), ['description', 'format', 'organizer', 'title']);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   } finally { await page.close(); }
 });
@@ -49,6 +65,7 @@ test('auditor mobile form disables deadline on close-on-full, creates once with 
     assert.equal(await page.getByRole('heading', { name: 'Thêm sự kiện' }).count(), 1);
     await page.getByLabel('Tên sự kiện').fill('Sự kiện kiểm thử');
     await page.getByLabel('Đơn vị tổ chức').fill('HUB');
+    await page.getByRole('combobox', { name: 'Quy tắc ĐRL chính thức' }).selectOption('III_EVENT');
     await page.getByLabel('Đóng khi đủ số lượng').check();
     assert.equal(await page.getByLabel('Ngày đóng đăng ký').isDisabled(), true);
     assert.equal(await page.getByLabel('Giờ đóng đăng ký').isDisabled(), true);
@@ -60,6 +77,8 @@ test('auditor mobile form disables deadline on close-on-full, creates once with 
     assert.equal(createCalls[0].body.close_on_full, true);
     assert.equal(createCalls[0].body.deadline, null);
     assert.equal(createCalls[0].body.status, 'pending');
+    assert.equal(createCalls[0].body.drl_rule_id, 'III_EVENT');
+    assert.equal(createCalls[0].body.points, '5');
     assert.match(createCalls[0].key, /^[0-9a-f-]{36}$/);
     assert.equal(Object.hasOwn(createCalls[0].body, 'creator'), false);
   } finally { await page.close(); }

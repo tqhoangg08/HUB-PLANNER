@@ -9,6 +9,7 @@ import {
   mutateAdminEvent,
   readAdminEventIdempotencyKey,
   readAdminEventMutationPayload,
+  resolveAdminEventDrlRule,
   validateAdminEventMutationPayload,
 } from '../cloudflare/worker/src/admin-event-mutations.ts';
 import { incrementPendingAdminEventView, incrementPublicEventView } from '../cloudflare/worker/src/events.ts';
@@ -192,6 +193,8 @@ const d1Fixture = () => {
     '0023_create_event_push_deliveries.sql',
     '0026_core_events_d1_authority.sql',
     '0048_event_view_count.sql',
+    '0027_create_event_candidates.sql',
+    '0052_event_drl_history.sql',
   ]) sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
 
   const prepare = (query: string) => {
@@ -229,6 +232,31 @@ const d1Fixture = () => {
   } as unknown as D1Database;
   return { sql, DB };
 };
+
+test('ready DRL corpus derives official points and rejects arbitrary or unknown rules', async () => {
+  const { sql, DB } = d1Fixture();
+  try {
+    sql.prepare(`INSERT INTO event_drl_corpus(source_version,historical_rows,status,imported_at)
+      VALUES ('fixture',1,'ready','2026-10-06T00:00:00Z')`).run();
+    sql.prepare(`INSERT INTO drl_rules(rule_id,section,content,points,event_suitable,active,source_version)
+      VALUES ('I_TEST','I','Official fixture',5,1,1,'fixture')`).run();
+    sql.prepare(`INSERT INTO drl_rules(rule_id,section,content,points,event_suitable,active,source_version)
+      VALUES ('I_NOT_EVENT','I','Not for events',7,0,1,'fixture')`).run();
+    assert.deepEqual(await resolveAdminEventDrlRule({ DB } as never, 'create',
+      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST' }),
+    { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST', criteria: 'I', points: '5' });
+    await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
+      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST', points: '7' }), AdminEventMutationError);
+    await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
+      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'INVENTED' }), AdminEventMutationError);
+    await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
+      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_NOT_EVENT' }), AdminEventMutationError);
+    await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
+      { title: 'Event', status: 'Sắp diễn ra', criteria: 'III', points: '9' }), AdminEventMutationError);
+    assert.deepEqual(await resolveAdminEventDrlRule({ DB } as never, 'create',
+      { title: 'Draft', status: 'pending' }), { title: 'Draft', status: 'pending' });
+  } finally { sql.close(); }
+});
 
 test('D1 core event create/replay/publish/edit/hide/unhide/delete projection is atomic', async () => {
   const { sql, DB } = d1Fixture();

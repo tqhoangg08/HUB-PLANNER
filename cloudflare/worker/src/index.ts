@@ -24,6 +24,7 @@ import {
 } from './lost-found.ts';
 import { handleAdminEvents } from './admin-events.ts';
 import { EventBannerError, readEventBanner, uploadEventBanner } from './event-banner.ts';
+import { EventDrlApiError, handleEventDrlApi } from './event-drl-api.ts';
 import {
   AdminEventMutationError,
   assertAdminEventMutationAllowed,
@@ -1452,6 +1453,20 @@ const worker = {
                 ? error.message
                 : 'Không thể mở file tài liệu.',
         }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/event-drl/catalog' ||
+        requestUrl.pathname === '/api/private/v1/event-drl/predict') {
+      try {
+        return json(await handleEventDrlApi(request, requestUrl.pathname, env), 200,
+          { ...cors, 'Cache-Control': 'private, no-store' });
+      } catch (error) {
+        const status = error instanceof BetterAuthIdentityError ? error.status
+          : error instanceof EventDrlApiError ? error.status : 500;
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+          : error instanceof EventDrlApiError ? error.message : 'Không thể tải gợi ý ĐRL.' },
+        status, { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 

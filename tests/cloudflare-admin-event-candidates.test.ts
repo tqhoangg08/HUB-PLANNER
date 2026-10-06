@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import worker, { corsHeaders } from '../cloudflare/worker/src/index.ts';
 import { EventCandidateError, handleAdminEventCandidates, handleEventCandidateIngest } from '../cloudflare/worker/src/event-candidates.ts';
+import { normalizeEventDrlNoYear, normalizeEventDrlText } from '../cloudflare/worker/src/event-drl-prediction.ts';
 
 const ORIGIN = 'https://hotrosinhvienhub.id.vn';
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
@@ -21,6 +22,8 @@ const makeEnv = (role: 'admin' | 'auditor' | 'user' = 'admin') => {
     '0009_create_admin_event_mutations.sql', '0023_create_event_push_deliveries.sql',
     '0026_core_events_d1_authority.sql', '0027_create_event_candidates.sql',
     '0028_event_candidate_ingest_dedupe.sql',
+    '0048_event_view_count.sql',
+    '0052_event_drl_history.sql',
   ]) sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
   sql.exec('UPDATE core_event_id_sequence SET next_id = 991 WHERE singleton = 1');
   sql.exec('UPDATE event_candidate_id_sequence SET next_id = 223 WHERE singleton = 1');
@@ -29,7 +32,10 @@ const makeEnv = (role: 'admin' | 'auditor' | 'user' = 'admin') => {
     const statement = {
       query,
       get bindings() { return bindings; },
-      bind(...values: unknown[]) { bindings = values; return statement; },
+      bind(...values: unknown[]) {
+        if (values.length > 100) throw new Error('D1 bound-parameter limit exceeded');
+        bindings = values; return statement;
+      },
       async first<T>() { return (sql.prepare(query).get(...bindings) || null) as T | null; },
       async all<T>() { return { results: sql.prepare(query).all(...bindings) as T[] }; },
       async run() { return { meta: { changes: Number(sql.prepare(query).run(...bindings).changes) } }; },
@@ -163,6 +169,16 @@ test('admin and auditor can list/detail while ordinary users are denied', async 
   );
 });
 
+test('candidate DRL metadata lookup stays below D1 bound-parameter limit for a full staff page', async () => {
+  const env = makeEnv('auditor');
+  for (let index = 0; index < 113; index += 1) {
+    seedCandidate(env, { id: 1_000 + index, post_url: `https://example.test/post/${index}` });
+  }
+  const url = new URL(`${ORIGIN}/api/admin/v1/event-candidates?review_status=all&limit=200`);
+  const listed = await handleAdminEventCandidates(new Request(url, { headers: { Cookie: 'opaque=1' } }), url, env);
+  assert.equal(listed.candidates.length, 113);
+});
+
 test('candidate approval creates exactly one D1 event and replay is idempotent', async () => {
   const env = makeEnv('auditor'); seedCandidate(env);
   const first = await handleAdminEventCandidates(actionRequest('approve'), new URL(`${ORIGIN}/api/admin/v1/event-candidates`), env);
@@ -228,7 +244,46 @@ test('ingest is secret-scoped, strips caller ownership, persists once, and reloa
     assert.equal(replay.httpStatus, 200);
     assert.equal(env.__sql.prepare('SELECT COUNT(*) count FROM event_candidates').get().count, 1);
     assert.equal(env.__sql.prepare('SELECT submitter_user_id FROM event_candidates').get().submitter_user_id, null);
+    assert.equal(env.__sql.prepare('SELECT state FROM event_candidate_drl_predictions').get().state, 'failed');
     assert.equal(notificationRequests.length, 2);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('extension ingest persists a full-history DRL prediction without duplicating the candidate', async () => {
+  const env = makeEnv();
+  env.__sql.prepare("INSERT INTO event_drl_corpus VALUES ('fixture',2,'ready','2026-01-01')").run();
+  env.__sql.prepare("INSERT INTO drl_rules VALUES ('I_RULE','I',NULL,'Hoạt động học thuật',NULL,5,'điểm',1,1,'fixture')").run();
+  for (const [id, year] of [[1, 2024], [2, 2025]]) {
+    const title = `Hội nghị học thuật ${year}`;
+    env.__sql.prepare(`INSERT INTO event_drl_history
+      (id,source_row,observed_code,title_original,title_clean,title_normalized,title_normalized_no_year,
+       organizer,organizer_normalized,semester,mapped_rule_id,source_version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(id, id, 'I.1.2', title, title, normalizeEventDrlText(title), normalizeEventDrlNoYear(title),
+        null, null, null, null, 'fixture');
+  }
+  env.AI = { run: async () => ({ choices: [{ message: { tool_calls: [{ function: {
+    name: 'choose_drl_rule', arguments: JSON.stringify({ rule_id: 'I_RULE', confidence: 0.8 }),
+  } }] } }] }) };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('Non-DRL provider unavailable'); };
+  const request = () => new Request(`${ORIGIN}/api/event-candidates`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer fixture-ingest-secret', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source_name: 'fixture', post_url: 'https://example.test/recurring',
+      raw_content: 'Hội nghị học thuật 2026' }),
+  });
+  try {
+    const deferred: Promise<unknown>[] = [];
+    const created = await handleEventCandidateIngest(request(), env, (task) => deferred.push(task));
+    await Promise.all(deferred);
+    const replay = await handleEventCandidateIngest(request(), env);
+    const result = env.__sql.prepare('SELECT state,rule_id FROM event_candidate_drl_predictions').get() as Record<string, unknown>;
+    assert.equal(created.httpStatus, 201);
+    assert.equal(replay.httpStatus, 200);
+    assert.equal(result.state, 'completed');
+    assert.equal(result.rule_id, 'I_RULE');
+    assert.equal(env.__sql.prepare('SELECT COUNT(*) count FROM event_candidates').get().count, 1);
   } finally { globalThis.fetch = originalFetch; }
 });
 
