@@ -7,6 +7,7 @@ import {
 } from './better-auth-identity.ts';
 import { LostFoundError, submitLostFound, type LostFoundEnv } from './lost-found.ts';
 import { deliverPushBatch, type PushDeliveryEnv } from './push-delivery.ts';
+import { recordEventDrlOrganizer } from './event-drl-organizers.ts';
 
 interface UserSubmissionEnv extends BetterAuthIdentityEnv, LostFoundEnv, PushDeliveryEnv {}
 
@@ -71,9 +72,28 @@ const insertSubmission = async (env: UserSubmissionEnv, normalized: NormalizedSu
 const insertEventContribution = async (env: UserSubmissionEnv, value: unknown) => {
   const payload = isRecord(value) ? value : {}, title = text(payload.title, 300), link = text(payload.link, 1_000);
   if (!title || !link) throw new UserSubmissionError(400, 'Thiếu tên sự kiện hoặc link tham gia.');
+  const ruleId = text(payload.drl_rule_id, 120);
+  const rule = ruleId ? await env.DB.prepare('SELECT section,points FROM drl_rules WHERE rule_id=? AND active=1 AND event_suitable=1 AND points IS NOT NULL')
+    .bind(ruleId).first<{ section: string; points: number }>() : null;
+  if (ruleId && (!rule || !Number.isSafeInteger(rule.points))) {
+    throw new UserSubmissionError(400, 'Quy tắc ĐRL không hợp lệ.');
+  }
+  const recognitionType = text(payload.recognition_type, 80);
+  if (recognitionType && !new Set(['Không có / Chưa xác định', 'Giấy chứng nhận',
+    'Giấy khen', 'Bằng khen', 'Chứng nhận tham gia', 'Chứng nhận đạt giải', 'Khác']).has(recognitionType)) {
+    throw new UserSubmissionError(400, 'Loại chứng nhận không hợp lệ.');
+  }
   const now = new Date().toISOString();
-  const result = await env.DB.prepare(`INSERT INTO admin_events (title,organizer,category,criteria,points,format,deadline,deadline_time,close_on_full,description,link,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url,title_search,organizer_search) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'pending',0,0,?,?,?,?,?,?,?,?)`)
-    .bind(title, nullable(payload.organizer, 300), nullable(payload.category, 200), nullable(payload.criteria, 40), nullable(payload.points, 40), nullable(payload.format, 80), nullable(payload.deadline, 20), nullable(payload.deadline_time, 20), Boolean(payload.close_on_full) ? 1 : 0, nullable(payload.description, 5_000), link, nullable(payload.location_type, 80), now, nullable(payload.event_date, 20), nullable(payload.event_time, 20), nullable(payload.registration_start_date, 20), nullable(payload.registration_start_time, 20), nullable(payload.image_url, 1_000), title.toLocaleLowerCase('vi-VN'), text(payload.organizer, 300).toLocaleLowerCase('vi-VN')).run();
+  const result = await env.DB.prepare(`INSERT INTO admin_events (title,organizer,category,criteria,points,drl_rule_id,recognition_type,recognition_note,format,deadline,deadline_time,close_on_full,description,link,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url,title_search,organizer_search) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending',0,0,?,?,?,?,?,?,?,?)`)
+    .bind(title, nullable(payload.organizer, 300), nullable(payload.category, 200), rule?.section || null,
+      rule ? String(rule.points) : null, ruleId || null, recognitionType || null,
+      nullable(payload.recognition_note, 500), nullable(payload.format, 80), nullable(payload.deadline, 20),
+      nullable(payload.deadline_time, 20), Boolean(payload.close_on_full) ? 1 : 0,
+      nullable(payload.description, 5_000), link, nullable(payload.location_type, 80), now,
+      nullable(payload.event_date, 20), nullable(payload.event_time, 20), nullable(payload.registration_start_date, 20),
+      nullable(payload.registration_start_time, 20), nullable(payload.image_url, 1_000),
+      title.toLocaleLowerCase('vi-VN'), text(payload.organizer, 300).toLocaleLowerCase('vi-VN')).run();
+  try { await recordEventDrlOrganizer(env.DB, payload.organizer); } catch { /* Contribution remains durable. */ }
   return { success: true, id: Number(result.meta?.last_row_id || 0) };
 };
 

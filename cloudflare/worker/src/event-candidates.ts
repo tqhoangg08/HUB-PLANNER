@@ -11,12 +11,13 @@ import {
   validateAdminEventMutationPayload,
 } from './admin-event-mutations.ts';
 import type { AdminEventsEnv } from './admin-events.ts';
+import { predictEventDrl, type EventDrlEnv, type EventDrlPrediction } from './event-drl-prediction.ts';
 import {
   notifyEventCandidateModerators,
   type PrivateNotificationsEnv,
 } from './private-notifications.ts';
 
-export interface EventCandidatesEnv extends BetterAuthIdentityEnv, AdminEventsEnv {
+export interface EventCandidatesEnv extends BetterAuthIdentityEnv, AdminEventsEnv, EventDrlEnv {
   EVENT_CANDIDATE_INGEST_SECRET?: string;
   GROQ_API_KEY?: string;
   GROQ_API_KEY_2?: string;
@@ -55,6 +56,21 @@ interface StoredCandidate {
   approved_event_id: number | null;
   reviewed_at: string | null;
   reviewed_by_user_id: string | null;
+}
+
+interface StoredDrlPrediction {
+  candidate_id: number;
+  state: 'pending' | 'completed' | 'failed';
+  rule_id: string | null;
+  confidence: number | null;
+  confidence_label: string | null;
+  reason_code: string | null;
+  historical_support_count: number | null;
+  closest_matches_json: string | null;
+  section: string | null;
+  content: string | null;
+  condition_text: string | null;
+  points: number | null;
 }
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -104,7 +120,7 @@ const readBody = async (request: Request) => {
   }
 };
 
-const toApiCandidate = (row: StoredCandidate) => {
+const toApiCandidate = (row: StoredCandidate, drl: StoredDrlPrediction | null = null) => {
   let aiResult: unknown = null;
   try { aiResult = row.ai_result_json ? JSON.parse(row.ai_result_json) : null; }
   catch { aiResult = null; }
@@ -122,9 +138,115 @@ const toApiCandidate = (row: StoredCandidate) => {
     ai_confidence: row.ai_confidence,
     ai_reason: row.ai_reason,
     ai_result: aiResult,
+    drl_prediction: drl ? {
+      state: drl.state, rule_id: drl.rule_id, confidence: drl.confidence,
+      confidence_label: drl.confidence_label, reason_code: drl.reason_code,
+      section: drl.section, content: drl.content, condition_text: drl.condition_text, points: drl.points,
+      historical_support_count: drl.historical_support_count,
+      closest_matches: (() => {
+        try { return JSON.parse(drl.closest_matches_json || '[]') as string[]; }
+        catch { return []; }
+      })(),
+    } : null,
     approved_event_id: row.approved_event_id,
     reviewed_at: row.reviewed_at,
   };
+};
+
+const candidateDrl = (env: EventCandidatesEnv, id: number) => env.DB.prepare(
+  `SELECT p.candidate_id,p.state,p.rule_id,p.confidence,p.confidence_label,p.reason_code,
+    p.historical_support_count,p.closest_matches_json,r.section,r.content,r.condition_text,r.points
+    FROM event_candidate_drl_predictions p LEFT JOIN drl_rules r ON r.rule_id=p.rule_id AND r.active=1
+    WHERE p.candidate_id=?`,
+).bind(id).first<StoredDrlPrediction>();
+
+type CandidatePredictionStatus = 'pending' | 'completed' | 'failed' | null;
+interface CandidatePredictionState {
+  state: Exclude<CandidatePredictionStatus, null>;
+  fingerprint: string | null;
+  rule_id: string | null;
+  updated_at: string;
+  cached_source_version: string | null;
+  cached_rule_id: string | null;
+  active_rule_id: string | null;
+}
+
+const PENDING_PREDICTION_STALE_MS = 2 * 60_000;
+const candidatePredictionState = (env: EventCandidatesEnv, id: number) => env.DB.prepare(`
+  SELECT p.state,p.fingerprint,p.rule_id,p.updated_at,
+    cache.source_version AS cached_source_version,cache.rule_id AS cached_rule_id,
+    r.rule_id AS active_rule_id
+  FROM event_candidate_drl_predictions p
+  LEFT JOIN event_drl_prediction_cache cache ON cache.fingerprint=p.fingerprint
+  LEFT JOIN drl_rules r ON r.rule_id=p.rule_id AND r.active=1
+  WHERE p.candidate_id=?`).bind(id).first<CandidatePredictionState>();
+
+const ensureCandidateDrlPrediction = async (
+  env: EventCandidatesEnv,
+  id: number,
+  defer: (task: Promise<unknown>) => void,
+): Promise<CandidatePredictionStatus> => {
+  const previous = await candidatePredictionState(env, id);
+  if (previous?.state === 'completed') {
+    const corpus = await env.DB.prepare("SELECT source_version FROM event_drl_corpus WHERE status='ready' ORDER BY imported_at DESC LIMIT 1")
+      .first<{ source_version: string }>();
+    if (previous.fingerprint && previous.cached_source_version === corpus?.source_version &&
+        previous.cached_rule_id === previous.rule_id &&
+        (!previous.rule_id || previous.active_rule_id === previous.rule_id)) return 'completed';
+  }
+  if (previous?.state === 'pending') {
+    const lastUpdated = Date.parse(previous.updated_at);
+    if (Number.isFinite(lastUpdated) && Date.now() - lastUpdated < PENDING_PREDICTION_STALE_MS) {
+      return 'pending';
+    }
+  }
+
+  const now = new Date().toISOString();
+  const claimed = previous
+    ? await env.DB.prepare(`UPDATE event_candidate_drl_predictions SET
+        fingerprint=NULL,state='pending',rule_id=NULL,confidence=NULL,confidence_label=NULL,
+        reason_code=NULL,historical_support_count=NULL,closest_matches_json=NULL,updated_at=?
+        WHERE candidate_id=? AND state=? AND updated_at=? RETURNING candidate_id`)
+      .bind(now, id, previous.state, previous.updated_at).first<{ candidate_id: number }>()
+    : await env.DB.prepare(`INSERT OR IGNORE INTO event_candidate_drl_predictions(candidate_id,state,updated_at)
+        VALUES (?,'pending',?) RETURNING candidate_id`)
+      .bind(id, now).first<{ candidate_id: number }>();
+  if (!claimed) return (await candidatePredictionState(env, id))?.state || null;
+  defer(predictCandidateDrl(env, id, now).catch(() => {
+    console.warn(JSON.stringify({ event: 'event_candidate_drl_prediction_failed' }));
+  }));
+  return 'pending';
+};
+
+const predictCandidateDrl = async (env: EventCandidatesEnv, id: number, claimedAt: string) => {
+  const candidate = await candidateById(env, id);
+  if (!candidate) return;
+  let parsed: unknown;
+  try { parsed = candidate.ai_result_json ? JSON.parse(candidate.ai_result_json) : null; }
+  catch { parsed = null; }
+  const classified = isRecord(parsed) ? parsed : {};
+  const title = typeof classified.title === 'string' && classified.title.trim()
+    ? classified.title.trim().slice(0, 300)
+    : candidate.raw_content.split(/\r?\n/u).find((line) => line.trim())?.trim().slice(0, 300) || '';
+  let prediction: EventDrlPrediction | null = null;
+  try {
+    prediction = await predictEventDrl(env, {
+      title, organizer: typeof classified.organizer === 'string' ? classified.organizer : candidate.source_name,
+      description: candidate.raw_content.slice(0, 5_000),
+      format: typeof classified.format === 'string' ? classified.format : '',
+    });
+  } catch {
+    await env.DB.prepare("UPDATE event_candidate_drl_predictions SET state='failed',updated_at=? WHERE candidate_id=? AND state='pending' AND updated_at=?")
+      .bind(new Date().toISOString(), id, claimedAt).run();
+    return;
+  }
+  await env.DB.prepare(`UPDATE event_candidate_drl_predictions SET
+    fingerprint=?,state='completed',rule_id=?,confidence=?,confidence_label=?,reason_code=?,
+    historical_support_count=?,closest_matches_json=?,updated_at=?
+    WHERE candidate_id=? AND state='pending' AND updated_at=?`)
+    .bind(prediction.fingerprint, prediction.rule_id, prediction.confidence,
+      prediction.confidence_label, prediction.reason_code, prediction.historical_support_count,
+      JSON.stringify(prediction.closest_matches), new Date().toISOString(), id, claimedAt).run();
 };
 
 const candidateById = async (env: EventCandidatesEnv, id: number) => {
@@ -324,10 +446,19 @@ const ingestCandidate = async (
   if (!sourceName || !postUrl || !rawContent) {
     throw new EventCandidateError(400, 'source_name, post_url, raw_content là bắt buộc.');
   }
+  const duplicateResult = async (candidate: StoredCandidate) => {
+    let predictionStatus: CandidatePredictionStatus = null;
+    try { predictionStatus = await ensureCandidateDrlPrediction(env, candidate.id, defer); }
+    catch { console.warn(JSON.stringify({ event: 'event_candidate_drl_prediction_unavailable' })); }
+    console.info(JSON.stringify({ event: 'event_candidate_duplicate', prediction_status: predictionStatus }));
+    return { httpStatus: 200, success: true, candidate: toApiCandidate(candidate),
+      created: false, duplicate: true, prediction_status: predictionStatus,
+      message: 'Candidate already exists' };
+  };
   const existing = await env.DB.prepare(`SELECT ${CANDIDATE_COLUMNS} FROM event_candidates
     WHERE post_url = ? ORDER BY created_at DESC, id DESC LIMIT 1`)
     .bind(postUrl).first<StoredCandidate>();
-  if (existing) return { httpStatus: 200, success: true, candidate: toApiCandidate(existing), message: 'Candidate already exists' };
+  if (existing) return duplicateResult(existing);
 
   const allocated = await env.DB.prepare(`UPDATE event_candidate_id_sequence SET next_id = next_id + 1
     WHERE singleton = 1 RETURNING next_id - 1 AS id`).first<{ id: number }>();
@@ -351,7 +482,7 @@ const ingestCandidate = async (
     const concurrent = await env.DB.prepare(`SELECT ${CANDIDATE_COLUMNS} FROM event_candidates
       WHERE post_url = ? ORDER BY created_at DESC, id DESC LIMIT 1`)
       .bind(postUrl).first<StoredCandidate>();
-    if (concurrent) return { httpStatus: 200, success: true, candidate: toApiCandidate(concurrent), message: 'Candidate already exists' };
+    if (concurrent) return duplicateResult(concurrent);
     throw new EventCandidateError(503, 'Dịch vụ lưu candidate D1 tạm thời không khả dụng.');
   }
   if (!inserted) throw new EventCandidateError(503, 'Dịch vụ lưu candidate D1 tạm thời không khả dụng.');
@@ -367,11 +498,18 @@ const ingestCandidate = async (
     analyzeError = error instanceof Error ? error.message : 'Auto analyze failed';
     console.warn(JSON.stringify({ event: 'event_candidate_auto_analysis_failed', candidateId: id }));
   }
+  // The candidate is durable before inference. Inference failure never duplicates or rejects ingestion.
+  let predictionStatus: CandidatePredictionStatus = null;
+  try { predictionStatus = await ensureCandidateDrlPrediction(env, id, defer); }
+  catch {
+    console.warn(JSON.stringify({ event: 'event_candidate_drl_prediction_unavailable' }));
+  }
   defer(notifyEventCandidateModerators(env as PrivateNotificationsEnv, sourceName).catch(() => {
     console.warn(JSON.stringify({ event: 'event_candidate_moderator_notification_failed', candidateId: id }));
   }));
   console.info(JSON.stringify({ event: 'event_candidate_submitted', candidateId: id }));
-  return { httpStatus: 201, success: true, candidate, ai_result: aiResult, analyzed: Boolean(aiResult), analyze_error: analyzeError };
+  return { httpStatus: 201, success: true, candidate, created: true, duplicate: false,
+    prediction_status: predictionStatus, ai_result: aiResult, analyzed: Boolean(aiResult), analyze_error: analyzeError };
 };
 
 export const handleEventCandidateIngest = async (
@@ -393,7 +531,7 @@ export const handleAdminEventCandidates = async (
     const idValue = url.searchParams.get('id');
     if (idValue) {
       const candidate = await candidateById(env, asCandidateId(idValue));
-      return { success: true, candidates: candidate ? [toApiCandidate(candidate)] : [] };
+      return { success: true, candidates: candidate ? [toApiCandidate(candidate, await candidateDrl(env, candidate.id))] : [] };
     }
     const status = String(url.searchParams.get('review_status') || 'all').trim().toLowerCase();
     if (status !== 'all' && !['pending', 'approved', 'rejected'].includes(status)) {
@@ -406,7 +544,21 @@ export const handleAdminEventCandidates = async (
       ? env.DB.prepare(query).bind(pageSize(url.searchParams.get('limit')))
       : env.DB.prepare(query).bind(status, pageSize(url.searchParams.get('limit')));
     const rows = await statement.all<StoredCandidate>();
-    return { success: true, candidates: (rows.results || []).map(toApiCandidate) };
+    const ids = (rows.results || []).map((row) => row.id);
+    if (!ids.length) return { success: true, candidates: [] };
+    const byId = new Map<number, StoredDrlPrediction>();
+    // D1 permits at most 100 bound parameters per statement. Staff pages can contain 200 candidates.
+    for (let start = 0; start < ids.length; start += 90) {
+      const batch = ids.slice(start, start + 90);
+      const predictions = await env.DB.prepare(`SELECT p.candidate_id,p.state,p.rule_id,p.confidence,p.confidence_label,
+        p.reason_code,p.historical_support_count,p.closest_matches_json,
+        r.section,r.content,r.condition_text,r.points
+        FROM event_candidate_drl_predictions p LEFT JOIN drl_rules r ON r.rule_id=p.rule_id AND r.active=1
+        WHERE p.candidate_id IN (${batch.map(() => '?').join(',')})`)
+        .bind(...batch).all<StoredDrlPrediction>();
+      for (const item of predictions.results || []) byId.set(item.candidate_id, item);
+    }
+    return { success: true, candidates: (rows.results || []).map((row) => toApiCandidate(row, byId.get(row.id) || null)) };
   }
   if (request.method !== 'POST') throw new EventCandidateError(405, 'Phương thức không được hỗ trợ.');
   const body = await readBody(request);
@@ -415,6 +567,17 @@ export const handleAdminEventCandidates = async (
   if (action === 'analyze') {
     await requireCapability(request, env, 'analyze');
     return analyzeCandidate(env, id);
+  }
+  if (action === 'retry-drl-prediction') {
+    await requireCapability(request, env, 'analyze');
+    const candidate = await candidateById(env, id);
+    if (!candidate) throw new EventCandidateError(404, 'Không tìm thấy candidate.');
+    const claimedAt = new Date().toISOString();
+    await env.DB.prepare(`INSERT INTO event_candidate_drl_predictions(candidate_id,state,updated_at)
+      VALUES (?,'pending',?) ON CONFLICT(candidate_id) DO UPDATE SET state='pending',updated_at=excluded.updated_at`)
+      .bind(id, claimedAt).run();
+    await predictCandidateDrl(env, id, claimedAt);
+    return { success: true, candidate: toApiCandidate(candidate, await candidateDrl(env, id)) };
   }
   if (action === 'reject') {
     const staff = await requireCapability(request, env, 'reject');

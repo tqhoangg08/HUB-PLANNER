@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import worker, { corsHeaders } from '../cloudflare/worker/src/index.ts';
 import { EventCandidateError, handleAdminEventCandidates, handleEventCandidateIngest } from '../cloudflare/worker/src/event-candidates.ts';
+import { normalizeEventDrlNoYear, normalizeEventDrlText } from '../cloudflare/worker/src/event-drl-prediction.ts';
 
 const ORIGIN = 'https://hotrosinhvienhub.id.vn';
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
@@ -21,6 +22,8 @@ const makeEnv = (role: 'admin' | 'auditor' | 'user' = 'admin') => {
     '0009_create_admin_event_mutations.sql', '0023_create_event_push_deliveries.sql',
     '0026_core_events_d1_authority.sql', '0027_create_event_candidates.sql',
     '0028_event_candidate_ingest_dedupe.sql',
+    '0048_event_view_count.sql',
+    '0052_event_drl_history.sql',
   ]) sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
   sql.exec('UPDATE core_event_id_sequence SET next_id = 991 WHERE singleton = 1');
   sql.exec('UPDATE event_candidate_id_sequence SET next_id = 223 WHERE singleton = 1');
@@ -29,7 +32,10 @@ const makeEnv = (role: 'admin' | 'auditor' | 'user' = 'admin') => {
     const statement = {
       query,
       get bindings() { return bindings; },
-      bind(...values: unknown[]) { bindings = values; return statement; },
+      bind(...values: unknown[]) {
+        if (values.length > 100) throw new Error('D1 bound-parameter limit exceeded');
+        bindings = values; return statement;
+      },
       async first<T>() { return (sql.prepare(query).get(...bindings) || null) as T | null; },
       async all<T>() { return { results: sql.prepare(query).all(...bindings) as T[] }; },
       async run() { return { meta: { changes: Number(sql.prepare(query).run(...bindings).changes) } }; },
@@ -78,6 +84,33 @@ const actionRequest = (action: string, draft: Record<string, unknown> = { title:
     headers: { Cookie: 'better-auth.session=opaque', 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, id: CANDIDATE_ID, draft }),
   });
+
+const seedDrlCorpus = (env: ReturnType<typeof makeEnv>) => {
+  env.__sql.prepare("INSERT INTO event_drl_corpus VALUES ('fixture',2,'ready','2026-01-01')").run();
+  env.__sql.prepare("INSERT INTO drl_rules VALUES ('I_RULE','I',NULL,'Hoạt động học thuật',NULL,5,'điểm',1,1,'fixture')").run();
+  for (const [id, year] of [[1, 2024], [2, 2025]]) {
+    const title = `Hội nghị học thuật ${year}`;
+    env.__sql.prepare(`INSERT INTO event_drl_history
+      (id,source_row,observed_code,title_original,title_clean,title_normalized,title_normalized_no_year,
+       organizer,organizer_normalized,semester,mapped_rule_id,source_version)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(id, id, 'I.1.2', title, title, normalizeEventDrlText(title), normalizeEventDrlNoYear(title),
+        null, null, null, null, 'fixture');
+  }
+};
+
+const ingestRequest = (postUrl = 'https://example.test/recurring') => new Request(`${ORIGIN}/api/event-candidates`, {
+  method: 'POST',
+  headers: { Authorization: 'Bearer fixture-ingest-secret', 'Content-Type': 'application/json' },
+  body: JSON.stringify({ source_name: 'fixture', post_url: postUrl, raw_content: 'Hội nghị học thuật 2026' }),
+});
+
+const successfulDrlAI = (onCall: () => void) => ({ run: async () => {
+  onCall();
+  return { choices: [{ message: { tool_calls: [{ function: {
+    name: 'choose_drl_rule', arguments: JSON.stringify({ rule_id: 'I_RULE', confidence: 0.8 }),
+  } }] } }] };
+} });
 
 test('D1 is the sole Event Candidate runtime store', () => {
   const source = readFileSync('cloudflare/worker/src/event-candidates.ts', 'utf8');
@@ -163,6 +196,16 @@ test('admin and auditor can list/detail while ordinary users are denied', async 
   );
 });
 
+test('candidate DRL metadata lookup stays below D1 bound-parameter limit for a full staff page', async () => {
+  const env = makeEnv('auditor');
+  for (let index = 0; index < 113; index += 1) {
+    seedCandidate(env, { id: 1_000 + index, post_url: `https://example.test/post/${index}` });
+  }
+  const url = new URL(`${ORIGIN}/api/admin/v1/event-candidates?review_status=all&limit=200`);
+  const listed = await handleAdminEventCandidates(new Request(url, { headers: { Cookie: 'opaque=1' } }), url, env);
+  assert.equal(listed.candidates.length, 113);
+});
+
 test('candidate approval creates exactly one D1 event and replay is idempotent', async () => {
   const env = makeEnv('auditor'); seedCandidate(env);
   const first = await handleAdminEventCandidates(actionRequest('approve'), new URL(`${ORIGIN}/api/admin/v1/event-candidates`), env);
@@ -223,13 +266,124 @@ test('ingest is secret-scoped, strips caller ownership, persists once, and reloa
       (task) => deferred.push(task),
     );
     await Promise.all(deferred);
-    const replay = await handleEventCandidateIngest(makeRequest('fixture-ingest-secret', 'https://example.test/clean'), env);
+    const replayDeferred: Promise<unknown>[] = [];
+    const replay = await handleEventCandidateIngest(makeRequest('fixture-ingest-secret', 'https://example.test/clean'),
+      env, (task) => replayDeferred.push(task));
+    await Promise.all(replayDeferred);
     assert.equal(created.httpStatus, 201);
+    assert.equal(created.created, true);
     assert.equal(replay.httpStatus, 200);
+    assert.equal(replay.duplicate, true);
+    assert.equal(replay.prediction_status, 'pending');
     assert.equal(env.__sql.prepare('SELECT COUNT(*) count FROM event_candidates').get().count, 1);
     assert.equal(env.__sql.prepare('SELECT submitter_user_id FROM event_candidates').get().submitter_user_id, null);
+    assert.equal(env.__sql.prepare('SELECT state FROM event_candidate_drl_predictions').get().state, 'failed');
     assert.equal(notificationRequests.length, 2);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test('extension ingest persists a full-history DRL prediction without duplicating the candidate', async () => {
+  const env = makeEnv();
+  seedDrlCorpus(env);
+  let aiCalls = 0;
+  env.AI = successfulDrlAI(() => { aiCalls += 1; });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('Non-DRL provider unavailable'); };
+  try {
+    const deferred: Promise<unknown>[] = [];
+    const created = await handleEventCandidateIngest(ingestRequest(), env, (task) => deferred.push(task));
+    await Promise.all(deferred);
+    const replay = await handleEventCandidateIngest(ingestRequest(), env);
+    const result = env.__sql.prepare('SELECT state,rule_id FROM event_candidate_drl_predictions').get() as Record<string, unknown>;
+    assert.equal(created.httpStatus, 201);
+    assert.equal(created.created, true);
+    assert.equal(created.duplicate, false);
+    assert.equal(replay.httpStatus, 200);
+    assert.equal(replay.created, false);
+    assert.equal(replay.duplicate, true);
+    assert.equal(replay.prediction_status, 'completed');
+    assert.equal(result.state, 'completed');
+    assert.equal(result.rule_id, 'I_RULE');
+    assert.equal(aiCalls, 1);
+    assert.equal(env.__sql.prepare('SELECT COUNT(*) count FROM event_candidates').get().count, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('duplicate extension URL recovers a missing prediction without changing reviewed candidate or notifying again', async () => {
+  for (const reviewStatus of ['pending', 'approved', 'rejected'] as const) {
+    const env = makeEnv();
+    seedDrlCorpus(env);
+    seedCandidate(env, { raw_content: 'Hội nghị học thuật 2026', review_status: reviewStatus,
+      post_url: 'https://example.test/recurring' });
+    let aiCalls = 0;
+    env.AI = successfulDrlAI(() => { aiCalls += 1; });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => { throw new Error('Duplicate must not call analysis or notifications'); };
+    try {
+      const deferred: Promise<unknown>[] = [];
+      const result = await handleEventCandidateIngest(ingestRequest(), env, (task) => deferred.push(task));
+      await Promise.all(deferred);
+      assert.equal(result.httpStatus, 200);
+      assert.equal(result.success, true);
+      assert.equal(result.created, false);
+      assert.equal(result.duplicate, true);
+      assert.equal(result.prediction_status, 'pending');
+      assert.equal(aiCalls, 1);
+      const stored = env.__sql.prepare('SELECT review_status,created_at FROM event_candidates').get() as Record<string, unknown>;
+      assert.equal(stored.review_status, reviewStatus);
+      assert.equal(stored.created_at, '2026-09-01T00:00:00.000000+00:00');
+      assert.equal(env.__sql.prepare('SELECT COUNT(*) count FROM event_candidates').get().count, 1);
+      assert.equal(env.__sql.prepare('SELECT state,rule_id FROM event_candidate_drl_predictions').get().state, 'completed');
+    } finally { globalThis.fetch = originalFetch; }
+  }
+});
+
+test('duplicate extension URL retries a failed prediction once and leaves a fresh pending prediction alone', async () => {
+  const env = makeEnv();
+  seedDrlCorpus(env);
+  seedCandidate(env, { raw_content: 'Hội nghị học thuật 2026', post_url: 'https://example.test/recurring' });
+  env.__sql.prepare("INSERT INTO event_candidate_drl_predictions(candidate_id,state,updated_at) VALUES (?,'failed',?)")
+    .run(CANDIDATE_ID, '2026-09-01T00:00:00.000Z');
+  let aiCalls = 0;
+  let releaseAi!: () => void;
+  const aiGate = new Promise<void>((resolve) => { releaseAi = resolve; });
+  env.AI = { run: async () => {
+    aiCalls += 1;
+    await aiGate;
+    return successfulDrlAI(() => {}).run();
+  } };
+  const deferred: Promise<unknown>[] = [];
+  const retry = await handleEventCandidateIngest(ingestRequest(), env, (task) => deferred.push(task));
+  const pending = await handleEventCandidateIngest(ingestRequest(), env, (task) => deferred.push(task));
+  assert.equal(retry.prediction_status, 'pending');
+  assert.equal(pending.prediction_status, 'pending');
+  assert.equal(deferred.length, 1);
+  releaseAi();
+  await Promise.all(deferred);
+  assert.equal(aiCalls, 1);
+  assert.equal(env.__sql.prepare('SELECT state FROM event_candidate_drl_predictions').get().state, 'completed');
+  assert.equal(env.__sql.prepare('SELECT COUNT(*) count FROM event_candidates').get().count, 1);
+});
+
+test('duplicate extension URL reclaims a stale pending prediction without creating or re-reviewing', async () => {
+  const env = makeEnv();
+  seedDrlCorpus(env);
+  seedCandidate(env, { raw_content: 'Hội nghị học thuật 2026', review_status: 'approved',
+    post_url: 'https://example.test/recurring' });
+  env.__sql.prepare("INSERT INTO event_candidate_drl_predictions(candidate_id,state,updated_at) VALUES (?,'pending',?)")
+    .run(CANDIDATE_ID, '2026-09-01T00:00:00.000Z');
+  let aiCalls = 0;
+  env.AI = successfulDrlAI(() => { aiCalls += 1; });
+  const deferred: Promise<unknown>[] = [];
+  const result = await handleEventCandidateIngest(ingestRequest(), env, (task) => deferred.push(task));
+  await Promise.all(deferred);
+  assert.equal(result.httpStatus, 200);
+  assert.equal(result.duplicate, true);
+  assert.equal(deferred.length, 1);
+  assert.equal(aiCalls, 1);
+  assert.equal(env.__sql.prepare('SELECT state FROM event_candidate_drl_predictions').get().state, 'completed');
+  assert.equal(env.__sql.prepare('SELECT review_status FROM event_candidates').get().review_status, 'approved');
+  assert.equal(env.__sql.prepare('SELECT COUNT(*) count FROM event_candidates').get().count, 1);
 });
 
 test('AI analysis writes only bounded server-produced fields to D1', async () => {

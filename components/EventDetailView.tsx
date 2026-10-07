@@ -41,10 +41,11 @@ interface Props {
   isParticipated: boolean;
   onBack: () => void;
   onEdit?: () => void;
-  onCopy: () => void;
+  onCopy?: () => void;
   onToggleParticipation?: () => void;
   onReport?: () => void;
   onViewsUpdated?: (eventId: string, views: number) => void;
+  recordView?: boolean;
 }
 
 export const safeEventLink = (value: string): string | null => {
@@ -68,12 +69,13 @@ const button = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-m
 
 export const EventDetailView: React.FC<Props> = ({
   event, preview, canEdit, isRegistrationClosed, isParticipated,
-  onBack, onEdit, onCopy, onToggleParticipation, onReport, onViewsUpdated,
+  onBack, onEdit, onCopy, onToggleParticipation, onReport, onViewsUpdated, recordView = true,
 }) => {
   const [imageFailed, setImageFailed] = useState(false);
   const countedEventId = useRef<string | null>(null);
   useEffect(() => setImageFailed(false), [event.image_url]);
   useEffect(() => {
+    if (!recordView) return;
     if (countedEventId.current === event.id) return;
     countedEventId.current = event.id;
     void recordEventView(event.id, preview && event.status === 'pending')
@@ -92,7 +94,7 @@ export const EventDetailView: React.FC<Props> = ({
   const scoreLabel = /^[+-]/.test(score) ? score : `+${score}`;
 
   const miniCards = [
-    { label: 'Mã sự kiện', value: `#${event.id}`, icon: FileText },
+    { label: 'Mã sự kiện', value: event.id === 'preview' ? 'Tự động sau khi lưu' : `#${event.id}`, icon: FileText },
     { label: 'Loại hình', value: textOrFallback(event.type), icon: Tag },
     { label: 'Ngày đăng', value: dateLabel(event.created_at), icon: CalendarDays },
     { label: 'Phân loại', value: textOrFallback(event.classification), icon: Info },
@@ -103,7 +105,7 @@ export const EventDetailView: React.FC<Props> = ({
       <button type="button" onClick={onBack} title="Quay lại danh sách" aria-label="Quay lại danh sách sự kiện" className={`${button} self-start`}><ArrowLeft size={16}/>Quay lại</button>
       <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end" aria-label="Thao tác sự kiện">
         {canEdit && onEdit && <button type="button" onClick={onEdit} title="Chỉnh sửa sự kiện" aria-label="Chỉnh sửa sự kiện" className={`${button} border-[#0052cc] bg-[#0052cc] text-white hover:bg-[#003d99]`}><Pencil size={16}/>Chỉnh sửa</button>}
-        <button type="button" onClick={onCopy} title="Sao chép liên kết sự kiện" aria-label="Sao chép liên kết sự kiện" className={button}><Copy size={16}/>Sao chép liên kết</button>
+        {onCopy && <button type="button" onClick={onCopy} title="Sao chép liên kết sự kiện" aria-label="Sao chép liên kết sự kiện" className={button}><Copy size={16}/>Sao chép liên kết</button>}
       </div>
     </header>
 

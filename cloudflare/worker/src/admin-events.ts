@@ -14,6 +14,9 @@ export interface CoreAdminEventRow {
   category: string | null;
   criteria: string | null;
   points: string | null;
+  drl_rule_id?: string | null;
+  recognition_type?: string | null;
+  recognition_note?: string | null;
   format: string | null;
   deadline: string | null;
   deadline_time: string | null;
@@ -68,6 +71,9 @@ export const ADMIN_EVENT_SOURCE_COLUMNS = [
   'category',
   'criteria',
   'points',
+  'drl_rule_id',
+  'recognition_type',
+  'recognition_note',
   'format',
   'deadline',
   'deadline_time',
@@ -99,6 +105,9 @@ const ADMIN_EVENT_RESPONSE_COLUMNS = [
   'category',
   'criteria',
   'points',
+  'drl_rule_id',
+  'recognition_type',
+  'recognition_note',
   'format',
   'deadline',
   'deadline_time',

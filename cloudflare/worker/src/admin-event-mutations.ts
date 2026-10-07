@@ -6,6 +6,7 @@ import {
 import { normalizeEventSearch } from './events.ts';
 import type { StaffRole } from './auth.ts';
 import { signalNewPublicEvent, type PublicEventPushCandidate } from './event-push.ts';
+import { recordEventDrlOrganizer } from './event-drl-organizers.ts';
 
 type MutationMode = 'create' | 'update';
 type AdminEventMutationValue = string | number | boolean | null;
@@ -46,6 +47,9 @@ const TEXT_FIELDS: Record<string, TextFieldRule> = {
   category: { max: 120, nullable: true },
   criteria: { max: 20, nullable: true },
   points: { max: 40, nullable: true },
+  drl_rule_id: { max: 120, nullable: true },
+  recognition_type: { max: 80, nullable: true },
+  recognition_note: { max: 500, nullable: true },
   format: { max: 80, nullable: true },
   description: { max: 10_000, nullable: true },
   link: { max: 2_048, nullable: true },
@@ -58,9 +62,13 @@ const DATE_FIELDS = new Set(['deadline', 'event_date', 'registration_start_date'
 const TIME_FIELDS = new Set(['deadline_time', 'event_time', 'registration_start_time']);
 const BOOLEAN_FIELDS = new Set(['close_on_full', 'is_manually_closed', 'is_deleted']);
 const ALLOWED_FIELDS = new Set([...Object.keys(TEXT_FIELDS), ...DATE_FIELDS, ...TIME_FIELDS, ...BOOLEAN_FIELDS]);
+const RECOGNITION_TYPES = new Set([
+  'Không có / Chưa xác định', 'Giấy chứng nhận', 'Giấy khen', 'Bằng khen',
+  'Chứng nhận tham gia', 'Chứng nhận đạt giải', 'Khác',
+]);
 
 const PUBLIC_EVENT_COLUMNS = [
-  'id', 'title', 'organizer', 'category', 'criteria', 'points', 'format',
+  'id', 'title', 'organizer', 'category', 'criteria', 'points', 'drl_rule_id', 'recognition_type', 'recognition_note', 'format',
   'deadline', 'deadline_time', 'close_on_full', 'description', 'link',
   'classification', 'location_type', 'status', 'is_manually_closed',
   'is_deleted', 'created_at', 'event_date', 'event_time',
@@ -81,6 +89,9 @@ const PUBLIC_EVENT_PROJECTION_SQL = `
     category = excluded.category,
     criteria = excluded.criteria,
     points = excluded.points,
+    drl_rule_id = excluded.drl_rule_id,
+    recognition_type = excluded.recognition_type,
+    recognition_note = excluded.recognition_note,
     format = excluded.format,
     deadline = excluded.deadline,
     deadline_time = excluded.deadline_time,
@@ -182,6 +193,12 @@ export const validateAdminEventMutationPayload = (value: unknown, mode: Mutation
       if (field === 'points' && typeof rawValue === 'number' && Number.isFinite(rawValue)) { payload[field] = String(rawValue); continue; }
       if (typeof rawValue !== 'string') throw new AdminEventMutationError(400, `Trường "${field}" phải là chuỗi.`);
       if (rawValue.length > textRule.max) throw new AdminEventMutationError(400, `Trường "${field}" vượt quá độ dài cho phép.`);
+      if (field === 'link' && rawValue.trim()) {
+        try {
+          const url = new URL(rawValue.trim());
+          if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error();
+        } catch { throw new AdminEventMutationError(400, 'Liên kết sự kiện phải là URL HTTP/HTTPS hợp lệ.'); }
+      }
       payload[field] = field === 'title' ? rawValue.trim() : rawValue;
       continue;
     }
@@ -205,7 +222,36 @@ export const validateAdminEventMutationPayload = (value: unknown, mode: Mutation
   if (mode === 'create' && !String(payload.title || '').trim()) throw new AdminEventMutationError(400, 'Tên sự kiện không được để trống.');
   if ('title' in payload && !String(payload.title || '').trim()) throw new AdminEventMutationError(400, 'Tên sự kiện không được để trống.');
   if (mode === 'create' && 'is_deleted' in payload) throw new AdminEventMutationError(400, 'Không thể tạo mới một sự kiện đã bị xóa.');
+  if (payload.recognition_type && !RECOGNITION_TYPES.has(String(payload.recognition_type))) {
+    throw new AdminEventMutationError(400, 'Loại chứng nhận không hợp lệ.');
+  }
   return payload;
+};
+
+export const resolveAdminEventDrlRule = async (env: AdminEventsEnv, mode: MutationMode,
+  payload: AdminEventMutationPayload): Promise<AdminEventMutationPayload> => {
+  const ready = await env.DB.prepare("SELECT 1 AS ready FROM event_drl_corpus WHERE status='ready' LIMIT 1")
+    .first<{ ready: number }>();
+  if (!ready) return payload;
+  const chosen = String(payload.drl_rule_id || '').trim();
+  if (!chosen) {
+    if ((mode === 'create' && payload.status !== 'pending') ||
+        (payload.criteria != null && String(payload.criteria).trim()) ||
+        (payload.points != null && String(payload.points).trim())) {
+      throw new AdminEventMutationError(400, 'Hãy chọn quy tắc ĐRL chính thức; không thể nhập mục/điểm tùy ý.');
+    }
+    return payload;
+  }
+  const rule = await env.DB.prepare('SELECT section,points FROM drl_rules WHERE rule_id=? AND active=1 AND event_suitable=1 AND points IS NOT NULL')
+    .bind(chosen).first<{ section: string; points: number }>();
+  if (!rule || !Number.isSafeInteger(rule.points)) {
+    throw new AdminEventMutationError(400, 'Quy tắc ĐRL không hợp lệ hoặc chưa được xác nhận.');
+  }
+  if (payload.criteria != null && payload.criteria !== rule.section ||
+      payload.points != null && String(payload.points) !== String(rule.points)) {
+    throw new AdminEventMutationError(400, 'Mục/điểm ĐRL không khớp quy tắc chính thức.');
+  }
+  return { ...payload, drl_rule_id: chosen, criteria: rule.section, points: String(rule.points) };
 };
 
 export const readAdminEventMutationPayload = async (request: Request, mode: MutationMode) => {
@@ -293,7 +339,9 @@ const createEvent = async (
   const values = [
     eventId, payloadValue(payload, 'title'), payloadValue(payload, 'organizer'),
     payloadValue(payload, 'category'), payloadValue(payload, 'criteria'),
-    payloadValue(payload, 'points'), payloadValue(payload, 'format'),
+    payloadValue(payload, 'points'), payloadValue(payload, 'drl_rule_id'),
+    payloadValue(payload, 'recognition_type'), payloadValue(payload, 'recognition_note'),
+    payloadValue(payload, 'format'),
     payloadValue(payload, 'deadline'), payloadValue(payload, 'deadline_time'),
     payloadValue(payload, 'close_on_full'), payloadValue(payload, 'description'),
     payloadValue(payload, 'link'), payloadValue(payload, 'classification'),
@@ -307,13 +355,13 @@ const createEvent = async (
   ];
   const results = await env.DB.batch([
     env.DB.prepare(`INSERT INTO admin_events (
-      id, title, organizer, category, criteria, points, format, deadline,
+      id, title, organizer, category, criteria, points, drl_rule_id, recognition_type, recognition_note, format, deadline,
       deadline_time, close_on_full, description, link, classification,
       location_type, status, is_manually_closed, is_deleted, created_at,
       event_date, event_time, registration_start_date, registration_start_time,
       image_url, contribution_link, contributor_note, section, score,
       title_search, organizer_search
-    ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       WHERE EXISTS (SELECT 1 FROM admin_event_mutations
         WHERE mutation_id = ? AND user_id = ? AND status = 'pending')
       RETURNING ${ADMIN_EVENT_SOURCE_COLUMNS.join(', ')}`).bind(...values),
@@ -383,6 +431,7 @@ export const mutateAdminEvent = async (
   _fetcher: typeof fetch = fetch,
   createRequest?: { mutationId: string; userId: string }
 ): Promise<AdminEventMutationResult> => {
+  payload = await resolveAdminEventDrlRule(env, mode, payload);
   if (mode === 'update' && (!Number.isSafeInteger(eventId) || Number(eventId) <= 0)) {
     throw new AdminEventMutationError(400, 'Mã sự kiện không hợp lệ.');
   }
@@ -393,6 +442,7 @@ export const mutateAdminEvent = async (
     // Only a transition from absent/non-eligible public projection may signal
     // a new-event push. Every edit of an already eligible event stays silent.
     await signalNewPublicEvent(env, toPushCandidate(row), before);
+    try { await recordEventDrlOrganizer(env.DB, payload.organizer); } catch { /* Event mutation already succeeded. */ }
     return { success: true, data: [row], mirrorSynced: true };
   }
   const request = createRequest!;
@@ -402,6 +452,7 @@ export const mutateAdminEvent = async (
     const id = await allocateEventId(env);
     const row = await createEvent(env, payload, id, request.mutationId, request.userId);
     await signalNewPublicEvent(env, toPushCandidate(row));
+    try { await recordEventDrlOrganizer(env.DB, payload.organizer); } catch { /* Catalog is non-critical. */ }
     return { success: true, data: [row], mirrorSynced: true };
   } catch (error) {
     try { await releaseCreateMutation(env, request.mutationId, request.userId); }

@@ -223,6 +223,21 @@ export const fetchPublicEvents = async (path: string, init?: RequestInit) => {
   return fetchPublicWorker(path, init);
 };
 
+export const uploadAdminEventBanner = async (file: File): Promise<string> => {
+  const response = await fetchAdminCandidate('/api/admin/v1/events/banner', {
+    method: 'POST',
+    headers: { 'Content-Type': file.type },
+    body: file,
+  }, 20_000);
+  if (!response) throw new Error('Không thể kết nối dịch vụ ảnh sự kiện.');
+  const payload = await response.json().catch(() => null) as { image_url?: unknown; error?: unknown } | null;
+  if (!response.ok) throw new Error(typeof payload?.error === 'string' ? payload.error : 'Không thể tải ảnh sự kiện.');
+  if (typeof payload?.image_url !== 'string' || !payload.image_url.startsWith('/api/public/v1/event-banners/')) {
+    throw new Error('Dịch vụ ảnh trả về đường dẫn không hợp lệ.');
+  }
+  return payload.image_url;
+};
+
 export const recordEventView = async (eventId: string, pendingStaffPreview = false): Promise<number | null> => {
   if (!/^[1-9]\d*$/.test(eventId) || !Number.isSafeInteger(Number(eventId))) return null;
   const path = pendingStaffPreview
