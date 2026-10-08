@@ -37,6 +37,7 @@ interface EventCandidate {
   post_url: string;
   raw_content: string;
   image_url?: string | null;
+  image_ingest_status?: 'missing' | 'pending' | 'stored' | 'manual_required' | 'failed';
   submitted_from?: string | null;
   client_created_at?: string | null;
   review_status?: ReviewStatus;
@@ -331,6 +332,13 @@ const CandidateDetailModal = ({
                     <img src={candidate.image_url} alt="Candidate" className="w-full max-h-64 object-contain rounded-lg border border-gray-200 bg-gray-50" />
                   </div>
                 ) : null}
+                <p className="mt-3 text-xs text-gray-600" data-testid="candidate-image-ingest-status">
+                  {candidate.image_ingest_status === 'stored' ? 'Đã lưu ảnh vào R2'
+                    : candidate.image_ingest_status === 'pending' ? 'Đang xử lý ảnh'
+                      : candidate.image_ingest_status === 'failed' || candidate.image_ingest_status === 'manual_required'
+                        ? 'Không thể tải ảnh — cần bổ sung thủ công'
+                        : 'Chưa có ảnh — có thể bổ sung thủ công'}
+                </p>
               </div>
 
               <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 shadow-sm">

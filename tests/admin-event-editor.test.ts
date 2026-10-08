@@ -46,7 +46,9 @@ const identity = (role: 'admin' | 'auditor' | 'user') => ({
   AUTH_SERVICE: { fetch: async () => Response.json({ userId: 'c9f82e03-7b6c-46f3-9270-66c4fb167724', email: 'staff@example.org', role }) },
   SUPPORT_ATTACHMENTS_BUCKET: { put: async () => ({}) },
 });
-const png = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const png = Uint8Array.from(Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9WQAAAABJRU5ErkJggg==', 'base64',
+));
 const request = (bytes: Uint8Array, contentType = 'image/png', withCookie = true) => new Request('https://example.org/api/admin/v1/events/banner', {
   method: 'POST', headers: { 'Content-Type': contentType, ...(withCookie ? { Cookie: 'session=test' } : {}) }, body: bytes,
 });

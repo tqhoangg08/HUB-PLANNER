@@ -12,12 +12,19 @@ import {
 } from './admin-event-mutations.ts';
 import type { AdminEventsEnv } from './admin-events.ts';
 import { predictEventDrl, type EventDrlEnv, type EventDrlPrediction } from './event-drl-prediction.ts';
+import { EventBannerError, readBoundedEventBannerImage } from './event-banner.ts';
+import {
+  allowedCandidateImageUrl, candidateImageKey, fetchCandidateImage, imageRightsBasis, isDurableCandidateImage,
+  putCandidateImage, validateCandidateBinaryImage, type CandidateImageStatus,
+  type CandidateImageRightsBasis,
+} from './event-candidate-image.ts';
 import {
   notifyEventCandidateModerators,
   type PrivateNotificationsEnv,
 } from './private-notifications.ts';
 
 export interface EventCandidatesEnv extends BetterAuthIdentityEnv, AdminEventsEnv, EventDrlEnv {
+  SUPPORT_ATTACHMENTS_BUCKET?: R2Bucket;
   EVENT_CANDIDATE_INGEST_SECRET?: string;
   GROQ_API_KEY?: string;
   GROQ_API_KEY_2?: string;
@@ -45,6 +52,9 @@ interface StoredCandidate {
   post_url: string;
   raw_content: string;
   image_url: string | null;
+  image_ingest_status: CandidateImageStatus;
+  image_ingest_updated_at: string | null;
+  image_rights_basis: CandidateImageRightsBasis | null;
   submitted_from: string | null;
   client_created_at: string | null;
   submitter_user_id: string | null;
@@ -80,6 +90,7 @@ const GROQ_COMPLETIONS_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const ID_PATTERN = /^\d{1,19}$/;
 const CANDIDATE_COLUMNS = [
   'id', 'created_at', 'source_name', 'post_url', 'raw_content', 'image_url',
+  'image_ingest_status', 'image_ingest_updated_at', 'image_rights_basis',
   'submitted_from', 'client_created_at', 'submitter_user_id', 'review_status',
   'ai_is_event', 'ai_confidence', 'ai_reason', 'ai_result_json',
   'approved_event_id', 'reviewed_at', 'reviewed_by_user_id',
@@ -131,6 +142,7 @@ const toApiCandidate = (row: StoredCandidate, drl: StoredDrlPrediction | null = 
     post_url: row.post_url,
     raw_content: row.raw_content,
     image_url: row.image_url,
+    image_ingest_status: row.image_ingest_status,
     submitted_from: row.submitted_from,
     client_created_at: row.client_created_at,
     review_status: row.review_status,
@@ -434,6 +446,90 @@ const normalizeTimestamp = (value: unknown) => {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
+const IMAGE_CLAIM_STALE_MS = 2 * 60_000;
+
+const recoverMissingR2CandidateImage = async (
+  env: EventCandidatesEnv, candidate: StoredCandidate,
+): Promise<StoredCandidate> => {
+  const key = candidateImageKey(candidate.image_url);
+  if (!key || candidate.review_status !== 'pending' || !env.SUPPORT_ATTACHMENTS_BUCKET) return candidate;
+  if (await env.SUPPORT_ATTACHMENTS_BUCKET.head(key)) return candidate;
+  const updated = await env.DB.prepare(`UPDATE event_candidates SET image_url=NULL,image_ingest_status='failed',
+      image_ingest_updated_at=? WHERE id=? AND review_status='pending' AND image_url=?
+      RETURNING ${CANDIDATE_COLUMNS}`)
+    .bind(new Date().toISOString(), candidate.id, candidate.image_url).first<StoredCandidate>();
+  return updated || await candidateById(env, candidate.id) || candidate;
+};
+
+// A claim prevents concurrent duplicate submissions from storing multiple R2 objects.
+// Neither this path nor its completion changes moderation state or staff-selected banners.
+const claimCandidateImage = async (
+  env: EventCandidatesEnv, candidate: StoredCandidate, basis: CandidateImageRightsBasis,
+): Promise<string | null> => {
+  if (candidate.review_status !== 'pending' || isDurableCandidateImage(candidate.image_url)) return null;
+  const claimedAt = new Date().toISOString();
+  const staleBefore = new Date(Date.now() - IMAGE_CLAIM_STALE_MS).toISOString();
+  const claimed = await env.DB.prepare(`UPDATE event_candidates SET
+      image_ingest_status='pending',image_ingest_updated_at=?,image_rights_basis=?
+    WHERE id=? AND review_status='pending' AND image_url IS ?
+      AND (image_ingest_status IN ('missing','manual_required','failed')
+        OR (image_ingest_status='pending' AND (image_ingest_updated_at IS NULL OR image_ingest_updated_at<?)))
+    RETURNING id`)
+    .bind(claimedAt, basis, candidate.id, candidate.image_url, staleBefore).first<{ id: number }>();
+  return claimed ? claimedAt : null;
+};
+
+const markCandidateImageFailed = async (env: EventCandidatesEnv, id: number, claimedAt: string) => {
+  await env.DB.prepare(`UPDATE event_candidates SET image_ingest_status='failed',image_ingest_updated_at=?
+    WHERE id=? AND image_ingest_status='pending' AND image_ingest_updated_at=?`)
+    .bind(new Date().toISOString(), id, claimedAt).run();
+};
+
+const storeClaimedCandidateImage = async (
+  env: EventCandidatesEnv, candidate: StoredCandidate, claimedAt: string,
+  bytes: Uint8Array, contentType: string,
+) => {
+  const stored = await putCandidateImage(env, bytes, contentType);
+  try {
+    const updated = await env.DB.prepare(`UPDATE event_candidates SET
+        image_url=?,image_ingest_status='stored',image_ingest_updated_at=?
+      WHERE id=? AND review_status='pending' AND image_url IS ?
+        AND image_ingest_status='pending' AND image_ingest_updated_at=? RETURNING id`)
+      .bind(stored.imageUrl, new Date().toISOString(), candidate.id, candidate.image_url, claimedAt)
+      .first<{ id: number }>();
+    if (updated) return true;
+  } catch (error) {
+    await env.SUPPORT_ATTACHMENTS_BUCKET?.delete(stored.key);
+    throw error;
+  }
+  await env.SUPPORT_ATTACHMENTS_BUCKET?.delete(stored.key);
+  return false;
+};
+
+const downloadCandidateImage = async (
+  env: EventCandidatesEnv, candidate: StoredCandidate, claimedAt: string, source: URL,
+) => {
+  try {
+    const image = await fetchCandidateImage(source);
+    await storeClaimedCandidateImage(env, candidate, claimedAt, image.bytes, image.contentType);
+  } catch {
+    await markCandidateImageFailed(env, candidate.id, claimedAt);
+    console.warn(JSON.stringify({ event: 'event_candidate_image_ingest_failed' }));
+  }
+};
+
+const scheduleCandidateImage = async (
+  env: EventCandidatesEnv, candidate: StoredCandidate, source: URL | null,
+  basis: CandidateImageRightsBasis | null, defer: (task: Promise<unknown>) => void,
+) => {
+  if (!source || !basis || !env.SUPPORT_ATTACHMENTS_BUCKET) return false;
+  const current = await recoverMissingR2CandidateImage(env, candidate);
+  const claimedAt = await claimCandidateImage(env, current, basis);
+  if (!claimedAt) return false;
+  defer(downloadCandidateImage(env, current, claimedAt, source));
+  return true;
+};
+
 const ingestCandidate = async (
   request: Request,
   env: EventCandidatesEnv,
@@ -450,12 +546,16 @@ const ingestCandidate = async (
   if (!sourceName || !postUrl || !rawContent) {
     throw new EventCandidateError(400, 'source_name, post_url, raw_content là bắt buộc.');
   }
+  const imageSource = allowedCandidateImageUrl(body.image_url);
+  const rightsBasis = imageRightsBasis(body.image_rights_basis, body.image_rights_confirmed);
   const duplicateResult = async (candidate: StoredCandidate) => {
+    const imageScheduled = await scheduleCandidateImage(env, candidate, imageSource, rightsBasis, defer);
     let predictionStatus: CandidatePredictionStatus = null;
     try { predictionStatus = await ensureCandidateDrlPrediction(env, candidate.id, defer); }
     catch { console.warn(JSON.stringify({ event: 'event_candidate_drl_prediction_unavailable' })); }
     console.info(JSON.stringify({ event: 'event_candidate_duplicate', prediction_status: predictionStatus }));
-    return { httpStatus: 200, success: true, candidate: toApiCandidate(candidate),
+    const current = imageScheduled ? await candidateById(env, candidate.id) || candidate : candidate;
+    return { httpStatus: 200, success: true, candidate: toApiCandidate(current),
       created: false, duplicate: true, prediction_status: predictionStatus,
       message: 'Candidate already exists' };
   };
@@ -473,12 +573,16 @@ const ingestCandidate = async (
   try {
     inserted = await env.DB.prepare(`INSERT INTO event_candidates (
         id, created_at, source_name, post_url, raw_content, image_url,
+        image_ingest_status,image_ingest_updated_at,image_rights_basis,
         submitted_from, client_created_at, submitter_user_id, review_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 'pending')
+      ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, NULL, 'pending')
       RETURNING ${CANDIDATE_COLUMNS}`)
       .bind(
         id, createdAt, sourceName, postUrl, rawContent,
-        optionalText(body.image_url, 2_048),
+        imageSource && rightsBasis && env.SUPPORT_ATTACHMENTS_BUCKET ? 'pending'
+          : body.image_url ? 'manual_required' : 'missing',
+        imageSource && rightsBasis && env.SUPPORT_ATTACHMENTS_BUCKET ? createdAt : null,
+        rightsBasis,
         optionalText(body.submitted_from, 120) || 'chrome_extension',
         normalizeTimestamp(body.client_created_at),
       ).first<StoredCandidate>();
@@ -490,6 +594,10 @@ const ingestCandidate = async (
     throw new EventCandidateError(503, 'Dịch vụ lưu candidate D1 tạm thời không khả dụng.');
   }
   if (!inserted) throw new EventCandidateError(503, 'Dịch vụ lưu candidate D1 tạm thời không khả dụng.');
+
+  if (inserted.image_ingest_status === 'pending' && imageSource) {
+    defer(downloadCandidateImage(env, inserted, createdAt, imageSource));
+  }
 
   let candidate = toApiCandidate(inserted);
   let aiResult: unknown = null;
@@ -523,6 +631,63 @@ export const handleEventCandidateIngest = async (
 ) => {
   if (request.method !== 'POST') throw new EventCandidateError(405, 'Phương thức không được hỗ trợ.');
   return ingestCandidate(request, env, defer);
+};
+
+// Optional extension fallback when a public CDN image cannot be fetched by the
+// Worker. The bearer secret is the existing ingest credential; the extension
+// must explicitly attest its right to supply this particular binary.
+export const handleEventCandidateImageUpload = async (
+  request: Request, env: EventCandidatesEnv, candidateId: string,
+) => {
+  if (request.method !== 'POST') throw new EventCandidateError(405, 'Phương thức không được hỗ trợ.');
+  await requireIngestSecret(request, env);
+  const basis = imageRightsBasis(request.headers.get('X-Image-Rights-Basis'),
+    request.headers.get('X-Image-Rights-Confirmed') === 'true');
+  if (!basis) throw new EventCandidateError(403, 'Thiếu xác nhận quyền sử dụng ảnh.');
+  const initialCandidate = await candidateById(env, asCandidateId(candidateId));
+  const candidate = initialCandidate ? await recoverMissingR2CandidateImage(env, initialCandidate) : null;
+  if (!candidate) throw new EventCandidateError(404, 'Không tìm thấy candidate.');
+  if (candidate.review_status !== 'pending' || isDurableCandidateImage(candidate.image_url)) {
+    throw new EventCandidateError(409, 'Không thể thay đổi ảnh candidate đã xử lý.');
+  }
+  let bytes: Uint8Array;
+  let contentType: string;
+  try {
+    bytes = await readBoundedEventBannerImage(request.body, request.headers.get('Content-Length'));
+    contentType = validateCandidateBinaryImage(request.headers.get('Content-Type'), bytes);
+  } catch (error) {
+    if (error instanceof EventBannerError) throw new EventCandidateError(error.status, error.message);
+    throw new EventCandidateError(415, 'Nội dung ảnh không hợp lệ.');
+  }
+  if (!env.SUPPORT_ATTACHMENTS_BUCKET) throw new EventCandidateError(503, 'Kho ảnh sự kiện chưa sẵn sàng.');
+  const claimedAt = await claimCandidateImage(env, candidate, basis);
+  if (!claimedAt) throw new EventCandidateError(409, 'Ảnh candidate đang được xử lý.');
+  try {
+    const stored = await storeClaimedCandidateImage(env, candidate, claimedAt, bytes, contentType);
+    if (!stored) throw new EventCandidateError(409, 'Candidate vừa được xử lý bởi thao tác khác.');
+  } catch (error) {
+    await markCandidateImageFailed(env, candidate.id, claimedAt);
+    if (error instanceof EventCandidateError) throw error;
+    throw new EventCandidateError(503, 'Không thể lưu ảnh sự kiện lúc này.');
+  }
+  const current = await candidateById(env, candidate.id);
+  return { success: true, candidate: current ? toApiCandidate(current) : null };
+};
+
+// The extension has no staff session. Its ingest credential may read only the
+// outcome of image storage, never candidate content or another user's data.
+export const handleEventCandidateImageStatus = async (
+  request: Request, env: EventCandidatesEnv, candidateId: string,
+) => {
+  if (request.method !== 'GET') throw new EventCandidateError(405, 'Phương thức không được hỗ trợ.');
+  await requireIngestSecret(request, env);
+  const candidate = await candidateById(env, asCandidateId(candidateId));
+  if (!candidate) throw new EventCandidateError(404, 'Không tìm thấy candidate.');
+  const key = candidateImageKey(candidate.image_url);
+  const imageStored = Boolean(candidate.image_ingest_status === 'stored' && key &&
+    await env.SUPPORT_ATTACHMENTS_BUCKET?.head(key));
+  return { success: true, image_ingest_status: candidate.image_ingest_status,
+    image_stored: imageStored };
 };
 
 export const handleAdminEventCandidates = async (
