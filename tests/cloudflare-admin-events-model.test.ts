@@ -298,6 +298,33 @@ test('D1 core event create/replay/publish/edit/hide/unhide/delete projection is 
   } finally { sql.close(); }
 });
 
+test('event banner survives publish and unrelated edit, and explicit replacement updates public projection', async () => {
+  const { sql, DB } = d1Fixture();
+  try {
+    const originalBanner = '/api/public/v1/event-banners/00000000-0000-4000-8000-000000000001.png';
+    const replacementBanner = '/api/public/v1/event-banners/00000000-0000-4000-8000-000000000002.png';
+    const created = await mutateAdminEvent({ DB }, 'create', {
+      title: 'Banner fixture', status: 'pending', image_url: originalBanner,
+    }, undefined, fetch, {
+      mutationId: 'f475fdb4-39e1-4a0c-a11f-f4c7e71652f3',
+      userId: 'd9428888-122b-4f0f-b88f-1c8f4f762b22',
+    });
+    const eventId = Number(created.data[0].id);
+    assert.equal(sql.prepare('SELECT image_url FROM admin_events WHERE id=?').get(eventId)?.image_url, originalBanner);
+    assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM public_events WHERE id=?').get(eventId)?.n, 0);
+
+    await mutateAdminEvent({ DB }, 'update', { status: 'published' }, eventId);
+    assert.equal(sql.prepare('SELECT image_url FROM public_events WHERE id=?').get(eventId)?.image_url, originalBanner);
+    await mutateAdminEvent({ DB }, 'update', { title: 'Banner fixture edited' }, eventId);
+    assert.equal(sql.prepare('SELECT image_url FROM admin_events WHERE id=?').get(eventId)?.image_url, originalBanner);
+    assert.equal(sql.prepare('SELECT image_url FROM public_events WHERE id=?').get(eventId)?.image_url, originalBanner);
+
+    await mutateAdminEvent({ DB }, 'update', { image_url: replacementBanner }, eventId);
+    assert.equal(sql.prepare('SELECT image_url FROM admin_events WHERE id=?').get(eventId)?.image_url, replacementBanner);
+    assert.equal(sql.prepare('SELECT image_url FROM public_events WHERE id=?').get(eventId)?.image_url, replacementBanner);
+  } finally { sql.close(); }
+});
+
 test('core event runtime has no Supabase event read, write, sync, or rollback path', () => {
   for (const file of [
     'cloudflare/worker/src/events.ts',
