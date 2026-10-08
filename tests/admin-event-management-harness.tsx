@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import '../index.css';
 import { createRoot } from 'react-dom/client';
 import { AdminEventManagementView } from '../components/AdminEventManagementView';
 import { createDefaultEventFilters } from '../utils/eventFilters';
@@ -9,6 +10,7 @@ const isAdmin = params.get('role') !== 'auditor';
 const count = Number(params.get('count') || 15);
 const events: AdminManagementEvent[] = Array.from({ length: count }, (_, index) => ({
   id: String(index + 1), name: `Sự kiện ${index + 1}`, organizer: 'Đoàn trường',
+  image_url: index === 0 ? null : index === 1 ? 'https://scontent.fbcdn.net/expired.jpg' : '/api/public/v1/event-banners/working.png',
   type: 'Hội thảo', category: index % 2 ? 'IV' : 'I', scope: 'Trong trường', score: '5',
   status: 'Sắp diễn ra', created_at: `2026-09-${String(index + 1).padStart(2, '0')}T00:00:00Z`,
   event_date: '2099-09-30', event_time: '08:00', deadlineDate: new Date('2099-09-25'),
@@ -21,6 +23,7 @@ const Harness = () => {
   return <AdminEventManagementView events={events} filters={filters} onFiltersChange={setFilters}
     loading={params.has('loading')} error={params.has('error') ? 'Không tải được sự kiện' : null}
     isAdmin={isAdmin} onAdd={() => {}} onRefresh={() => {}} onPreview={() => {}}
-    onGuide={() => {}} onView={() => {}} onEdit={() => {}} onToggleClose={() => {}} onDelete={() => {}}/>;
+    onGuide={() => {}} onView={() => {}} onEdit={() => {}} onToggleClose={() => {}} onDelete={() => {}}
+    onReplaceBanner={async (eventId, imageUrl) => { (window as typeof window & { __bannerReplacement?: { eventId: string; imageUrl: string } }).__bannerReplacement = { eventId, imageUrl }; }}/>
 };
 createRoot(document.getElementById('root')!).render(<Harness/>);

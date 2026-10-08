@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs';
 import { createDefaultEventFilters } from '../utils/eventFilters.ts';
 import {
   filterAdminEvents, getAdminEventSemester, getAdminEventStats, getAdminEventStatus,
-  paginateAdminEvents, type AdminManagementEvent,
+  needsEventBannerReview, paginateAdminEvents, type AdminManagementEvent,
 } from '../utils/adminEventManagement.ts';
 
 const makeEvent = (id: string, overrides: Partial<AdminManagementEvent> = {}): AdminManagementEvent => ({
   id, name: `Sự kiện ${id}`, organizer: 'Đoàn trường', type: 'Hội thảo', category: 'I',
   scope: 'Trong trường', score: '5', status: 'Sắp diễn ra', created_at: '2026-09-01T00:00:00Z',
-  event_date: '2026-09-30', event_time: '08:00', deadlineDate: new Date('2026-09-25'),
+  event_date: '2099-09-30', event_time: '08:00', deadlineDate: new Date('2099-09-25'),
   deadline_time: null, registration_start_date: '2026-09-01', is_manually_closed: false,
   is_deleted: false, close_on_full: false, location: 'Offline', classification: '', ...overrides,
 });
@@ -38,14 +38,14 @@ test('management tabs, criteria, keyword, type, status, date and sort filter the
   assert.deepEqual(filterAdminEvents(events, { ...defaults, trainingCategories: ['IV'] }, 'all', 'all', now).map(item => item.id), ['2']);
   assert.deepEqual(filterAdminEvents(events, { ...defaults, keyword: 'học thuật' }, 'all', 'all', now).map(item => item.id), ['1']);
   assert.deepEqual(filterAdminEvents(events, { ...defaults, eventType: 'Hội thảo', registrationStatus: 'ended' }, 'all', 'all', now).map(item => item.id), ['2']);
-  assert.deepEqual(filterAdminEvents(events, { ...defaults, datePreset: 'custom', dateFrom: '2026-10-01' }, 'all', 'all', now), []);
+  assert.deepEqual(filterAdminEvents(events, { ...defaults, datePreset: 'custom', dateFrom: '2100-10-01' }, 'all', 'all', now), []);
 });
 
 test('semester facet is only inferred from an existing event date, not invented when absent', () => {
   assert.equal(getAdminEventSemester('2026-09-30'), 'HK1_2026_2027');
   assert.equal(getAdminEventSemester(null), null);
   assert.equal(getAdminEventSemester('2035-09-30'), null);
-  const events = [makeEvent('1'), makeEvent('2', { event_date: null })];
+  const events = [makeEvent('1', { event_date: '2026-09-30' }), makeEvent('2', { event_date: null })];
   assert.deepEqual(filterAdminEvents(events, createDefaultEventFilters(), 'all', 'HK1_2026_2027', now).map(item => item.id), ['1']);
 });
 
@@ -53,6 +53,14 @@ test('client pagination is bounded and clamps stale pages', () => {
   const rows = Array.from({ length: 23 }, (_, index) => index + 1);
   assert.deepEqual(paginateAdminEvents(rows, 2, 10), { page: 2, pageCount: 3, start: 10, end: 20, items: rows.slice(10, 20) });
   assert.equal(paginateAdminEvents(rows.slice(0, 1), 3, 10).page, 1);
+});
+
+test('banner review flags absent and Facebook CDN links, not durable R2 links', () => {
+  assert.equal(needsEventBannerReview(null), true);
+  assert.equal(needsEventBannerReview(''), true);
+  assert.equal(needsEventBannerReview('https://scontent.fbcdn.net/expired.jpg'), true);
+  assert.equal(needsEventBannerReview('https://notfbcdn.net/banner.jpg'), false);
+  assert.equal(needsEventBannerReview('/api/public/v1/event-banners/working.png'), false);
 });
 
 test('only admin/auditor use the new management branch; student preview and CTV retain old UI', () => {

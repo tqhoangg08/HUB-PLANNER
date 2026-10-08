@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, FileText, Loader2,
+  CalendarDays, ChevronLeft, ChevronRight, Clock3, Eye, FileText, ImagePlus, Loader2,
   Pencil, Plus, RefreshCw, RotateCcw, Search, ToggleLeft, ToggleRight, Trash2, Users,
 } from 'lucide-react';
 import { SEMESTER_OPTIONS } from '../utils/academicCalendar';
@@ -9,9 +9,10 @@ import {
   type EventFilters,
 } from '../utils/eventFilters';
 import {
-  filterAdminEvents, getAdminEventSemester, getAdminEventStats, getAdminEventStatus,
+  filterAdminEvents, getAdminEventSemester, getAdminEventStats, getAdminEventStatus, needsEventBannerReview,
   paginateAdminEvents, type AdminEventTab, type AdminManagementEvent,
 } from '../utils/adminEventManagement';
+import { AdminEventBannerUpload } from './AdminEventBannerUpload';
 
 interface Props<T extends AdminManagementEvent> {
   events: T[];
@@ -26,6 +27,7 @@ interface Props<T extends AdminManagementEvent> {
   onGuide: () => void;
   onView: (event: T) => void;
   onEdit: (event: T) => void;
+  onReplaceBanner: (eventId: string, imageUrl: string) => Promise<void>;
   onToggleClose: (event: T) => void;
   onDelete: (id: string) => void;
 }
@@ -50,15 +52,21 @@ const STATUS_STYLE = {
 
 export const AdminEventManagementView = <T extends AdminManagementEvent>({
   events, filters, onFiltersChange, loading, error, isAdmin, onAdd, onRefresh, onPreview,
-  onGuide, onView, onEdit, onToggleClose, onDelete,
+  onGuide, onView, onEdit, onReplaceBanner, onToggleClose, onDelete,
 }: Props<T>) => {
   const [tab, setTab] = useState<AdminEventTab>('all');
   const [semester, setSemester] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [bannerReviewOnly, setBannerReviewOnly] = useState(false);
+  const [bannerEventId, setBannerEventId] = useState('');
+  const [bannerEvent, setBannerEvent] = useState<T | null>(null);
   const now = new Date();
   const stats = useMemo(() => getAdminEventStats(events, now), [events]);
-  const filtered = useMemo(() => filterAdminEvents(events, filters, tab, semester, now), [events, filters, tab, semester]);
+  const filtered = useMemo(() => filterAdminEvents(events, filters, tab, semester, now)
+    .filter((event) => !bannerReviewOnly || needsEventBannerReview(event.image_url))
+    .filter((event) => !bannerEventId.trim() || event.id === bannerEventId.trim()),
+  [events, filters, tab, semester, bannerReviewOnly, bannerEventId]);
   const pagination = paginateAdminEvents(filtered, page, pageSize);
   const semesters = useMemo(() => SEMESTER_OPTIONS.filter((option) => events.some((event) => getAdminEventSemester(event.event_date) === option.value)), [events]);
   const eventTypes = useMemo(() => [...new Set(events.map((event) => event.type.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'vi')), [events]);
@@ -71,7 +79,7 @@ export const AdminEventManagementView = <T extends AdminManagementEvent>({
   const visiblePages = Array.from({ length: Math.min(5, pagination.pageCount) }, (_, index) =>
     Math.min(Math.max(1, pagination.page - 2), Math.max(1, pagination.pageCount - 4)) + index);
 
-  return <section className="w-full min-w-0 space-y-5 animate-fadeIn" aria-labelledby="admin-events-title">
+  return <section className="w-full min-w-0 space-y-5 overflow-x-hidden animate-fadeIn" aria-labelledby="admin-events-title">
     <header className="border-b border-slate-200 pb-4">
       <h1 id="admin-events-title" className="text-[26px] font-black tracking-tight text-[#003375] sm:text-[28px]">Quản lý sự kiện</h1>
       <p className="mt-1 text-sm text-slate-500">Quản lý, cập nhật và theo dõi các sự kiện điểm rèn luyện.</p>
@@ -103,6 +111,10 @@ export const AdminEventManagementView = <T extends AdminManagementEvent>({
         <fieldset className="grid gap-1.5 md:col-span-2 xl:col-span-1 2xl:col-span-2"><legend className="text-xs font-bold text-slate-700">Khoảng thời gian</legend><div className="flex gap-2"><input type="date" aria-label="Từ ngày" value={filters.dateFrom} onChange={(event) => updateFilters({ ...filters, datePreset: 'custom', dateFrom: event.target.value })} className={`${control} min-w-0 px-2 text-xs`}/><input type="date" aria-label="Đến ngày" min={filters.dateFrom || undefined} value={filters.dateTo} onChange={(event) => updateFilters({ ...filters, datePreset: 'custom', dateTo: event.target.value })} className={`${control} min-w-0 px-2 text-xs`}/></div></fieldset>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs"><span className="font-semibold text-slate-500">Thời gian nhanh:</span>{([['all','Tất cả'],['thisMonth','Tháng này'],['nextMonth','Tháng tới']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => selectDatePreset(value)} className={`rounded-md border px-2.5 py-1.5 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc] ${filters.datePreset === value ? 'border-blue-200 bg-blue-50 text-[#0052cc]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{label}</button>)}</div>
+      {isAdmin && <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+        <label className="flex items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={bannerReviewOnly} onChange={(event) => { setBannerReviewOnly(event.target.checked); setPage(1); }}/>Banner cần kiểm tra (trống/Facebook CDN)</label>
+        <label className="grid gap-1 text-xs font-bold text-slate-700">Mã sự kiện cần bổ sung<input inputMode="numeric" aria-label="Lọc theo mã sự kiện" value={bannerEventId} onChange={(event) => { setBannerEventId(event.target.value); setPage(1); }} placeholder="Ví dụ: 421" className={`${control} w-40`}/></label>
+      </div>}
     </section>
 
     <div className="flex flex-wrap items-center gap-2" aria-label="Thao tác quản lý sự kiện">
@@ -127,7 +139,7 @@ export const AdminEventManagementView = <T extends AdminManagementEvent>({
                 <td className="border-r border-slate-200/80 px-3 py-3"><span className="inline-flex rounded-md bg-blue-50 px-2 py-1 text-[11px] font-bold text-[#0052cc]">{event.score.startsWith('+') || event.score.startsWith('-') ? event.score : `+${event.score}`}</span><span className="mt-1 block text-[11px] text-slate-500">Mục {event.category}</span></td>
                 <td className="border-r border-slate-200/80 px-3 py-3"><span className={`inline-flex whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-bold ${status.className}`}>{status.label}</span></td>
                 <td className="whitespace-nowrap border-r border-slate-200/80 px-3 py-3 text-slate-600"><span className="text-[11px]">Tạo: {dateLabel(event.created_at)}</span></td>
-                <td className="sticky right-0 z-[1] bg-white px-2 py-2.5 group-hover:bg-blue-50/35"><div className="flex justify-center gap-0.5"><button type="button" onClick={() => onView(event)} title="Xem sự kiện" aria-label={`Xem sự kiện #${event.id}`} className={`${action} text-slate-500`}><Eye size={15}/></button><button type="button" onClick={() => onEdit(event)} title="Sửa sự kiện" aria-label={`Sửa sự kiện #${event.id}`} className={`${action} text-[#0052cc]`}><Pencil size={15}/></button><button type="button" onClick={() => onToggleClose(event)} title={event.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'} aria-label={`${event.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'} sự kiện #${event.id}`} className={`${action} text-amber-700`}>{event.is_manually_closed ? <ToggleRight size={16}/> : <ToggleLeft size={16}/>}</button>{isAdmin && <button type="button" onClick={() => onDelete(event.id)} title="Ẩn/Xóa sự kiện" aria-label={`Ẩn/Xóa sự kiện #${event.id}`} className={`${action} text-red-600`}><Trash2 size={15}/></button>}</div></td>
+                <td className="sticky right-0 z-[1] bg-white px-2 py-2.5 group-hover:bg-blue-50/35"><div className="flex justify-center gap-0.5"><button type="button" onClick={() => onView(event)} title="Xem sự kiện" aria-label={`Xem sự kiện #${event.id}`} className={`${action} text-slate-500`}><Eye size={15}/></button><button type="button" onClick={() => onEdit(event)} title="Sửa sự kiện" aria-label={`Sửa sự kiện #${event.id}`} className={`${action} text-[#0052cc]`}><Pencil size={15}/></button>{isAdmin && <button type="button" onClick={() => setBannerEvent(event)} title="Bổ sung banner lên R2" aria-label={`Bổ sung banner sự kiện #${event.id}`} className={`${action} text-[#0052cc]`}><ImagePlus size={15}/></button>}<button type="button" onClick={() => onToggleClose(event)} title={event.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'} aria-label={`${event.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'} sự kiện #${event.id}`} className={`${action} text-amber-700`}>{event.is_manually_closed ? <ToggleRight size={16}/> : <ToggleLeft size={16}/>}</button>{isAdmin && <button type="button" onClick={() => onDelete(event.id)} title="Ẩn/Xóa sự kiện" aria-label={`Ẩn/Xóa sự kiện #${event.id}`} className={`${action} text-red-600`}><Trash2 size={15}/></button>}</div></td>
               </tr>;
             })}
           </tbody>
@@ -135,5 +147,6 @@ export const AdminEventManagementView = <T extends AdminManagementEvent>({
       </div>
       <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs text-slate-500">Hiển thị {filtered.length ? pagination.start + 1 : 0}–{pagination.end} của {filtered.length} sự kiện</span><div className="flex flex-wrap items-center gap-2"><select aria-label="Số sự kiện mỗi trang" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }} className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-100"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select><button type="button" onClick={() => setPage(pagination.page - 1)} disabled={pagination.page <= 1} aria-label="Trang trước" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-40"><ChevronLeft size={16}/></button>{visiblePages.map((number) => <button key={number} type="button" onClick={() => setPage(number)} aria-label={`Trang ${number}`} aria-current={pagination.page === number ? 'page' : undefined} className={`h-8 min-w-8 rounded-md border px-2 text-xs font-bold ${pagination.page === number ? 'border-[#0052cc] bg-[#0052cc] text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>{number}</button>)}<button type="button" onClick={() => setPage(pagination.page + 1)} disabled={pagination.page >= pagination.pageCount} aria-label="Trang sau" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-40"><ChevronRight size={16}/></button></div></footer>
     </section>
+    {bannerEvent && <AdminEventBannerUpload eventId={bannerEvent.id} eventName={bannerEvent.name} onClose={() => setBannerEvent(null)} onReplace={onReplaceBanner}/>}
   </section>;
 };
