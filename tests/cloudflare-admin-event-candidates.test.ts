@@ -71,11 +71,11 @@ const makeEnv = (role: 'admin' | 'auditor' | 'user' = 'admin') => {
 };
 
 const seedCandidate = (env: ReturnType<typeof makeEnv>, overrides: Record<string, unknown> = {}) => {
-  const row = { id: CANDIDATE_ID, created_at: '2026-09-01T00:00:00.000000+00:00', source_name: 'fixture', post_url: 'https://example.test/post', raw_content: 'fixture', review_status: 'pending', ...overrides };
+  const row = { id: CANDIDATE_ID, created_at: '2026-09-01T00:00:00.000000+00:00', source_name: 'fixture', post_url: 'https://example.test/post', raw_content: 'fixture', image_url: null, review_status: 'pending', ...overrides };
   env.__sql.prepare(`INSERT INTO event_candidates
-    (id, created_at, source_name, post_url, raw_content, review_status)
-    VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(row.id, row.created_at, row.source_name, row.post_url, row.raw_content, row.review_status);
+    (id, created_at, source_name, post_url, raw_content, image_url, review_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(row.id, row.created_at, row.source_name, row.post_url, row.raw_content, row.image_url, row.review_status);
 };
 
 const actionRequest = (action: string, draft: Record<string, unknown> = { title: 'Sự kiện fixture' }) =>
@@ -217,6 +217,35 @@ test('candidate approval creates exactly one D1 event and replay is idempotent',
   const stored = env.__sql.prepare('SELECT review_status, approved_event_id FROM event_candidates WHERE id = ?').get(CANDIDATE_ID) as Record<string, unknown>;
   assert.equal(stored.review_status, 'approved');
   assert.equal(stored.approved_event_id, 991);
+});
+
+test('candidate banner selected by reviewer survives approval and public projection', async () => {
+  const env = makeEnv('auditor');
+  const candidateImage = 'https://source.example.test/candidate-banner.png';
+  const durableImage = '/api/public/v1/event-banners/00000000-0000-4000-8000-000000000001.png';
+  seedCandidate(env, { image_url: candidateImage });
+  const approved = await handleAdminEventCandidates(
+    actionRequest('approve', { title: 'Sự kiện fixture', image_url: durableImage }),
+    new URL(`${ORIGIN}/api/admin/v1/event-candidates`), env,
+  );
+  const eventId = Number(approved.eventId || approved.event?.id);
+  assert.equal(env.__sql.prepare('SELECT image_url FROM event_candidates WHERE id=?').get(CANDIDATE_ID).image_url, candidateImage);
+  assert.equal(env.__sql.prepare('SELECT image_url FROM admin_events WHERE id=?').get(eventId).image_url, durableImage);
+  assert.equal(env.__sql.prepare('SELECT image_url FROM public_events WHERE id=?').get(eventId).image_url, durableImage);
+});
+
+test('approval preserves candidate banner for older clients but honors explicit removal', async () => {
+  const candidateImage = 'https://source.example.test/candidate-banner.png';
+  for (const [draft, expected] of [
+    [{ title: 'Sự kiện fixture' }, candidateImage],
+    [{ title: 'Sự kiện fixture', image_url: null }, null],
+  ] as const) {
+    const env = makeEnv('auditor'); seedCandidate(env, { image_url: candidateImage });
+    const approved = await handleAdminEventCandidates(actionRequest('approve', draft), new URL(`${ORIGIN}/api/admin/v1/event-candidates`), env);
+    const eventId = Number(approved.eventId || approved.event?.id);
+    assert.equal(env.__sql.prepare('SELECT image_url FROM admin_events WHERE id=?').get(eventId).image_url, expected);
+    assert.equal(env.__sql.prepare('SELECT image_url FROM public_events WHERE id=?').get(eventId).image_url, expected);
+  }
 });
 
 test('admin and auditor can reject once and replay safely', async () => {

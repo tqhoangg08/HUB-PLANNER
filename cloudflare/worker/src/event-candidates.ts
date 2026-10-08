@@ -363,14 +363,18 @@ const approveCandidate = async (
   body: Record<string, unknown>,
 ) => {
   if (!isRecord(body.draft)) throw new EventCandidateError(400, 'Bản nháp sự kiện không hợp lệ.');
+  const candidate = await candidateById(env, id);
+  if (!candidate) throw new EventCandidateError(404, 'Không tìm thấy candidate.');
+  // Preserve a submitted banner when an older review client omits the field.
+  // An explicit null/empty value is still the reviewer's decision to remove it.
+  const draft = { ...body.draft };
+  if (!Object.hasOwn(draft, 'image_url') && candidate.image_url) draft.image_url = candidate.image_url;
   let eventPayload;
-  try { eventPayload = validateAdminEventMutationPayload(body.draft, 'create'); }
+  try { eventPayload = validateAdminEventMutationPayload(draft, 'create'); }
   catch (error) {
     if (error instanceof AdminEventMutationError) throw new EventCandidateError(error.status, error.message);
     throw error;
   }
-  const candidate = await candidateById(env, id);
-  if (!candidate) throw new EventCandidateError(404, 'Không tìm thấy candidate.');
   if (candidate.review_status === 'approved' && Number.isSafeInteger(Number(candidate.approved_event_id))) {
     return { success: true, candidate: toApiCandidate(candidate), eventId: Number(candidate.approved_event_id), replayed: true };
   }

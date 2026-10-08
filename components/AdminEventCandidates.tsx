@@ -26,6 +26,7 @@ import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { fetchAdminEventCandidates } from '../utils/adminLegacyDataApi';
 import { privateApiRequest } from '../utils/privateApi';
+import { uploadAdminEventBanner } from '../utils/eventsApi';
 import { EventDrlRulePicker, OrganizerPicker, RecognitionFields, useEventDrlAssistant } from './EventDrlAssistant';
 
 type ReviewStatus = 'pending' | 'approved' | 'rejected' | string;
@@ -74,6 +75,7 @@ interface EventDraft {
   status: string;
   close_on_full: boolean;
   is_manually_closed: boolean;
+  image_url: string;
 }
 
 interface AdminEventCandidatesProps {
@@ -125,6 +127,7 @@ const defaultDraft = (): EventDraft => ({
   status: 'Đang diễn ra',
   close_on_full: false,
   is_manually_closed: false,
+  image_url: '',
 });
 
 const normalizeCategory = (value?: string | null) => {
@@ -168,7 +171,15 @@ const buildDraftFromCandidate = (candidate: EventCandidate | null): EventDraft =
     status: 'Đang diễn ra',
     close_on_full: false,
     is_manually_closed: false,
+    image_url: candidate?.image_url || '',
   };
+};
+
+const CandidateBannerPreview = ({ src }: { src: string }) => {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  if (!src || failed) return <div className="flex h-28 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-500">Chưa có ảnh hợp lệ</div>;
+  return <img src={src} alt="Xem trước banner sự kiện" onError={() => setFailed(true)} className="max-h-40 w-full rounded-lg border border-gray-200 bg-gray-50 object-contain" />;
 };
 const getStatusBadge = (status?: ReviewStatus) => {
   const normalized = String(status || 'pending').toLowerCase();
@@ -202,6 +213,9 @@ const CandidateDetailModal = ({
   onRetryDrl,
   onApprove,
   onReject,
+  bannerPreview,
+  onBannerSelect,
+  onBannerClear,
   analyzing,
   retryingDrl,
   approving,
@@ -215,6 +229,9 @@ const CandidateDetailModal = ({
   onRetryDrl: () => void;
   onApprove: () => void;
   onReject: () => void;
+  bannerPreview: string;
+  onBannerSelect: (file: File) => void;
+  onBannerClear: () => void;
   analyzing: boolean;
   retryingDrl: boolean;
   approving: boolean;
@@ -384,6 +401,18 @@ const CandidateDetailModal = ({
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
+                  <div className="sm:col-span-2 space-y-2">
+                    <span className="text-xs font-semibold text-gray-500 block">Banner sự kiện</span>
+                    <CandidateBannerPreview src={bannerPreview || draft.image_url} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-[#003375] hover:bg-blue-50">
+                        Tải ảnh lên R2
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" aria-label="Chọn banner sự kiện" onChange={(event) => { const file = event.target.files?.[0]; if (file) onBannerSelect(file); event.target.value = ''; }} />
+                      </label>
+                      {(bannerPreview || draft.image_url) && <button type="button" onClick={onBannerClear} className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700">Bỏ ảnh</button>}
+                    </div>
+                    <p className="text-xs text-gray-500">JPG, PNG hoặc WEBP, tối đa 2 MB. Chỉ tải lên ảnh được phép sử dụng; liên kết ảnh mạng xã hội có thể hết hạn.</p>
+                  </div>
                   <div className="block sm:col-span-2">
                     <span className="text-xs font-semibold text-gray-500 mb-1 block">Đơn vị tổ chức</span>
                     <OrganizerPicker value={draft.organizer} onChange={(value) => onDraftChange({ ...draft, organizer: value })} organizers={organizers}/>
@@ -580,6 +609,8 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<EventDraft>(defaultDraft());
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState('');
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [retryingDrlId, setRetryingDrlId] = useState<string | null>(null);
   const [savingAction, setSavingAction] = useState<'approve' | 'reject' | null>(null);
@@ -623,8 +654,24 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
   useEffect(() => {
     if (selectedCandidate) {
       setDraft(buildDraftFromCandidate(selectedCandidate));
+      setBannerFile(null);
     }
   }, [selectedCandidate?.id]);
+
+  useEffect(() => {
+    if (!bannerFile) { setBannerPreview(''); return; }
+    const url = URL.createObjectURL(bannerFile);
+    setBannerPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [bannerFile]);
+
+  const selectBanner = (file: File) => {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || !file.size || file.size > 2 * 1024 * 1024) {
+      showToast('Chỉ nhận ảnh JPG, PNG, WEBP tối đa 2 MB.', 'error');
+      return;
+    }
+    setBannerFile(file);
+  };
 
   const filteredCandidates = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -756,10 +803,17 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
       const candidateKey = String(selectedCandidate.id);
       const idempotencyKey = approvalRequestIds.current.get(candidateKey) || crypto.randomUUID();
       approvalRequestIds.current.set(candidateKey, idempotencyKey);
+      const approvalDraft = bannerFile
+        ? { ...draft, image_url: await uploadAdminEventBanner(bannerFile) }
+        : draft;
+      if (bannerFile) {
+        setDraft(approvalDraft);
+        setBannerFile(null);
+      }
       const payload = await candidateApi({
         action: 'approve',
         id: selectedCandidate.id,
-        draft,
+        draft: approvalDraft,
       }, { 'Idempotency-Key': idempotencyKey });
 
       if (payload?.candidate) updateCandidateInState(payload.candidate);
@@ -1035,6 +1089,9 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
           onRetryDrl={() => handleRetryDrl(selectedCandidate.id)}
           onApprove={handleApprove}
           onReject={() => handleReject(selectedCandidate.id)}
+          bannerPreview={bannerPreview}
+          onBannerSelect={selectBanner}
+          onBannerClear={() => { setBannerFile(null); setDraft((current) => ({ ...current, image_url: '' })); }}
           analyzing={analyzingId === selectedCandidate.id}
           retryingDrl={retryingDrlId === selectedCandidate.id}
           approving={savingAction === 'approve'}
