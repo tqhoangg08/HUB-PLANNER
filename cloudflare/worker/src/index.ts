@@ -192,6 +192,8 @@ import {
   eventCandidateErrorStatus,
   handleAdminEventCandidates,
   handleEventCandidateIngest,
+  handleEventCandidateImageUpload,
+  handleEventCandidateImageStatus,
   type EventCandidatesEnv,
 } from './event-candidates.ts';
 import { handleStaffSchedules, staffSchedulesErrorStatus, type StaffSchedulesEnv } from './staff-schedules.ts';
@@ -558,7 +560,9 @@ export const corsHeaders = (
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods':
       'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
+    'Access-Control-Allow-Headers': options.allowEventCandidateExtension
+      ? 'Authorization, Content-Type, Idempotency-Key, X-Image-Rights-Confirmed, X-Image-Rights-Basis'
+      : 'Authorization, Content-Type, Idempotency-Key',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
@@ -1173,7 +1177,8 @@ const worker = {
     }
 
     const cors = corsHeaders(request, env, {
-      allowEventCandidateExtension: requestUrl.pathname === '/api/event-candidates',
+      allowEventCandidateExtension: requestUrl.pathname === '/api/event-candidates' ||
+        /^\/api\/event-candidates\/[1-9]\d*\/(?:image|image-status)$/.test(requestUrl.pathname),
     });
     if (cors === null) return json({ error: 'Origin không được phép.' }, 403);
     if (request.method === 'OPTIONS') {
@@ -1470,15 +1475,27 @@ const worker = {
       }
     }
 
+    const candidateImageRoute = /^\/api\/event-candidates\/([1-9]\d*)\/image$/.exec(requestUrl.pathname);
+    const candidateImageStatusRoute = /^\/api\/event-candidates\/([1-9]\d*)\/image-status$/.exec(requestUrl.pathname);
     if (
       requestUrl.pathname === '/api/admin/v1/event-candidates' ||
-      requestUrl.pathname === '/api/event-candidates'
+      requestUrl.pathname === '/api/event-candidates' || candidateImageRoute || candidateImageStatusRoute
     ) {
       try {
         if (requestUrl.pathname === '/api/event-candidates') {
           const result = await handleEventCandidateIngest(request, env, (task) => ctx.waitUntil(task));
           const { httpStatus, ...payload } = result;
           return json(payload, httpStatus, { ...cors, 'Cache-Control': 'private, no-store' });
+        }
+        if (candidateImageRoute) {
+          return json(await handleEventCandidateImageUpload(request, env, candidateImageRoute[1]), 200, {
+            ...cors, 'Cache-Control': 'private, no-store',
+          });
+        }
+        if (candidateImageStatusRoute) {
+          return json(await handleEventCandidateImageStatus(request, env, candidateImageStatusRoute[1]), 200, {
+            ...cors, 'Cache-Control': 'private, no-store',
+          });
         }
         return json(await handleAdminEventCandidates(request, requestUrl, env), 200, {
           ...cors,

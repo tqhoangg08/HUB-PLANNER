@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "HUB Planner - Facebook Event Collector",
+  "description": "Gửi link/caption/ảnh bài Facebook vào hệ thống để AI phân tích và tạo event candidate.",
+  "version": "0.4.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://hotrosinhvienhub.id.vn/*",
+    "https://*.fbcdn.net/*"
+  ],
+  "action": {
+    "default_title": "Gửi vào HUB Planner",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

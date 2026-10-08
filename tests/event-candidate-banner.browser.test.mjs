@@ -19,6 +19,7 @@ test('candidate banner reaches approval draft and staff can choose an R2 replace
     await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 120_000 });
     const banner = page.getByAltText('Xem trước banner sự kiện');
     await banner.waitFor();
+    assert.equal(await page.getByText('Đã lưu ảnh vào R2').count(), 1);
     assert.match(await banner.getAttribute('src'), /^\/api\/public\/v1\/event-banners\//);
     assert.equal(await page.getByLabel('Chọn banner sự kiện').count(), 1);
     await page.getByLabel('Chọn banner sự kiện').setInputFiles({

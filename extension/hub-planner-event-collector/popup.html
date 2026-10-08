@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HUB Planner Collector</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="brand">
+        <img src="icons/icon48.png" alt="HUB Planner" />
+        <div>
+          <h1>Gửi bài vào HUB Planner</h1>
+          <p>Thu link + caption + ảnh để tạo event candidate.</p>
+        </div>
+      </div>
+      <span class="badge">v0.4</span>
+    </header>
+
+    <section class="card">
+      <label for="apiUrl">API endpoint</label>
+      <input id="apiUrl" type="url" readonly />
+
+      <label for="apiToken">API token / secret <span class="muted">(tuỳ chọn)</span></label>
+      <input id="apiToken" type="password" placeholder="Bearer token hoặc secret của bạn" />
+
+      <button id="saveSettings" class="secondary">Lưu cấu hình</button>
+    </section>
+
+    <section class="card">
+      <label for="sourceName">Nguồn / CLB</label>
+      <input id="sourceName" type="text" placeholder="VD: CLB Tin học, Đoàn khoa CNTT..." />
+
+      <label for="postUrl">Link bài viết</label>
+      <input id="postUrl" type="url" placeholder="Tự lấy từ tab hiện tại" />
+
+      <div class="row">
+        <button id="useCurrentUrl" class="secondary">Lấy link tab</button>
+        <button id="extractText" class="secondary">Lấy caption + ảnh</button>
+      </div>
+
+      <label for="rawContent">Caption / nội dung bài viết</label>
+      <textarea id="rawContent" rows="9" placeholder="Dán caption Facebook ở đây. Có thể bấm 'Lấy caption + ảnh' nếu đang mở bài viết."></textarea>
+
+      <label for="imageUrl">Link ảnh poster <span class="muted">(tuỳ chọn)</span></label>
+      <input id="imageUrl" type="url" placeholder="Tự lấy từ đúng bài viết; có thể sửa/dán lại nếu cần" />
+
+      <div class="row">
+        <button id="useCurrentImageUrl" class="secondary">Lấy ảnh từ tab ảnh</button>
+        <button id="clearImageUrl" class="secondary danger-soft">Xoá ảnh</button>
+      </div>
+
+      <div class="image-review">
+        <img id="imagePreview" class="image-preview" alt="Xem trước ảnh sự kiện" hidden />
+        <p id="imagePreviewStatus" class="image-note">Chưa chọn ảnh.</p>
+
+        <label for="imageFile">Hoặc chọn ảnh hợp lệ từ máy (JPG, PNG, WEBP, tối đa 2 MB)</label>
+        <input id="imageFile" type="file" accept="image/jpeg,image/png,image/webp" />
+
+        <label class="consent-row" for="imageConsent">
+          <input id="imageConsent" type="checkbox" />
+          <span>Tôi có quyền sử dụng và cho phép HUB Planner lưu bản sao ảnh này.</span>
+        </label>
+        <label for="imageRightsBasis">Cơ sở quyền sử dụng ảnh</label>
+        <select id="imageRightsBasis">
+          <option value="">Chọn cơ sở quyền</option>
+          <option value="owned">Tôi sở hữu ảnh</option>
+          <option value="licensed">Ảnh có giấy phép phù hợp</option>
+          <option value="permission">Đã được chủ sở hữu cho phép</option>
+        </select>
+        <p id="imageUploadStatus" class="status" role="status" aria-live="polite"></p>
+      </div>
+
+      <button id="send" class="primary">Gửi vào hệ thống</button>
+
+      <p id="status" class="status"></p>
+    </section>
+
+    <footer>
+      <p>Kiểm tra lại nội dung và quyền sử dụng ảnh trước khi gửi. Nếu ảnh không tải được, candidate vẫn được lưu để duyệt.</p>
+    </footer>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

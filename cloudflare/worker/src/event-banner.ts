@@ -25,25 +25,33 @@ const bucketOf = (env: EventBannerEnv) => {
   return env.SUPPORT_ATTACHMENTS_BUCKET;
 };
 
+export const detectEventBannerContentType = (bytes: Uint8Array): keyof typeof TYPES | null => {
+  if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff &&
+    bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9) return 'image/jpeg';
+  if (bytes.length >= 24 && [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value) &&
+    bytes[8] === 0 && bytes[9] === 0 && bytes[10] === 0 && bytes[11] === 13 &&
+    new TextDecoder().decode(bytes.subarray(12, 16)) === 'IHDR') return 'image/png';
+  if (bytes.length >= 16 && new TextDecoder().decode(bytes.subarray(0, 4)) === 'RIFF' &&
+    new TextDecoder().decode(bytes.subarray(8, 12)) === 'WEBP' &&
+    ['VP8 ', 'VP8L', 'VP8X'].includes(new TextDecoder().decode(bytes.subarray(12, 16)))) return 'image/webp';
+  return null;
+};
+
 export const validateEventBannerBytes = (bytes: Uint8Array, contentType: string) => {
   if (!TYPES[contentType]) throw new EventBannerError(415, 'Chỉ nhận ảnh JPG, PNG hoặc WEBP.');
   if (bytes.length === 0) throw new EventBannerError(400, 'Ảnh sự kiện trống.');
   if (bytes.length > MAX_EVENT_BANNER_BYTES) throw new EventBannerError(413, 'Ảnh sự kiện vượt quá 2 MB.');
-  const jpeg = contentType === 'image/jpeg' && bytes.length >= 4 &&
-    bytes[0] === 0xff && bytes[1] === 0xd8 && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9;
-  const png = contentType === 'image/png' && bytes.length >= 8 &&
-    [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value);
-  const webp = contentType === 'image/webp' && bytes.length >= 12 &&
-    new TextDecoder().decode(bytes.subarray(0, 4)) === 'RIFF' &&
-    new TextDecoder().decode(bytes.subarray(8, 12)) === 'WEBP';
-  if (!jpeg && !png && !webp) throw new EventBannerError(415, 'Nội dung tệp không phải ảnh hợp lệ.');
+  if (detectEventBannerContentType(bytes) !== contentType) throw new EventBannerError(415, 'Nội dung tệp không phải ảnh hợp lệ.');
 };
 
-const readBoundedImage = async (request: Request): Promise<Uint8Array> => {
-  const length = Number(request.headers.get('Content-Length') || 0);
+export const readBoundedEventBannerImage = async (
+  stream: ReadableStream<Uint8Array> | null,
+  contentLength: string | null,
+): Promise<Uint8Array> => {
+  const length = Number(contentLength || 0);
   if (length > MAX_EVENT_BANNER_BYTES) throw new EventBannerError(413, 'Ảnh sự kiện vượt quá 2 MB.');
-  if (!request.body) throw new EventBannerError(400, 'Thiếu ảnh sự kiện.');
-  const reader = request.body.getReader();
+  if (!stream) throw new EventBannerError(400, 'Thiếu ảnh sự kiện.');
+  const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   try {
@@ -69,7 +77,7 @@ export const uploadEventBanner = async (request: Request, env: EventBannerEnv) =
   await requireBetterAuthStaff(request, env);
   const contentType = String(request.headers.get('Content-Type') || '').split(';', 1)[0].trim().toLowerCase();
   if (!TYPES[contentType]) throw new EventBannerError(415, 'Chỉ nhận ảnh JPG, PNG hoặc WEBP.');
-  const bytes = await readBoundedImage(request);
+  const bytes = await readBoundedEventBannerImage(request.body, request.headers.get('Content-Length'));
   validateEventBannerBytes(bytes, contentType);
   const key = `event-banners/${crypto.randomUUID()}.${TYPES[contentType]}`;
   await bucketOf(env).put(key, bytes, {

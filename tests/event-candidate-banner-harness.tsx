@@ -6,7 +6,7 @@ import '../index.css';
 const imageUrl = '/api/public/v1/event-banners/00000000-0000-4000-8000-000000000001.png';
 const candidate = {
   id: '222', source_name: 'Nguồn kiểm thử', post_url: 'https://example.test/post',
-  raw_content: 'Sự kiện kiểm thử', image_url: imageUrl, review_status: 'pending',
+  raw_content: 'Sự kiện kiểm thử', image_url: imageUrl, image_ingest_status: 'stored', review_status: 'pending',
   ai_result: { title: 'Sự kiện kiểm thử' },
 };
 const originalFetch = window.fetch.bind(window);
