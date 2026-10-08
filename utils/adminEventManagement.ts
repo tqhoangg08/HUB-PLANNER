@@ -12,12 +12,25 @@ export type AdminEventStatus = 'pending' | 'open' | 'upcoming' | 'ongoing' | 'cl
 
 export interface AdminManagementEvent extends FilterableEvent {
   id: string;
+  image_url?: string | null;
   event_time: string | null;
   deadline_time: string | null;
   close_on_full: boolean;
   location: string;
   classification: string;
 }
+
+// This is a review queue, not a remote availability claim. Existing Facebook
+// CDN links can expire, while durable R2 paths should not be flagged here.
+export const needsEventBannerReview = (imageUrl: string | null | undefined): boolean => {
+  if (!imageUrl?.trim()) return true;
+  try {
+    const hostname = new URL(imageUrl).hostname.toLowerCase();
+    return hostname === 'fbcdn.net' || hostname.endsWith('.fbcdn.net');
+  } catch {
+    return false;
+  }
+};
 
 const dateKey = (value: Date) => [
   value.getFullYear(),

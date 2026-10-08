@@ -1668,6 +1668,11 @@ return (
         onGuide={() => { playClick(); setShowScoreGuide(true); }}
         onView={handleOpenEventDetail}
         onEdit={handleOpenEdit}
+        onReplaceBanner={async (eventId, imageUrl) => {
+          await updateAdminEvent(eventId, { image_url: imageUrl });
+          await fetchEvents({ bypassCache: true });
+          showToast('Đã cập nhật banner sự kiện trên R2.', 'success');
+        }}
         onToggleClose={(event) => { void handleToggleClose(event); }}
         onDelete={(id) => { void handleDeleteEvent(id); }}
       /> : <>
