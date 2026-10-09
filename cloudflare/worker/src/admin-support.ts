@@ -240,17 +240,17 @@ const createMessage = async (env: AdminSupportEnv, identity: BetterAuthIdentity,
   const ticket = await requireTicketAccess(env, identity, ticketId, true);
   const content = typeof input.body === 'string' ? input.body.trim().slice(0, 4000) : '';
   if (!content && input.allow_empty_body !== true) throw new AdminSupportError(400, 'Không thể gửi phản hồi rỗng.');
-  if (identity.role === 'auditor') throw new AdminSupportError(403, 'Auditor chỉ có quyền đọc.');
   const internal = input.is_internal_note === true;
   if (internal && identity.role !== 'admin') throw new AdminSupportError(403, 'Không có quyền tạo ghi chú nội bộ.');
   const now = new Date().toISOString(); const id = crypto.randomUUID();
-  const row: StoredMessage = { id, ticket_id: ticketId, sender_id: identity.userId, sender_role: identity.role === 'admin' ? 'admin' : 'user', body: content, attachment_urls_json: '[]', is_internal_note: internal ? 1 : 0, metadata_json: JSON.stringify(isRecord(input.metadata) ? input.metadata : {}), created_at: now };
+  const senderRole = identity.role === 'admin' ? 'admin' : identity.role === 'auditor' ? 'support' : 'user';
+  const row: StoredMessage = { id, ticket_id: ticketId, sender_id: identity.userId, sender_role: senderRole, body: content, attachment_urls_json: '[]', is_internal_note: internal ? 1 : 0, metadata_json: JSON.stringify(isRecord(input.metadata) ? input.metadata : {}), created_at: now };
   const statements: D1PreparedStatement[] = [
     db(env).prepare(`INSERT INTO support_ticket_messages (id,ticket_id,sender_id,sender_role,body,attachment_urls_json,is_internal_note,metadata_json,created_at,canonical_hash) VALUES (?,?,?,?,?,?,?,?,?,?)`).bind(row.id, row.ticket_id, row.sender_id, row.sender_role, row.body, row.attachment_urls_json, row.is_internal_note, row.metadata_json, row.created_at, await hash(row)),
     db(env).prepare(`UPDATE support_tickets SET last_message_at=?,updated_at=?,status=CASE WHEN status='open' THEN 'pending' ELSE status END WHERE id=?`).bind(now, now, ticketId),
   ];
   if (!internal && row.sender_role === 'user') statements.push(...await notifyStaff(env, identity, ticket, id, 'support_ticket_user_reply', now));
-  if (!internal && row.sender_role === 'admin' && ticket.user_id !== identity.userId) statements.push(notifyOwner(env, identity, ticket, id, 'support_ticket_reply', now));
+  if (!internal && isStaff(identity) && ticket.user_id !== identity.userId) statements.push(notifyOwner(env, identity, ticket, id, 'support_ticket_reply', now));
   await db(env).batch(statements);
   return { message: messageResponse(row) };
 };
@@ -289,7 +289,7 @@ const updateTicket = async (env: AdminSupportEnv, identity: BetterAuthIdentity, 
 };
 const resolveTicket = async (env: AdminSupportEnv, identity: BetterAuthIdentity, ticketId: string) => {
   const ticket = await requireTicketAccess(env, identity, ticketId);
-  if (identity.role === 'auditor') throw new AdminSupportError(403, 'Auditor chỉ có quyền đọc.');
+  if (identity.role === 'auditor') throw new AdminSupportError(403, 'Auditor không có quyền đóng ticket.');
   if (ticket.status === 'resolved') return ticketResponse(ticket);
   const now = new Date().toISOString();
   const notices = isStaff(identity) && ticket.user_id !== identity.userId
@@ -335,7 +335,6 @@ const attachmentInput = (input: Record<string, unknown>) => {
 };
 const createUpload = async (env: AdminSupportEnv, identity: BetterAuthIdentity, input: Record<string, unknown>) => {
   const file = attachmentInput(input); await requireTicketAccess(env, identity, file.ticketId, true);
-  if (identity.role === 'auditor') throw new AdminSupportError(403, 'Auditor chỉ có quyền đọc.');
   const attachmentStore = store(env); const uploadId = crypto.randomUUID();
   const extension = file.mimeType === 'application/pdf' ? 'pdf' : file.mimeType === 'image/jpeg' ? 'jpg' : file.mimeType.split('/')[1];
   const key = `support-tickets/${file.ticketId}/${uploadId}.${extension}`;
@@ -348,7 +347,6 @@ const completeUpload = async (env: AdminSupportEnv, identity: BetterAuthIdentity
   const uploadId = typeof input.file_key === 'string' ? input.file_key.split('/').at(-1)?.split('.')[0] : '';
   if (!uploadId || !isUuid(uploadId)) throw new AdminSupportError(400, 'Tệp đính kèm không hợp lệ.');
   await requireTicketAccess(env, identity, file.ticketId, true);
-  if (identity.role === 'auditor') throw new AdminSupportError(403, 'Auditor chỉ có quyền đọc.');
   const attachmentStore = store(env);
   const upload = await attachmentStore.db.prepare(`SELECT upload_id,ticket_id,user_id,file_key,file_name,mime_type,size_bytes,uploaded_at,completed_at,expires_at FROM support_attachment_uploads WHERE upload_id=? AND ticket_id=? AND user_id=?`).bind(uploadId, file.ticketId, identity.userId).first<UploadRow>();
   if (!upload || upload.completed_at || !upload.uploaded_at || Date.parse(upload.expires_at) <= Date.now() || upload.file_name !== file.fileName || upload.mime_type !== file.mimeType || Number(upload.size_bytes) !== file.size) throw new AdminSupportError(400, 'Tệp đính kèm không hợp lệ.');
@@ -368,9 +366,8 @@ const linkAttachments = async (env: AdminSupportEnv, identity: BetterAuthIdentit
   const ids = Array.isArray(input.attachment_ids) ? [...new Set(input.attachment_ids.filter(isUuid))].slice(0, 3) : [];
   if (!isUuid(ticketId) || !isUuid(messageId) || !ids.length) throw new AdminSupportError(400, 'Tệp đính kèm không hợp lệ.');
   await requireTicketAccess(env, identity, ticketId, true);
-  if (identity.role === 'auditor') throw new AdminSupportError(403, 'Auditor chỉ có quyền đọc.');
   const message = await db(env).prepare('SELECT id,sender_id,is_internal_note FROM support_ticket_messages WHERE id=? AND ticket_id=?').bind(messageId, ticketId).first<{ id: string; sender_id: string; is_internal_note: number }>();
-  if (!message || message.is_internal_note || (!isStaff(identity) && message.sender_id !== identity.userId)) throw new AdminSupportError(403, 'Không có quyền gắn tệp đính kèm.');
+  if (!message || message.is_internal_note || (identity.role !== 'admin' && message.sender_id !== identity.userId)) throw new AdminSupportError(403, 'Không có quyền gắn tệp đính kèm.');
   const rows = await db(env).prepare(`SELECT id,uploaded_by,message_id,status FROM support_ticket_attachments WHERE id IN (${ids.map(() => '?').join(',')}) AND ticket_id=?`).bind(...ids, ticketId).all<{ id: string; uploaded_by: string; message_id: string | null; status: string }>();
   if ((rows.results || []).length !== ids.length || (rows.results || []).some((row) => row.uploaded_by !== identity.userId || row.message_id !== null || row.status !== 'uploaded')) throw new AdminSupportError(400, 'Không thể gắn tệp đính kèm.');
   await db(env).batch(ids.map((id) => db(env).prepare(`UPDATE support_ticket_attachments SET message_id=?,status='linked' WHERE id=? AND ticket_id=? AND uploaded_by=? AND message_id IS NULL`).bind(messageId, id, ticketId, identity.userId)));
@@ -438,7 +435,6 @@ export const handleAdminSupportAttachmentObject = async (request: Request, url: 
     const row = await attachmentStore.db.prepare(`SELECT upload_id,ticket_id,user_id,file_key,file_name,mime_type,size_bytes,uploaded_at,completed_at,expires_at FROM support_attachment_uploads WHERE upload_id=?`).bind(upload).first<UploadRow>();
     if (!row || row.user_id !== identity.userId || row.uploaded_at || row.completed_at || Date.parse(row.expires_at) <= Date.now()) throw new AdminSupportError(403, 'Tệp đính kèm không hợp lệ.');
     await requireTicketAccess(env, identity, row.ticket_id, true);
-    if (identity.role === 'auditor') throw new AdminSupportError(403, 'Auditor chỉ có quyền đọc.');
     const length = Number(request.headers.get('content-length') || 0);
     if (!request.body || length !== row.size_bytes || request.headers.get('content-type')?.split(';', 1)[0] !== row.mime_type) throw new AdminSupportError(400, 'Tệp đính kèm không hợp lệ.');
     await attachmentStore.bucket.put(row.file_key, request.body, { httpMetadata: { contentType: row.mime_type } });

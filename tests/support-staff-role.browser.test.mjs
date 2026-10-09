@@ -27,7 +27,7 @@ const openRole = async (role) => {
     if (action === 'staff') return route.fulfill({ json: { data: [] } });
     if (action === 'create-message') return route.fulfill({ json: { message: {
       id: '44444444-4444-4444-8444-444444444444', ticket_id: ticket.id,
-      sender_id: ticket.assigned_to, sender_role: 'admin', body: 'Test reply',
+      sender_id: ticket.assigned_to, sender_role: role === 'auditor' ? 'support' : 'admin', body: 'Test reply',
       is_internal_note: false, created_at: '2026-10-08T00:00:01.000Z',
     } } });
     return route.fulfill({ status: 400, json: { error: 'Unexpected test action' } });
@@ -37,17 +37,40 @@ const openRole = async (role) => {
   return { page, actions };
 };
 
-test('auditor can read a ticket but sees no reply, upload or management actions', async () => {
+test('auditor can reply and attach files but sees no management or internal-note controls', async () => {
   const { page, actions } = await openRole('auditor');
   try {
-    await page.getByText('Auditor chỉ có quyền xem ticket; không thể gửi phản hồi hoặc tệp đính kèm.').waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Đính kèm file' }).count(), 0);
+    await page.getByRole('button', { name: 'Đính kèm file' }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Bật ghi chú nội bộ' }).count(), 0);
     assert.equal(await page.getByRole('button', { name: 'Đánh dấu đã xử lý xong' }).count(), 0);
     assert.equal(await page.getByRole('button', { name: 'Mở thao tác ticket' }).count(), 0);
-    assert.equal(await page.locator('textarea').count(), 0);
-    assert.equal(actions.includes('create-message'), false);
+    const composer = page.getByPlaceholder('Nhập phản hồi hoặc dán ảnh vào đây...');
+    await composer.fill('Test reply');
+    await page.locator('form.support-chat-input button').last().click();
+    await page.getByText('Test reply').waitFor();
+    assert.equal(actions.filter((action) => action === 'create-message').length, 1);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  } finally { await page.close(); }
+});
+
+test('auditor can preview image paste, image drop and PDF selection before sending', async () => {
+  const { page } = await openRole('auditor');
+  try {
+    await page.getByPlaceholder('Nhập phản hồi hoặc dán ảnh vào đây...').evaluate((element) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'paste.png', { type: 'image/png' }));
+      element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer }));
+    });
+    await page.getByText('pasted-image-', { exact: false }).waitFor();
+    await page.locator('section.support-chat').evaluate((element) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'drop.png', { type: 'image/png' }));
+      element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    });
+    await page.getByText('drop.png').waitFor();
+    await page.locator('input[type="file"]').setInputFiles({ name: 'proof.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+    await page.getByText('proof.pdf').waitFor();
+    assert.equal(await page.locator('form.support-chat-input img').count(), 2);
   } finally { await page.close(); }
 });
 

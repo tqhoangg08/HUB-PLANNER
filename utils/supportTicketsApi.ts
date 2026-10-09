@@ -57,7 +57,7 @@ export const createSupportTicket = async (input: { subject: string; category: Su
   const { subject, message } = validateTicketInput(input.subject, input.message);
   return post<SupportTicket & { initial_message_id?: string }>('create-ticket', { ...input, subject, message });
 };
-export const sendTicketMessage = async (input: { ticketId: string; body: string; senderRole: SupportSenderRole; isInternalNote?: boolean; allowEmptyBody?: boolean; metadata?: Record<string, unknown> }) => {
+export const sendTicketMessage = async (input: { ticketId: string; body: string; isInternalNote?: boolean; allowEmptyBody?: boolean; metadata?: Record<string, unknown> }) => {
   const body = input.body.trim().slice(0, 4000);
   if (!body && !input.allowEmptyBody) throw new Error('Không thể gửi phản hồi rỗng.');
   return (await post<{ message: SupportTicketMessage }>('create-message', { ticket_id: input.ticketId, body, is_internal_note: Boolean(input.isInternalNote), allow_empty_body: Boolean(input.allowEmptyBody), metadata: input.metadata || {} })).message;
