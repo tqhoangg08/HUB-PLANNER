@@ -2,6 +2,8 @@
 
 Date: 2026-10-09. Base: `059f73364d257fdf15b8878b8160e7c94bfc5a75` (`main`). Branch: `fix/ai-advisor-grounded-retrieval`.
 
+Updated after reading the complete [PR #88 acceptance comment](https://github.com/tqhoangg08/HUB-PLANNER/pull/88#issuecomment-6084379233). That comment identifies the reported failures as the **old deployed Worker**, not this unmerged PR. Fixture success below is never production answer-quality acceptance.
+
 Scope: Advisor routing, authorized document retrieval, grounded responses, source presentation and regression tests. No production deployment, ingestion/reindex, data backfill or main push is authorized by this PR. Event DRL prediction, ranking, Student Directory, Support, extension and Auth Worker are unchanged.
 
 ## Verified root causes
@@ -16,6 +18,11 @@ The reproduction uses the committed baseline, loaded by the local benchmark scri
 | Citation existence was incorrectly sufficient for legacy prose | `chat` accepted model prose after D1 citation resolution; a one-document fallback also parsed locators/applicability from the model answer. The compatibility parser used attributed answer byte spans as if they were source text. | Require actual retrieved passages, topical relevance and current D1 authorization. Unknown/private/revoked sources fail closed. Answer byte offsets are not evidence. Exact source-supported text may be retained; otherwise return bounded source quotations, never unsupported model prose. |
 | Legal currency was inferred without proof | Resolved sources always set `inferredCurrent: true`; upload timestamps/version were ranking hints, not verified effective status. | `inferredCurrent: false`; no source is called current/latest on that basis. Quotations that include currency language are explicitly qualified as not independently verified. Scope labels come only from retrieved text or existing academic-year metadata. |
 | Provider errors could leak content in diagnostic text | `logFileSearchDiagnostic` spread provider diagnostics, including error text/reason. Redaction is not a complete content guarantee. | Structural allowlist only: coarse classification/status, configured model, call counts, timing and coarse location. Test proves provider query/document sentinels are not logged. |
+| Multiple relevant chunks from one PDF were discarded | `ai-search-retrieval.ts:mergeAiSearchSources` keyed deduplication by document ID + object key; only one chunk survived from a multi-page PDF/object. | Key by document ID + object key + exact passage text. Distinct table/notes chunks survive, identical passages still deduplicate; global topK 3, hard max 5 and search count unchanged. Cache namespaces are revision-bumped. |
+| Generic DRL mention could authorize GPA evidence | The relevance guard accepted any passage containing “rèn luyện”, including GPA/letter conversion with a generic “học tập và rèn luyện” phrase. | Reject academic conversion without direct conduct content. Keep legitimate conduct rules that include academic performance; accept table continuations using authoritative D1 conduct title. Recheck Gemini title-dependent relevance against D1, not a provider-spoofed title. |
+| Long relevant notes could be hidden by extractive fallback | Fallback always returned the first 1200 characters of a passage. Actual PDF mini-game/external-evidence rules are notes at the end of page 14. | Select a bounded literal paragraph window using question-topic anchors, preserving source text/negation. Explicit partial-coverage caveat; no fuzzy support matching, OCR word repair or claim of complete coverage. |
+| Personal full-word DRL query still carried a GPA document route | The new classifier recognized personal score but the document router independently fell through to grading for “điểm rèn luyện … học kỳ”. | Personal conduct routing exits before grading/history inference. Zero AI response still explains that personal DRL is unavailable, not GPA. All eight new comment questions have route fixtures. |
+| Failures were indistinguishable to the client | Timeout and no useful source both returned generic unavailable text/boolean. | Add bounded `documentSearchStatus` and truthful timeout/insufficient-source wording. No raw provider messages, IDs, passages or private-document existence exposed. |
 
 These establish the failure path. They do not independently establish what the old live model generated: the reported weekly schedule is user-provided evidence; the benchmark uses a deliberately off-topic model stub to prove that old routing allowed that path.
 
@@ -44,10 +51,47 @@ References checked: [Cloudflare metadata](https://developers.cloudflare.com/ai-s
 - Version bindings read back: `AI_ADVISOR_V2_MODE=canary`, `AI_ADVISOR_V2_CANARY_PERCENT=7`.
 - Homepage GET: 200. Anonymous Advisor GET: 401 (no generation or chat write).
 - D1 catalog: 11 records; 10 public, completed, non-deleted documents. Public/completed categories: training regulation 5, discipline 2, handbook 1, tuition 1, legacy “Quy chế” 1.
-- Aggregate title/original-filename search for `3529`: 0 matches. Reads reported zero writes / unchanged database.
-- This does **not** prove the PDF is absent: it could have another name or be in a different index/store. Presence, access, actual retrieval and effective status of Decision 3529 on production are **NOT VERIFIED**. No private document contents, account data or corpus content were printed or downloaded.
-- The supplied NotebookLM benchmark and synthetic tests do not attest production contents. No production Advisor benchmark/request, upload or AI Search sync was run.
+- Exact generic-title PDF **found**, public/completed in D1: `4255f763-6dca-4152-8b2c-daa686103cc1`, “Quy chế đánh giá kết quả rèn luyện sinh viên”, category `training_regulation`, academic year `2026-2027`, version 1. Public authorized file GET returned 200; 5,046,457 bytes, 14 pages, SHA256 `da56531f29c98a6545b9bcec69a2c78fddbdb6623a5c0cdac06f40682996ca25` matches D1. Local copy/renderings stay outside Git. **A filename search for 3529 would miss this record.**
+- Gemini document GET returned 200 / `STATE_ACTIVE`; document-ID custom metadata matches D1 and visibility is public. The configured local File Search store matches D1. This proves presence/authorization/index inventory, **not successful grounded generation**.
+- AI Search source configuration includes `ai-search/text` but not `ai-documents`. This PDF is an original/legacy record, with no canonical/derived hash or extraction-pipeline identity. One search with the **current runtime nested retrieval/filter contract** and exact authorized document ID returned **0 chunks**. Thus the observed source does not supply this PDF through the intended derived-index path. D1 `completed` (Gemini operation) is not cross-provider index readiness.
+- Installed Wrangler CLI search used an older top-level-filter request shape. Exploratory CLI results are **discarded as runtime-filter evidence**; the diagnostic uses the documented REST `ai_search_options.retrieval.filters` contract instead. `$in`/implicit AND are supported by current filter docs; no speculative filter rewrite was made.
+- Native PDF extraction contains substantial glyph/spelling corruption even though pages are long and the current replacement/private-use/density guard does not flag it. **Visually verified page content**, not this corrupted text layer, is the reference below. This does not prove Gemini uses the same extraction or that corruption caused its timeout. Future authorized ingestion must assess native/OCR quality, not patch OCR words during quote validation.
+- All D1 observations were SELECT-only, reporting zero writes/unchanged DB. No authenticated production chat requests, conversation writes, uploads/reuploads, document mutation, index sync or private-document downloads occurred.
 - Production is **NOT DEPLOYED / UNCHANGED** by this task. Observability/configuration files were not modified. No Auth deployment.
+
+### Actual PDF reference, separate from synthetic 3529 fixture
+
+- Page 1 visually reads **3549/QĐ-ĐHNH**, dated **07 October 2026**. This differs from the user-provided NotebookLM 3529 benchmark. Do not silently equate those numbers; the handwritten identity has no independently verified legal metadata in D1.
+- Articles 4–5, pages 1–3: five conduct groups; **100-point scale**, maxima **25 / 20 / 20 / 15 / 20**. Not a GPA 10-point or letter conversion.
+- Page 14 notes explicitly say online mini games do **not** count for DRL.
+- Same page: outside-school evidence needs confirmation from a competent agency/organization, signature of the authorized person and the prescribed round organizational stamp.
+- These observations establish what the retrieved public PDF says, **not** that it is the latest legally effective document. Upload date, academic year and active index state cannot prove absence of superseding regulations.
+- Tests contain only short public-law transcriptions, visually checked on these pages; no original PDF, raw corpus export or generated OCR file is committed.
+
+### Real-provider tests (bounded, no production chat/data writes)
+
+| Test | Actual result | Calls / latency | What this proves |
+|---|---|---|---|
+| Gemini File Search GenerateContent, exact public PDF filter, first acceptance question | **TIMEOUT**; no HTTP/grounding response received within existing 30-second budget | 1 generation call / 30,018 ms; no retry | Real inference attempted; remaining Gemini acceptance questions blocked, not PASS. Local Node network/key is not a Cloudflare staging request. |
+| Gemini plain-generation control, same model/key, no documents | **TIMEOUT**, no response in 12-second diagnostic bound | 1 generation / 12,039 ms; no retry | Timeout is **not isolated to File Search**. Network/project/model/provider cause remains unproven; do not attribute it solely to PDF/indexing. |
+| AI Search current runtime REST filter, group-criteria question | **0 chunks** / 0 matching chunks | 1 search / 2,225 ms; no generation | Actual target-document retrieval gap; not a generated answer or UI acceptance test. |
+| Exploratory installed CLI searches (discarded) | Returned chunks but CLI filter placement differed from runtime | 2 search requests; latency not retained | Not counted as correct runtime retrieval or quality PASS. These requests still incurred normal search usage. |
+| Current Workers AI adapter, observed deployed model `@cf/zai-org/glm-4.7-flash`, visually checked page-14 mini-game quote | **SUPPORTED + validated support/citation**, exposed grounded output contains exact negative PDF statement; unknown source=false | 1 generator / 9,810 ms; temperature=0, seed=42; no retry/verifier | Real generator + deterministic grounding can handle this supplied evidence. **Evidence was manually transcribed, NOT retrieved by AI Search.** Not E2E. |
+
+Observed audit totals: **3 search requests** (2 discarded CLI probes + 1 authoritative REST probe) and **3 generator requests** (Gemini document + plain control + Workers AI evidence-only). Provider-internal tool calls and real token/cost totals are **NOT MEASURED**. No comparison with NotebookLM latency/quality was performed. There is **no safe authenticated isolated staging Worker/index pinned to this PR** configured in this workspace; using Vite's production API proxy would test old production and write chat records, so it was not used.
+
+### Eight new comment questions: actual evidence versus runtime acceptance
+
+| Case | Reference/evidence verified | Local code fixture | Authenticated real-provider E2E |
+|---:|---|---|---|
+| 1 latest DRL table | Public PDF exists, 100-point scale | PASS routing/anti-GPA/extractive support | **BLOCKED** Gemini timeout / AI Search coverage gap |
+| 2 document identity | Generic title found; page 1 visually reads 3549 and 07/10/2026 | PASS routing / no fabricated 3529 | **NOT VERIFIED** |
+| 3 typo “điẻm” | Same reference as case 1 | PASS same conduct route | **NOT VERIFIED** |
+| 4 five criteria / maxima | Pages 1–3 visually verified | PASS both table pages / all five maxima retained | **NOT VERIFIED** |
+| 5 online mini game | Page 14 explicit negative rule | PASS; real Workers AI supplied-evidence component also passed | **NOT VERIFIED E2E** |
+| 6 external-activity proof | Page 14 explicit conditions | PASS route + exact requirements/negation retained | **NOT VERIFIED** |
+| 7 personal current score | No personal DRL authority in Advisor | PASS zero AI, never GPA substitution | **NOT VERIFIED UI** |
+| 8 latest/effective | Index/academic-year metadata insufficient | PASS no invented currency | **NOT VERIFIED legal currency / E2E** |
 
 ## Old versus new behavior
 
@@ -72,8 +116,8 @@ Example new no-evidence answer: “Mình chưa thể xác minh thông tin hiện
 | Gemini document calls/request | 0 | 1 |
 | Returned document sources | 0 | 1 |
 | Off-topic schedule stub exposed | yes | no |
-| p50, ms (latest run) | 1.86 | 4.61 |
-| p95, ms (latest run) | 9.37 | 6.52 |
+| p50, ms (latest run) | 0.67 | 1.96 |
+| p95, ms (latest run) | 3.64 | 2.76 |
 
 These numbers measure local control-flow overhead, **not network/provider/production latency or LLM quality**; concurrent validation and cold/warm module effects affect them. They are not evidence of a production speedup.
 
@@ -110,13 +154,13 @@ Additional regressions: old relevant source beyond 48/12; 4096 cap fails closed;
 
 Final full-suite run completed successfully on the final implementation. The known event-storage 503 baseline did not reproduce. Commit/PR identity is recorded in the PR and final handoff.
 
-- Targeted Advisor: **163/163 PASS**, including 24 new quality tests.
-- Full suite: **551/551 PASS**, zero failures/skips/cancellations. Groups: Advisor 163, Student Directory 16, recovery 3, Event DRL 6, unit 337, authority/browser bridge 25, D1 read optimization 1.
+- Targeted Advisor: **172/172 PASS**, including **32 quality tests**.
+- Full suite: **560/560 PASS**, zero failures/skips/cancellations. Groups: Advisor 172, Student Directory 16, recovery 3, Event DRL 6, unit 337, authority/browser bridge 25, D1 read optimization 1. The known event-storage 503 baseline did not reproduce. Earlier development failures (new guards versus old routing-only stubs / overly strict exact-output assertion) were fixed and final validation rerun; those failed runs are not acceptance passes.
 - Typecheck: PASS.
 - Cloudflare typecheck: PASS after final Worker changes.
-- Frontend build: PASS (3440 modules); existing large-chunk / Browserslist age warnings remain. Final changes after build are Worker/test-only.
+- Final frontend build: PASS (3440 modules); existing large-chunk / Browserslist age warnings remain.
 - Diff check: PASS; also rechecked on the staged commit set.
-- Live production UI/generation and Decision 3529 retrieval: NOT VERIFIED, not substituted with fixtures.
+- Actual-provider probes: results and bounds above. Authenticated end-to-end PR Worker/UI and benchmark Decision 3529 retrieval remain **BLOCKED / NOT VERIFIED**, not substituted with fixtures.
 
 ## Intended changed files
 
@@ -129,9 +173,11 @@ Final full-suite run completed successfully on the final implementation. The kno
 - `shared/ai-document-categories.ts`
 - `components/AIDocumentSources.tsx`
 - `tests/ai-advisor-quality.test.ts` (new)
+- `tests/ai-search-retrieval.test.ts`
 - `tests/ai-advisor-intent-retrieval.test.ts`
 - `tests/ai-advisor-message-ui.test.ts`
 - `scripts/benchmark-advisor-grounded-retrieval.mjs` (new)
+- `scripts/verify-advisor-conduct-providers.mjs` (new; safe read-only diagnostics, explicit inference flags)
 - `package.json` (Advisor suite is now part of `npm test`; no dependency changes)
 - This report.
 
@@ -141,10 +187,10 @@ The existing `docs/ai-advisor-v2/` local plan remains untracked and untouched. N
 
 1. Exact/extractive policy output is intentionally conservative: fluent paraphrases can become quotations, and missing provider passage text leads to abstention even if a citation ID exists. Real Gemini/AI Search responses must be confirmed before release; a citation alone is not sufficient evidence.
 2. Relevance/injection detection is bounded and conservative, not a general semantic proof. The exact/extractive output gate avoids exposing unsupported model prose; false negatives can still produce abstention or partial quotes. TopK does not guarantee every relevant passage will be returned.
-3. D1 has no comprehensive issued/effective/expiry/supersedes/authority metadata. This PR does not manufacture legal status. An authorized owner must identify the 3529 document, verify applicability and indexing in the intended providers before claiming current production support.
+3. D1 has no comprehensive issued/effective/expiry/supersedes/authority metadata. This PR does not manufacture legal status. The generic-title PDF is now identified, but its visually read decision number differs from the 3529 benchmark. An authorized owner must validate identity/applicability and derived-index coverage before claiming current production support. Native extraction quality also requires review; no OCR/reindex production mutation was made.
 4. Public catalog greater than 4096 is an explicit availability blocker, not a partial/unsecured fallback. Future larger catalogs need a revised bounded search index strategy.
 5. Current public-only chatbot authorization is retained. Program/admin-private documents remain unavailable to Advisor until separately designed/approved.
 6. `.github/workflows/deploy-cloudflare-production.yml` runs on main push and deploys **both Auth and Public**. Do not merge/push main or trigger that workflow as part of this task. Release requires explicit approval and a Public-only method preserving runtime `canary=7` and existing safe observability/bindings.
 7. No migrations or production data changes: rollback after an approved future deployment can return Public traffic to the recorded healthy version `9bcf3e62-00db-4794-8020-4c4891929896` (reconfirm active rollback target at release), preserving runtime canary 7% and observability. Code rollback is a normal revert of the PR, never reset/force-push.
 
-**Code review readiness is not production activation approval.** Production acceptance for the actual 3529 PDF, real-provider latency/cost, and post-release authenticated UI remains NOT VERIFIED. Request explicit release confirmation after those evidence gates; do not auto-deploy this PR.
+**Code review readiness is not production activation approval.** Release acceptance is **BLOCKED** by missing authenticated isolated staging E2E, target PDF AI Search coverage, and Gemini inference timeouts. A real supplied-evidence Workers AI pass is not a replacement for retrieval/response/UI acceptance. Do not auto-deploy/merge this PR. An authorized staging setup needs an isolated Worker/D1/R2/index, verified page-aware native/OCR artifact from the public PDF, provider credentials and safe test login; it must not proxy chat/index writes to production. Resolve the observed Gemini network/provider issue there before running the eight questions once and comparing answers with the visually checked PDF.

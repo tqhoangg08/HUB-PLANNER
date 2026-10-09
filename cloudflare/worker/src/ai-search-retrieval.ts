@@ -179,8 +179,10 @@ const normalizeResults = (
 const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 'sourceId'>[], topK: number) => {
   const deduped = new Map<string, Omit<RetrievedAiSearchSource, 'sourceId'>>();
   for (const source of sources) {
-    // One best chunk per document-part/object. Page/part mapping remains D1-owned.
-    const key = `${source.documentId}\n${source.itemKey}`;
+    // A PDF/object can contain multiple relevant chunks (e.g. both pages of a
+    // criteria table). Deduplicate identical text, not the entire source file.
+    // Exact comparison only: no accent folding/fuzzy evidence normalization.
+    const key = JSON.stringify([source.documentId, source.itemKey, source.snippet]);
     const current = deduped.get(key);
     const currentScore = current?.score ?? Number.NEGATIVE_INFINITY;
     const sourceScore = source.score ?? Number.NEGATIVE_INFINITY;

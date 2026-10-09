@@ -528,7 +528,7 @@ export const groundGeminiReply = (reply: string, question: string, sources: read
     && isRelevantAdvisorEvidence(question, source.evidenceText, source.title || '')).slice(0, 3);
   if (!relevant.length) return { reply: '', groundingVerified: false, documentSources: [] as GeminiDocumentSource[] };
   return {
-    reply: sourceSupportedReply(reply, relevant.map((source) => source.evidenceText!)),
+    reply: sourceSupportedReply(reply, relevant.map((source) => source.evidenceText!), question),
     groundingVerified: true,
     documentSources: relevant.slice(0, 3),
   };

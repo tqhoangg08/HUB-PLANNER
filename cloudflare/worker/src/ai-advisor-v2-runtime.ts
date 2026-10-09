@@ -150,7 +150,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: 'ai-search-full-authorized-v2',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: 'ai-search-full-authorized-conduct-v3',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -162,7 +162,7 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: 'ai-search-full-authorized-topk3-threshold04-v2',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: 'ai-search-full-authorized-topk3-threshold04-chunks-v3',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
@@ -205,7 +205,7 @@ export const executeAiAdvisorV2Document = async (
     const decision = validateEvidenceAbstention({ question, evidence }, { text: generated.answer, citedSourceIds: generated.sourceIds });
     if (decision.kind !== 'ANSWER') return abstain('INVALID_CITATIONS', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
     const citedEvidence = evidence.filter((source) => decision.citedSourceIds.includes(source.sourceId));
-    const answer: AiAdvisorV2Answer = { reply: sourceSupportedReply(generated.answer.trim(), citedEvidence.map((source) => source.snippet)), evidence: citedEvidence };
+    const answer: AiAdvisorV2Answer = { reply: sourceSupportedReply(generated.answer.trim(), citedEvidence.map((source) => source.snippet), question), evidence: citedEvidence };
     if (dependencies.answerCache && answerCacheKey) {
       try { await dependencies.answerCache.put(answerCacheKey, answer, 120); } catch { /* optional */ }
     }

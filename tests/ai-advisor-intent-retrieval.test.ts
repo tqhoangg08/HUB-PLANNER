@@ -54,6 +54,7 @@ const DOCUMENT_D = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 // These older fixtures isolate routing/D1 authority, not provider grounding.
 // Their mocked provider explicitly attests grounding. The quality suite tests
 // the real grounding parser and rejects missing/false attestations separately.
+const ROUTING_FIXTURE_EVIDENCE = 'Tài liệu kiểm thử có điểm học phần, học bổng, học phí, tốt nghiệp, đăng ký học phần, cảnh báo học vụ và điểm rèn luyện.';
 const handleAiAdvisor: typeof handleAiAdvisorImplementation = async (request, url, env, lifetime) => {
   const answer = env.fileSearchAnswer;
   const provider = env.advisorProviders?.groundedDocument;
@@ -61,12 +62,12 @@ const handleAiAdvisor: typeof handleAiAdvisorImplementation = async (request, ur
   return handleAiAdvisorImplementation(request, url, Object.assign(copy, {
     ...(answer ? { fileSearchAnswer: async (...args: Parameters<NonNullable<typeof answer>>) => {
       const result = await answer(...args);
-      return result ? { ...result, groundingVerified: true } : null;
+      return result ? { ...result, groundingVerified: true, documentSources: result.documentSources.map((source) => ({ ...source, evidenceText: source.evidenceText || ROUTING_FIXTURE_EVIDENCE })) } : null;
     } } : {}),
     ...(provider ? { advisorProviders: { ...env.advisorProviders, groundedDocument: {
       ...provider, retrieve: async (...args: Parameters<typeof provider.retrieve>) => {
         const result = await provider.retrieve(...args);
-        return result ? { ...result, groundingVerified: true } : null;
+        return result ? { ...result, groundingVerified: true, documentSources: result.documentSources.map((source) => ({ ...source, evidenceText: source.evidenceText || ROUTING_FIXTURE_EVIDENCE })) } : null;
       },
     } } } : {}),
   }), lifetime);

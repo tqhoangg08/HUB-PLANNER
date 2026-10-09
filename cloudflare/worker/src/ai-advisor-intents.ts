@@ -15,6 +15,7 @@ export const classifyConductIntent = (question: string): ConductIntent | null =>
     && !/\b(?:quy che|quy dinh|tieu chi|phuc khao)\b/.test(text)) return 'personal_score';
   if (/\b(?:cong sinh vien|website|tren web|thao tac|bam|dang nhap)\b/.test(text)
     && /\b(?:cach|huong dan|tu danh gia)\b/.test(text)) return 'portal_help';
+  if (/\bminh chung\b/.test(text) && /\b(?:yeu cau|dap ung|xac nhan)\b/.test(text)) return 'regulations';
   if (/\b(?:su kien|mini game|minigame|tham gia|hoat dong)\b/.test(text)
     && /\b(?:co duoc|duoc tinh|duoc cong|tinh drl|cong diem|tinh diem)\b/.test(text)) return 'event_eligibility';
   if (/\b(?:su kien|hoat dong)\b/.test(text)

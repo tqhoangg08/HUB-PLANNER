@@ -54,7 +54,7 @@ import {
 import type { Subject } from '../../../types.ts';
 import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { classifyConductIntent, normalizeAdvisorIntentText } from './ai-advisor-intents.ts';
-import { isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
+import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
 
 export type AdvisorAnswerPath = 'CACHE' | 'D1' | 'FAQ' | 'SEARCH_ONLY' | 'SEARCH_GENERATE';
 
@@ -470,6 +470,10 @@ export { withGeminiLegacyDeadline as withFileSearchDeadline } from './ai-advisor
 export const routeAdvisorDocuments = (question: string, history: unknown = []): AdvisorDocumentRoute => {
   const text = normalizedQuestion(question);
   const conduct = classifyConductIntent(question);
+  if (conduct === 'personal_score') {
+    const scope = extractAdvisorPolicyScope(question, false);
+    return { documentSearch: false, domain: null, scope, coverageMode: false, academicYear: scope.academicYear };
+  }
   const domain = conduct && !['personal_score', 'event_listing'].includes(conduct) ? 'drl_regulations' : documentDomainForText(text);
   const hasOfficialCue = matchesIntent(text, [...POLICY_DOCUMENT_CUES, 'quyết định', 'tiêu chí', 'phúc khảo']);
   const hasInstitutionCue = matches(text, ['hub', 'buh', 'trường mình', 'nhà trường']);
@@ -1831,6 +1835,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       : []),
   ].join('\n');
   let documentSearchUnavailable = false;
+  let documentSearchStatus: string = quota.allowGeneration ? 'not_configured' : 'quota_limited';
   if (documentIntent && quota.allowGeneration) {
     if (!providers.groundedDocument.isConfigured(env)) {
       logFileSearchDiagnostic(providers.groundedDocument.disabledReason, retrieval.documentRoute, 'candidate_ids', 'document_ids', 0, 0, 0, 0);
@@ -1892,10 +1897,9 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
               return { success: false, reason: resolution.reason };
             }
             if (result.groundingVerified !== true) return { success: false, reason: 'INSUFFICIENT_GROUNDED_EVIDENCE' };
-            // Provider titles are presentation hints, not document identity.
-            // A numbered-decision request must match the actual D1 title/body.
-            if (/\bquyet dinh\s+\d{2,6}\b/.test(normalizeAdvisorIntentText(question))
-              && citations.some((citation) => !isRelevantAdvisorEvidence(question, String(citation.evidenceText || ''),
+            // Recheck actual D1 titles, not provider presentation identity.
+            // A forged conduct/numbered title cannot make unrelated text relevant.
+            if (citations.some((citation) => !isRelevantAdvisorEvidence(question, String(citation.evidenceText || ''),
                 resolution.sources.find((source) => source.documentId === citation.documentId)?.title))) {
               return { success: false, reason: 'INSUFFICIENT_GROUNDED_EVIDENCE' };
             }
@@ -1940,6 +1944,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       if (!providers.groundedDocument.hasUsableCandidateIds(candidateIds)) {
         logFileSearchDiagnostic('D1_CITATION_NOT_FOUND', retrieval.documentRoute, 'candidate_ids', 'document_ids', 0, 0, 0, 0);
         documentSearchUnavailable = true;
+        documentSearchStatus = 'no_indexed_documents';
       } else {
         const first = await search(candidateIds, 'candidate_ids', 'document_ids', candidates.length);
         const firstFailure = !first.success
@@ -1973,18 +1978,25 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
           return { reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };
         }
         documentSearchUnavailable = true;
+        const finalFailure = broadFallback && !broadFallback.success ? broadFallback : firstFailure;
+        if (finalFailure && !finalFailure.success) documentSearchStatus = documentSearchFailureStatus((finalFailure as Extract<DocumentSearchOutcome, { success: false }>).reason);
       }
     }
   }
   if (documentIntent) {
     const indexing = await requireDb(env).prepare(`SELECT COUNT(*) AS count FROM ai_documents
       WHERE deleted_at IS NULL AND visibility = 'public' AND indexing_status IN ('pending','uploading','processing')`).first<{ count: number }>();
-    const reply = Number(indexing?.count || 0) > 0
-      ? `${UNVERIFIED_HUB_REPLY} Kho có tài liệu đang lập chỉ mục; chưa thể dùng các tài liệu đó làm bằng chứng.`
-      : UNVERIFIED_HUB_REPLY;
+    const indexingNote = Number(indexing?.count || 0) > 0
+      ? ' Kho có tài liệu đang lập chỉ mục; chưa thể dùng các tài liệu đó làm bằng chứng.' : '';
+    if (indexingNote && documentSearchStatus === 'no_indexed_documents') documentSearchStatus = 'indexing';
+    const statusNote = documentSearchStatus === 'provider_timeout'
+      ? ' Lần truy xuất tài liệu đã quá thời gian chờ; chưa có đoạn nguồn để xác minh câu trả lời.'
+      : ['no_citations', 'insufficient_evidence', 'source_validation_failed'].includes(documentSearchStatus)
+        ? ' Lần truy xuất chưa cung cấp đoạn nguồn phù hợp và được xác minh để trả lời câu hỏi này.' : '';
+    const reply = `${UNVERIFIED_HUB_REPLY}${statusNote}${indexingNote}`;
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: reply, answer_sources: retrieval.sources, document_search_unavailable: true });
     emitPath('SEARCH_GENERATE', false, null, quota.allowGeneration ? 'document_provider_unavailable' : 'quota_survival');
-    return { reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: true };
+    return { reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: true, documentSearchStatus };
   }
   if (!quota.allowGeneration) {
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: QUOTA_SURVIVAL_REPLY, answer_sources: retrieval.sources, document_search_unavailable: false });

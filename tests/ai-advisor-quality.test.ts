@@ -5,7 +5,8 @@ import test from 'node:test';
 import { performance } from 'node:perf_hooks';
 import { classifyAdvisorIntents, handleAiAdvisor, routeAdvisorDocuments, selectAdvisorDocumentCandidates, type AiAdvisorEnv } from '../cloudflare/worker/src/ai-advisor.ts';
 import { classifyConductIntent } from '../cloudflare/worker/src/ai-advisor-intents.ts';
-import { containsDocumentInstructions, hasUnsupportedAnswerDetails } from '../cloudflare/worker/src/ai-advisor-grounding.ts';
+import { containsDocumentInstructions, hasUnsupportedAnswerDetails, isRelevantAdvisorEvidence, sourceSupportedReply } from '../cloudflare/worker/src/ai-advisor-grounding.ts';
+import { CONDUCT_ACCEPTANCE_QUESTIONS } from '../scripts/verify-advisor-conduct-providers.mjs';
 import { buildDocumentCandidateMetadataFilter, extractGenerateContentDocumentSources, groundGeminiReply, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { buildAiSearchAuthorizationFilter, CloudflareAiSearchRetrievalProvider } from '../cloudflare/worker/src/ai-search-retrieval.ts';
 import { aiAdvisorV2CanaryBucket } from '../cloudflare/worker/src/ai-advisor-v2-runtime.ts';
@@ -46,11 +47,11 @@ const envFor = (DB: D1Database): AiAdvisorEnv => ({
 });
 const send = (env: AiAdvisorEnv, q = question) => {
   const request = new Request('https://fixture.test/api/private/v1/ai-advisor', { method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=fixture', 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) });
-  return handleAiAdvisor(request, new URL(request.url), env) as Promise<{ reply: string; documentSources: Array<{ documentId: string; title: string; pageNumber: number | null; locators?: string[]; inferredCurrent: boolean }>; documentSearchUnavailable: boolean }>;
+  return handleAiAdvisor(request, new URL(request.url), env) as Promise<{ reply: string; documentSources: Array<{ documentId: string; title: string; pageNumber: number | null; locators?: string[]; inferredCurrent: boolean }>; documentSearchUnavailable: boolean; documentSearchStatus?: string }>;
 };
 const providerResult = (reply = PASSAGE, documentId = DOC) => ({
   ...groundGeminiReply(reply, question, [{ documentId, title: TITLE, fileName: 'fixture.pdf', pageNumber: 2, evidenceText: PASSAGE }]),
-  documentSources: [{ documentId, title: TITLE, fileName: 'fixture.pdf', pageNumber: 2, locators: ['Điều 1'] }],
+  documentSources: [{ documentId, title: TITLE, fileName: 'fixture.pdf', pageNumber: 2, locators: ['Điều 1'], evidenceText: PASSAGE }],
   groundingChunkCount: 1, documentIdMetadataCount: 1, pageNumberCount: 1,
 });
 
@@ -74,6 +75,108 @@ test('event eligibility, portal help, personal score, event list and general sta
   assert.equal(classifyConductIntent('Điểm ĐRL của tôi là bao nhiêu?'), 'personal_score');
   assert.equal(classifyConductIntent('Phiếu Đ.R.L hiện hành'), 'regulations');
   for (const cue of ['tieu chi', 'quy che', 'quy dinh', 'xep loai', 'minh chung', 'phuc khao']) assert.equal(routeAdvisorDocuments(`${cue} drl`).documentSearch, true);
+});
+
+test('all eight new PR acceptance questions route to conduct policy except personal score', () => {
+  const expected = ['regulations', 'regulations', 'regulations', 'regulations', 'event_eligibility', 'regulations', 'personal_score', 'regulations'];
+  assert.equal(CONDUCT_ACCEPTANCE_QUESTIONS.length, 8);
+  for (const [index, q] of CONDUCT_ACCEPTANCE_QUESTIONS.entries()) {
+    assert.equal(classifyConductIntent(q), expected[index], `case ${index + 1}`);
+    assert.equal(routeAdvisorDocuments(q).documentSearch, index !== 6);
+    assert.notEqual(routeAdvisorDocuments(q).domain, 'general');
+  }
+});
+
+// Short public-law transcriptions visually checked on the downloaded PDF,
+// SHA256 da56531f29c98a6545b9bcec69a2c78fddbdb6623a5c0cdac06f40682996ca25.
+// These tests validate code on supplied evidence, NOT live provider retrieval.
+const CONDUCT_TITLE = 'Quy chế đánh giá kết quả rèn luyện sinh viên';
+const PDF_SCALE = 'Điểm rèn luyện được đánh giá bằng thang điểm 100.'; // page 2
+const PDF_MINIGAME = 'SV tham gia các trò chơi trực tuyến (mini game) không được tính điểm rèn luyện.'; // page 14
+const PDF_EXTERNAL = 'Đối với hoạt động ngoài trường: minh chứng phải có xác nhận của cơ quan, tổ chức có thẩm quyền; văn bản xác nhận phải có chữ ký của người có thẩm quyền và đóng dấu tròn (con dấu của cơ quan, tổ chức) theo quy định.'; // page 14
+
+test('GPA/letter-scale paragraph mentioning generic training is not conduct evidence', () => {
+  const gpa = 'Kết quả học tập và rèn luyện. GPA được quy đổi từ hệ 10 sang hệ 4 và điểm chữ A, B.';
+  assert.equal(isRelevantAdvisorEvidence(question, gpa, 'Sổ tay sinh viên'), false);
+  assert.equal(isRelevantAdvisorEvidence(question, gpa, CONDUCT_TITLE), false);
+  assert.equal(groundGeminiReply('Thang điểm ĐRL 10 điểm.', question,
+    [{ documentId: DOC, fileName: 'fixture.pdf', title: CONDUCT_TITLE, pageNumber: 2, evidenceText: gpa }]).groundingVerified, false);
+  assert.equal(isRelevantAdvisorEvidence(question, `${PDF_SCALE} Kết quả học tập theo GPA là một tiêu chí.`, CONDUCT_TITLE), true);
+  const mixed = `GPA được quy đổi từ hệ 10 sang hệ 4 và điểm chữ A, B.\n${PDF_SCALE}`;
+  const result = groundGeminiReply('GPA được quy đổi từ hệ 10 sang hệ 4 và điểm chữ A, B.', question,
+    [{ documentId: DOC, fileName: 'fixture.pdf', title: CONDUCT_TITLE, pageNumber: 2, evidenceText: mixed }]);
+  assert.match(result.reply, /^Đoạn nguồn liên quan/);
+  assert.ok(result.reply.includes(PDF_SCALE));
+});
+
+test('actual PDF facts replace invented DRL scale and preserve exact negation/evidence requirements', () => {
+  for (const [q, passage, page] of [
+    [CONDUCT_ACCEPTANCE_QUESTIONS[0], PDF_SCALE, 2],
+    [CONDUCT_ACCEPTANCE_QUESTIONS[4], PDF_MINIGAME, 14],
+    [CONDUCT_ACCEPTANCE_QUESTIONS[5], PDF_EXTERNAL, 14],
+  ] as const) {
+    const result = groundGeminiReply('ĐRL có thang điểm 10. Mini game được cộng điểm không cần minh chứng.', q,
+      [{ documentId: DOC, fileName: 'fixture.pdf', title: CONDUCT_TITLE, pageNumber: page, evidenceText: passage }]);
+    assert.equal(result.groundingVerified, true);
+    assert.ok(result.reply.includes(passage));
+    assert.doesNotMatch(result.reply, /ĐRL có thang điểm 10|không cần minh chứng/);
+    assert.equal(result.documentSources[0].pageNumber, page);
+  }
+});
+
+test('long page extracts the relevant final note rather than returning only the first 1200 characters', () => {
+  const longPage = `${'Nội dung khác của bảng.\n'.repeat(100)}Ghi chú:\n${PDF_MINIGAME}\n${PDF_EXTERNAL}`;
+  for (const [q, expected] of [[CONDUCT_ACCEPTANCE_QUESTIONS[4], PDF_MINIGAME], [CONDUCT_ACCEPTANCE_QUESTIONS[5], PDF_EXTERNAL]]) {
+    const reply = sourceSupportedReply('Nội dung sáng tác không phải nguồn.', [longPage], q);
+    assert.ok(reply.includes(expected));
+    assert.doesNotMatch(reply, /Nội dung sáng tác/);
+    assert.match(reply, /có thể chưa đủ/);
+  }
+});
+
+test('a real rule-table continuation can be relevant without repeating the conduct heading', () => {
+  assert.equal(isRelevantAdvisorEvidence(CONDUCT_ACCEPTANCE_QUESTIONS[3], 'Trách nhiệm công dân trong quan hệ cộng đồng. 0 – 15 điểm.', CONDUCT_TITLE), true);
+  assert.equal(isRelevantAdvisorEvidence(CONDUCT_ACCEPTANCE_QUESTIONS[3], 'Trách nhiệm công dân trong quan hệ cộng đồng. 0 – 15 điểm.', 'Tài liệu không liên quan'), false);
+});
+
+test('both table pages preserve all five visually verified group maxima, not a GPA conversion', () => {
+  // Row-label/point transcriptions from PDF pages 2–3, not synthetic 3529 law.
+  const rows = [
+    'Đánh giá về trách nhiệm chấp hành pháp luật và nội quy, quy chế tại Trường: 0 – 25 điểm',
+    'Đánh giá về trách nhiệm, tinh thần và thái độ trong học tập: 0 – 20 điểm',
+    'Đánh giá về trách nhiệm tham gia các hoạt động chính trị - xã hội, văn hóa, văn nghệ, thể thao, phòng chống tội phạm, tệ nạn xã hội: 0 – 20 điểm',
+    'Đánh giá về trách nhiệm công dân trong quan hệ cộng đồng: 0 – 15 điểm',
+    'Đánh giá về trách nhiệm và kết quả tham gia công tác cán bộ lớp, công tác đoàn thể, các tổ chức khác tại Trường hoặc có thành tích xuất sắc trong học tập, rèn luyện được cơ quan có thẩm quyền khen thưởng: 0 – 20 điểm',
+  ];
+  const result = groundGeminiReply('ĐRL được quy đổi theo GPA hệ 4.', CONDUCT_ACCEPTANCE_QUESTIONS[3], [
+    { documentId: DOC, fileName: 'fixture.pdf', title: CONDUCT_TITLE, pageNumber: 2, evidenceText: `${PDF_SCALE}\n${rows.slice(0, 3).join('\n')}` },
+    { documentId: DOC, fileName: 'fixture.pdf', title: CONDUCT_TITLE, pageNumber: 3, evidenceText: rows.slice(3).join('\n') },
+  ]);
+  assert.equal(result.groundingVerified, true);
+  for (const row of rows) assert.ok(result.reply.includes(row));
+  assert.deepEqual(result.documentSources.map((source) => source.pageNumber), [2, 3]);
+  assert.doesNotMatch(result.reply, /GPA|hệ 4/);
+});
+
+test('generic PDF title cannot attest the benchmark decision number or latest legal currency', () => {
+  const identity = 'Ban hành kèm theo Quyết định số 3549/QĐ-ĐHNH ngày 07 tháng 10 năm 2026. Quy chế đánh giá kết quả rèn luyện sinh viên.';
+  assert.equal(isRelevantAdvisorEvidence('Quyết định 3529/QĐ-ĐHNH quy định gì?', identity, CONDUCT_TITLE), false);
+  const result = groundGeminiReply('Đây chắc chắn là văn bản mới nhất còn hiệu lực.', CONDUCT_ACCEPTANCE_QUESTIONS[7],
+    [{ documentId: DOC, fileName: 'fixture.pdf', title: CONDUCT_TITLE, pageNumber: 1, evidenceText: identity }]);
+  assert.doesNotMatch(result.reply, /chắc chắn/);
+  assert.match(result.reply, /chưa xác nhận hiệu lực/);
+});
+
+test('provider cannot spoof a conduct title to authorize unrelated table text', async () => {
+  const db = makeDb();
+  try {
+    db.insert(DOC, 'completed', 'public', 'Sổ tay không có quy chế ĐRL');
+    const body = 'Trách nhiệm công dân trong quan hệ cộng đồng. 0 – 15 điểm.';
+    const result = await send({ ...envFor(db.DB), fileSearchAnswer: async () => groundGeminiReply('fabricated', question,
+      [{ documentId: DOC, fileName: 'fixture.pdf', title: CONDUCT_TITLE, pageNumber: 3, evidenceText: body }]) });
+    assert.match(result.reply, /chưa thể xác minh/); assert.deepEqual(result.documentSources, []);
+    assert.equal(result.documentSearchStatus, 'insufficient_evidence');
+  } finally { db.sql.close(); }
 });
 test('metadata paging includes relevant source older than 48 uploads and outside first 12', async () => {
   const db = makeDb();
@@ -171,6 +274,8 @@ test('provider errors/timeouts are safe and preserve bounded existing fallback b
       db.insert();
       const result = await send({ ...envFor(db.DB), fileSearchAnswer: async () => { calls++; throw new GeminiFileSearchError(reason, { model: 'fixture', status: 400 }); } });
       assert.equal(calls, 1); assert.match(result.reply, /chưa thể xác minh/); assert.deepEqual(result.documentSources, []);
+      assert.equal(result.documentSearchStatus, reason === 'GEMINI_REQUEST_TIMEOUT' ? 'provider_timeout' : 'provider_error');
+      if (reason === 'GEMINI_REQUEST_TIMEOUT') assert.match(result.reply, /quá thời gian chờ/);
     } finally { db.sql.close(); }
   }
 });
@@ -297,7 +402,7 @@ test('numbered decision identity may come from D1 title while the retrieved page
         advisorV2AiSearchInstances: { text: 'fixture', ocr: 'fixture' },
         advisorV2EvidenceGenerator: { id: 'fixture', isConfigured: () => true, async generate() { return { supported: true, answer: body, sourceIds: ['S1'] }; } },
       }, q);
-      assert.equal(result.reply, body); assert.equal(result.documentSources[0].title, TITLE);
+      assert.ok(result.reply.includes(body)); assert.equal(result.documentSources[0].title, TITLE);
       assert.equal(result.documentSources[0].documentId, DOC);
     } finally { db.sql.close(); }
   }
