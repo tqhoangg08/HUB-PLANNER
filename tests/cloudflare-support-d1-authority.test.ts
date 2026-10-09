@@ -114,13 +114,21 @@ test('admin can reply and update; auditor can read but cannot mutate', async () 
   try {
     const created = await invoke(env, 'create-ticket', { subject: 'Permission fixture', category: 'other', priority: 'normal', message: 'Need help' }) as { id: string };
     env.__identity.userId = ADMIN; env.__identity.role = 'admin';
-    await invoke(env, 'create-message', { ticket_id: created.id, body: 'Staff reply' });
-    await invoke(env, 'update-ticket', { ticket_id: created.id, updates: { priority: 'high' } });
+    await invoke(env, 'update-ticket', { ticket_id: created.id, updates: { assigned_to: ADMIN, priority: 'high' } });
+    const reply = await invoke(env, 'create-message', { ticket_id: created.id, body: 'Staff reply' }) as { message: { id: string } };
+    const upload = await invoke(env, 'attachment:create-upload-url', { ticket_id: created.id, file_name: 'staff.png', mime_type: 'image/png', size: 8 }) as { upload_url: string; file_key: string };
+    const put = new Request(new URL(upload.upload_url, 'https://hotrosinhvienhub.id.vn'), { method: 'PUT', headers: { Cookie: COOKIE, 'content-type': 'image/png', 'content-length': '8' }, body: Uint8Array.from([137,80,78,71,13,10,26,10]) });
+    assert.equal((await handleAdminSupportAttachmentObject(put, new URL(put.url), env)).status, 204);
+    const completed = await invoke(env, 'attachment:complete-upload', { ticket_id: created.id, file_key: upload.file_key, file_name: 'staff.png', mime_type: 'image/png', size: 8 }) as { attachment: { id: string } };
+    await invoke(env, 'attachment:link-message-attachments', { ticket_id: created.id, message_id: reply.message.id, attachment_ids: [completed.attachment.id] });
+    assert.equal(env.__sql.prepare('SELECT sender_role FROM support_ticket_messages WHERE id=?').get(reply.message.id).sender_role, 'admin');
+    assert.equal(env.__sql.prepare('SELECT status FROM support_ticket_attachments WHERE id=?').get(completed.attachment.id).status, 'linked');
     assert.equal(env.__sql.prepare('SELECT priority FROM support_tickets WHERE id=?').get(created.id).priority, 'high');
     env.__identity.userId = AUDITOR; env.__identity.role = 'auditor';
     assert.equal((await invoke(env, 'list') as { data: unknown[] }).data.length, 1);
     await assert.rejects(() => invoke(env, 'update-ticket', { ticket_id: created.id, updates: { priority: 'high' } }), { status: 403 });
     await assert.rejects(() => invoke(env, 'create-message', { ticket_id: created.id, body: 'Denied' }), { status: 403 });
+    await assert.rejects(() => invoke(env, 'attachment:create-upload-url', { ticket_id: created.id, file_name: 'denied.png', mime_type: 'image/png', size: 8 }), { status: 403 });
     env.__identity.userId = '44444444-4444-4444-8444-444444444444'; env.__identity.role = 'user';
     await assert.rejects(() => invoke(env, 'get-ticket', { ticket_id: created.id }), { status: 403 });
   } finally { env.__sql.close(); }

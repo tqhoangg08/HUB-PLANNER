@@ -36,22 +36,22 @@ const formatDateTime = (value?: string | null) => {
   }).format(new Date(value));
 };
 
-export const AdminSupportTickets: React.FC = () => {
+export const AdminSupportTickets: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) => {
   const { ticketId } = useParams();
 
   if (ticketId) {
     return (
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-2 py-2">
-        <AdminTicketControls ticketId={ticketId} />
-        <TicketDetailView ticketId={ticketId} isStaff />
+        {isAdmin && <AdminTicketControls ticketId={ticketId} />}
+        <TicketDetailView ticketId={ticketId} isStaff readOnly={!isAdmin} />
       </div>
     );
   }
 
-  return <AdminTicketList />;
+  return <AdminTicketList isAdmin={isAdmin} />;
 };
 
-const AdminTicketList = () => {
+const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
   const [status, setStatus] = useState<SupportTicketStatus | 'all'>('all');
   const [category, setCategory] = useState<SupportTicketCategory | 'all'>('all');
   const [priority, setPriority] = useState<SupportTicketPriority | 'all'>('all');
@@ -129,7 +129,7 @@ const AdminTicketList = () => {
           <p className="mt-1 text-sm text-slate-500">Quản lý ticket hỗ trợ 1-1 giữa user và admin/auditor.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          {isAdmin && <button
             type="button"
             onClick={handleResolveAll}
             disabled={resolvingAll || loading}
@@ -137,9 +137,9 @@ const AdminTicketList = () => {
           >
             {resolvingAll ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
             Đã xử lý tất cả
-          </button>
+          </button>}
           <div className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-sm font-black text-emerald-700">
-            <ShieldCheck size={16} /> Staff mode
+            <ShieldCheck size={16} /> {isAdmin ? 'Staff mode' : 'Auditor · chỉ xem'}
           </div>
         </div>
       </div>

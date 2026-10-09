@@ -175,8 +175,8 @@ export const ProtectedAppRoutes = ({
                 <Route path="/terms" element={<MobileHandbook forcedTab="terms" />} />
                 <Route path="/privacy" element={<MobileHandbook forcedTab="privacy" />} />
                 <Route path="/admin-reports" element={isManagementUser ? <AdminReports /> : <Navigate to="/mobile-home" replace />} />
-                <Route path="/admin/support" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/mobile-home" replace />} />
-                <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/admin/support" element={isManagementUser ? <AdminSupportTickets isAdmin={isAdmin} /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets isAdmin={isAdmin} /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/ai-documents" element={isAdmin ? <AdminAIDocuments /> : <Navigate to="/mobile-home" replace />} />
@@ -279,8 +279,8 @@ export const ProtectedAppRoutes = ({
             />
             <Route path="/profiles/search" element={<ProfileSearchPage />} />
             <Route path="/admin-reports" element={isManagementUser ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/admin/support" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/admin/support" element={isManagementUser ? <AdminSupportTickets isAdmin={isAdmin} /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets isAdmin={isAdmin} /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/ai-documents" element={isAdmin ? <AdminAIDocuments /> : <Navigate to="/dashboard" replace />} />
