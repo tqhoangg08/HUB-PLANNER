@@ -486,7 +486,7 @@ const SupportDrawerDetail = ({ ticketId, onDeleted }: { ticketId: string; onDele
           setPendingFiles((current) => current.map((item) => item.id === id ? { ...item, progress } : item));
         })
         : [];
-      const message = await sendTicketMessage({ ticketId, body: reply, senderRole: 'user', allowEmptyBody: uploaded.length > 0 });
+      const message = await sendTicketMessage({ ticketId, body: reply, allowEmptyBody: uploaded.length > 0 });
       if (uploaded.length > 0) {
         await linkSupportMessageAttachments(ticketId, message.id, uploaded.map((item) => item.id));
       }

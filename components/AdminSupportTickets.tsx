@@ -43,7 +43,7 @@ export const AdminSupportTickets: React.FC<{ isAdmin: boolean }> = ({ isAdmin })
     return (
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-2 py-2">
         {isAdmin && <AdminTicketControls ticketId={ticketId} />}
-        <TicketDetailView ticketId={ticketId} isStaff readOnly={!isAdmin} />
+        <TicketDetailView ticketId={ticketId} isStaff canManageTicket={isAdmin} />
       </div>
     );
   }
@@ -139,7 +139,7 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
             Đã xử lý tất cả
           </button>}
           <div className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-sm font-black text-emerald-700">
-            <ShieldCheck size={16} /> {isAdmin ? 'Staff mode' : 'Auditor · chỉ xem'}
+            <ShieldCheck size={16} /> {isAdmin ? 'Staff mode' : 'Auditor · hỗ trợ'}
           </div>
         </div>
       </div>

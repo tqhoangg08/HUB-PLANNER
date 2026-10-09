@@ -109,7 +109,7 @@ test('D1 support owner flow persists create, reply, resolve and delete', async (
   } finally { env.__sql.close(); }
 });
 
-test('admin can reply and update; auditor can read but cannot mutate', async () => {
+test('admin can manage tickets while auditor can reply without management privileges', async () => {
   const env = makeEnv();
   try {
     const created = await invoke(env, 'create-ticket', { subject: 'Permission fixture', category: 'other', priority: 'normal', message: 'Need help' }) as { id: string };
@@ -127,10 +127,36 @@ test('admin can reply and update; auditor can read but cannot mutate', async () 
     env.__identity.userId = AUDITOR; env.__identity.role = 'auditor';
     assert.equal((await invoke(env, 'list') as { data: unknown[] }).data.length, 1);
     await assert.rejects(() => invoke(env, 'update-ticket', { ticket_id: created.id, updates: { priority: 'high' } }), { status: 403 });
-    await assert.rejects(() => invoke(env, 'create-message', { ticket_id: created.id, body: 'Denied' }), { status: 403 });
-    await assert.rejects(() => invoke(env, 'attachment:create-upload-url', { ticket_id: created.id, file_name: 'denied.png', mime_type: 'image/png', size: 8 }), { status: 403 });
+    await assert.rejects(() => invoke(env, 'resolve-ticket', { ticket_id: created.id }), { status: 403 });
+    await assert.rejects(() => invoke(env, 'resolve-all-open-tickets'), { status: 403 });
+    await assert.rejects(() => invoke(env, 'create-message', { ticket_id: created.id, body: 'Hidden', is_internal_note: true }), { status: 403 });
+    const auditorReply = await invoke(env, 'create-message', { ticket_id: created.id, body: 'Auditor reply', sender_role: 'admin' }) as { message: { id: string; sender_role: string } };
+    assert.equal(auditorReply.message.sender_role, 'support');
+    assert.equal(env.__sql.prepare('SELECT sender_role,is_internal_note FROM support_ticket_messages WHERE id=?').get(auditorReply.message.id).is_internal_note, 0);
+    assert.equal(env.__sql.prepare("SELECT COUNT(*) count FROM support_notifications WHERE receiver_id=? AND message_id=? AND type='support_ticket_reply'").get(USER, auditorReply.message.id).count, 1);
+    for (const [name, mime, bytes] of [
+      ['reply.png', 'image/png', Uint8Array.from([137,80,78,71,13,10,26,10])],
+      ['reply.pdf', 'application/pdf', new TextEncoder().encode('%PDF-1.4')],
+    ] as const) {
+      const auditorUpload = await invoke(env, 'attachment:create-upload-url', { ticket_id: created.id, file_name: name, mime_type: mime, size: bytes.length }) as { upload_url: string; file_key: string };
+      const binary = new Request(new URL(auditorUpload.upload_url, 'https://hotrosinhvienhub.id.vn'), { method: 'PUT', headers: { Cookie: COOKIE, 'content-type': mime, 'content-length': String(bytes.length) }, body: bytes });
+      assert.equal((await handleAdminSupportAttachmentObject(binary, new URL(binary.url), env)).status, 204);
+      const auditorCompleted = await invoke(env, 'attachment:complete-upload', { ticket_id: created.id, file_key: auditorUpload.file_key, file_name: name, mime_type: mime, size: bytes.length }) as { attachment: { id: string } };
+      await assert.rejects(() => invoke(env, 'attachment:link-message-attachments', { ticket_id: created.id, message_id: reply.message.id, attachment_ids: [auditorCompleted.attachment.id] }), { status: 403 });
+      await invoke(env, 'attachment:link-message-attachments', { ticket_id: created.id, message_id: auditorReply.message.id, attachment_ids: [auditorCompleted.attachment.id] });
+      assert.equal(env.__sql.prepare('SELECT status FROM support_ticket_attachments WHERE id=?').get(auditorCompleted.attachment.id).status, 'linked');
+    }
     env.__identity.userId = '44444444-4444-4444-8444-444444444444'; env.__identity.role = 'user';
     await assert.rejects(() => invoke(env, 'get-ticket', { ticket_id: created.id }), { status: 403 });
+    await assert.rejects(() => invoke(env, 'create-message', { ticket_id: created.id, body: 'Impersonation', sender_role: 'support' }), { status: 403 });
+    env.__identity.userId = USER;
+    const ownerReply = await invoke(env, 'create-message', { ticket_id: created.id, body: 'Owner reply', sender_role: 'support' }) as { message: { sender_role: string } };
+    assert.equal(ownerReply.message.sender_role, 'user');
+    env.__identity.userId = ADMIN; env.__identity.role = 'admin';
+    await invoke(env, 'update-ticket', { ticket_id: created.id, updates: { status: 'resolved' } });
+    env.__identity.userId = AUDITOR; env.__identity.role = 'auditor';
+    await assert.rejects(() => invoke(env, 'create-message', { ticket_id: created.id, body: 'Closed reply' }), { status: 409 });
+    await assert.rejects(() => invoke(env, 'attachment:create-upload-url', { ticket_id: created.id, file_name: 'closed.pdf', mime_type: 'application/pdf', size: 8 }), { status: 409 });
   } finally { env.__sql.close(); }
 });
 
