@@ -369,7 +369,7 @@ const CreateTicketView = () => {
   );
 };
 
-export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: string; isStaff?: boolean }) => {
+export const TicketDetailView = ({ ticketId, isStaff = false, readOnly = false }: { ticketId: string; isStaff?: boolean; readOnly?: boolean }) => {
   const navigate = useNavigate();
   const { ticket, messages, loading, loadingOlder, hasOlder, error, reload, loadOlder, setMessages } = useTicketMessages(ticketId);
   const [reply, setReply] = useState('');
@@ -435,6 +435,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
   }, []);
 
   const addFiles = (files: File[]) => {
+    if (readOnly) return;
     if (isClosed) {
       alert('Ticket đã đóng, không thể gửi thêm phản hồi.');
       return;
@@ -472,7 +473,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
 
   const handleSend = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (isClosed) return;
+    if (isClosed || readOnly) return;
     if (!reply.trim() && pendingFiles.length === 0) return;
     if (internalNoteMode && pendingFiles.length > 0) {
       alert('Tạm thời chưa hỗ trợ đính kèm trong ghi chú nội bộ.');
@@ -565,12 +566,13 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
       className={`support-chat -mx-4 flex h-[calc(100dvh-92px)] flex-col bg-white sm:mx-auto sm:h-[calc(100dvh-132px)] sm:w-full sm:max-w-7xl sm:rounded-xl sm:border ${dropActive ? 'border-blue-300 ring-4 ring-blue-100' : 'sm:border-slate-100'}`}
       onDragOver={(event) => {
         event.preventDefault();
-        if (!isClosed) setDropActive(true);
+        if (!isClosed && !readOnly) setDropActive(true);
       }}
       onDragLeave={() => setDropActive(false)}
       onDrop={(event) => {
         event.preventDefault();
         setDropActive(false);
+        if (readOnly) return;
         if (isClosed) {
           alert('Ticket đã đóng, không thể gửi thêm phản hồi.');
           return;
@@ -591,7 +593,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">{SUPPORT_PRIORITY_LABELS[ticket.priority]}</span>
             </div>
           </div>
-          <div className="relative shrink-0">
+          {!readOnly && <div className="relative shrink-0">
             <button type="button" onClick={() => setTicketMenuOpen((current) => !current)} className="grid h-8 w-8 place-items-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100" aria-label="Mở thao tác ticket">
               <MoreVertical size={17} />
             </button>
@@ -609,7 +611,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
                 )}
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </header>
 
@@ -657,7 +659,13 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
         </div>
       </div>
 
-      {isClosed ? (
+      {readOnly ? (
+        <div className="support-chat-input shrink-0 border-t border-slate-100 bg-white px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2.5 sm:rounded-b-xl">
+          <p className="mx-auto max-w-4xl rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
+            Auditor chỉ có quyền xem ticket; không thể gửi phản hồi hoặc tệp đính kèm.
+          </p>
+        </div>
+      ) : isClosed ? (
         <div className="support-chat-input shrink-0 border-t border-slate-100 bg-white px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2.5 sm:rounded-b-xl">
           <div className="mx-auto flex max-w-4xl flex-col gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 sm:flex-row sm:items-center sm:justify-between">
             <span>Ticket đã xử lý xong. Bạn không thể gửi thêm phản hồi.</span>
