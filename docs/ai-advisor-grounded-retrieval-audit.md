@@ -1,5 +1,7 @@
 # AI Advisor grounded retrieval — audit and PR acceptance report
 
+Latest continuation (2026-10-10): [per-page OCR and actual staging-provider report](ai-advisor-ocr-staging-report.md). This earlier report records the previous stage; its no-ingestion-change/no-staging statements are historical, not the current PR state. Complete E2E/release acceptance remains blocked. The handwritten decision number remains unverified and must not be guessed from the earlier visual reading.
+
 Date: 2026-10-09. Base: `059f73364d257fdf15b8878b8160e7c94bfc5a75` (`main`). Branch: `fix/ai-advisor-grounded-retrieval`.
 
 Updated after reading the complete [PR #88 acceptance comment](https://github.com/tqhoangg08/HUB-PLANNER/pull/88#issuecomment-6084379233). That comment identifies the reported failures as the **old deployed Worker**, not this unmerged PR. Fixture success below is never production answer-quality acceptance.

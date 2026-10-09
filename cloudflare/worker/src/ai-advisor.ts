@@ -144,7 +144,7 @@ export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProvide
   advisorV2AnswerCache?: AnswerCache<AiAdvisorV2Answer>;
   /** Optional future production bindings. OFF mode never resolves or invokes them. */
   AI?: WorkersAiBinding;
-  AI_ADVISOR_SEARCH?: { get(name: string): { search(request: unknown): Promise<{ chunks?: unknown[] }> } };
+  AI_ADVISOR_SEARCH?: { get(name: string): { search(request: unknown): Promise<{ chunks?: unknown[] }>;items?:Pick<AiSearchItems,'list'> } };
   AI_ADVISOR_V2_GENERATOR_MODEL?: unknown;
   /** Optional test/integration seam; production has no fabricated quota source. */
   advisorQuotaUsage?: QuotaUsageSnapshot;
@@ -1722,7 +1722,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
     if (v2?.kind === 'ANSWER') {
       const citationResolution = await resolveDocumentSourcesWithDiagnostics(env,
         v2.answer.evidence.map((source) => ({ documentId: source.documentId,
-          pageNumber: Number(source.snippet.match(/<!--\s*page:\s*(\d+)\s*-->/i)?.[1]) || null,
+          pageNumber: source.pageNumber || Number(source.snippet.match(/<!--\s*page:\s*(\d+)\s*-->/i)?.[1]) || null,
           locators: extractOfficialDocumentLocators(source.snippet),
           applicability: extractOfficialDocumentApplicability(source.snippet) })), retrieval.documentRoute);
       // Recheck current D1 authorization after awaited generation/cache access.

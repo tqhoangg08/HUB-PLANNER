@@ -191,6 +191,7 @@ export const executeAiAdvisorV2Document = async (
     documentId: source.documentId,
     revision: String(allowed.find((candidate) => candidate.id === source.documentId)?.revision || ''),
     snippet: source.snippet,
+    ...(source.pageNumber ? {pageNumber:source.pageNumber}: {}),
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
   try {

@@ -61,6 +61,8 @@ export type RetrievedAiSearchSource = {
   /** Internal mapping data only; never return raw provider responses to clients. */
   chunkId: string;
   itemKey: string;
+  /** Server ingestion's one-page object identity, not a model-invented locator. */
+  pageNumber?: number;
 };
 
 export type AiSearchRetrievalResult = {
@@ -173,7 +175,13 @@ const normalizeResults = (
   const itemKey = boundedText(chunk.item?.key, 1_024);
   if (!documentId || !snippet || !chunkId || !itemKey) return [];
   const score = typeof chunk.score === 'number' && Number.isFinite(chunk.score) ? chunk.score : null;
-  return [{ sourceId: '', documentId, snippet, score, backend, chunkId, itemKey }];
+  // Accept only our exact per-document one-page key convention. Older
+  // multi-page part-NNN objects cannot supply a page number this way.
+  const pageMatch = itemKey.startsWith(`ai-search/text/${documentId}/`)
+    ? itemKey.match(/\/page-(\d{3})\.md$/) : itemKey.match(new RegExp(`^${documentId}-page-(\\d{3})\\.md$`));
+  const pageNumber = pageMatch ? Number(pageMatch[1]) : 0;
+  return [{ sourceId: '', documentId, snippet, score, backend, chunkId, itemKey,
+    ...(pageNumber>=1&&pageNumber<=40 ? {pageNumber}: {}) }];
 });
 
 const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 'sourceId'>[], topK: number) => {

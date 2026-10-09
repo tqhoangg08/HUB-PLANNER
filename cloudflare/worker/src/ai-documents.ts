@@ -6,12 +6,14 @@ import {
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
 import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categories.ts';
+import { parsePreparedPdfPages, storeDerivedPdfPages, buildDerivedPageObjectKey, isCompleteDerivedRevision } from './ai-document-ingestion.ts';
 
 export interface AiDocumentsEnv extends BetterAuthIdentityEnv {
   DB?: D1Database;
   AI_DOCUMENTS_BUCKET?: R2Bucket;
   GEMINI_FILE_SEARCH_API_KEY?: string;
   GEMINI_FILE_SEARCH_STORE?: string;
+  AI_ADVISOR_SEARCH?: { get(name:string): {search(request:unknown):Promise<{chunks?:unknown[]}>;items?:Pick<AiSearchItems,'list'>} };
 }
 
 export class AiDocumentsError extends Error {
@@ -176,6 +178,7 @@ const UPDATE_FIELDS = new Set([
   'ocr_completed_at', 'index_source_kind',
   'derived_source_kind', 'extraction_pipeline_version', 'derived_content_hash',
   'public_view_policy', 'official_source_url',
+  'ai_search_status', 'ai_search_revision', 'ocr_uncertain_tokens', 'gemini_indexing_status',
 ]);
 
 export const updateAiDocument = async (env: AiDocumentsEnv, id: string, patch: Record<string, unknown>) => {
@@ -191,7 +194,7 @@ export const updateAiDocument = async (env: AiDocumentsEnv, id: string, patch: R
 };
 
 const refreshOperation = async (env: AiDocumentsEnv, document: AiDocumentRow) => {
-  if (!document.gemini_operation_name || !['uploading', 'processing'].includes(String(document.indexing_status))) return document;
+  if (!document.gemini_operation_name || !['uploading', 'processing'].includes(String(document.gemini_indexing_status || document.indexing_status))) return document;
   try {
     const { ai } = aiClient(env);
     const persistedOperation = new UploadToFileSearchStoreOperation();
@@ -199,11 +202,26 @@ const refreshOperation = async (env: AiDocumentsEnv, document: AiDocumentRow) =>
     const operation = await ai.operations.get({ operation: persistedOperation });
     if (!operation.done) return document;
     return await updateAiDocument(env, String(document.id), operation.error
-      ? { indexing_status: 'failed', indexing_error: 'Gemini không thể lập chỉ mục tài liệu.' }
-      : { indexing_status: 'completed', indexing_error: null, gemini_document_name: (operation.response as { documentName?: string } | undefined)?.documentName || document.gemini_document_name });
+      ? { indexing_status: document.ai_search_status === 'completed' ? 'completed':'failed', gemini_indexing_status:'failed', indexing_error: 'Gemini không thể lập chỉ mục tài liệu.' }
+      : { indexing_status: 'completed', gemini_indexing_status:'completed', indexing_error: null, gemini_document_name: (operation.response as { documentName?: string } | undefined)?.documentName || document.gemini_document_name });
   } catch {
-    return updateAiDocument(env, String(document.id), { indexing_status: 'failed', indexing_error: 'Không thể kiểm tra trạng thái lập chỉ mục.' });
+    return updateAiDocument(env, String(document.id), { indexing_status: document.ai_search_status === 'completed' ? 'completed':'failed', gemini_indexing_status:'failed', indexing_error: 'Không thể kiểm tra trạng thái lập chỉ mục Gemini.' });
   }
+};
+
+/** Read-only index check. A stored object / Gemini completion is not proof
+ * that AI Search has indexed every page of the current revision. */
+export const refreshAiSearchDocument = async (env:AiDocumentsEnv, document:AiDocumentRow) => {
+  if(document.ai_search_status!=='derived_ready'||!document.ai_search_revision||!env.AI_ADVISOR_SEARCH)return document;
+  const pages=Number(document.ocr_page_count);
+  if(!Number.isInteger(pages)||pages<1||pages>40)return document;
+  try{
+    const items=env.AI_ADVISOR_SEARCH.get('hub-ai-text-production').items;
+    if(!items)return document;
+    const response=await items.list({per_page:50,metadata_filter:JSON.stringify({document_id:document.id,revision:document.ai_search_revision})});
+    if(!isCompleteDerivedRevision({id:document.id,revision:String(document.ai_search_revision),pages,visibility:document.visibility},response.result))return document;
+    return await updateAiDocument(env,document.id,{ai_search_status:'completed',indexing_status:'completed'});
+  }catch{return document;} // Provider errors cannot pretend index completion.
 };
 
 const listDocuments = async (url: URL, env: AiDocumentsEnv) => {
@@ -214,7 +232,7 @@ const listDocuments = async (url: URL, env: AiDocumentsEnv) => {
   if (id) {
     const document = await findAiDocument(env, id);
     if (!document) throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
-    return { document: await refreshOperation(env, document) };
+    return { document: await refreshAiSearchDocument(env,await refreshOperation(env, document) || document) };
   }
   const status = String(url.searchParams.get('status') || '').trim();
   const search = String(url.searchParams.get('search') || '').replace(/[^\p{L}\p{N}\s._-]/gu, '').trim().slice(0, 120);
@@ -275,8 +293,9 @@ export const indexAiDocumentBlob = async (env: AiDocumentsEnv, document: AiDocum
     gemini_store_name: store,
     gemini_operation_name: operation.name || null,
     gemini_document_name: operation.response?.documentName || null,
-    indexing_status: operation.done ? (operation.error ? 'failed' : 'completed') : 'processing',
+    indexing_status: document.ai_search_status === 'completed' ? 'completed' : operation.done ? (operation.error ? 'failed' : 'completed') : 'processing',
     indexing_error: operation.error ? 'Gemini không thể lập chỉ mục tài liệu.' : null,
+    gemini_indexing_status: operation.done ? (operation.error ? 'failed':'completed'):'processing',
   });
 };
 
@@ -295,6 +314,12 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
   const ocr = parseAiDocumentOcrPayload(form, validated.mimeType);
   const publicView = parseAiDocumentPublicViewSettings(form.get('publicViewPolicy'), form.get('officialSourceUrl'));
   const contentHash = await sha256AiDocumentBlob(file);
+  let prepared: Awaited<ReturnType<typeof parsePreparedPdfPages>> | null = null;
+  if (form.has('preparedPages')) {
+    if (validated.mimeType !== 'application/pdf' || ocr) throw new AiDocumentsError(400,'Văn bản phân trang chỉ dành cho PDF.');
+    try { prepared = await parsePreparedPdfPages(form.get('preparedPages'),contentHash); }
+    catch { throw new AiDocumentsError(400,'Văn bản phân trang không hợp lệ hoặc không khớp PDF gốc.'); }
+  }
   const duplicate = await db.prepare('SELECT id FROM ai_documents WHERE content_hash = ? AND deleted_at IS NULL LIMIT 1')
     .bind(contentHash).first<{ id: string }>();
   if (duplicate) throw new AiDocumentsError(409, 'Tài liệu này đã có trong kho.');
@@ -332,6 +357,29 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
         null, null, null, null, 0, null, 'original').run();
     row = await findAiDocument(env, id);
     if (!row) throw new AiDocumentsError(502, 'Không thể tạo tài liệu.');
+    if (prepared) {
+      const stored = await storeDerivedPdfPages(env.AI_DOCUMENTS_BUCKET!,{id,content_hash:contentHash,version:Number(row.version || 1),
+        category:normalizeAiDocumentCategory(row.category),visibility:row.visibility as 'public'|'program'|'admin'},prepared);
+      // Retain a complete Markdown derivative for Gemini/retry; AI Search
+      // receives individual page objects under its actual R2 source prefix.
+      const path=`ai-documents/${id}/extracted.md`;
+      const derivative=new Blob([prepared.markdown],{type:'text/plain;charset=utf-8'});
+      await uploadAiDocumentStorage(env,path,derivative,prepared.derivedContentHash);
+      row=await updateAiDocument(env,id,{ocr_status:'completed',ocr_text_path:path,ocr_text_length:derivative.size,
+        ocr_page_count:prepared.pages.length,ocr_engine:prepared.ocrUsed?'tesseract.js':'pdfjs',ocr_used:prepared.ocrUsed?1:0,
+        ocr_completed_at:now,index_source_kind:'ocr_text',derived_source_kind:prepared.ocrUsed?'ocr':'native_text',
+        extraction_pipeline_version:prepared.pipelineVersion,derived_content_hash:prepared.derivedContentHash,
+        ai_search_status:'derived_ready',ai_search_revision:stored.revision,ocr_uncertain_tokens:prepared.uncertainTokens});
+      if (!row) throw new AiDocumentsError(502,'Không thể xác nhận văn bản phân trang.');
+      ocrDerivativeStored=true;
+      try { return await indexAiDocumentBlob(env,row,derivative); }
+      catch {
+        // A Gemini upload failure must not discard a verified AI Search
+        // artifact or imply that its separate indexing has completed.
+        return updateAiDocument(env,id,{indexing_status:'processing',gemini_indexing_status:'failed',
+          indexing_error:'Gemini chưa lập chỉ mục được; văn bản AI Search đang chờ xác nhận.'});
+      }
+    }
     if (ocr) {
       const derivativePath = `ai-documents/${id}/extracted.txt`;
       const derivative = new Blob([ocr.text], { type: 'text/plain;charset=utf-8' });
@@ -348,7 +396,7 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
     }
     return indexAiDocumentBlob(env, row, file);
   } catch (error) {
-    if (row?.id) await updateAiDocument(env, id, aiDocumentIndexingFailurePatch(Boolean(ocr), ocrDerivativeStored));
+    if (row?.id) await updateAiDocument(env, id, aiDocumentIndexingFailurePatch(Boolean(ocr || prepared), ocrDerivativeStored));
     else await removeStorage(env, storagePath);
     throw error;
   }
@@ -388,6 +436,10 @@ const deleteDocument = async (url: URL, env: AiDocumentsEnv) => {
   } catch { /* D1 tombstone and R2 deletion remain authoritative. */ }
   await removeStorage(env, document.storage_path);
   if (document.ocr_text_path) await removeStorage(env, String(document.ocr_text_path));
+  if(document.ai_search_revision && Number(document.ocr_page_count)>0 && Number(document.ocr_page_count)<=40){
+    const {bucket}=requireStorage(env);
+    await bucket.delete(Array.from({length:Number(document.ocr_page_count)},(_,i)=>buildDerivedPageObjectKey(document.id,String(document.ai_search_revision),i+1)));
+  }
   await updateAiDocument(env, id, { indexing_status: 'deleted', deleted_at: new Date().toISOString() });
   return { success: true };
 };

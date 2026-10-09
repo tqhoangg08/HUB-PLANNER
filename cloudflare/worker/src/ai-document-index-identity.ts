@@ -17,8 +17,8 @@ export type AiDocumentIndexIdentity = {
 };
 
 /** Production page-aware native text representation (not the original PDF). */
-export const NATIVE_TEXT_EXTRACTION_PIPELINE_VERSION = 'native-page-text-v1';
-export const OCR_PAGE_MARKDOWN_PIPELINE_VERSION = 'ocr-page-markdown-v2-pinned';
+export const NATIVE_TEXT_EXTRACTION_PIPELINE_VERSION = 'native-page-text-v2-layout';
+export const OCR_PAGE_MARKDOWN_PIPELINE_VERSION = 'ocr-page-markdown-v3-quality';
 
 const bounded = (value: unknown, max: number) => String(value ?? '').trim().slice(0, max);
 

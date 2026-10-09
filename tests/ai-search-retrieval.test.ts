@@ -39,6 +39,22 @@ const providerFor = (client: AiSearchClient) => new CloudflareAiSearchRetrievalP
   text: 'hub-ai-text-test', ocr: 'hub-ai-ocr-test',
 }, true);
 
+test('page locators come only from exact authorized one-page object keys, not arbitrary filenames or old parts',async()=>{
+  const cases=[
+    [`ai-search/text/${DOC_A}/v1-test/page-014.md`,14],
+    [`${DOC_A}-page-002.md`,2],
+    [`ai-search/text/${DOC_A}/v1-test/part-014.md`,undefined],
+    ['other-page-014.md',undefined],
+    [`${DOC_B}-page-002.md`,undefined],
+    [`${DOC_A}-page-099.md`,undefined],
+  ] as const;
+  for(const [key,expected]of cases){
+    const client=fakeClient(()=>({chunks:[chunk('page',DOC_A,0.9,key)]}));
+    const result=await providerFor(client).retrieve({question:'quy chế?',allowedDocuments:[{id:DOC_A}]});
+    assert.equal(result.sources[0]?.pageNumber,expected);
+  }
+});
+
 test('AI Search adapter is disabled by default and never becomes the current production provider', () => {
   const client = fakeClient(() => ({ chunks: [] }));
   const adapter = new CloudflareAiSearchRetrievalProvider(client, { text: 'hub-ai-text-test', ocr: 'hub-ai-ocr-test' });

@@ -8,6 +8,7 @@ export type AuthorizedEvidenceSource = {
   documentId: string;
   revision: string;
   snippet: string;
+  pageNumber?: number;
 };
 
 export type GroundedGenerationRequest = {
