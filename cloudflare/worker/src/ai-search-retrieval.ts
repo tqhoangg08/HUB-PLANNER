@@ -5,6 +5,8 @@ export type AiSearchBackend = 'TEXT' | 'OCR';
 
 export type AiSearchAuthorizedDocument = {
   id: string;
+  /** D1-authorized document identity hint; never used as a support quote. */
+  title?: string;
   /** Stage 5 will source this from D1 ingestion metadata. Unknown stays TEXT. */
   backend?: AiSearchBackend;
   category?: string;
@@ -14,7 +16,7 @@ export type AiSearchAuthorizedDocument = {
 };
 
 export type AiSearchMetadataFilter = {
-  document_id: { $in: string[] };
+  document_id?: { $in: string[] };
   active: true;
   /** Present only when every server-authorized document has the same visibility. */
   visibility?: string;
@@ -136,8 +138,12 @@ export const buildAiSearchAuthorizationFilter = (documents: readonly AiSearchAut
   }
   const ids = [...byId.keys()].sort();
   if (!ids.length) return null;
-  if (ids.length > MAX_AI_SEARCH_AUTHORIZED_DOCUMENTS) throw new Error('Authorized AI Search document limit exceeded.');
   const visibility = [...new Set([...byId.values()].map((document) => boundedText(document.visibility, 64)).filter(Boolean))];
+  if (ids.length > MAX_AI_SEARCH_AUTHORIZED_DOCUMENTS) {
+    if (visibility.length !== 1 || visibility[0] !== 'public'
+      || [...byId.values()].some((document) => document.visibility !== 'public')) throw new Error('Authorized AI Search document limit exceeded.');
+    return { active: true, visibility: 'public' };
+  }
   return {
     document_id: { $in: ids },
     active: true,
@@ -225,9 +231,9 @@ export class CloudflareAiSearchRetrievalProvider
       const backendIds = new Set(allowedDocuments.filter((document) => backendFor(document) === backend).map((document) => document.id));
       const backendFilter: AiSearchMetadataFilter = {
         ...filter,
-        document_id: { $in: filter.document_id.$in.filter((id) => backendIds.has(id)) },
+        ...(filter.document_id ? { document_id: { $in: filter.document_id.$in.filter((id) => backendIds.has(id)) } } : {}),
       };
-      if (!backendFilter.document_id.$in.length) continue;
+      if (backendFilter.document_id && !backendFilter.document_id.$in.length) continue;
       searchCallCount += 1;
       let response: Awaited<ReturnType<AiSearchClient['search']>>;
       try {

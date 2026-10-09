@@ -7,6 +7,7 @@ import {
   type RetrievalCache,
 } from './ai-advisor-cache.ts';
 import { validateEvidenceAbstention, type AuthorizedEvidenceSource } from './ai-advisor-evidence.ts';
+import { containsDocumentInstructions, hasUnsupportedAnswerDetails, isRelevantAdvisorEvidence, sourceSupportedReply } from './ai-advisor-grounding.ts';
 import type { EvidenceGenerationProvider } from './ai-advisor-providers.ts';
 import type { QuotaDecision, QuotaMode } from './ai-advisor-quota.ts';
 import {
@@ -149,7 +150,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-v1', answerPathVersion: 'ai-search-vector-v1',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: 'ai-search-full-authorized-v2',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -161,7 +162,7 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: 'ai-search-vector-topk3-threshold04-v1',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: 'ai-search-full-authorized-topk3-threshold04-v2',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
@@ -182,21 +183,29 @@ export const executeAiAdvisorV2Document = async (
   if (!dependencies.evidenceGenerator || !generatorConfigured) {
     return abstain('GENERATOR_ERROR', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length);
   }
-  const evidence: AuthorizedEvidenceSource[] = retrieved.sources.slice(0, 3).map((source) => ({
+  const evidence: AuthorizedEvidenceSource[] = retrieved.sources
+    .filter((source) => !containsDocumentInstructions(source.snippet) && isRelevantAdvisorEvidence(question, source.snippet,
+      allowed.find((candidate) => candidate.id === source.documentId)?.title))
+    .slice(0, 3).map((source) => ({
     sourceId: source.sourceId,
     documentId: source.documentId,
     revision: String(allowed.find((candidate) => candidate.id === source.documentId)?.revision || ''),
     snippet: source.snippet,
   }));
+  if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
   try {
     const generated = await dependencies.evidenceGenerator.generate({
       question: bounded(question, 2_000),
       evidence: evidence.map((source) => ({ ...source, score: retrieved.sources.find((item) => item.sourceId === source.sourceId)?.score ?? null })),
     });
     if (!generated.supported) return abstain(generated.rejectionReason === 'INVALID_GROUNDING' ? 'INVALID_CITATIONS' : 'GENERATOR_ABSTAINED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
+    if (hasUnsupportedAnswerDetails(generated.answer, evidence.filter((source) => generated.sourceIds.includes(source.sourceId)).map((source) => source.snippet))) {
+      return abstain('INVALID_CITATIONS', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
+    }
     const decision = validateEvidenceAbstention({ question, evidence }, { text: generated.answer, citedSourceIds: generated.sourceIds });
     if (decision.kind !== 'ANSWER') return abstain('INVALID_CITATIONS', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
-    const answer: AiAdvisorV2Answer = { reply: generated.answer.trim(), evidence: evidence.filter((source) => decision.citedSourceIds.includes(source.sourceId)) };
+    const citedEvidence = evidence.filter((source) => decision.citedSourceIds.includes(source.sourceId));
+    const answer: AiAdvisorV2Answer = { reply: sourceSupportedReply(generated.answer.trim(), citedEvidence.map((source) => source.snippet)), evidence: citedEvidence };
     if (dependencies.answerCache && answerCacheKey) {
       try { await dependencies.answerCache.put(answerCacheKey, answer, 120); } catch { /* optional */ }
     }

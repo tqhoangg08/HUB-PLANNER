@@ -18,10 +18,10 @@ test('student-facing sources deduplicate one document across multiple cited page
   assert.deepEqual(sources[0]?.locators, ['Điều 21, khoản 2, điểm a', 'Điều 21, khoản 2, điểm b']);
 });
 
-test('student sources are read-only labels and never render page numbers or download actions', () => {
+test('student sources show provided pages only and never offer private download actions', () => {
   const component = source('components/AIDocumentSources.tsx');
   assert.doesNotMatch(component, /privateApiRequest|window\.open|ExternalLink|Loader2|<button/);
-  assert.doesNotMatch(component, /pageNumber|trang \$\{/);
+  assert.match(component, /Number\.isInteger\(source\.pageNumber\)/);
   assert.match(component, /Nguồn tham khảo/);
   assert.match(component, /<section/);
   assert.match(component, /source\.locators/);
@@ -43,7 +43,7 @@ test('source cards become links only with server-provided current public-view me
   assert.doesNotMatch(component, /api\/private\/v1\/ai-document/);
 });
 
-test('student-facing source UI preserves grounded applicability without exposing pages or downloads', () => {
+test('student-facing source UI preserves grounded applicability without private downloads', () => {
   const sources = deduplicateAiDocumentSources([
     {
       documentId: 'a', title: 'Quy chế đào tạo',
@@ -61,7 +61,7 @@ test('student-facing source UI preserves grounded applicability without exposing
   const component = source('components/AIDocumentSources.tsx');
   assert.match(component, /Áp dụng:/);
   assert.match(component, /source\.applicability/);
-  assert.doesNotMatch(component, /pageNumber|window\.open|<button/);
+  assert.doesNotMatch(component, /window\.open|<button/);
 });
 
 test('desktop and mobile advisor share safe GFM Markdown rendering', () => {

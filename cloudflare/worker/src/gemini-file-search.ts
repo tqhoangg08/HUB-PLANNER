@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { containsDocumentInstructions, isRelevantAdvisorEvidence, sourceSupportedReply } from './ai-advisor-grounding.ts';
 
 export interface GeminiFileSearchEnv {
   GEMINI_FILE_SEARCH_ENABLED?: string;
@@ -22,6 +23,8 @@ export interface GeminiDocumentSource {
   locators?: string[];
   /** Multiple grounded applicability ranges can belong to one cited document. */
   applicability?: GeminiDocumentApplicability[];
+  /** Server-side passage; never included in telemetry or persisted citation cards. */
+  evidenceText?: string;
 }
 
 export interface GeminiDocumentApplicability {
@@ -44,6 +47,7 @@ export type GeminiFileSearchFailureReason =
   | 'GEMINI_REQUEST_TIMEOUT'
   | 'GEMINI_EMPTY_REPLY'
   | 'GEMINI_NO_FILE_CITATION'
+  | 'INSUFFICIENT_GROUNDED_EVIDENCE'
   | 'D1_CITATION_NOT_FOUND'
   | 'D1_CITATION_NOT_ACTIVE'
   | 'D1_CITATION_CATEGORY_REJECTED'
@@ -245,6 +249,9 @@ export const buildDocumentCandidateMetadataFilter = (ids: readonly string[]) => 
   const validIds = [...new Set(ids.map((id) => String(id || '').trim()).filter((id) => DOCUMENT_ID_PATTERN.test(id)))]
     .slice(0, MAX_DOCUMENT_CANDIDATE_IDS);
   if (!validIds.length) return null;
+  // Search the public index as a whole instead of excluding the 13th source.
+  // Every returned citation is subsequently checked against live D1 authority.
+  if (new Set(ids).size > MAX_DOCUMENT_CANDIDATE_IDS) return publicDocumentMetadataFilter();
   return `visibility = "public" AND (${validIds.map((id) => `document_id = "${id}"`).join(' OR ')})`;
 };
 
@@ -358,16 +365,6 @@ const citationSnippet = (item: Record<string, unknown>) => {
   return candidates.map((candidate) => textValue(candidate)).find(Boolean) || '';
 };
 
-const citedTextSlice = (text: string | null, item: Record<string, unknown>) => {
-  if (!text) return '';
-  const start = Number(item.startIndex ?? item.start_index);
-  const end = Number(item.endIndex ?? item.end_index);
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return '';
-  const bytes = new TextEncoder().encode(text);
-  if (end > bytes.byteLength) return '';
-  return new TextDecoder().decode(bytes.slice(start, end)).trim();
-};
-
 type GroundedAnnotation = { item: Record<string, unknown>; text: string | null };
 
 const walk = (value: unknown, annotations: GroundedAnnotation[], inheritedText: string | null = null) => {
@@ -420,9 +417,8 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
     // A citation with a D1 identifier remains useful even if Gemini omits its
     // presentation filename: the authoritative D1 row supplies that later.
     if (!fileName && !documentId) continue;
-    // Snippet/quote takes precedence. If unavailable, FileCitation's byte
-    // offsets identify the grounded portion of the model answer.
-    const groundedText = citationSnippet(item) || citedTextSlice(annotation.text, item);
+    // Answer offsets attribute output; they are NOT retrieved source evidence.
+    const groundedText = citationSnippet(item);
     const locators = uniqueLocators(extractOfficialDocumentLocators(groundedText));
     const applicability = extractOfficialDocumentApplicability(groundedText);
     const existingIndex = byKey.get(key);
@@ -430,6 +426,7 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
       const existing = sources[existingIndex];
       if (locators.length) existing.locators = uniqueLocators([...(existing.locators || []), ...locators]);
       if (applicability.length) existing.applicability = uniqueApplicability([...(existing.applicability || []), ...applicability]);
+      if (groundedText) existing.evidenceText = [existing.evidenceText, groundedText].filter(Boolean).join('\n').slice(0, 16000);
       continue;
     }
     byKey.set(key, sources.length);
@@ -440,6 +437,7 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
       pageNumber,
       ...(locators.length ? { locators } : {}),
       ...(applicability.length ? { applicability } : {}),
+      ...(groundedText ? { evidenceText: groundedText.slice(0, 8000) } : {}),
     });
   }
   return sources;
@@ -486,10 +484,9 @@ const extractGenerateContentGrounding = (response: unknown): GenerateContentGrou
     ? grounding.groundingChunks
     : Array.isArray(grounding?.grounding_chunks) ? grounding.grounding_chunks : [];
   const sources: GeminiDocumentSource[] = [];
-  const byDocumentId = new Map<string, number>();
   let documentIdMetadataCount = 0;
   let pageNumberCount = 0;
-  for (const chunk of chunks) {
+  for (const chunk of chunks.slice(0, 40)) {
     const chunkRecord = record(chunk);
     const context = record(chunkRecord?.retrievedContext) || record(chunkRecord?.retrieved_context);
     if (!context) continue;
@@ -499,21 +496,12 @@ const extractGenerateContentGrounding = (response: unknown): GenerateContentGrou
     const pageNumber = Number(context.pageNumber ?? context.page_number ?? 0) || null;
     if (pageNumber) pageNumberCount += 1;
     // Only retrievedContext.text is evidence for formal locators and scope.
-    const groundedText = typeof context.text === 'string' ? context.text : '';
+    const groundedText = typeof context.text === 'string' ? context.text.slice(0, 8000) : '';
     const locators = uniqueLocators(extractOfficialDocumentLocators(groundedText));
     const applicability = extractOfficialDocumentApplicability(groundedText);
     const title = String(context.title || '').trim();
-    const existingIndex = byDocumentId.get(documentId);
-    if (existingIndex !== undefined) {
-      const existing = sources[existingIndex];
-      if (locators.length) existing.locators = uniqueLocators([...(existing.locators || []), ...locators]);
-      if (applicability.length) existing.applicability = uniqueApplicability([...(existing.applicability || []), ...applicability]);
-      if (pageNumber) {
-        existing.pageNumbers = [...new Set([...(existing.pageNumbers || (existing.pageNumber ? [existing.pageNumber] : [])), pageNumber])].sort((left, right) => left - right);
-      }
-      continue;
-    }
-    byDocumentId.set(documentId, sources.length);
+    // Preserve passage/page association until relevance is evaluated. D1's
+    // resolver later merges only the sources actually used in the response.
     sources.push({
       documentId,
       fileName: title,
@@ -522,12 +510,29 @@ const extractGenerateContentGrounding = (response: unknown): GenerateContentGrou
       ...(pageNumber ? { pageNumbers: [pageNumber] } : {}),
       ...(locators.length ? { locators } : {}),
       ...(applicability.length ? { applicability } : {}),
+      ...(groundedText ? { evidenceText: groundedText } : {}),
     });
   }
   return { sources, groundingChunkCount: chunks.length, documentIdMetadataCount, pageNumberCount };
 };
 
 export const extractGenerateContentDocumentSources = (response: unknown) => extractGenerateContentGrounding(response).sources;
+
+/** Fail closed: citation IDs alone cannot validate the model's factual prose.
+ * Only exact source-supported output is exposed; otherwise use a bounded
+ * extractive response from relevant passages, not an ungrounded paraphrase.
+ */
+export const groundGeminiReply = (reply: string, question: string, sources: readonly GeminiDocumentSource[]) => {
+  const relevant = sources.filter((source) => source.documentId && source.evidenceText
+    && !containsDocumentInstructions(source.evidenceText)
+    && isRelevantAdvisorEvidence(question, source.evidenceText, source.title || '')).slice(0, 3);
+  if (!relevant.length) return { reply: '', groundingVerified: false, documentSources: [] as GeminiDocumentSource[] };
+  return {
+    reply: sourceSupportedReply(reply, relevant.map((source) => source.evidenceText!)),
+    groundingVerified: true,
+    documentSources: relevant.slice(0, 3),
+  };
+};
 
 /** Official-policy retrieval is one synthesized user request, never chat turns. */
 export const buildGeminiPolicyContents = (retrievalInput: string) => [{
@@ -625,9 +630,9 @@ export const answerWithGeminiFileSearch = async (
   const reply = outputText(response);
   if (!reply) throw new GeminiFileSearchError('GEMINI_EMPTY_REPLY', { model });
   const grounding = extractGenerateContentGrounding(response);
+  const grounded = groundGeminiReply(reply, retrievalInput, grounding.sources);
   return {
-    reply,
-    documentSources: grounding.sources,
+    ...grounded,
     groundingChunkCount: grounding.groundingChunkCount,
     documentIdMetadataCount: grounding.documentIdMetadataCount,
     pageNumberCount: grounding.pageNumberCount,
