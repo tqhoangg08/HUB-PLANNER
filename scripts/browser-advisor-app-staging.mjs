@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {CONDUCT_ACCEPTANCE_QUESTIONS} from './verify-advisor-conduct-providers.mjs';
+import {normalizeAcceptanceText} from '../shared/ai-advisor-acceptance-text.ts';
 const emit=v=>console.log(JSON.stringify(v));
 let phase='start';
 async function main(){
@@ -71,7 +72,7 @@ async function main(){
         const r=await next,payload=await r.json();writeFileSync(resolve(dir,`topic-${i+1}-local.json`),JSON.stringify(payload));
         const citations=payload.documentSources||[],content=normalize(payload.reply),matching=citations.filter(s=>s.documentId===doc.id);
         const pageNumbers=matching.flatMap(s=>s.pageNumbers||[s.pageNumber]);
-        const facts=(c.contains||[]).every(s=>content.includes(normalize(s))),location=(c.pages||[]).every(n=>pageNumbers.includes(n));
+        const facts=(c.contains||[]).every(s=>normalizeAcceptanceText(payload.reply).includes(normalizeAcceptanceText(s))),location=(c.pages||[]).every(n=>pageNumbers.includes(n));
         const visible=Boolean(String(payload.reply||'').trim())&&await page.locator('body').innerText().then(s=>normalize(s).includes(normalize(String(payload.reply).replace(/[|*#_`>]/g,'').replace(/<!--[\s\S]*?-->/g,'').slice(0,40))));
         emit({phase:'multi_pdf_ui',case:i+1,topic:c.topic,sourceCommit,deployedCommit:health.sourceCommit,httpStatus:r.status(),durationMs:Date.now()-t,
           visibleResponse:visible,correctDocument:matching.length>0,expectedFactsPresent:facts,expectedPagesPresent:location,pageErrors:errors.length,
