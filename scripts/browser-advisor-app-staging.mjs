@@ -24,6 +24,31 @@ async function main(){
     await page.getByRole('button',{name:'Đăng nhập staging',exact:true}).click();
     await page.getByRole('heading',{name:'Kho tài liệu AI'}).waitFor({timeout:30000});
     emit({phase:'browser_login',result:'PASS',realBetterAuthCookie:true,productionSessionUsed:false});
+    const captureMobile=async()=>{
+      await page.setViewportSize({width:390,height:844});
+      const drawer=page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true});
+      if(await drawer.isVisible()){
+        await page.getByTitle('Lịch sử trò chuyện',{exact:true}).click();
+        await page.waitForFunction(()=>{
+          const button=[...document.querySelectorAll('button')].find(b=>b.textContent?.includes('Cuộc trò chuyện mới'));
+          return (button?.parentElement?.parentElement?.getBoundingClientRect().right??Infinity)<=20;
+        },undefined,{timeout:5000});
+      }
+      await page.screenshot({path:resolve(dir,'multi-pdf-mobile.png')});
+      emit({phase:'multi_pdf_ui_layout',desktop:true,mobile390:true,horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),pageErrors:errors.length});
+    };
+    if(process.argv.includes('--layout-only')){
+      // Read an existing staging conversation. No new question/provider call.
+      phase='layout_open';
+      await page.locator('button.fixed.bottom-6').click();
+      const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
+      phase='layout_history';
+      await page.locator('button').filter({has:page.locator('svg.lucide-message-circle')}).first().click();
+      phase='layout_message';
+      await page.locator('.ai-message-markdown').first().waitFor({timeout:15000});
+      phase='layout_mobile';
+      await captureMobile();return;
+    }
     if(process.argv.includes('--upload')){
       const arg=process.argv.indexOf(word?'--docx':'--pdf');if(arg<0)throw Error('PDF_REQUIRED');
       const listed=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents`)).json();
@@ -90,12 +115,7 @@ async function main(){
           acceptance:r.status()===200&&visible&&facts&&location&&matching.length>0?'PASS':'FAIL',metrics:payload.stagingMetrics});
         await page.screenshot({path:resolve(dir,`topic-${i+1}-desktop.png`)});
       }
-      await page.setViewportSize({width:390,height:844});
-      const historyDrawer=page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true});
-      if(await historyDrawer.isVisible())await page.locator('button').filter({has:page.locator('svg.lucide-menu')}).click();
-      await page.screenshot({path:resolve(dir,'multi-pdf-mobile.png')});
-      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);
-      emit({phase:'multi_pdf_ui_layout',desktop:true,mobile390:true,horizontalOverflow:overflow,pageErrors:errors.length});
+      await captureMobile();
       return;
     }
     const document=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents?id=${encodeURIComponent(docs[0].id)}`)).json();
