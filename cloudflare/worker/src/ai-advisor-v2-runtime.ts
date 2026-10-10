@@ -157,7 +157,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-multidocument-v5' : 'ai-search-full-authorized-conduct-v4-table-budget',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-word-native-v6' : 'ai-search-word-native-v5-table-budget',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -169,7 +169,7 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-scoped-hybrid-header-v3':'ai-search-full-authorized-topk3-threshold04-chunks-v3',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-word-native-v4':'ai-search-word-native-topk3-threshold04-v4',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
@@ -201,6 +201,8 @@ export const executeAiAdvisorV2Document = async (
     revision: String(allowed.find((candidate) => candidate.id === source.documentId)?.revision || ''),
     snippet: source.snippet,
     ...(source.pageNumber ? {pageNumber:source.pageNumber}: {}),
+    ...(allowed.find(candidate=>candidate.id===source.documentId)?.locatorKind==='word_unit'
+      ? {locatorKind:'word_unit' as const} : {}),
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
   if(dependencies.completenessSearch){

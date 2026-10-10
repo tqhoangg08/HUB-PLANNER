@@ -493,6 +493,19 @@ test('camelCase Gemini citations are extracted then resolved through the same bo
   } finally { fixture.sql.close(); }
 });
 
+test('D1 canonical DOCX citations retain title/locator but suppress unverified provider physical pages',async()=>{
+  const fixture=makeDatabase();
+  try{
+    insertOfficialDocument(fixture,{id:DOCUMENT_A,title:'Quy chế công tác sinh viên',category:'regulation'});
+    fixture.sql.prepare('UPDATE ai_documents SET original_file_name=? WHERE id=?').run('Nguồn Word.docx',DOCUMENT_A);
+    const evidenceText='Điều 3. Nguyên tắc thực hiện\n1. Công tác sinh viên phải công khai và minh bạch.';
+    const resolution=await resolveDocumentSourcesWithDiagnostics(env(fixture.DB),[{documentId:DOCUMENT_A,title:'Untrusted',fileName:'Fake.pdf',pageNumber:4,pageNumbers:[4,5],evidenceText,locators:extractOfficialDocumentLocators(evidenceText)}],routeAdvisorDocuments('Quy chế công tác sinh viên Điều 3 quy định gì?'));
+    assert.equal(resolution.reason,'SUCCESS');assert.equal(resolution.sources[0].title,'Quy chế công tác sinh viên');
+    assert.equal(resolution.sources[0].pageNumber,null);assert.equal(resolution.sources[0].pageNumbers,undefined);
+    assert.match(resolution.sources[0].locators!.join(';'),/Điều 3/);
+  }finally{fixture.sql.close();}
+});
+
 test('GenerateContent camelCase grounding extracts only metadata-backed document sources with locators and scope', async () => {
   const fixture = makeDatabase();
   try {

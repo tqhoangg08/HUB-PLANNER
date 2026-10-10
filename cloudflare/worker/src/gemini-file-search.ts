@@ -277,9 +277,9 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   const articleText = articleMatch ? text.slice((articleMatch.index || 0) + articleMatch[0].length) : text;
   const explicitClause = text.match(/(?:^|[^\p{L}\p{N}])khoản\s+(\d{1,3})\b/iu)?.[1];
   // A bare "2." is a clause only in an excerpt that already names an article.
-  const numberedClause = article
-    ? articleText.match(/(?:^|\n)\s*(\d{1,3})\s*[.)](?=\s*[^\n\d][^\n]{0,180})/u)?.[1]
-    : undefined;
+  const numberedClauses=article?[...articleText.matchAll(/(?:^|\n)\s*(\d{1,3})\s*[.)](?=\s*[^\n\d][^\n]{0,180})/gu)].map(m=>m[1]):[];
+  // A whole article with several clauses must not be labelled as clause1.
+  const numberedClause = new Set(numberedClauses).size===1?numberedClauses[0]:undefined;
   const clause = explicitClause || numberedClause;
   // JS word boundaries split Vietnamese accented words: "điểm rèn" must
   // never become the legal locator "điểm r".
@@ -292,6 +292,7 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   const subitem = text.match(/(?:^|[^\p{L}\p{N}])tiểu\s*mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
 
   const components: string[] = [];
+  const table = text.match(/(?:^|\n)\s*bảng\s+(\d{1,3})(?:\s*\(thứ tự bảng trong DOCX\))?/imu)?.[0]?.trim();
   if (part) components.push(`Phần ${part.toUpperCase()}`);
   if (chapter) components.push(`Chương ${chapter.toUpperCase()}`);
   if (section) components.push(`Mục ${section}`);
@@ -299,7 +300,8 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   if (clause) components.push(`khoản ${clause}`);
   if (point) components.push(`điểm ${point.toLowerCase()}`);
   if (subitem) components.push(`tiểu mục ${subitem}`);
-  return components.length ? [components.join(', ')] : [];
+  const heading=!article&&!section?text.match(/(?:^|\n)\s*((?:[IVXLCDM]+|\d+\.\d+)\.\s+[^\n]{1,160})/u)?.[1]?.trim():undefined;
+  return [...(components.length ? [components.join(', ')] : []), ...(table ? [table] : []),...(heading?[heading]:[])];
 };
 
 const applicabilityKey = (value: GeminiDocumentApplicability) => [

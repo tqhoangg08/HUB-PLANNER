@@ -1283,8 +1283,9 @@ export const resolveDocumentSourcesWithDiagnostics = async (
       documentId: row.id,
       title: row.title,
       fileName: row.original_file_name,
-      pageNumber: Number(entry.pageNumber || 0) || null,
-      ...(Array.isArray(entry.pageNumbers) ? {
+      // DOCX logical chunks/provider hints are not verified physical pages.
+      pageNumber: /\.docx$/i.test(row.original_file_name || '') ? null : Number(entry.pageNumber || 0) || null,
+      ...(!/\.docx$/i.test(row.original_file_name || '') && Array.isArray(entry.pageNumbers) ? {
         pageNumbers: [...new Set(entry.pageNumbers.map((page) => Number(page)).filter((page) => Number.isInteger(page) && page > 0))].sort((left, right) => left - right),
       } : {}),
       ...(locators.length ? { locators } : {}),
@@ -1516,6 +1517,7 @@ const runAdvisorShadow = async (
       contentHash: candidate.contentHash, canonicalHash: candidate.canonicalHash,
       indexSourceKind: candidate.indexSourceKind || 'legacy', derivedSourceKind: candidate.derivedSourceKind || 'legacy',
       extractionPipelineVersion: candidate.extractionPipelineVersion, derivedContentHash: candidate.derivedContentHash,
+      locatorKind: candidate.extractionPipelineVersion === 'docx-native-structured-v1' ? 'word_unit' : 'page',
       indexingStatus: candidate.indexingStatus || 'completed',
     }));
     phase = 'retrieval';
@@ -1706,6 +1708,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         indexSourceKind: candidate.indexSourceKind || 'legacy',
         derivedSourceKind: candidate.derivedSourceKind || 'legacy',
         extractionPipelineVersion: candidate.extractionPipelineVersion,
+        locatorKind: candidate.extractionPipelineVersion === 'docx-native-structured-v1' ? 'word_unit' : 'page',
         derivedContentHash: candidate.derivedContentHash,
         indexingStatus: candidate.indexingStatus || 'completed',
       }));

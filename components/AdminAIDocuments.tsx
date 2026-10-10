@@ -489,6 +489,11 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
                     Mỗi trang PDF được kiểm tra; trang scan hoặc lớp chữ lỗi sẽ tự OCR tiếng Việt. Giữ số trang/cột; phần không đọc rõ không được đoán thành số hay điều khoản.
                   </small>
                 )}
+                {file && /\.docx$/i.test(file.name) && (
+                  <small className="mt-2 block font-normal text-slate-500">
+                    Word: trích xuất văn bản và bảng gốc trên server, không OCR. Nguồn dùng điều/mục/bảng; không suy ra số trang từ các đoạn lập chỉ mục.
+                  </small>
+                )}
               </label>
               <label className="block text-sm font-bold">
                 Tiêu đề

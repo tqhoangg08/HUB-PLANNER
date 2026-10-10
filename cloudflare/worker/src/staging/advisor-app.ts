@@ -16,12 +16,13 @@ type StageEnv = {
   STAGING_SOURCE_COMMIT?:string;
   STAGING_OCR_PROMOTION_ENABLED?:string;
 };
-const INSTANCE='hub-advisor-pr88-app-staging';
+const stageInstance=(origin:string)=>new URL(origin).hostname.split('.')[0];
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 export default {
   async fetch(request:Request,env:StageEnv,ctx:ExecutionContext){
     const url=new URL(request.url);
-    if(url.origin!==env.STAGING_ORIGIN||!/^https:\/\/hub-advisor-pr88-app-staging\.[a-z0-9-]+\.workers\.dev$/u.test(url.origin))return json({error:'STAGING_ISOLATION_REQUIRED'},503);
+    if(url.origin!==env.STAGING_ORIGIN||!/^https:\/\/hub-advisor-pr88-(?:app|word)-staging\.[a-z0-9-]+\.workers\.dev$/u.test(url.origin))return json({error:'STAGING_ISOLATION_REQUIRED'},503);
+    const INSTANCE=stageInstance(env.STAGING_ORIGIN);
     const profile:AuthRuntimeProfile={kind:'integration-synthetic-credential',appName:'HUB Advisor PR88 isolated staging',origin:url.origin,trustedOrigins:[url.origin],
       cookiePrefix:'hub_pr88_staging',serviceName:'pr88-staging-inline-existing-auth',routeSurface:'integration-synthetic-session-lifecycle',providers:'none',
       resetPage:`${url.origin}/reset-password`,expectedHostname:url.hostname,eligibilityPolicy:'integration-synthetic-user',emailBrand:'integration-test',syntheticSignInEmail:env.STAGING_SYNTHETIC_EMAIL};
@@ -61,7 +62,7 @@ export default {
       }
       if(url.pathname.startsWith('/api/private/v1/ai-document-source/'))return json(await handleAiDocumentSource(request,url.pathname.split('/').pop()!,shared));
       if(url.pathname.startsWith('/api/private/v1/ai-document-file/'))return handleAiDocumentFile(request,url.pathname.split('/').pop()!,shared);
-      if(url.pathname==='/api/private/v1/ai-advisor'){
+      if(url.pathname==='/api/private/v1/ai-advisor'||url.pathname==='/api/staging/ai-advisor-gemini'){
         // Structural diagnostics for the isolated acceptance run only. Never
         // return request identity, raw provider payloads, tokens or passages.
         let searchCalls=0,generatorCalls=0,pageReads=0,retrievalDurationMs=0,generatorDurationMs=0;
@@ -69,7 +70,8 @@ export default {
         let releaseMetrics:AdvisorReleaseEvent|null=null;
         let groundingRejectionSubtype:GroundingRejectionSubtype|null=null;
         let workersUsage:AdvisorProviderUsage|null=null,providerFinishReason:string|null=null;
-        const advisor:AiAdvisorEnv={...shared,AI:env.AI as unknown as AiAdvisorEnv['AI'],AI_ADVISOR_V2_MODE:'on',AI_ADVISOR_V2_CANARY_PERCENT:'0',
+        const geminiProbe=url.pathname==='/api/staging/ai-advisor-gemini';
+        const advisor:AiAdvisorEnv={...shared,AI:env.AI as unknown as AiAdvisorEnv['AI'],AI_ADVISOR_V2_MODE:geminiProbe?'off':'on',AI_ADVISOR_V2_CANARY_PERCENT:'0',GEMINI_FILE_SEARCH_ENABLED:geminiProbe?'true':'false',
           advisorTelemetry:{record:e=>{resultClass=e.abstentionReason||(e.abstained?'SAFE_ABSTENTION':e.zeroAiUsed?'ZERO_AI':'SUPPORTED_VALID_CITATIONS');}},
           advisorV2AiSearchClient:{search:async(_name,r)=>{searchCalls++;const t=Date.now();try{return await instance.search(r as AiSearchSearchRequest);}finally{retrievalDurationMs+=Date.now()-t;}}},
           advisorV2AiSearchInstances:{text:INSTANCE,ocr:INSTANCE},AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',

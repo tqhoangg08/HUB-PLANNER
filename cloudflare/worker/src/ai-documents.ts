@@ -7,6 +7,7 @@ import {
 } from './better-auth-identity.ts';
 import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { parsePreparedPdfPages, storeDerivedPdfPages, buildDerivedPageObjectKey, isCompleteDerivedRevision } from './ai-document-ingestion.ts';
+import {prepareNativeDocx,DOCX_MIME,DocxExtractionError} from './ai-document-docx.ts';
 
 export interface AiDocumentsEnv extends BetterAuthIdentityEnv {
   DB?: D1Database;
@@ -328,6 +329,10 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
     try { prepared = await parsePreparedPdfPages(form.get('preparedPages'),contentHash); }
     catch { throw new AiDocumentsError(400,'Văn bản phân trang không hợp lệ hoặc không khớp PDF gốc.'); }
   }
+  if(validated.mimeType===DOCX_MIME){
+    try{prepared=await prepareNativeDocx(new Uint8Array(await file.arrayBuffer()),contentHash);}
+    catch(error){if(error instanceof DocxExtractionError)throw new AiDocumentsError(400,`Không thể trích xuất Word an toàn: ${error.message}.`);throw error;}
+  }
   const duplicate = await db.prepare('SELECT id FROM ai_documents WHERE content_hash = ? AND deleted_at IS NULL LIMIT 1')
     .bind(contentHash).first<{ id: string }>();
   if (duplicate) throw new AiDocumentsError(409, 'Tài liệu này đã có trong kho.');
@@ -374,7 +379,7 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
       const derivative=new Blob([prepared.markdown],{type:'text/plain;charset=utf-8'});
       await uploadAiDocumentStorage(env,path,derivative,prepared.derivedContentHash);
       row=await updateAiDocument(env,id,{ocr_status:'completed',ocr_text_path:path,ocr_text_length:derivative.size,
-        ocr_page_count:prepared.pages.length,ocr_engine:prepared.ocrUsed?'tesseract.js':'pdfjs',ocr_used:prepared.ocrUsed?1:0,
+        ocr_page_count:prepared.pages.length,ocr_engine:validated.mimeType===DOCX_MIME?'ooxml':prepared.ocrUsed?'tesseract.js':'pdfjs',ocr_used:prepared.ocrUsed?1:0,
         ocr_completed_at:now,index_source_kind:'ocr_text',derived_source_kind:prepared.ocrUsed?'ocr':'native_text',
         extraction_pipeline_version:prepared.pipelineVersion,derived_content_hash:prepared.derivedContentHash,
         ai_search_status:'derived_ready',ai_search_revision:stored.revision,ocr_uncertain_tokens:prepared.uncertainTokens});

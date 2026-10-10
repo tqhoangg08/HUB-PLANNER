@@ -17,14 +17,18 @@ export const buildCompletenessDependencies = (env:CompletenessEnv,client:AiSearc
   return {
     completenessSearch:request=>client.search(instances.text,request),
     pageContent:async source=>{
-      if(!env.DB||!env.AI_DOCUMENTS_BUCKET||!Number.isInteger(source.pageNumber)||Number(source.pageNumber)<1||Number(source.pageNumber)>40||reads>=3)return null;
+      if(!env.DB||!env.AI_DOCUMENTS_BUCKET||reads>=3)return null;
       // Recheck D1 current authorization after search/cache, before R2. No
       // client URL, object key, scope, document ID or page hint is accepted.
       let row:{ai_search_revision:string}|null;
       try{row=await env.DB.prepare("SELECT ai_search_revision FROM ai_documents WHERE id=? AND visibility='public' AND deleted_at IS NULL AND ai_search_status='completed'").bind(source.documentId).first<{ai_search_revision:string}>();}
       catch{return null;} // Pre-0054 schema cannot hydrate derived evidence.
       if(!row?.ai_search_revision)return null;
-      const key=buildDerivedPageObjectKey(source.documentId,row.ai_search_revision,source.pageNumber!);
+      // Word units use the same bounded storage ordinal, not physical pages.
+      // Parse only after D1 authorization, then require exact canonical key.
+      const ordinal=Number(source.itemKey.match(/\/page-(\d{3})\.md$/)?.[1]);
+      if(!Number.isInteger(ordinal)||ordinal<1||ordinal>40)return null;
+      const key=buildDerivedPageObjectKey(source.documentId,row.ai_search_revision,ordinal);
       if(source.itemKey!==key)return null;
       reads++;
       env.advisorCompletenessTelemetry?.pageRead();

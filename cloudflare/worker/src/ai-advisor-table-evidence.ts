@@ -37,7 +37,11 @@ export const presentConductTableEvidence = (text: string) => {
 export const resolveConductTableAnswer = (question:string,evidence:readonly {sourceId:string;documentId:string;pageNumber?:number;snippet:string}[]) => {
   if(!isConductTableQuestion(question))return null;
   const physical=evidence.filter(s=>conductTableEvidencePriority(s.snippet)).sort((a,b)=>(a.pageNumber??0)-(b.pageNumber??0));
-  if(!physical.length||new Set(physical.map(s=>s.documentId)).size!==1||!physical.some(s=>/thang điểm 100\b/u.test(s.snippet)))return null;
+  if(!physical.length||new Set(physical.map(s=>s.documentId)).size!==1)return null;
+  // The scale statement may be in the preceding article/Word unit. It must
+  // be retrieved from the SAME authorized document, and cited separately.
+  const scale=evidence.find(s=>s.documentId===physical[0].documentId&&/thang điểm 100\b/u.test(s.snippet));
+  if(!scale)return null;
   const rows=new Map<number,{label:string;max:number;sourceIds:string[]}>();
   let previous:{number:number;page:number|undefined}|undefined;
   for(const source of physical){
@@ -60,6 +64,12 @@ export const resolveConductTableAnswer = (question:string,evidence:readonly {sou
   }
   const numbered=[...rows.entries()].sort((a,b)=>a[0]-b[0]);
   if(numbered.length<2||numbered.length>10||numbered.some(([n],i)=>n!==i+1)||numbered.reduce((sum,[,r])=>sum+r.max,0)!==100)return null;
+  const sourceExcerpts:Record<string,string>=Object.fromEntries(physical.map(s=>[s.sourceId,s.snippet.split('--- Bảng vật lý và văn bản gốc ---\n').pop()!]));
+  if(!physical.some(s=>s.sourceId===scale.sourceId)){
+    const lines=scale.snippet.split('\n'),index=lines.findIndex(l=>/thang điểm 100\b/u.test(l));
+    const heading=lines.slice(0,index).reverse().find(l=>/^Điều\s+\d+\b/u.test(l));
+    sourceExcerpts[scale.sourceId]=[heading,lines[index]].filter(Boolean).join('\n');
+  }
   return {reply:`Theo bảng đã truy xuất, ĐRL được đánh giá trên thang 100 điểm, gồm ${numbered.length} nhóm:\n\n${numbered.map(([n,r])=>`${n}. ${r.label} — tối đa ${r.max} điểm.`).join('\n')}\n\nChưa đủ bằng chứng để xác nhận đây là phiên bản mới nhất hoặc còn hiệu lực hiện hành.`,
-    sourceIds:[...new Set(numbered.flatMap(([,r])=>r.sourceIds))]};
+    sourceIds:[...new Set([scale.sourceId,...numbered.flatMap(([,r])=>r.sourceIds)])],sourceExcerpts};
 };

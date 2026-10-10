@@ -39,15 +39,15 @@ export const AIDocumentSources: React.FC<{
               const content = <>
                 <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
                 <div className="min-w-0">
-                  <p className="truncate text-[10px] font-semibold">{source.title || source.fileName || 'Tài liệu chính thức'}</p>
-                  {!!source.pageNumbers?.length && (
-                    <p className="mt-0.5 text-[10px] font-normal text-slate-500">Trang {source.pageNumbers.join(', ')}</p>
-                  )}
+                  <p className="break-words text-[10px] font-semibold">{source.title || source.fileName || 'Tài liệu chính thức'}</p>
                   {source.locators?.slice(0, 3).map((locator, locatorIndex) => (
                     <p key={`${locator}-${locatorIndex}`} className="mt-0.5 text-[10px] font-normal text-slate-500">
                       {formatLocator(locator)}
                     </p>
                   ))}
+                  {!!source.pageNumbers?.length && (
+                    <p className="mt-0.5 text-[10px] font-normal text-slate-500">Trang {source.pageNumbers.join(', ')}</p>
+                  )}
                   {source.applicability?.slice(0, 3).map((scope, scopeIndex) => (
                     <p key={`${scope.rawLabel}-${scopeIndex}`} className="mt-0.5 text-[10px] font-normal text-slate-500">
                       Áp dụng: {scope.rawLabel}

@@ -9,6 +9,8 @@ export type AuthorizedEvidenceSource = {
   revision: string;
   snippet: string;
   pageNumber?: number;
+  /** Server-authorized source format; a Word storage ordinal is NOT a page. */
+  locatorKind?: 'word_unit' | 'page';
 };
 
 export type GroundedGenerationRequest = {

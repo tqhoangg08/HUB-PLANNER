@@ -7,6 +7,8 @@ export type AiSearchAuthorizedDocument = {
   id: string;
   /** D1-authorized document identity hint; never used as a support quote. */
   title?: string;
+  /** D1-derived format, never inferred from provider text or object filename. */
+  locatorKind?: 'word_unit' | 'page';
   /** Stage 5 will source this from D1 ingestion metadata. Unknown stays TEXT. */
   backend?: AiSearchBackend;
   category?: string;
@@ -168,6 +170,7 @@ const postAuthorizeResults = (
 const normalizeResults = (
   chunks: readonly AiSearchRawChunk[],
   backend: AiSearchBackend,
+  documents: readonly AiSearchAuthorizedDocument[],
 ) => chunks.flatMap((chunk) => {
   const documentId = boundedText(chunk.item?.metadata?.document_id, 64);
   const snippet = boundedText(chunk.text, 8_000);
@@ -181,13 +184,13 @@ const normalizeResults = (
     ? itemKey.match(/\/page-(\d{3})\.md$/) : itemKey.match(new RegExp(`^${documentId}-page-(\\d{3})\\.md$`));
   const pageNumber = pageMatch ? Number(pageMatch[1]) : 0;
   return [{ sourceId: '', documentId, snippet, score, backend, chunkId, itemKey,
-    ...(pageNumber>=1&&pageNumber<=40 ? {pageNumber}: {}) }];
+    ...(pageNumber>=1&&pageNumber<=40 && documents.find(d=>d.id===documentId)?.locatorKind!=='word_unit' ? {pageNumber}: {}) }];
 });
 
 /** Staging experiments reuse the runtime's post-authorization and locator contract. */
 export const normalizeAuthorizedAiSearchChunks = (
   chunks: readonly AiSearchRawChunk[], documents: readonly AiSearchAuthorizedDocument[], backend: AiSearchBackend = 'TEXT',
-) => normalizeResults(postAuthorizeResults(chunks, new Set(documents.filter((d) => d.active !== false).map((d) => d.id))), backend);
+) => normalizeResults(postAuthorizeResults(chunks, new Set(documents.filter((d) => d.active !== false).map((d) => d.id))), backend, documents);
 
 const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 'sourceId'>[], topK: number) => {
   const deduped = new Map<string, Omit<RetrievedAiSearchSource, 'sourceId'>>();
@@ -279,7 +282,7 @@ export class CloudflareAiSearchRetrievalProvider
       let authorizedChunks: AiSearchRawChunk[];
       try { authorizedChunks = postAuthorizeResults(chunks, backendIds); }
       catch (error) { this.reportError('POST_AUTHORIZATION', error); throw error; }
-      try { sources.push(...normalizeResults(authorizedChunks, backend)); }
+      try { sources.push(...normalizeResults(authorizedChunks, backend, allowedDocuments)); }
       catch (error) { this.reportError('RESPONSE_NORMALIZATION', error); throw error; }
     }
     return {

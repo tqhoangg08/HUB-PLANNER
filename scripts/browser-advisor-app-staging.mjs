@@ -8,9 +8,11 @@ import {normalizeAcceptanceText} from '../shared/ai-advisor-acceptance-text.ts';
 const emit=v=>console.log(JSON.stringify(v));
 let phase='start';
 async function main(){
-  const state=JSON.parse(readFileSync('.cache/advisor-app-staging/private-state.json','utf8'));
-  if(state.name!=='hub-advisor-pr88-app-staging'||!/^https:\/\/hub-advisor-pr88-app-staging\.[a-z0-9-]+\.workers\.dev$/.test(state.origin))throw Error('ISOLATION_FAILED');
-    const dir=resolve('.cache/advisor-app-staging/browser-results');mkdirSync(dir,{recursive:true});
+  const word=process.argv.includes('--word-first'),stageName=word?'hub-advisor-pr88-word-staging':'hub-advisor-pr88-app-staging';
+  const stageDir=word?'.cache/advisor-word-staging':'.cache/advisor-app-staging';
+  const state=JSON.parse(readFileSync(`${stageDir}/private-state.json`,'utf8'));
+  if(state.name!==stageName||!new RegExp(`^https://${stageName}\\.[a-z0-9-]+\\.workers\\.dev$`).test(state.origin))throw Error('ISOLATION_FAILED');
+    const dir=resolve(stageDir,'browser-results');mkdirSync(dir,{recursive:true});
     const sourceCommit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
   const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
   try{
@@ -23,7 +25,7 @@ async function main(){
     await page.getByRole('heading',{name:'Kho tài liệu AI'}).waitFor({timeout:30000});
     emit({phase:'browser_login',result:'PASS',realBetterAuthCookie:true,productionSessionUsed:false});
     if(process.argv.includes('--upload')){
-      const arg=process.argv.indexOf('--pdf');if(arg<0)throw Error('PDF_REQUIRED');
+      const arg=process.argv.indexOf(word?'--docx':'--pdf');if(arg<0)throw Error('PDF_REQUIRED');
       const listed=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents`)).json();
       const titleArg=process.argv.indexOf('--title'),categoryArg=process.argv.indexOf('--category');
       const title=titleArg>=0?process.argv[titleArg+1]:'Quy chế đánh giá kết quả rèn luyện sinh viên';
@@ -41,10 +43,10 @@ async function main(){
       // Real UX warns about unreadable OCR cells; explicitly acknowledge the
       // staging-only test artifact, never silently suppress this warning.
       const confirm=page.getByRole('button',{name:'Xác nhận',exact:true});
-      await Promise.race([upload,confirm.waitFor({timeout:600000}).then(async()=>{emit({phase:'browser_ocr_warning',acknowledged:true,legalIdentityNotAssumed:true});await confirm.click();})]);
+      if(!word)await Promise.race([upload,confirm.waitFor({timeout:600000}).then(async()=>{emit({phase:'browser_ocr_warning',acknowledged:true,legalIdentityNotAssumed:true});await confirm.click();})]);
       const response=await upload,data=await response.json();
       writeFileSync(resolve(dir,`upload-${data.document?.id||'failed'}-local.json`),JSON.stringify(data));
-      emit({phase:'browser_upload_ocr',httpStatus:response.status(),durationMs:Date.now()-t,ocrPages:data.document?.ocr_page_count,ocrUsed:data.document?.ocr_used,uncertainTokens:data.document?.ocr_uncertain_tokens,aiSearchStatus:data.document?.ai_search_status,geminiStatus:data.document?.gemini_indexing_status,pageErrors:errors.length});
+      emit({phase:word?'browser_upload_native_word':'browser_upload_ocr',httpStatus:response.status(),durationMs:Date.now()-t,ocrPages:data.document?.ocr_page_count,ocrUsed:data.document?.ocr_used,uncertainTokens:data.document?.ocr_uncertain_tokens,aiSearchStatus:data.document?.ai_search_status,geminiStatus:data.document?.gemini_indexing_status,pageErrors:errors.length});
       return;
     }
     if(!process.argv.includes('--benchmark'))throw Error('ACTION_REQUIRED');
@@ -53,8 +55,10 @@ async function main(){
     if(!docs.length)throw Error('INDEX_NOT_READY');
     const manifestArg=process.argv.indexOf('--manifest');
     if(manifestArg>=0){
-      const cases=JSON.parse(readFileSync(process.argv[manifestArg+1],'utf8'));
+      let cases=JSON.parse(readFileSync(process.argv[manifestArg+1],'utf8'));
       if(!Array.isArray(cases)||cases.length>16)throw Error('BENCHMARK_LIMIT');
+      const caseArg=process.argv.indexOf('--cases');
+      if(caseArg>=0){const selected=process.argv[caseArg+1].split(',').map(Number);cases=cases.filter((_c,i)=>selected.includes(i+1));}
       for(const c of cases){
         const doc=docs.find(d=>d.content_hash===c.sourceHash);
         if(!doc)throw Error('DOCUMENT_NOT_UPLOADED');
@@ -72,14 +76,23 @@ async function main(){
         const r=await next,payload=await r.json();writeFileSync(resolve(dir,`topic-${i+1}-local.json`),JSON.stringify(payload));
         const citations=payload.documentSources||[],content=normalize(payload.reply),matching=citations.filter(s=>s.documentId===doc.id);
         const pageNumbers=matching.flatMap(s=>s.pageNumbers||[s.pageNumber]);
-        const facts=(c.contains||[]).every(s=>normalizeAcceptanceText(payload.reply).includes(normalizeAcceptanceText(s))),location=(c.pages||[]).every(n=>pageNumbers.includes(n));
-        const visible=Boolean(String(payload.reply||'').trim())&&await page.locator('body').innerText().then(s=>normalize(s).includes(normalize(String(payload.reply).replace(/[|*#_`>]/g,'').replace(/<!--[\s\S]*?-->/g,'').slice(0,40))));
+        const facts=(c.contains||[]).every(s=>normalizeAcceptanceText(payload.reply).includes(normalizeAcceptanceText(s))),location=(c.pages||[]).every(n=>pageNumbers.includes(n))&&(!word||pageNumbers.every(n=>n==null))&&
+          (c.locators||[]).every(l=>matching.some(s=>(s.locators||[]).some(v=>normalize(v).includes(normalize(l)))));
+        // A response arrives before React finishes rendering. Compare rendered
+        // prose, not raw Markdown table delimiters/comments, and wait for UI.
+        const anchor=normalize(String(payload.reply||'').replace(/<!--[\s\S]*?-->/g,'').replace(/[|*#_`>]/g,'')).trim().slice(0,40);
+        const visible=Boolean(anchor)&&await page.waitForFunction(value=>{
+          const text=document.body.innerText.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/\s+/g,' ').trim();
+          return text.includes(value);
+        },anchor,{timeout:5000}).then(()=>true,()=>false);
         emit({phase:'multi_pdf_ui',case:i+1,topic:c.topic,sourceCommit,deployedCommit:health.sourceCommit,httpStatus:r.status(),durationMs:Date.now()-t,
           visibleResponse:visible,correctDocument:matching.length>0,expectedFactsPresent:facts,expectedPagesPresent:location,pageErrors:errors.length,
           acceptance:r.status()===200&&visible&&facts&&location&&matching.length>0?'PASS':'FAIL',metrics:payload.stagingMetrics});
         await page.screenshot({path:resolve(dir,`topic-${i+1}-desktop.png`)});
       }
       await page.setViewportSize({width:390,height:844});
+      const historyDrawer=page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true});
+      if(await historyDrawer.isVisible())await page.locator('button').filter({has:page.locator('svg.lucide-menu')}).click();
       await page.screenshot({path:resolve(dir,'multi-pdf-mobile.png')});
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);
       emit({phase:'multi_pdf_ui_layout',desktop:true,mobile390:true,horizontalOverflow:overflow,pageErrors:errors.length});

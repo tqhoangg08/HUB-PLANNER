@@ -63,7 +63,7 @@ export const hasUnsupportedAnswerDetails = (answer: string, evidence: readonly s
 const quoteRelevantWindow = (passage: string, question: string) => {
   if (passage.length <= 1200 || !question) return passage.slice(0, 1200);
   const query = normalizeAdvisorIntentText(question);
-  if(/\b(?:quy tac ung xu|ke hoach hoc tap|hoc phi)\b/.test(query))return selectEvidenceWindow(passage,question,1200);
+  if(/\b(?:quy tac ung xu|quy che cong tac sinh vien|ke hoach (?:to chuc )?hoc tap|hoc phi)\b/.test(query))return selectEvidenceWindow(passage,question,1200);
   const anchors = /\bmini game\b/.test(query) ? ['mini game', 'tro choi truc tuyen']
     : /\bminh chung\b/.test(query) ? ['minh chung', 'hoat dong ngoai truong']
     : /\b(?:nhom|tieu chi|diem toi da|thang diem)\b/.test(query) ? ['noi dung danh gia', 'thang diem', 'diem toi da']

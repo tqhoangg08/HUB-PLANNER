@@ -8,7 +8,7 @@ export type ConductIntent = 'regulations' | 'personal_score' | 'event_eligibilit
 /** Official semester milestones/processes, not the student's timetable/course lookup. */
 export const isAcademicPolicyQuestion = (question: string) => {
   const q=normalizeAdvisorIntentText(question);
-  return /\bke hoach hoc tap\b/.test(q)
+  return /\bke hoach (?:to chuc )?hoc tap\b/.test(q)
     || /\b(?:dang ky|rut) (?:mon hoc|hoc phan)\b/.test(q)
       && /\b(?:thoi gian|ngay|han|bat dau|khi nao|quy dinh|quy trinh|hoc ky)\b/.test(q);
 };

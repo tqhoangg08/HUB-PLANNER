@@ -5,7 +5,8 @@ import {randomBytes,randomUUID} from 'node:crypto';
 import {hashPassword} from 'better-auth/crypto';
 import {spawn,execFileSync} from 'node:child_process';
 import dotenv from 'dotenv';
-const NAME='hub-advisor-pr88-app-staging',DIR=resolve('.cache/advisor-app-staging'),STATE=resolve(DIR,'private-state.json');
+const WORD=process.argv.includes('--word-first');
+const NAME=WORD?'hub-advisor-pr88-word-staging':'hub-advisor-pr88-app-staging',DIR=resolve(WORD?'.cache/advisor-word-staging':'.cache/advisor-app-staging'),STATE=resolve(DIR,'private-state.json');
 const emit=v=>console.log(JSON.stringify(v));
 async function cli(args,stdin){return new Promise((res,rej)=>{const c=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js',...args],{stdio:['pipe','pipe','pipe'],env:{...process.env,XDG_CONFIG_HOME:resolve('.cache/cloudflare/xdg')}});let output='';c.stdout.on('data',b=>{output+=b});c.stderr.resume();c.on('close',code=>code===0?res(output):rej(Error('STAGING_WRANGLER_FAILED')));c.on('error',()=>rej(Error('STAGING_WRANGLER_FAILED')));c.stdin.end(stdin||'');});}
 async function main(){

@@ -35,6 +35,8 @@ export type DerivedPage = {
   confidence?: number;
   uncertainTokens?: number;
   layout?: 'lines' | 'columns';
+  /** DOCX units have no verified physical pagination. Never label them pages. */
+  sourceFormat?: 'docx';
 };
 
 export type AuthoritativeDerivedMetadata = {
@@ -97,10 +99,10 @@ const assertPageNumbers = (pages: readonly DerivedPage[]) => {
 
 export const renderDerivedPage = (page: DerivedPage) => {
   if (!Number.isInteger(page.pageNumber) || page.pageNumber < 1) throw new Error('Invalid page number.');
-  const details = `\n<!-- extraction: ${page.sourceKind}${page.confidence === undefined ? '' : `; confidence: ${page.confidence.toFixed(1)}`}; uncertain_tokens: ${page.uncertainTokens || 0} -->\n## Trang ${page.pageNumber}\n`;
+  const details = `\n<!-- extraction: ${page.sourceKind}${page.confidence === undefined ? '' : `; confidence: ${page.confidence.toFixed(1)}`}; uncertain_tokens: ${page.uncertainTokens || 0} -->\n## ${page.sourceFormat==='docx'?'Đoạn Word':'Trang'} ${page.pageNumber}\n`;
   // Code blocks preserve spatial column gaps; do not infer merged cells.
   const text = page.layout === 'columns' ? `\`\`\`text\n${page.text.normalize('NFC').trim().replace(/\r\n?/g, '\n')}\n\`\`\`` : normalizeDerivedText(page.text);
-  return `<!-- page: ${page.pageNumber} -->\n${details}\n${text}\n`;
+  return `<!-- ${page.sourceFormat==='docx'?'word_unit':'page'}: ${page.pageNumber} -->\n${details}\n${text}\n`;
 };
 
 /** Page order is explicit and canonical; no raw byte splitting is allowed. */
