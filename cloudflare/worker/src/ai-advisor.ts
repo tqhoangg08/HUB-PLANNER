@@ -55,7 +55,8 @@ import type { Subject } from '../../../types.ts';
 import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { classifyConductIntent, normalizeAdvisorIntentText, isAcademicPolicyQuestion } from './ai-advisor-intents.ts';
 import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
-import {buildCompletenessDependencies,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
+import {buildCompletenessDependencies,completenessEnabled,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
+import {isTuitionContinuationEvidence} from './ai-advisor-source-sections.ts';
 import {createAdvisorReleaseMetrics,readAdvisorProviderUsage,type AdvisorReleaseEvent} from './ai-advisor-release-telemetry.ts';
 
 export type AdvisorAnswerPath = 'CACHE' | 'D1' | 'FAQ' | 'SEARCH_ONLY' | 'SEARCH_GENERATE';
@@ -1746,15 +1747,17 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         : { v2_result_class: 'OTHER_SAFE_FAILURE', fallback_reason: 'other_safe_failure' };
     }
     if (v2?.kind === 'ANSWER') {
+      const answerEvidence=v2.answer.evidence;
       const citationResolution = await resolveDocumentSourcesWithDiagnostics(env,
-        v2.answer.evidence.map((source) => ({ documentId: source.documentId,
+        answerEvidence.map((source) => ({ documentId: source.documentId,
           pageNumber: source.pageNumber || Number(source.snippet.match(/<!--\s*page:\s*(\d+)\s*-->/i)?.[1]) || null,
           locators: extractOfficialDocumentLocators(source.snippet),
           applicability: extractOfficialDocumentApplicability(source.snippet) })), retrieval.documentRoute);
       // Recheck current D1 authorization after awaited generation/cache access.
-      if (citationResolution.sources.length !== new Set(v2.answer.evidence.map((source) => source.documentId)).size
-        || v2.answer.evidence.some((source) => !isRelevantAdvisorEvidence(question, source.snippet,
-          citationResolution.sources.find((resolved) => resolved.documentId === source.documentId)?.title))) {
+      if (citationResolution.sources.length !== new Set(answerEvidence.map((source) => source.documentId)).size
+        || answerEvidence.some((source) => !isRelevantAdvisorEvidence(question, source.snippet,
+          citationResolution.sources.find((resolved) => resolved.documentId === source.documentId)?.title)
+          &&!(completenessEnabled(env)&&isTuitionContinuationEvidence(question,source,answerEvidence)))) {
         v2 = { kind: 'ABSTAIN', reason: 'INVALID_CITATIONS', searchCallCount: searchCalls,
           retrievalCacheHit: false, retrievedChunkCount: 0, generatorCalled: generatorCalls > 0, quotaMode: quota.mode };
       }

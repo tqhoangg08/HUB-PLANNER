@@ -44,6 +44,7 @@ import {
 } from '../cloudflare/worker/src/ai-advisor-cache.ts';
 import { evaluateAdvisorQuota } from '../cloudflare/worker/src/ai-advisor-quota.ts';
 import { resolveZeroAiStructuredAnswer } from '../cloudflare/worker/src/ai-advisor-zero-ai.ts';
+import {buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-ingestion.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
 const DOCUMENT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -303,6 +304,28 @@ const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input:
     '2026-01-01T00:00:00.000Z', now, input.deletedAt ?? null,
   );
 };
+
+test('final D1 citation recheck accepts adjacent tuition continuation but rejects a revoked document',async()=>{
+  const fixture=makeDatabase();
+  try{
+    for(const file of['0044_ai_document_ocr_ingestion.sql','0049_ai_document_derived_index_identity.sql','0054_ai_document_search_ingestion_state.sql'])fixture.sql.exec(readFileSync(`cloudflare/migrations/${file}`,'utf8'));
+    insertOfficialDocument(fixture,{id:DOCUMENT_A,title:'Mức thu học phí năm học 2026-2027',category:'tuition'});
+    fixture.sql.prepare("UPDATE ai_documents SET ai_search_status='completed',ai_search_revision='v1' WHERE id=?").run(DOCUMENT_A);
+    const head='| TT | Hệ/chương trình | Học phí theo năm (đồng) | Học phí theo tín chỉ (đồng) |\n| A | Đại học chính quy chuẩn | | |';
+    const row='| Khóa | 39 | | |\n| 1 | Ngành Tài chính ngân hàng | 25.600.000 | 747.000 |';
+    let revoke=false;
+    const runtime={...env(fixture.DB),AI_ADVISOR_V2_MODE:'on',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'text',ocr:'ocr'},
+      advisorV2AiSearchClient:{search:async()=>({chunks:[3,4].map(page=>({id:String(page),score:1,text:page===3?head:row,item:{key:buildDerivedPageObjectKey(DOCUMENT_A,'v1',page),metadata:{document_id:DOCUMENT_A,revision:'v1',active:true,visibility:'public'}}}))})},
+      AI_DOCUMENTS_BUCKET:{get:async key=>{const text=key.endsWith('003.md')?head:row;if(revoke&&key.endsWith('004.md'))fixture.sql.prepare("UPDATE ai_documents SET visibility='admin' WHERE id=?").run(DOCUMENT_A);return{size:text.length,body:new ReadableStream(),text:async()=>text}}},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('No generator required')}},
+    };
+    const q='Đại học chính quy chuẩn khóa 39 ngành Tài chính ngân hàng có học phí bao nhiêu?';
+    const run=async()=>{const request=v2RequestFor(q);return handleAiAdvisorImplementation(request,new URL(request.url),runtime as never) as Promise<{reply:string;documentSources:unknown[];documentSearchUnavailable:boolean}>};
+    const valid=await run();assert.match(valid.reply,/25\.600\.000/);assert.match(valid.reply,/747\.000/);assert.equal(valid.documentSources.length,1);assert.equal(valid.documentSearchUnavailable,false);
+    revoke=true;const invalid=await run();assert.equal(invalid.documentSources.length,0);assert.doesNotMatch(invalid.reply,/25\.600\.000/);
+  }finally{fixture.sql.close();}
+});
 
 test('document citations are D1-validated and ordered by applicable academic-year then version', async () => {
   const fixture = makeDatabase();

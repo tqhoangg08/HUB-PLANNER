@@ -59,6 +59,24 @@ export const resolveAcademicMilestone = (question:string,evidence:readonly Autho
   return{reply:`Theo dòng trong kế hoạch đã truy xuất:\n\n${quote(candidates[0].text.trim())}\n\n${note}`,sourceIds:[candidates[0].sourceId]};
 };
 
+/** Requested article only, original text/unclear markers unchanged. Never
+ * repairs OCR spelling or claims completeness/currentness of uncertain text.
+ * A partial source excerpt is not acceptance of a generated paraphrase. */
+export const resolvePolicyArticleExcerpt = (question:string,evidence:readonly AuthorizedEvidenceSource[]) => {
+  const article=articleQuery(question);if(!article)return null;
+  const candidates=evidence.flatMap(s=>{
+    const lines=s.snippet.split('\n'),start=lines.findIndex(l=>new RegExp(`^dieu ${article.number}\\b`).test(normalizeAdvisorIntentText(l)));
+    if(start<0)return[];
+    let end=start+1;while(end<lines.length&&!/^dieu \d+\b/.test(normalizeAdvisorIntentText(lines[end]))&&!/^```/.test(lines[end]))end++;
+    const text=lines.slice(start,end).join('\n').trim();
+    if(text.length<80||text.length>1500)return[];
+    return[{text,sourceId:s.sourceId}];
+  });
+  if(!candidates.length||new Set(candidates.map(c=>c.text)).size!==1)return null;
+  const c=candidates[0];
+  return{reply:`Đoạn điều khoản đã truy xuất (nguyên văn OCR, không tự sửa chữ):\n\n${quote(c.text)}\n\n${note} Không suy diễn phần chưa đọc rõ; đây không phải xác nhận đầy đủ nội dung khi OCR còn lỗi.`,sourceIds:[c.sourceId]};
+};
+
 /** Tuple and units/program must be proven by the SAME physical table, with
  * adjacent page continuation only. Unknown cells outside the selected row do
  * not excuse guessing selected numeric/name/units cells. No expected values. */
