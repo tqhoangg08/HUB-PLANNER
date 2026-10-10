@@ -46,7 +46,7 @@ test('real usability runner does not count HTTP success or expected word presenc
 });
 
 test('Word parser envelope does not turn policy evidence into a technical refusal; real secrets remain blocked',()=>{
-  for(const envelope of ['<!-- word_unit=7 uncertain_tokens=0 -->','<!-- word_unit: 7 -->\n<!-- extraction: native; uncertain_tokens: 0 -->']){
+  for(const envelope of ['<!-- word_unit=7 uncertain_tokens=0 -->','<!-- word_unit: 7 -->\n<!-- extraction: native; uncertain_tokens: 0 -->','<!-- word_unit: 7 -->\n<!-- extraction: native_text; uncertain_tokens: 0 -->\n## Đoạn Word 7']){
     const text=`Điều 7. Phân loại kết quả rèn luyện\n${envelope}\nLoại tốt.`;
     const displayed=sourceSupportedReply(text,[text],'điểm rèn luyện');
     assert.doesNotMatch(displayed,/word_unit|uncertain_tokens/);

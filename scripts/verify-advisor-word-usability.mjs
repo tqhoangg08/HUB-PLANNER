@@ -66,7 +66,7 @@ async function main(){mkdirSync(OUT,{recursive:true});
     }return;
   }
   if(process.argv.includes('--routing')){
-    const {s,browser,context}=await login();
+    const {s,browser,context,page}=await login();
     try{
       const expected=process.argv[process.argv.indexOf('--expected-source')+1];
       if(!process.argv.includes('--expected-source')||!/^[a-f0-9]{40}$/.test(expected))throw Error('STAGING_SOURCE_MISMATCH');
@@ -77,11 +77,22 @@ async function main(){mkdirSync(OUT,{recursive:true});
       const anonymous=await fetch(`${s.origin}/api/staging/ai-advisor-routing?profile=canary-selected`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:'test'})});
       emit({phase:'routing_probe_auth',anonymousHttp:anonymous.status});
       const q='Bạn có bảng điểm rèn luyện mới nhất không?';
+      await page.locator('button.fixed.bottom-6').click();const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
+      let activeProfile='';
+      // Browser-test-only rewrite to the existing Admin-gated staging probe.
+      // UI and response rendering stay real; no production flag is set.
+      await page.route(`${s.origin}/api/private/v1/ai-advisor`,route=>route.continue({url:`${s.origin}/api/staging/ai-advisor-routing?profile=${activeProfile}`}));
       for(const profile of ['canary-selected','canary-unselected','selected-completeness-off','legacy-provider-error','selected-provider-error']){
-        const started=Date.now(),r=await context.request.post(`${s.origin}/api/staging/ai-advisor-routing?profile=${profile}`,{data:{question:q,history:[]},timeout:90000}),payload=await r.json();
-        writeFileSync(resolve(OUT,`routing-${profile}-private.json`),JSON.stringify(payload));
-        const text=normalize(payload.reply),citations=payload.documentSources||[];
+        if(activeProfile)await page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true}).click();activeProfile=profile;
+        const started=Date.now(),next=page.waitForResponse(r=>(r.url()===`${s.origin}/api/private/v1/ai-advisor`||r.url().includes(`/api/staging/ai-advisor-routing?profile=${profile}`))&&r.request().method()==='POST',{timeout:90000});
+        const input=page.getByPlaceholder('Nhập câu hỏi tại đây...');await input.fill(q);await input.press('Enter');const r=await next,payload=await r.json();
+        const anchor=normalize(sanitizeAIReply(payload.reply||'')).replace(/[|*#_`>]/g,'').trim().slice(0,45);
+        if(anchor)await page.waitForFunction(value=>[...document.querySelectorAll('.ai-message-markdown')].some(el=>el.textContent.normalize('NFC').toLowerCase().replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim().includes(value)),anchor,{timeout:15000});
+        const visibleReply=await page.locator('.ai-message-markdown').last().innerText();
+        writeFileSync(resolve(OUT,`routing-${profile}-private.json`),JSON.stringify({...payload,visibleReply}));
+        const text=normalize(visibleReply),citations=payload.documentSources||[];
         emit({phase:'word_routing_probe',profile,http:r.status(),durationMs:Date.now()-started,scale100:text.includes('100'),fiveGroupScores:['25','20','15'].every(f=>text.includes(f)),citations:citations.length,
+          renderedUiChecked:true,technicalRefusal:visibleReply.includes('thông tin kỹ thuật hoặc bảo mật'),metadataVisible:/word_unit|uncertain_tokens/.test(visibleReply),
           noFakeWordPages:citations.every(x=>!x.pageNumber&&!x.pageNumbers?.length),allSourcesAuthorized:citations.every(x=>docs.some(d=>d.id===x.documentId)),
           status:payload.documentSearchStatus||null,unavailable:payload.documentSearchUnavailable===true,metrics:payload.stagingMetrics});
       }
