@@ -36,6 +36,10 @@ Only the existing isolated `hub-advisor-pr88-app-staging` is used.
    extracted paragraphs conflict when selected by article number alone.
    Explicitly requested heading subjects disambiguate them; unrelated issuing
    clauses do not establish the contents of the attached conduct rules.
+   Citation locators use the selected original article excerpt, not the first
+   unrelated article/chapter on the same physical page. A staging screenshot
+   exposed this locator mismatch; a runtime regression covers Article3 versus
+   Article1 on the same page, with no invented chapter number.
    Independently inspected indexed OCR has `khiêm tôn`, missing list/word
    characters and `[không đọc rõ]`, unlike the original visual PDF. No fuzzy
    quote matching or source rewriting is permitted. The requested article can

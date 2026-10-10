@@ -157,7 +157,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-multidocument-v4' : 'ai-search-full-authorized-conduct-v4-table-budget',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-multidocument-v5' : 'ai-search-full-authorized-conduct-v4-table-budget',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -207,7 +207,10 @@ export const executeAiAdvisorV2Document = async (
     const extracted=resolveConductTableAnswer(question,evidence)||resolveConductExcerptAnswer(question,evidence)
       ||resolveAcademicMilestone(question,evidence)||resolveTuitionTableRow(question,evidence)||resolvePolicyArticleExcerpt(question,evidence);
     if(extracted){
-      const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId))};
+      // Locators must describe the cited passage, not the first unrelated
+      // article on a physical page that happens to contain several articles.
+      const excerpts='sourceExcerpts' in extracted?extracted.sourceExcerpts as Record<string,string>:{};
+      const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId)).map(s=>({...s,snippet:excerpts[s.sourceId]||s.snippet}))};
       if(dependencies.answerCache&&answerCacheKey){try{await dependencies.answerCache.put(answerCacheKey,answer,120);}catch{/* optional */}}
       return {kind:'ANSWER',answer,searchCallCount:retrieved.searchCallCount,
         retrievalCacheHit:retrieved.cacheHit,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};

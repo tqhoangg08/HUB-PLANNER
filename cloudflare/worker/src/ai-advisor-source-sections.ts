@@ -79,7 +79,7 @@ export const resolvePolicyArticleExcerpt = (question:string,evidence:readonly Au
   });
   if(!candidates.length||new Set(candidates.map(c=>c.text)).size!==1)return null;
   const c=candidates[0];
-  return{reply:`Đoạn điều khoản đã truy xuất (nguyên văn OCR, không tự sửa chữ):\n\n${quote(c.text)}\n\n${note} Không suy diễn phần chưa đọc rõ; đây không phải xác nhận đầy đủ nội dung khi OCR còn lỗi.`,sourceIds:[c.sourceId]};
+  return{reply:`Đoạn điều khoản đã truy xuất (nguyên văn OCR, không tự sửa chữ):\n\n${quote(c.text)}\n\n${note} Không suy diễn phần chưa đọc rõ; đây không phải xác nhận đầy đủ nội dung khi OCR còn lỗi.`,sourceIds:[c.sourceId],sourceExcerpts:{[c.sourceId]:c.text}};
 };
 
 /** Tuple and units/program must be proven by the SAME physical table, with

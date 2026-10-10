@@ -14,6 +14,7 @@ import {buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-in
 import {classifyAdvisorIntents,routeAdvisorDocuments} from '../cloudflare/worker/src/ai-advisor.ts';
 import {buildEvidenceRetrievalPlan} from '../cloudflare/worker/src/ai-advisor-retrieval-plan.ts';
 import {selectEvidenceWindow,resolveAcademicMilestone,resolveTuitionTableRow,isTuitionContinuationEvidence,resolvePolicyArticleExcerpt} from '../cloudflare/worker/src/ai-advisor-source-sections.ts';
+import {extractOfficialDocumentLocators} from '../cloudflare/worker/src/gemini-file-search.ts';
 const DOC='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',PRIVATE='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const table='| STT | Nội dung đánh giá | Tiêu chí đánh giá | Khung điểm |\n| 1 | Mục đầu tiên | Văn bản gốc | 0—25 điểm |';
 const question='Phiếu ĐRL có những nhóm tiêu chí nào?';
@@ -295,5 +296,20 @@ test('requested article heading disambiguates issuing-decision Article3 from its
   const issuing={sourceId:'S1',documentId:DOC,pageNumber:2,snippet:'Điều 3. Tổ chức thực hiện\nCác đơn vị thực hiện quyết định ban hành và có trách nhiệm triển khai quy định này.'};
   const attached={sourceId:'S2',documentId:DOC,pageNumber:3,snippet:'Điều 3. Trách nhiệm với bản thân, gia đình và xã hội\n1. Trung thực, khách quan.\n2. Chấp hành an toàn giao thông.'};
   const r=resolvePolicyArticleExcerpt(q,[issuing,attached])!;assert.ok(r);assert.deepEqual(r.sourceIds,['S2']);assert.doesNotMatch(r.reply,/Tổ chức thực hiện/);
+  assert.ok(extractOfficialDocumentLocators(r.sourceExcerpts.S2).includes('Điều 3'));
   assert.equal(resolvePolicyArticleExcerpt(q,[issuing]),null);
+});
+
+test('Article3 citation locators use the actual selected excerpt, not Article1 elsewhere on the page',async()=>{
+  const q='Quy tắc ứng xử Điều 3 quy định trách nhiệm nào với bản thân, gia đình và xã hội?';
+  const snippet='Điều 1. Phạm vi áp dụng\nMột nội dung khác.\nĐiều 3. Trách nhiệm với bản thân, gia đình và xã hội\n1. Sống trung thực, khách quan.\n2. Chấp hành an toàn giao thông.';
+  const result=await executeAiAdvisorV2Document(q,[{id:DOC,title:'Quy tắc ứng xử',revision:'v1',active:true,visibility:'public'}],{
+    aiSearchClient:{search:async()=>({})},aiSearchInstances:{text:'text',ocr:'ocr'},quota:evaluateAdvisorQuota(undefined),
+    completenessSearch:async()=>({chunks:[chunk('3',snippet)]}),pageContent:async()=>snippet,
+    evidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('No generation needed')}},
+  });
+  assert.equal(result.kind,'ANSWER');if(result.kind==='ANSWER'){
+    assert.ok(extractOfficialDocumentLocators(result.answer.evidence[0].snippet).includes('Điều 3'));
+    assert.ok(snippet.includes(result.answer.evidence[0].snippet));assert.doesNotMatch(result.answer.evidence[0].snippet,/Điều 1/);
+  }
 });
