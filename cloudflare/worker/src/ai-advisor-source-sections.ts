@@ -55,7 +55,8 @@ export const resolveAcademicMilestone = (question:string,evidence:readonly Autho
         if(/^(?:[IVXLCDM]+|\d+\.\d+)\.\s+\S/u.test(line))heading=line;
         if(/thoi gian dang ky mon hoc/.test(n))header=line;
         const semester=term?new RegExp(`\\b(?:hoc ky\\s*|hk)${term}\\b`).test(n):/\bhoc ky he\b/.test(q)&&/\b(?:hoc ky he|hk he)\b/.test(n);
-        const literalDate=/\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(line);
+        const literalDate=/\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(line)
+          ||/\bthang nao\b/.test(q)&&/\b\d{1,2}\/\d{4}\b/.test(line);
         const literalRegistration=registration&&semester&&literalDate
           &&(/dang ky hoc phan/.test(n)||Boolean(header)&&/^\|/.test(line)&&/^hoc ky\b/.test(n));
         const literalHoliday=/\bnghi tet\b/.test(q)&&/nghi tet/.test(n)
