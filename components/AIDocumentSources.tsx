@@ -40,8 +40,8 @@ export const AIDocumentSources: React.FC<{
                 <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
                 <div className="min-w-0">
                   <p className="truncate text-[10px] font-semibold">{source.title || source.fileName || 'Tài liệu chính thức'}</p>
-                  {Number.isInteger(source.pageNumber) && Number(source.pageNumber) > 0 && (
-                    <p className="mt-0.5 text-[10px] font-normal text-slate-500">Trang {source.pageNumber}</p>
+                  {!!source.pageNumbers?.length && (
+                    <p className="mt-0.5 text-[10px] font-normal text-slate-500">Trang {source.pageNumbers.join(', ')}</p>
                   )}
                   {source.locators?.slice(0, 3).map((locator, locatorIndex) => (
                     <p key={`${locator}-${locatorIndex}`} className="mt-0.5 text-[10px] font-normal text-slate-500">

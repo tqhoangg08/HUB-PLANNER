@@ -184,6 +184,11 @@ const normalizeResults = (
     ...(pageNumber>=1&&pageNumber<=40 ? {pageNumber}: {}) }];
 });
 
+/** Staging experiments reuse the runtime's post-authorization and locator contract. */
+export const normalizeAuthorizedAiSearchChunks = (
+  chunks: readonly AiSearchRawChunk[], documents: readonly AiSearchAuthorizedDocument[], backend: AiSearchBackend = 'TEXT',
+) => normalizeResults(postAuthorizeResults(chunks, new Set(documents.filter((d) => d.active !== false).map((d) => d.id))), backend);
+
 const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 'sourceId'>[], topK: number) => {
   const deduped = new Map<string, Omit<RetrievedAiSearchSource, 'sourceId'>>();
   for (const source of sources) {

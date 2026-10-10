@@ -3,11 +3,11 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { performance } from 'node:perf_hooks';
-import { classifyAdvisorIntents, handleAiAdvisor, routeAdvisorDocuments, selectAdvisorDocumentCandidates, type AiAdvisorEnv } from '../cloudflare/worker/src/ai-advisor.ts';
+import { classifyAdvisorIntents, handleAiAdvisor, routeAdvisorDocuments, selectAdvisorDocumentCandidates, selectAdvisorDocumentCandidatesWithIndexIdentity, type AiAdvisorEnv } from '../cloudflare/worker/src/ai-advisor.ts';
 import { classifyConductIntent } from '../cloudflare/worker/src/ai-advisor-intents.ts';
 import { containsDocumentInstructions, hasUnsupportedAnswerDetails, isRelevantAdvisorEvidence, sourceSupportedReply } from '../cloudflare/worker/src/ai-advisor-grounding.ts';
 import { CONDUCT_ACCEPTANCE_QUESTIONS } from '../scripts/verify-advisor-conduct-providers.mjs';
-import { buildDocumentCandidateMetadataFilter, extractGenerateContentDocumentSources, groundGeminiReply, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import { buildDocumentCandidateMetadataFilter, extractGenerateContentDocumentSources, extractOfficialDocumentLocators, groundGeminiReply, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { buildAiSearchAuthorizationFilter, CloudflareAiSearchRetrievalProvider } from '../cloudflare/worker/src/ai-search-retrieval.ts';
 import { aiAdvisorV2CanaryBucket } from '../cloudflare/worker/src/ai-advisor-v2-runtime.ts';
 
@@ -53,6 +53,34 @@ const providerResult = (reply = PASSAGE, documentId = DOC) => ({
   ...groundGeminiReply(reply, question, [{ documentId, title: TITLE, fileName: 'fixture.pdf', pageNumber: 2, evidenceText: PASSAGE }]),
   documentSources: [{ documentId, title: TITLE, fileName: 'fixture.pdf', pageNumber: 2, locators: ['Điều 1'], evidenceText: PASSAGE }],
   groundingChunkCount: 1, documentIdMetadataCount: 1, pageNumberCount: 1,
+});
+
+test('Vietnamese score wording and preceding numbered paragraph do not invent a legal point/clause', () => {
+  assert.deepEqual(extractOfficialDocumentLocators('2. Điểm rèn luyện được đánh giá bằng thang điểm 100.\nChương II\nĐiều 5. Căn cứ đánh giá'), ['Chương II, Điều 5']);
+  assert.deepEqual(extractOfficialDocumentLocators('Điều 5\n2. Nội dung\na) Quy định'), ['Điều 5, khoản 2, điểm a']);
+});
+
+test('uploaded derived index uses its current D1 revision, not numeric document version; old 0049 schema remains readable', async () => {
+  const db = makeDb();
+  try {
+    db.insert();
+    const env = envFor(db.DB), route = routeAdvisorDocuments(question);
+    const legacy = await selectAdvisorDocumentCandidatesWithIndexIdentity(env, route);
+    assert.equal(legacy[0].version, 1);
+    assert.equal(legacy[0].aiSearchRevision, null);
+    db.sql.exec(readFileSync('cloudflare/migrations/0054_ai_document_search_ingestion_state.sql', 'utf8'));
+    db.sql.prepare("UPDATE ai_documents SET ai_search_revision=?, ai_search_status='completed' WHERE id=?").run('derived-current-hash', DOC);
+    const current = await selectAdvisorDocumentCandidatesWithIndexIdentity(env, route);
+    assert.equal(current[0].aiSearchRevision, 'derived-current-hash');
+    assert.equal(current[0].aiSearchStatus, 'completed');
+    let generatorCalled=false;
+    await send({...env, AI_ADVISOR_V2_MODE:'on', advisorV2StagingCompleteness:true,
+      advisorV2AiSearchInstances:{text:'staging',ocr:'staging'},
+      advisorV2AiSearchClient:{async search(){return {chunks:[{id:'current-page',score:0.9,text:PASSAGE,item:{key:`${DOC}-page-002.md`,metadata:{document_id:DOC,active:true,visibility:'public',revision:'derived-current-hash'}}}]};}},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,async generate(){generatorCalled=true;return {supported:false,answer:'',sourceIds:[]};}},
+    });
+    assert.equal(generatorCalled,true,'current authorized revision must survive post-authorization');
+  } finally { db.sql.close(); }
 });
 
 for (const q of ['Bạn có bảng điểm rèn luyện mới nhất không?', question, 'bang diem ren luyen moi nhat', 'Phiếu ĐRL hiện hành có những mục nào?', 'Quyết định 3529/QĐ-ĐHNH quy định gì?']) {

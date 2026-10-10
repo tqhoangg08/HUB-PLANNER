@@ -139,6 +139,9 @@ export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProvide
   /** Optional V2 seams. No real AI Search binding is required in Stage 6. */
   advisorV2AiSearchClient?: AiSearchClient;
   advisorV2AiSearchInstances?: AiSearchInstanceNames;
+  /** Trusted staging entrypoint only; never read from request body or production configuration. */
+  advisorV2StagingCompleteness?: boolean;
+  advisorV2StagingPageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
   advisorV2EvidenceGenerator?: EvidenceGenerationProvider;
   advisorV2RetrievalCache?: RetrievalCache<AiSearchRetrievalResult>;
   advisorV2AnswerCache?: AnswerCache<AiAdvisorV2Answer>;
@@ -1076,6 +1079,8 @@ type DocumentCandidateRow = Pick<DocumentCitationRow,
   'id' | 'title' | 'category' | 'academic_year' | 'program_code' | 'version' | 'updated_at' | 'created_at'>;
 
 type DocumentCandidateIdentityRow = DocumentCandidateRow & {
+  ai_search_revision?: string | null;
+  ai_search_status?: string | null;
   content_hash?: string | null;
   canonical_hash?: string | null;
   index_source_kind?: string | null;
@@ -1097,6 +1102,8 @@ export type AdvisorDocumentCandidate = {
 };
 
 export type AdvisorDocumentCandidateWithIndexIdentity = AdvisorDocumentCandidate & {
+  aiSearchRevision?: string | null;
+  aiSearchStatus?: string | null;
   contentHash: string | null;
   canonicalHash: string | null;
   indexSourceKind: string | null;
@@ -1171,10 +1178,17 @@ export const selectAdvisorDocumentCandidatesWithIndexIdentity = async (
 ): Promise<AdvisorDocumentCandidateWithIndexIdentity[]> => {
   const db = requireDb(env);
   try {
-    const rows = await readAdvisorDocumentPages<DocumentCandidateIdentityRow>(db,
-      `id, title, category, academic_year, program_code, version, updated_at, created_at,
+    const columns = `id, title, category, academic_year, program_code, version, updated_at, created_at,
               content_hash, canonical_hash, index_source_kind, derived_source_kind,
-              extraction_pipeline_version, derived_content_hash, indexing_status`);
+              extraction_pipeline_version, derived_content_hash, indexing_status`;
+    let rows: DocumentCandidateIdentityRow[];
+    try {
+      rows = await readAdvisorDocumentPages<DocumentCandidateIdentityRow>(db, `${columns}, ai_search_revision, ai_search_status`);
+    } catch (error) {
+      // Older 0049 databases retain their existing identity/cache behavior.
+      if (!/no such column: (?:ai_search_revision|ai_search_status)/i.test(String(error))) throw error;
+      rows = await readAdvisorDocumentPages<DocumentCandidateIdentityRow>(db, columns);
+    }
     return rows
       .map((row) => ({
         id: String(row.id),
@@ -1192,6 +1206,8 @@ export const selectAdvisorDocumentCandidatesWithIndexIdentity = async (
         extractionPipelineVersion: row.extraction_pipeline_version || null,
         derivedContentHash: row.derived_content_hash || null,
         indexingStatus: row.indexing_status || null,
+        aiSearchRevision: row.ai_search_revision || null,
+        aiSearchStatus: row.ai_search_status || null,
       }))
       .sort((left, right) => candidatePrecedence(route, left, right));
   } catch (error) {
@@ -1487,7 +1503,7 @@ const runAdvisorShadow = async (
   try {
     const candidates = await withinDeadline(() => selectAdvisorDocumentCandidatesWithIndexIdentity(env, route));
     const v2Candidates: AiAdvisorV2Candidate[] = candidates.map((candidate) => ({
-      id: candidate.id, title: candidate.title, category: candidate.category, visibility: 'public', revision: candidate.version, active: true,
+      id: candidate.id, title: candidate.title, category: candidate.category, visibility: 'public', revision: candidate.aiSearchRevision || candidate.version, active: !candidate.aiSearchStatus || candidate.aiSearchStatus === 'completed',
       contentHash: candidate.contentHash, canonicalHash: candidate.canonicalHash,
       indexSourceKind: candidate.indexSourceKind || 'legacy', derivedSourceKind: candidate.derivedSourceKind || 'legacy',
       extractionPipelineVersion: candidate.extractionPipelineVersion, derivedContentHash: candidate.derivedContentHash,
@@ -1522,6 +1538,8 @@ const runAdvisorShadow = async (
     const v2 = await withinDeadline(() => executeAiAdvisorV2Document(question, v2Candidates, {
       aiSearchClient: countedClient,
       aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
+      ...(env.advisorV2StagingCompleteness && countedClient ? {stagingCompletenessSearch:(request)=>countedClient.search(env.advisorV2AiSearchInstances!.text,request)} : {}),
+      ...(env.advisorV2StagingCompleteness ? {stagingPageContent:env.advisorV2StagingPageContent}:{}),
       onRetrievalError: recordRetrievalError,
       evidenceGenerator: countedGenerator,
       retrievalCache: env.advisorV2RetrievalCache,
@@ -1673,8 +1691,8 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         title: candidate.title,
         category: candidate.category,
         visibility: 'public',
-        revision: candidate.version,
-        active: true,
+        revision: candidate.aiSearchRevision || candidate.version,
+        active: !candidate.aiSearchStatus || candidate.aiSearchStatus === 'completed',
         contentHash: candidate.contentHash,
         canonicalHash: candidate.canonicalHash,
         indexSourceKind: candidate.indexSourceKind || 'legacy',
@@ -1708,6 +1726,8 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       v2 = await executeAiAdvisorV2Document(question, v2Candidates, {
         aiSearchClient: countedClient,
         aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
+        ...(env.advisorV2StagingCompleteness && countedClient ? {stagingCompletenessSearch:(request)=>countedClient.search(env.advisorV2AiSearchInstances!.text,request)} : {}),
+        ...(env.advisorV2StagingCompleteness ? {stagingPageContent:env.advisorV2StagingPageContent}:{}),
         evidenceGenerator: countedGenerator,
         retrievalCache: env.advisorV2RetrievalCache,
         answerCache: env.advisorV2AnswerCache,

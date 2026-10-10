@@ -271,17 +271,21 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   const part = text.match(/(?:^|\n)\s*phần\s+([ivxlcdm]+|\d{1,3})\b/imu)?.[1];
   const chapter = text.match(/(?:^|[^\p{L}\p{N}])chương\s+([ivxlcdm]+|\d{1,3})\b/iu)?.[1];
   const section = text.match(/(?:^|[^\p{L}\p{N}])mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
-  const article = text.match(/(?:^|[^\p{L}\p{N}])điều\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
+  const articleMatch = text.match(/(?:^|[^\p{L}\p{N}])điều\s+(\d{1,3}[a-z]?)\b/iu);
+  const article = articleMatch?.[1];
+  const articleText = articleMatch ? text.slice((articleMatch.index || 0) + articleMatch[0].length) : text;
   const explicitClause = text.match(/(?:^|[^\p{L}\p{N}])khoản\s+(\d{1,3})\b/iu)?.[1];
   // A bare "2." is a clause only in an excerpt that already names an article.
   const numberedClause = article
-    ? text.match(/(?:^|\n)\s*(\d{1,3})\s*[.)](?=\s*[^\n\d][^\n]{0,180})/u)?.[1]
+    ? articleText.match(/(?:^|\n)\s*(\d{1,3})\s*[.)](?=\s*[^\n\d][^\n]{0,180})/u)?.[1]
     : undefined;
   const clause = explicitClause || numberedClause;
-  const explicitPoint = text.match(/(?:^|[^\p{L}\p{N}])điểm\s+([a-zđ])\b/iu)?.[1];
+  // JS word boundaries split Vietnamese accented words: "điểm rèn" must
+  // never become the legal locator "điểm r".
+  const explicitPoint = text.match(/(?:^|[^\p{L}\p{N}])điểm\s+([a-zđ])(?![\p{L}\p{N}])/iu)?.[1];
   // Likewise, a bare "a)" becomes a point only with article + clause context.
   const letterPoint = article && clause
-    ? text.match(/(?:^|\n)\s*([a-zđ])\)(?=\s*\S)/iu)?.[1]
+    ? articleText.match(/(?:^|\n)\s*([a-zđ])\)(?=\s*\S)/iu)?.[1]
     : undefined;
   const point = explicitPoint || letterPoint;
   const subitem = text.match(/(?:^|[^\p{L}\p{N}])tiểu\s*mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];

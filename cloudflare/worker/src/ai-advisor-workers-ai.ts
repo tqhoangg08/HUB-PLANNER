@@ -3,6 +3,7 @@ import type {
   EvidenceGenerationRequest,
   EvidenceGenerationResult,
 } from './ai-advisor-providers.ts';
+import { conductTableEvidencePriority, isConductTableQuestion } from './ai-advisor-table-evidence.ts';
 
 export const DEFAULT_WORKERS_AI_EVIDENCE_MODEL = '@cf/zai-org/glm-4.7-flash';
 export const WORKERS_AI_EVIDENCE_TOOL = 'submit_grounded_answer';
@@ -65,7 +66,10 @@ const normalizeSources = (request: EvidenceGenerationRequest) => {
   for (const source of request.evidence) {
     const sourceId = bounded(source.sourceId, 8);
     if (!/^S[1-3]$/.test(sourceId) || seen.has(sourceId) || result.length >= MAX_WORKERS_AI_EVIDENCE_CHUNKS || remaining <= 0) continue;
-    const snippet = bounded(source.snippet, Math.min(1_600, remaining));
+    // A physical table page may be longer than 1,600 characters. Preserve its
+    // trailing point column within the existing global 6,000-character budget.
+    const sourceLimit = isConductTableQuestion(request.question) && conductTableEvidencePriority(source.snippet) ? 2_200 : 1_600;
+    const snippet = bounded(source.snippet, Math.min(sourceLimit, remaining));
     if (!snippet) continue;
     result.push({ sourceId, snippet });
     seen.add(sourceId);

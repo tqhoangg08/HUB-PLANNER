@@ -2,6 +2,8 @@
 
 Date: 2026-10-10. Branch: `fix/ai-advisor-grounded-retrieval`. PR remains Draft.
 
+Historical checkpoint at15127ae. Page13 is now completed and a real isolated authenticated app has been tested. See [retrieval completeness and current acceptance report](ai-advisor-retrieval-completeness-staging-report.md) for subsequent repairs, actual eight-question UI failures and remaining release gates. Do not interpret the old pending/unavailable statements below as the latest state.
+
 **Local implementation/validation PASS; complete authenticated end-to-end acceptance BLOCKED. Answer completeness also FAILS one real benchmark. Do not merge or deploy on the basis of this report.** This supersedes the earlier report's statement that no ingestion changes or isolated provider indexes existed. It does not supersede the production no-write/no-deploy restriction.
 
 ## Proven causes and changes

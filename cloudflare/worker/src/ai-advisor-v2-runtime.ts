@@ -10,6 +10,8 @@ import { validateEvidenceAbstention, type AuthorizedEvidenceSource } from './ai-
 import { containsDocumentInstructions, hasUnsupportedAnswerDetails, isRelevantAdvisorEvidence, sourceSupportedReply } from './ai-advisor-grounding.ts';
 import type { EvidenceGenerationProvider } from './ai-advisor-providers.ts';
 import type { QuotaDecision, QuotaMode } from './ai-advisor-quota.ts';
+import {retrieveCompletenessStaging, type CompletenessSearchRequest} from './ai-search-completeness-staging.ts';
+import {resolveConductTableAnswer} from './ai-advisor-table-evidence.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -43,6 +45,9 @@ export type AiAdvisorV2Candidate = AiSearchAuthorizedDocument & {
 };
 
 export type AiAdvisorV2Dependencies = {
+  /** Server-injected staging experiment only; not selected by a client or production env var. */
+  stagingCompletenessSearch?: (request: CompletenessSearchRequest) => Promise<{chunks?: import('./ai-search-retrieval.ts').AiSearchRawChunk[]}>;
+  stagingPageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
   aiSearchClient?: AiSearchClient;
   aiSearchInstances?: AiSearchInstanceNames;
   onRetrievalError?: AiSearchRetrievalErrorReporter;
@@ -150,7 +155,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: 'ai-search-full-authorized-conduct-v3',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.stagingCompletenessSearch ? 'staging-completeness-v1' : 'ai-search-full-authorized-conduct-v4-table-budget',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -166,7 +171,9 @@ export const executeAiAdvisorV2Document = async (
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
-    retrieved = await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, provider, {
+    retrieved = dependencies.stagingCompletenessSearch
+      ? {...await retrieveCompletenessStaging(question, allowed, dependencies.stagingCompletenessSearch,dependencies.stagingPageContent), cacheHit:false}
+      : await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, provider, {
       question,
       allowedDocuments: allowed,
       topK: 3,
@@ -194,6 +201,11 @@ export const executeAiAdvisorV2Document = async (
     ...(source.pageNumber ? {pageNumber:source.pageNumber}: {}),
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
+  if(dependencies.stagingCompletenessSearch){
+    const table=resolveConductTableAnswer(question,evidence);
+    if(table)return {kind:'ANSWER',answer:{reply:table.reply,evidence:evidence.filter(s=>table.sourceIds.includes(s.sourceId))},searchCallCount:retrieved.searchCallCount,
+      retrievalCacheHit:false,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
+  }
   try {
     const generated = await dependencies.evidenceGenerator.generate({
       question: bounded(question, 2_000),

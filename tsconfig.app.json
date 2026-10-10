@@ -27,7 +27,8 @@
     "pages/**/*.jsx",
     "utils/**/*.ts",
     "utils/**/*.tsx",
-    "utils/**/*.js"
+    "utils/**/*.js",
+    "staging/advisor/**/*.tsx"
   ],
   "exclude": [
     "api",

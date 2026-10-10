@@ -10,10 +10,11 @@ import {executeAiAdvisorV2Document} from '../cloudflare/worker/src/ai-advisor-v2
 import {classifyConductIntent} from '../cloudflare/worker/src/ai-advisor-intents.ts';
 import {CONDUCT_ACCEPTANCE_QUESTIONS} from './verify-advisor-conduct-providers.mjs';
 import {probe} from './diagnose-gemini-advisor.mjs';
+import {retrieveCompletenessStaging} from '../cloudflare/worker/src/ai-search-completeness-staging.ts';
 const INSTANCE='hub-advisor-pr88-ocr-cells-staging';
 const DOCUMENT='4255f763-6dca-4152-8b2c-daa686103cc1';
 const emit=(v)=>console.log(JSON.stringify(v));
-const allowedActions=['--create','--index','--status','--retrieval-proof','--benchmark','--gemini-control'];
+const allowedActions=['--create','--index','--status','--retrieval-proof','--benchmark','--gemini-control','--completeness-benchmark'];
 async function main(){
   if(process.argv.includes('--help')){console.log('Isolated provider harness only (not browser/BetterAuth E2E). --create | --index --artifact <outside-Git JSON> | --status | --benchmark | --gemini-control. Requires local Wrangler OAuth. Never writes production. No retries. No secrets/source/answers in stdout.');return;}
   const action=allowedActions.find((a)=>process.argv.includes(a));
@@ -116,23 +117,46 @@ async function main(){
     }return;
   }
   for(const [index,question]of CONDUCT_ACCEPTANCE_QUESTIONS.entries()){
+    const caseArg=process.argv.indexOf('--case');if(caseArg>=0&&Number(process.argv[caseArg+1])!==index+1)continue;
     if(classifyConductIntent(question)==='personal_score'){emit({phase:'staging_benchmark',case:index+1,result:'PERSONAL_SCORE_UNAVAILABLE',searchCalls:0,generatorCalls:0,notRealUserSession:true});continue;}
     let searchCalls=0,generatorCalls=0,retrieved=[];
     const scopedClient={search:async(name,request)=>{searchCalls++;const response=await client.search(name,request);retrieved=response.chunks||[];return response;}};
-    const generator=createWorkersAiEvidenceGenerator({AI_ADVISOR_V2_GENERATOR_MODEL:'@cf/zai-org/glm-4.7-flash',AI:{run:async(model,input)=>{generatorCalls++;return api(`accounts/${account}/ai/run/${model}`,'POST',input);}}});
+    const gemini=process.argv.includes('--gemini-evidence');
+    if(gemini){dotenv.config({path:'.env.local',quiet:true});dotenv.config({quiet:true});if(!process.env.GEMINI_FILE_SEARCH_API_KEY)throw Error('GEMINI_KEY_UNAVAILABLE');}
+    let generatorInput,rawGeneration,usage,generatorMs=0;
+    const generator=createWorkersAiEvidenceGenerator({AI_ADVISOR_V2_GENERATOR_MODEL:gemini?'gemini-3.1-flash-lite':'@cf/zai-org/glm-4.7-flash',AI:{run:async(model,input)=>{
+      generatorCalls++;generatorInput=JSON.parse(input.messages[1].content);const t=Date.now();
+      try{
+        if(!gemini){rawGeneration=await api(`accounts/${account}/ai/run/${model}`,'POST',input);return rawGeneration;}
+        const tool=input.tools[0].function;
+        const r=await probe({key:process.env.GEMINI_FILE_SEARCH_API_KEY,path:`models/${model}:generateContent`,timeoutMs:25000,
+          body:{systemInstruction:{parts:[{text:input.messages[0].content}]},contents:[{role:'user',parts:[{text:input.messages[1].content}]}],
+            tools:[{functionDeclarations:[{name:tool.name,description:tool.description,parameters:tool.parameters}]}],
+            toolConfig:{functionCallingConfig:{mode:'ANY',allowedFunctionNames:[tool.name]}},generationConfig:{temperature:0,seed:42,maxOutputTokens:1024}},sensitive:[]});
+        usage=r.data?.usageMetadata;
+        if(!r.diagnostic.ok)throw Error(r.diagnostic.result==='TIMEOUT'?'TIMEOUT':'GEMINI_PROVIDER_ERROR');
+        const calls=(r.data?.candidates?.[0]?.content?.parts||[]).flatMap((p)=>p.functionCall?[p.functionCall]:[]);
+        rawGeneration={choices:[{message:{tool_calls:calls.map((c)=>({type:'function',function:{name:c.name,arguments:JSON.stringify(c.args)}}))}}]};return rawGeneration;
+      }finally{generatorMs=Date.now()-t;}
+    }}});
     const started=Date.now();
     // Same runtime authorization/retrieval/generator/grounding, no manual
     // snippets, cache or real-user chat history. One independent case each.
     const result=await executeAiAdvisorV2Document(question,candidates,{aiSearchClient:scopedClient,
       aiSearchInstances:{text:INSTANCE,ocr:INSTANCE},evidenceGenerator:generator,
+      ...(action==='--completeness-benchmark'?{stagingCompletenessSearch:async(request)=>{searchCalls++;const r=await client.search(INSTANCE,request);retrieved=r.chunks||[];return r;}}:{}),
       quota:{mode:'NORMAL',allowGeneration:true,allowRetrieval:true}});
     const answer=result.kind==='ANSWER'?result.answer.reply:'';
     const evidence=result.kind==='ANSWER'?result.answer.evidence:[];
-    const facts=(text)=>({scale100:/thang điểm 100/i.test(text),miniGame:/mini game.*không được tính điểm rèn luyện/is.test(text),
-      outsideEvidence:/ngoài trường.*xác nhận/is.test(text),fiveMaxima:/0\s*[–-]\s*25/.test(text)&&/0\s*[–-]\s*15/.test(text)&&/0\s*[–-]\s*20/.test(text)});
-    writeFileSync(resolve(dirname(artifactPath),`workers-case-${index+1}-local-review.json`),JSON.stringify({result,retrieved}));
+    const facts=(text)=>({scale100:/thang(?: điểm)?\s*100(?:\s*điểm)?/i.test(text),miniGame:/mini game.*không được tính điểm rèn luyện/is.test(text),
+      outsideEvidence:/ngoài trường.*xác nhận/is.test(text),fiveMaxima:/0\s*[—–-]\s*25/.test(text)&&/0\s*[—–-]\s*15/.test(text)&&/0\s*[—–-]\s*20/.test(text)});
+    const labelArg=process.argv.indexOf('--run-label'),label=labelArg>=0?process.argv[labelArg+1]:'';
+    if(label&&!/^[a-z0-9-]{1,40}$/.test(label))throw Error('ARGUMENT_INVALID');
+    writeFileSync(resolve(dirname(artifactPath),`${label?`${label}-`:''}${action==='--completeness-benchmark'?'complete':'baseline'}-${gemini?'gemini':'workers'}-case-${index+1}-local-review.json`),JSON.stringify({result,retrieved,generatorInput,rawGeneration,usage}));
     emit({phase:'staging_benchmark',case:index+1,result:result.kind==='ANSWER'?'VALIDATED_ANSWER':result.reason,
-      searchCalls,generatorCalls,durationMs:Date.now()-started,sourceDocumentIds:[...new Set(evidence.map((e)=>e.documentId))],
+      searchCalls,generatorCalls,generatorMs,provider:gemini?'gemini-3.1-flash-lite':'workers-ai',completeness:action==='--completeness-benchmark',durationMs:Date.now()-started,
+      usage:usage?{promptTokens:usage.promptTokenCount,outputTokens:usage.candidatesTokenCount,totalTokens:usage.totalTokenCount}:null,
+      generatorInputPages:generatorInput?.evidence.map((s)=>Number(s.text.match(/<!-- page: (\d+) -->/)?.[1])||null),sourceDocumentIds:[...new Set(evidence.map((e)=>e.documentId))],
       pages:[...new Set(evidence.flatMap((e)=>e.pageNumber?[e.pageNumber]:[...e.snippet.matchAll(/(?:<!--\s*page:\s*|Trang\s+)(\d+)/g)].map((m)=>Number(m[1]))))],
       retrievedFacts:facts(retrieved.map((c)=>c.text||'').join('\n')),
       generatorHeadFacts:facts(retrieved.map((c)=>String(c.text||'').trim().slice(0,1600)).join('\n')),
