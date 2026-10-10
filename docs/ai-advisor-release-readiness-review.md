@@ -86,11 +86,17 @@ Wrangler/remote calls/deploy steps. It must pass on the new PR head, not just th
 previous commit. Its actual run/status and final local counts are posted in the PR
 review comment; a configured workflow alone is not a CI PASS.
 
-Local focused readiness/Advisor regressions before the lock regression: **210/210 PASS**. Both typechecks,
-build and diff-check PASS. Additional release tests: **2/2 PASS**. Full local suite:
-**598/598 PASS**, zero failed/cancelled/skipped; the known D1 baseline did not
-reproduce. The new lock regression adds one test; final counts/independent CI are
-recorded in the PR comment after completion, without inventing a result.
+Final local focused readiness/Advisor regressions: **211/211 PASS**. Both typechecks,
+build and diff-check PASS. Additional release tests: **2/2 PASS**. Final full local
+suite: **599/599 PASS**, zero failed/cancelled/skipped; the known D1 baseline did not
+reproduce. Independent Ubuntu/Node22 clean-install CI on code head
+`53a5d858635e47867eea2ee3ccb1ef10cc7bd1d1` also passed all steps: focused211,
+full599 and additional2, both typechecks, build, diff-check. [Successful independent
+run38021641728](https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/38021641728).
+Any docs-only follow-up head still needs its own check; final check status is linked
+in the PR review comment. The first failed run is not erased. Checkout/setup action
+runtime deprecation warnings and pre-existing dependency alerts remain maintenance
+risks, not a reason to waive installation/tests or change dependencies broadly.
 
 Previous **real**, isolated staging acceptance on `39b7a10`: **6 PASS, 2 NOT VERIFIED**;
 8 responses visible, no browser errors. This review did not rerun the real-provider
@@ -303,7 +309,7 @@ release; completeness flag affects selected V2 only, not the93%legacy cohort.
 6. **Any rollback:** disableflag orpriorPublic asabove;D1restore separatelyapproved;
    never deployAuth/retireGemini/purgeoriginals aspartofrollback.
 
-Outstanding: independent CI result; backup/restore rehearsal and release approval;
+Outstanding: backup/restore rehearsal and release approval;
 additional-topic PDFs; safe backfill apply implementation; measurement gaps;
 Gemini intermittent timeout; legal decision/currentness verification. No production
 operation performed to close these gates in this review.
