@@ -23,6 +23,20 @@ test('initial release configuration leaves completeness off and canary at seven 
   assert.ok(!String(parsed.config.main).includes('staging'));
 });
 
+test('clean CI lockfile retains optional WASM peer dependency closure',()=>{
+  const {packages}=JSON.parse(readFileSync('package-lock.json','utf8'));
+  const core=packages['node_modules/@emnapi/core'];
+  const threads=packages['node_modules/@emnapi/wasi-threads'];
+  assert.ok(core&&threads,'npm10 clean CI reproduced missing optional peers');
+  assert.equal(core.dependencies['@emnapi/wasi-threads'],threads.version);
+  assert.equal(core.optional,true);
+  assert.equal(threads.optional,true);
+  for(const dependency of [core,threads]){
+    assert.match(dependency.resolved,/^https:\/\/registry\.npmjs\.org\/@emnapi\//);
+    assert.match(dependency.integrity,/^sha512-/);
+  }
+});
+
 test('0054 preserves old document rows and old SQL while new sources default to unprepared',()=>{
   const db=new DatabaseSync(':memory:');
   try{

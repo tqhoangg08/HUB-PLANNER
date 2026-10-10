@@ -39,7 +39,15 @@ questions remain NOT VERIFIED, not acceptance failures that can be fixed by gues
    conditional UPDATE. SQLite regressions replace those values during the provider
    await; the pre-fix revision case failed, the guarded cases pass. No source text
    or index is changed by this repair.
-3. **Unsafe automatic release architecture (not triggered).**
+3. **Clean-install lockfile failure (fixed; independent rerun required).** The first
+   independent Ubuntu/Node22/npm10 CI run failed at `npm ci` with EUSAGE before
+   running any tests: missing `@emnapi/core@1.11.3` and `@emnapi/wasi-threads@1.2.3`.
+   Two optional transitive package records were added with registry-verified
+   tarball/integrity/dependencies. No existing version, root dependency or install
+   contract was changed. A focused lockfile-closure regression was added. The
+   initial failed run is retained as evidence, not relabeled PASS:
+   [CI run38021454021](https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/38021454021).
+4. **Unsafe automatic release architecture (not triggered).**
    `.github/workflows/deploy-cloudflare-production.yml` runs on main push/manual
    dispatch, applies *all pending* Public migrations, deploys Auth, then Public.
    It has no separate approval environment. Do not merge or invoke it for this
@@ -66,7 +74,7 @@ part of the diff. This is an agent review, not an independent human security sig
 | Cost/quota | SURVIVAL/zero-AI precedence unchanged; bounds are per request, not a global spending cap. Undefined injected quota usage defaults to NORMAL; do not claim a live budget governor is wired. Concurrent cold requests can each incur provider work. Promise-race timeout may not cancel provider billing. Legacy Gemini transient retries remain separate from V2's no-retry path. |
 | Admin OCR/upload UI and shared helpers | Prior code handles individual native/scan pages, numeric uncertainty and column preservation; unchanged here. Server binds derivative hash to original and supported pipeline but cannot certify OCR semantic quality. <=40 pages /1MB text; a stored page can exceed runtime hydration limits and then only chunks are usable. Multi-topic visual acceptance is still required. |
 | Staging/scripts | Private named isolated D1/R2/index and synthetic session. Provisioning/provider scripts are explicit operator actions, excluded from CI. Local state/raw replies/PDF/screenshots remain outside Git or ignored. Reprocess script is a **planner only**, not an approved production apply runner. |
-| Unrelated modules/dependencies | No Auth Worker, Event DRL, Support, ranking, directory or extension changes in the diff. No dependency/lockfile change. Existing build chunk/Browserslist warnings are not silently treated as new blockers or fixed outside scope. |
+| Unrelated modules/dependencies | No Auth Worker, Event DRL, Support, ranking, directory or extension changes in the diff. Two missing optional transitive lock records repaired after actual clean-install failure; existing dependency versions unchanged. Existing build chunk/Browserslist warnings are not silently treated as new blockers or fixed outside scope. |
 
 ## Independent CI and validation evidence
 
@@ -78,10 +86,11 @@ Wrangler/remote calls/deploy steps. It must pass on the new PR head, not just th
 previous commit. Its actual run/status and final local counts are posted in the PR
 review comment; a configured workflow alone is not a CI PASS.
 
-Local focused readiness/Advisor regressions: **210/210 PASS**. Both typechecks,
+Local focused readiness/Advisor regressions before the lock regression: **210/210 PASS**. Both typechecks,
 build and diff-check PASS. Additional release tests: **2/2 PASS**. Full local suite:
 **598/598 PASS**, zero failed/cancelled/skipped; the known D1 baseline did not
-reproduce. Independent CI is recorded after completion, without inventing a result.
+reproduce. The new lock regression adds one test; final counts/independent CI are
+recorded in the PR comment after completion, without inventing a result.
 
 Previous **real**, isolated staging acceptance on `39b7a10`: **6 PASS, 2 NOT VERIFIED**;
 8 responses visible, no browser errors. This review did not rerun the real-provider
