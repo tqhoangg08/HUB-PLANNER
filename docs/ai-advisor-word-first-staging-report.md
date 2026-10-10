@@ -1,5 +1,7 @@
 # PR88 — Word-first staging acceptance
 
+> Follow-up usability review: [Twenty new queries, actual Gemini status and routing gates](ai-advisor-word-usability-review.md). The original ten-case results below remain historical observations, **not** a release approval. The broader UI batch is 3 PASS / 17 FAIL; the standard plan's Gemini provider document is now confirmed ACTIVE despite stale local failure. Production remains NO-GO.
+
 ## Decision and scope
 
 **NO-GO production; keep PR88 Draft.** The native Word path is implemented and its ten source-verifiable UI scenarios pass with real isolated retrieval. This is not an all-provider release approval. Document identity/legal currency remain **NOT VERIFIED**, and Gemini indexing of the two academic plans remains **FAILED**.
