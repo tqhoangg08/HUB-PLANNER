@@ -6,6 +6,7 @@ import {chromium} from 'playwright-core';
 import {WORD_USABILITY_CASES} from './verify-advisor-word-usability.mjs';
 import {normalizeAcceptanceText as norm} from '../shared/ai-advisor-acceptance-text.ts';
 import {sanitizeAIReply} from '../utils/aiSafety.ts';
+import {classifyConductIntent} from '../cloudflare/worker/src/ai-advisor-intents.ts';
 const emit=x=>console.log(JSON.stringify(x));
 const DIR=resolve('.cache/advisor-word-staging');
 const option=name=>process.argv.includes(name)?process.argv[process.argv.indexOf(name)+1]:null;
@@ -32,7 +33,7 @@ async function main(){
       {profile:'policy-cloudflare-error',q:old[0].question,insufficient:true,providerError:true},
       {profile:'policy-workers-error',q:WORD_USABILITY_CASES[19].q,insufficient:true,providerError:true},
       ...['Tôi được bao nhiêu điểm ĐRL kỳ này?','Tôi đã tích lũy bao nhiêu tín chỉ?','GPA của tôi hiện tại bao nhiêu?','Lịch học của mình','IT101 có mấy tín chỉ?'].map(q=>({profile:'policy-unselected',q,nonDocument:true})),
-    ]:[...WORD_USABILITY_CASES,...old.map(c=>({q:c.question,facts:c.contains,topics:[c.topic],locators:c.locators,old:true}))];
+    ]:[...WORD_USABILITY_CASES.map(c=>({...c,nonDocument:classifyConductIntent(c.q)==='personal_score'})),...old.map(c=>({q:c.question,facts:c.contains,topics:[c.topic],locators:c.locators,old:true}))];
     await page.locator('button.fixed.bottom-6').click();const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
     let active=profile;
     await page.route(`${s.origin}/api/private/v1/ai-advisor`,route=>route.request().method()==='POST'
