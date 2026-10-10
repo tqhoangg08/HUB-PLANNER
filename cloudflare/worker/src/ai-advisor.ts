@@ -53,7 +53,7 @@ import {
 } from '../../../shared/academic-grade-calculations.ts';
 import type { Subject } from '../../../types.ts';
 import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
-import { classifyConductIntent, normalizeAdvisorIntentText } from './ai-advisor-intents.ts';
+import { classifyConductIntent, normalizeAdvisorIntentText, isAcademicPolicyQuestion } from './ai-advisor-intents.ts';
 import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
 import {buildCompletenessDependencies,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
 import {createAdvisorReleaseMetrics,readAdvisorProviderUsage,type AdvisorReleaseEvent} from './ai-advisor-release-telemetry.ts';
@@ -477,7 +477,8 @@ export const routeAdvisorDocuments = (question: string, history: unknown = []): 
     const scope = extractAdvisorPolicyScope(question, false);
     return { documentSearch: false, domain: null, scope, coverageMode: false, academicYear: scope.academicYear };
   }
-  const domain = conduct && !['personal_score', 'event_listing'].includes(conduct) ? 'drl_regulations' : documentDomainForText(text);
+  const domain = conduct && !['personal_score', 'event_listing'].includes(conduct) ? 'drl_regulations'
+    : documentDomainForText(text) || (isAcademicPolicyQuestion(question) ? 'course_registration' : null);
   const hasOfficialCue = matchesIntent(text, [...POLICY_DOCUMENT_CUES, 'quyết định', 'tiêu chí', 'phúc khảo']);
   const hasInstitutionCue = matches(text, ['hub', 'buh', 'trường mình', 'nhà trường']);
   const followup = isEllipticalDocumentFollowup(text);
@@ -513,7 +514,8 @@ export const classifyAdvisorIntents = (question: string, history: unknown = []):
     && matches(text, ['gpa', 'điểm', 'học lực', 'môn nợ', 'tín chỉ', 'tốt nghiệp', 'hồ sơ học tập', 'ngành học']);
   if (personalAcademic) intents.add('student_academic');
   if (matches(text, ['lịch học', 'thời khóa biểu', 'tkb', 'phòng học', 'ca học', 'lịch thi'])) intents.add('student_schedule');
-  if (extractCourseCode(question) || matches(text, ['mã môn', 'môn học', 'môn ', 'học phần', 'tiên quyết', 'giảng viên', 'catalog'])) intents.add('course_catalog');
+  if (extractCourseCode(question) || !isAcademicPolicyQuestion(question)
+    && matches(text, ['mã môn', 'môn học', 'môn ', 'học phần', 'tiên quyết', 'giảng viên', 'catalog'])) intents.add('course_catalog');
   if (matches(text, ['thông báo', 'tin trường', 'nhà trường', 'thông báo trường'])) intents.add('school_announcement');
   if (conduct === 'event_listing' || (!conduct && matches(text, ['sự kiện', 'đăng ký sự kiện']))) intents.add('event');
   if (matches(text, ['thất lạc', 'tìm đồ', 'nhặt được', 'đồ rơi', 'lost found'])) intents.add('lost_found');

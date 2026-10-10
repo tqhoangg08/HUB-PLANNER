@@ -5,8 +5,9 @@ import {handleAiAdvisor,aiAdvisorErrorStatus,type AiAdvisorEnv} from '../ai-advi
 import {requireBetterAuthSession} from '../better-auth-identity.ts';
 import {buildDerivedPageObjectKey,buildServerDerivedMetadata} from '../ai-document-ingestion.ts';
 import {handlePrivatePolicyConsent} from '../private-policy-consent.ts';
-import type {AdvisorReleaseEvent} from '../ai-advisor-release-telemetry.ts';
+import {readAdvisorProviderUsage,type AdvisorReleaseEvent,type AdvisorProviderUsage} from '../ai-advisor-release-telemetry.ts';
 import {rehearseStagingReprocess} from './advisor-reprocess.ts';
+import {createWorkersAiEvidenceGenerator,type GroundingRejectionSubtype} from '../ai-advisor-workers-ai.ts';
 type StageEnv = {
   DB:D1Database; AUTH_DB:D1Database; AI_DOCUMENTS_BUCKET:R2Bucket; ASSETS:Fetcher; AI:Ai;
   STAGING_AI_SEARCH:AiSearchInstance; STAGING_ORIGIN:string; STAGING_SYNTHETIC_EMAIL:string;
@@ -63,15 +64,25 @@ export default {
         let searchCalls=0,generatorCalls=0,pageReads=0,retrievalDurationMs=0,generatorDurationMs=0;
         let resultClass:string|null=null;
         let releaseMetrics:AdvisorReleaseEvent|null=null;
+        let groundingRejectionSubtype:GroundingRejectionSubtype|null=null;
+        let workersUsage:AdvisorProviderUsage|null=null,providerFinishReason:string|null=null;
         const advisor:AiAdvisorEnv={...shared,AI:env.AI as unknown as AiAdvisorEnv['AI'],AI_ADVISOR_V2_MODE:'on',AI_ADVISOR_V2_CANARY_PERCENT:'0',
           advisorTelemetry:{record:e=>{resultClass=e.abstentionReason||(e.abstained?'SAFE_ABSTENTION':e.zeroAiUsed?'ZERO_AI':'SUPPORTED_VALID_CITATIONS');}},
           advisorV2AiSearchClient:{search:async(_name,r)=>{searchCalls++;const t=Date.now();try{return await instance.search(r as AiSearchSearchRequest);}finally{retrievalDurationMs+=Date.now()-t;}}},
           advisorV2AiSearchInstances:{text:INSTANCE,ocr:INSTANCE},AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
           advisorCompletenessTelemetry:{pageRead:()=>{pageReads++;}}};
         advisor.advisorReleaseTelemetry={record:e=>{releaseMetrics=e;}};
-        advisor.AI={run:async(model,input)=>{generatorCalls++;const t=Date.now();try{return await (env.AI as unknown as NonNullable<AiAdvisorEnv['AI']>).run(model,input);}finally{generatorDurationMs+=Date.now()-t;}}};
+        advisor.AI={run:async(model,input)=>{generatorCalls++;const t=Date.now();try{
+          const result=await (env.AI as unknown as NonNullable<AiAdvisorEnv['AI']>).run(model,input);
+          const metadata=result as {usage?:unknown;choices?:Array<{finish_reason?:unknown}>};
+          workersUsage=readAdvisorProviderUsage(metadata.usage);
+          const reason=metadata.choices?.[0]?.finish_reason;
+          providerFinishReason=typeof reason==='string'&&['stop','length','tool_calls'].includes(reason)?reason:null;
+          return result;
+        }finally{generatorDurationMs+=Date.now()-t;}}};
+        advisor.advisorV2EvidenceGenerator=createWorkersAiEvidenceGenerator(advisor,{onValidationFailure:reason=>{groundingRejectionSubtype=reason}});
         const result=await handleAiAdvisor(request,url,advisor,ctx);
-        return json({...result,stagingMetrics:{searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass,releaseMetrics}});
+        return json({...result,stagingMetrics:{searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass,groundingRejectionSubtype,workersUsage,providerFinishReason,releaseMetrics}});
       }
       if(url.pathname.startsWith('/api/'))return json({error:'Not found'},404);
       return env.ASSETS.fetch(request);

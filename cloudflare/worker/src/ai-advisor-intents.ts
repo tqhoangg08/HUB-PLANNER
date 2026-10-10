@@ -5,6 +5,14 @@ export const normalizeAdvisorIntentText = (value: string) => value.normalize('NF
 
 export type ConductIntent = 'regulations' | 'personal_score' | 'event_eligibility' | 'portal_help' | 'event_listing';
 
+/** Official semester milestones/processes, not the student's timetable/course lookup. */
+export const isAcademicPolicyQuestion = (question: string) => {
+  const q=normalizeAdvisorIntentText(question);
+  return /\bke hoach hoc tap\b/.test(q)
+    || /\b(?:dang ky|rut) (?:mon hoc|hoc phan)\b/.test(q)
+      && /\b(?:thoi gian|ngay|han|bat dau|khi nao|quy dinh|quy trinh|hoc ky)\b/.test(q);
+};
+
 /** Ordered specificity keeps personal records and event listings out of policy generation. */
 export const classifyConductIntent = (question: string): ConductIntent | null => {
   const text = normalizeAdvisorIntentText(question);

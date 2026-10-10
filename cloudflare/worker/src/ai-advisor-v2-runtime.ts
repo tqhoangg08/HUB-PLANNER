@@ -13,6 +13,7 @@ import type { QuotaDecision, QuotaMode } from './ai-advisor-quota.ts';
 import {retrieveAiSearchCompleteEvidence, type CompletenessSearchRequest} from './ai-search-completeness.ts';
 import {resolveConductTableAnswer} from './ai-advisor-table-evidence.ts';
 import {resolveConductExcerptAnswer} from './ai-advisor-policy-excerpts.ts';
+import {resolveAcademicMilestone,resolveTuitionTableRow,isTuitionContinuationEvidence} from './ai-advisor-source-sections.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -156,7 +157,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-extractive-v2' : 'ai-search-full-authorized-conduct-v4-table-budget',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-multidocument-v3' : 'ai-search-full-authorized-conduct-v4-table-budget',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -168,7 +169,7 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-hybrid-page-v2':'ai-search-full-authorized-topk3-threshold04-chunks-v3',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-scoped-hybrid-header-v3':'ai-search-full-authorized-topk3-threshold04-chunks-v3',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
@@ -191,8 +192,9 @@ export const executeAiAdvisorV2Document = async (
     return abstain('GENERATOR_ERROR', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length);
   }
   const evidence: AuthorizedEvidenceSource[] = retrieved.sources
-    .filter((source) => !containsDocumentInstructions(source.snippet) && isRelevantAdvisorEvidence(question, source.snippet,
-      allowed.find((candidate) => candidate.id === source.documentId)?.title))
+    .filter((source) => !containsDocumentInstructions(source.snippet) && (isRelevantAdvisorEvidence(question, source.snippet,
+      allowed.find((candidate) => candidate.id === source.documentId)?.title)
+      ||Boolean(dependencies.completenessSearch)&&isTuitionContinuationEvidence(question,source,retrieved.sources)))
     .slice(0, 3).map((source) => ({
     sourceId: source.sourceId,
     documentId: source.documentId,
@@ -202,7 +204,8 @@ export const executeAiAdvisorV2Document = async (
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
   if(dependencies.completenessSearch){
-    const extracted=resolveConductTableAnswer(question,evidence)||resolveConductExcerptAnswer(question,evidence);
+    const extracted=resolveConductTableAnswer(question,evidence)||resolveConductExcerptAnswer(question,evidence)
+      ||resolveAcademicMilestone(question,evidence)||resolveTuitionTableRow(question,evidence);
     if(extracted){
       const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId))};
       if(dependencies.answerCache&&answerCacheKey){try{await dependencies.answerCache.put(answerCacheKey,answer,120);}catch{/* optional */}}
