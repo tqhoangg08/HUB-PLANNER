@@ -5,10 +5,13 @@ import {handleAiAdvisor,aiAdvisorErrorStatus,type AiAdvisorEnv} from '../ai-advi
 import {requireBetterAuthSession} from '../better-auth-identity.ts';
 import {buildDerivedPageObjectKey,buildServerDerivedMetadata} from '../ai-document-ingestion.ts';
 import {handlePrivatePolicyConsent} from '../private-policy-consent.ts';
+import type {AdvisorReleaseEvent} from '../ai-advisor-release-telemetry.ts';
+import {rehearseStagingReprocess} from './advisor-reprocess.ts';
 type StageEnv = {
   DB:D1Database; AUTH_DB:D1Database; AI_DOCUMENTS_BUCKET:R2Bucket; ASSETS:Fetcher; AI:Ai;
   STAGING_AI_SEARCH:AiSearchInstance; STAGING_ORIGIN:string; STAGING_SYNTHETIC_EMAIL:string;
   AUTH_BETTER_AUTH_SECRET:string; GEMINI_FILE_SEARCH_API_KEY?:string; GEMINI_FILE_SEARCH_STORE?:string;
+  STAGING_SOURCE_COMMIT?:string;
 };
 const INSTANCE='hub-advisor-pr88-app-staging';
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -28,12 +31,13 @@ export default {
       // Production code uses its production alias; resolve ONLY to this private instance.
       AI_ADVISOR_SEARCH:{get:()=>instance}};
     try{
-      if(url.pathname==='/health')return json({stage:true,productionBindings:false});
+      if(url.pathname==='/health')return json({stage:true,productionBindings:false,sourceCommit:env.STAGING_SOURCE_COMMIT||null});
       if(url.pathname.startsWith('/api/auth/')){
         if(!await allowsIntegrationSyntheticCredentialRequest(request,profile))return json({error:'Not found'},404);
         return auth.handler(request);
       }
       if(url.pathname==='/api/private/v1/me')return json(await requireBetterAuthSession(request,shared));
+      if(url.pathname==='/api/staging/reprocess'&&request.method==='POST')return rehearseStagingReprocess(request,{...shared,DB:env.DB,AI_DOCUMENTS_BUCKET:env.AI_DOCUMENTS_BUCKET},instance);
       if(url.pathname==='/api/user/v1/policy-consents')return json(await handlePrivatePolicyConsent(request,shared));
       if(url.pathname==='/api/admin/v1/ai-documents'){
         const result=await handleAdminAiDocuments(request,url,shared);
@@ -58,14 +62,16 @@ export default {
         // return request identity, raw provider payloads, tokens or passages.
         let searchCalls=0,generatorCalls=0,pageReads=0,retrievalDurationMs=0,generatorDurationMs=0;
         let resultClass:string|null=null;
+        let releaseMetrics:AdvisorReleaseEvent|null=null;
         const advisor:AiAdvisorEnv={...shared,AI:env.AI as unknown as AiAdvisorEnv['AI'],AI_ADVISOR_V2_MODE:'on',AI_ADVISOR_V2_CANARY_PERCENT:'0',
           advisorTelemetry:{record:e=>{resultClass=e.abstentionReason||(e.abstained?'SAFE_ABSTENTION':e.zeroAiUsed?'ZERO_AI':'SUPPORTED_VALID_CITATIONS');}},
           advisorV2AiSearchClient:{search:async(_name,r)=>{searchCalls++;const t=Date.now();try{return await instance.search(r as AiSearchSearchRequest);}finally{retrievalDurationMs+=Date.now()-t;}}},
           advisorV2AiSearchInstances:{text:INSTANCE,ocr:INSTANCE},AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
           advisorCompletenessTelemetry:{pageRead:()=>{pageReads++;}}};
+        advisor.advisorReleaseTelemetry={record:e=>{releaseMetrics=e;}};
         advisor.AI={run:async(model,input)=>{generatorCalls++;const t=Date.now();try{return await (env.AI as unknown as NonNullable<AiAdvisorEnv['AI']>).run(model,input);}finally{generatorDurationMs+=Date.now()-t;}}};
         const result=await handleAiAdvisor(request,url,advisor,ctx);
-        return json({...result,stagingMetrics:{searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass}});
+        return json({...result,stagingMetrics:{searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass,releaseMetrics}});
       }
       if(url.pathname.startsWith('/api/'))return json({error:'Not found'},404);
       return env.ASSETS.fetch(request);

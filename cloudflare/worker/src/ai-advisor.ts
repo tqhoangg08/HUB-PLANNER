@@ -56,6 +56,7 @@ import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../s
 import { classifyConductIntent, normalizeAdvisorIntentText } from './ai-advisor-intents.ts';
 import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
 import {buildCompletenessDependencies,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
+import {createAdvisorReleaseMetrics,readAdvisorProviderUsage,type AdvisorReleaseEvent} from './ai-advisor-release-telemetry.ts';
 
 export type AdvisorAnswerPath = 'CACHE' | 'D1' | 'FAQ' | 'SEARCH_ONLY' | 'SEARCH_GENERATE';
 
@@ -155,6 +156,7 @@ export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProvide
   advisorShadowTelemetry?: { record(event: AdvisorShadowEvent): void | Promise<void> };
   /** Optional test sink; production emits a bounded, content-free console event. */
   advisorCanaryTelemetry?: { record(event: AdvisorCanaryEvent): void };
+  advisorReleaseTelemetry?: { record(event: AdvisorReleaseEvent): void };
 }
 
 type AdvisorShadowLifetime = { waitUntil(promise: Promise<unknown>): void };
@@ -2039,6 +2041,64 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
   throw new AiAdvisorError(generation.lastStatus === 429 ? 429 : 502, 'Hệ thống AI đang tạm thời không phản hồi.');
 };
 
+/** Foreground completion, including legacy fallback. Shadow has its own lifecycle. */
+const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,unknown>,userId:string,lifetime?:AdvisorShadowLifetime) => {
+  const m=createAdvisorReleaseMetrics(),providers=resolveAiAdvisorProviders(env.advisorProviders);
+  // Do not eagerly resolve V2 bindings: OFF/zero-AI and shadow scheduling must
+  // retain their isolation even when a binding getter is broken.
+  const scoped:AiAdvisorEnv=Object.create(env);
+  const overrides:Partial<AiAdvisorEnv>={
+    advisorCanaryTelemetry:{record:e=>{m.event.canary_trace_id=e.trace_id;m.event.fallback=e.response_source==='legacy_fallback';m.event.timeout ||= e.v2_result_class==='TIMEOUT';try{env.advisorCanaryTelemetry?.record(e);}catch{/* diagnostics only */}}},
+    advisorCompletenessTelemetry:{pageRead:()=>{m.count('r2_reads');try{env.advisorCompletenessTelemetry?.pageRead();}catch{/* diagnostics only */}}},
+    advisorProviders:{
+      groundedDocument:{...providers.groundedDocument,retrieve:async r=>{
+        m.count('gemini_calls');
+        try{const result=await providers.groundedDocument.retrieve(r);m.usage(result?.usage);return result;}
+        catch(e){m.event.timeout ||= providers.groundedDocument.classifyError(e).errorClass==='timeout';throw e;}
+      }},
+      generalGeneration:{...providers.generalGeneration,generate:async r=>{const result=await providers.generalGeneration.generate(r);m.count('general_ai_calls',result.aiCallCount??1);m.event.timeout ||= result.timedOut===true;return result;}},
+    },
+    advisorTelemetry:{record:e=>{
+      if(e.abstained)m.event.grounding_result='SAFE_ABSTENTION';
+      m.event.timeout ||= e.abstentionReason==='AI_SEARCH_TIMEOUT';
+      try{env.advisorTelemetry?.record(e);}catch{/* diagnostics only */}
+    }},
+  };
+  for(const [key,value]of Object.entries(overrides))Object.defineProperty(scoped,key,{value,writable:true,configurable:true,enumerable:true});
+  Object.defineProperty(scoped,'advisorV2AiSearchClient',{get(){
+    if(shadowModeEnabled(env))return env.advisorV2AiSearchClient;
+    const client=env.advisorV2AiSearchClient||productionAiSearchClient(env);
+    return client&&{search:(name:string,r:Parameters<AiSearchClient['search']>[1])=>{m.count('search_calls');return client.search(name,r);}};
+  }});
+  Object.defineProperty(scoped,'AI',{get(){
+    if(shadowModeEnabled(env))return env.AI;
+    return env.AI&&{run:async(model:string,input:Parameters<NonNullable<AiAdvisorEnv['AI']>['run']>[1])=>{
+      m.count('workers_ai_calls');try{const r=await env.AI!.run(model,input);m.usage(readAdvisorProviderUsage('usage' in r?r.usage:null));return r;}catch(e){m.event.timeout ||= isV2Timeout(e);throw e;}
+    }};
+  }});
+  Object.defineProperty(scoped,'advisorV2EvidenceGenerator',{get(){
+    if(shadowModeEnabled(env))return env.advisorV2EvidenceGenerator;
+    const generator=env.advisorV2EvidenceGenerator||createWorkersAiEvidenceGenerator(scoped);
+    return {...generator,generate:async(r:Parameters<EvidenceGenerationProvider['generate']>[0])=>{
+      // Observe the adapter's deadline, not only a late rejection from AI.run.
+      // The runtime still receives the original error and keeps its safe path.
+      try{return await generator.generate(r);}catch(e){m.event.timeout ||= isV2Timeout(e);throw e;}
+    }};
+  }});
+  if(shadowModeEnabled(env))Object.defineProperty(scoped,'advisorCompletenessTelemetry',{value:env.advisorCompletenessTelemetry});
+  try {
+    const result=await chat(request,scoped,body,userId,lifetime);
+    m.event.grounding_result='documentSources' in result&&result.documentSources?.length?'VALIDATED_DOCUMENT':
+      ('documentSearchUnavailable' in result&&result.documentSearchUnavailable||m.event.grounding_result==='SAFE_ABSTENTION')?'SAFE_ABSTENTION':'STRUCTURED_OR_GENERAL';
+    return result;
+  } catch(e){m.event.grounding_result='REQUEST_ERROR';m.event.timeout ||= isV2Timeout(e);throw e;}
+  finally {
+    const event=m.finish();
+    try{console.info(JSON.stringify(event));}catch{/* logging never controls routing */}
+    try{env.advisorReleaseTelemetry?.record(event);}catch{/* optional observer */}
+  }
+};
+
 export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisorEnv, shadowLifetime?: AdvisorShadowLifetime) => {
   const identity = await requireBetterAuthSession(request, env);
   if (request.method === 'GET') {
@@ -2079,7 +2139,7 @@ export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisor
   }
   const body = await readBody(request);
   if ('userId' in body || 'user_id' in body || 'role' in body) throw new AiAdvisorError(400, 'Không cho phép chỉ định chủ sở hữu.');
-  if (request.method === 'POST') return chat(request, env, body, identity.userId, shadowLifetime);
+  if (request.method === 'POST') return measuredChat(request, env, body, identity.userId, shadowLifetime);
   if (request.method === 'PATCH') {
     if (body.conversationId !== undefined) {
       if (!validConversationId(body.conversationId)) throw new AiAdvisorError(400, 'Cuộc trò chuyện không hợp lệ.');

@@ -3,7 +3,7 @@ import {readFileSync,writeFileSync,existsSync,mkdirSync,readdirSync} from 'node:
 import {resolve} from 'node:path';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {hashPassword} from 'better-auth/crypto';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import dotenv from 'dotenv';
 const NAME='hub-advisor-pr88-app-staging',DIR=resolve('.cache/advisor-app-staging'),STATE=resolve(DIR,'private-state.json');
 const emit=v=>console.log(JSON.stringify(v));
@@ -50,7 +50,7 @@ async function main(){
   if(state.name!==NAME||state.account!==account||!state.origin||state.db==='88d702e1-60d3-490a-8514-38ef881cf133')throw Error('ISOLATION_FAILED');
   const config={name:NAME,main:resolve('cloudflare/worker/src/staging/advisor-app.ts'),account_id:account,compatibility_date:'2026-10-10',compatibility_flags:['nodejs_compat'],workers_dev:true,routes:[],
     assets:{directory:resolve('.cache/advisor-staging-assets'),binding:'ASSETS',not_found_handling:'single-page-application',run_worker_first:['/api/*','/health']},
-    vars:{STAGING_ORIGIN:state.origin,STAGING_SYNTHETIC_EMAIL:state.email},
+    vars:{STAGING_ORIGIN:state.origin,STAGING_SYNTHETIC_EMAIL:state.email,STAGING_SOURCE_COMMIT:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},
     d1_databases:[{binding:'DB',database_name:NAME,database_id:state.db},{binding:'AUTH_DB',database_name:NAME,database_id:state.db}],
     r2_buckets:[{binding:'AI_DOCUMENTS_BUCKET',bucket_name:NAME}],ai:{binding:'AI'},ai_search:[{binding:'STAGING_AI_SEARCH',instance_name:NAME}],
     observability:{enabled:false},triggers:{crons:[]}};

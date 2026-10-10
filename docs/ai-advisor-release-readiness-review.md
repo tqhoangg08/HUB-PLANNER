@@ -1,5 +1,11 @@
 # PR #88 — release readiness review
 
+Follow-up from `5f8e812`: see [release gates follow-up](ai-advisor-release-gates-followup.md).
+It supersedes this review's NOT RUN statements for additional PDF uploads,
+backup/restore rehearsal, the release workflow proposal and telemetry implementation.
+It does **not** authorize production operations. Final-SHA UI/CI evidence is linked
+in the PR conversation; pending indexing or semantic failures remain NO-GO.
+
 Review date: 2026-10-10. Review baseline: `origin/main` at
 `059f73364d257fdf15b8878b8160e7c94bfc5a75`; candidate reviewed:
 `39b7a107ed2f93516bce4d8506a649d392151eb7`, plus the minimal readiness fixes below.

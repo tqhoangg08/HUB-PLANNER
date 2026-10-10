@@ -94,6 +94,10 @@ test('reprocess plan retains source and old revision, requires conditional promo
   assert.equal(plan[0].expectedSourceHash,row.sourceHash);assert.equal(plan[0].rollbackRevision,'old');assert.equal(plan[0].promotion,'COMPARE_AND_SWAP_AFTER_ALL_PAGES_READY');
   assert.throws(()=>buildDocumentReprocessPlan([row,row]),/duplicate/);
   assert.throws(()=>buildDocumentReprocessPlan([{...row,sourceHash:'bad'}]),/identity/);
+  const retained=buildDocumentReprocessPlan([{...row,originalPath:'ai-documents/source.pdf',previousDerivativePath:'ai-documents/old.md',previousGeminiDocument:'old-provider-ref'}])[0];
+  assert.equal(retained.originalPath,'ai-documents/source.pdf');assert.equal(retained.previousDerivativePath,'ai-documents/old.md');
+  assert.equal(retained.oldObjectsAction,'RETAIN_IMMUTABLE');assert.equal(retained.previousGeminiDocument,'old-provider-ref');
+  assert.throws(()=>buildDocumentReprocessPlan([{...row,originalPath:'private/arbitrary.pdf'}]),/identity/);
 });
 
 const miniQuestion='Tham gia mini game trực tuyến có tính điểm rèn luyện không?';

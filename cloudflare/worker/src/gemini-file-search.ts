@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import {readAdvisorProviderUsage} from './ai-advisor-release-telemetry.ts';
 import { containsDocumentInstructions, isRelevantAdvisorEvidence, sourceSupportedReply } from './ai-advisor-grounding.ts';
 
 export interface GeminiFileSearchEnv {
@@ -640,5 +641,6 @@ export const answerWithGeminiFileSearch = async (
     groundingChunkCount: grounding.groundingChunkCount,
     documentIdMetadataCount: grounding.documentIdMetadataCount,
     pageNumberCount: grounding.pageNumberCount,
+    ...(record(response)?.usageMetadata?{usage:readAdvisorProviderUsage(record(response)?.usageMetadata)}:{}),
   };
 };

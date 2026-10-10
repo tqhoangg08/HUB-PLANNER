@@ -5,6 +5,7 @@ import {resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {CONDUCT_ACCEPTANCE_QUESTIONS} from './verify-advisor-conduct-providers.mjs';
 const emit=v=>console.log(JSON.stringify(v));
+let phase='start';
 async function main(){
   const state=JSON.parse(readFileSync('.cache/advisor-app-staging/private-state.json','utf8'));
   if(state.name!=='hub-advisor-pr88-app-staging'||!/^https:\/\/hub-advisor-pr88-app-staging\.[a-z0-9-]+\.workers\.dev$/.test(state.origin))throw Error('ISOLATION_FAILED');
@@ -14,6 +15,8 @@ async function main(){
   try{
     const context=await browser.newContext({viewport:{width:1365,height:900}}),page=await context.newPage();
     const errors=[];page.on('pageerror',e=>errors.push(e.name));
+    const health=await(await context.request.get(`${state.origin}/health`)).json();
+    if(process.argv.includes('--require-final-commit')&&(health.sourceCommit!==sourceCommit||execFileSync('git',['status','--porcelain','--untracked-files=no'],{encoding:'utf8'}).trim()))throw Error('FINAL_SOURCE_MISMATCH');
     await page.goto(state.origin);await page.getByLabel('Email kiểm thử').fill(state.email);await page.getByLabel('Mật khẩu kiểm thử').fill(state.password);
     await page.getByRole('button',{name:'Đăng nhập staging',exact:true}).click();
     await page.getByRole('heading',{name:'Kho tài liệu AI'}).waitFor({timeout:30000});
@@ -21,18 +24,25 @@ async function main(){
     if(process.argv.includes('--upload')){
       const arg=process.argv.indexOf('--pdf');if(arg<0)throw Error('PDF_REQUIRED');
       const listed=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents`)).json();
-      if(listed.total||listed.documents?.length)throw Error('STAGING_ALREADY_UPLOADED');
+      const titleArg=process.argv.indexOf('--title'),categoryArg=process.argv.indexOf('--category');
+      const title=titleArg>=0?process.argv[titleArg+1]:'Quy chế đánh giá kết quả rèn luyện sinh viên';
+      if((listed.documents||listed.data||[]).some(d=>d.title===title))throw Error('STAGING_ALREADY_UPLOADED');
       await page.getByRole('button',{name:/Tải tài liệu/}).click();
+      phase='choose_pdf';
       await page.locator('input[type=file]').setInputFiles(process.argv[arg+1]);
-      await page.getByLabel('Tiêu đề',{exact:true}).fill('Quy chế đánh giá kết quả rèn luyện sinh viên');
+      phase='set_title';
+      await page.getByLabel('Tiêu đề',{exact:true}).fill(title);
+      phase='set_category';
+      if(categoryArg>=0)await page.locator('select').filter({has:page.locator('option[value="tuition"]')}).selectOption(process.argv[categoryArg+1]);
       const upload=page.waitForResponse(r=>r.url()===`${state.origin}/api/admin/v1/ai-documents`&&r.request().method()==='POST',{timeout:600000});
+      phase='upload_ocr';
       const t=Date.now();await page.getByRole('button',{name:'Tải và lập chỉ mục',exact:true}).click();
       // Real UX warns about unreadable OCR cells; explicitly acknowledge the
       // staging-only test artifact, never silently suppress this warning.
       const confirm=page.getByRole('button',{name:'Xác nhận',exact:true});
       await Promise.race([upload,confirm.waitFor({timeout:600000}).then(async()=>{emit({phase:'browser_ocr_warning',acknowledged:true,legalIdentityNotAssumed:true});await confirm.click();})]);
       const response=await upload,data=await response.json();
-      writeFileSync(resolve(dir,'upload-result-local.json'),JSON.stringify(data));
+      writeFileSync(resolve(dir,`upload-${data.document?.id||'failed'}-local.json`),JSON.stringify(data));
       emit({phase:'browser_upload_ocr',httpStatus:response.status(),durationMs:Date.now()-t,ocrPages:data.document?.ocr_page_count,ocrUsed:data.document?.ocr_used,uncertainTokens:data.document?.ocr_uncertain_tokens,aiSearchStatus:data.document?.ai_search_status,geminiStatus:data.document?.gemini_indexing_status,pageErrors:errors.length});
       return;
     }
@@ -40,6 +50,40 @@ async function main(){
     const list=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents`)).json();
     const docs=list.data||list.documents||[];
     if(!docs.length)throw Error('INDEX_NOT_READY');
+    const manifestArg=process.argv.indexOf('--manifest');
+    if(manifestArg>=0){
+      const cases=JSON.parse(readFileSync(process.argv[manifestArg+1],'utf8'));
+      if(!Array.isArray(cases)||cases.length>16)throw Error('BENCHMARK_LIMIT');
+      for(const c of cases){
+        const doc=docs.find(d=>d.content_hash===c.sourceHash);
+        if(!doc)throw Error('DOCUMENT_NOT_UPLOADED');
+        const probe=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents?id=${encodeURIComponent(doc.id)}`)).json();
+        if(probe.document?.ai_search_status!=='completed')throw Error('INDEX_NOT_READY');
+      }
+      await page.locator('button.fixed.bottom-6').click();
+      const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
+      const normalize=s=>String(s).normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/\s+/g,' ');
+      for(const [i,c]of cases.entries()){
+        if(i)await page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true}).click();
+        const doc=docs.find(d=>d.content_hash===c.sourceHash),t=Date.now();
+        const next=page.waitForResponse(r=>r.url()===`${state.origin}/api/private/v1/ai-advisor`&&r.request().method()==='POST',{timeout:90000});
+        const input=page.getByPlaceholder('Nhập câu hỏi tại đây...');await input.fill(c.question);await input.press('Enter');
+        const r=await next,payload=await r.json();writeFileSync(resolve(dir,`topic-${i+1}-local.json`),JSON.stringify(payload));
+        const citations=payload.documentSources||[],content=normalize(payload.reply),matching=citations.filter(s=>s.documentId===doc.id);
+        const pageNumbers=matching.flatMap(s=>s.pageNumbers||[s.pageNumber]);
+        const facts=(c.contains||[]).every(s=>content.includes(normalize(s))),location=(c.pages||[]).every(n=>pageNumbers.includes(n));
+        const visible=await page.locator('body').innerText().then(s=>normalize(s).includes(normalize(String(payload.reply||'').replace(/[|*#_`>]/g,'').replace(/<!--[\s\S]*?-->/g,'').slice(0,40))));
+        emit({phase:'multi_pdf_ui',case:i+1,topic:c.topic,sourceCommit,deployedCommit:health.sourceCommit,httpStatus:r.status(),durationMs:Date.now()-t,
+          visibleResponse:visible,correctDocument:matching.length>0,expectedFactsPresent:facts,expectedPagesPresent:location,pageErrors:errors.length,
+          acceptance:r.status()===200&&visible&&facts&&location&&matching.length>0?'PASS':'FAIL',metrics:payload.stagingMetrics});
+        await page.screenshot({path:resolve(dir,`topic-${i+1}-desktop.png`)});
+      }
+      await page.setViewportSize({width:390,height:844});
+      await page.screenshot({path:resolve(dir,'multi-pdf-mobile.png')});
+      const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);
+      emit({phase:'multi_pdf_ui_layout',desktop:true,mobile390:true,horizontalOverflow:overflow,pageErrors:errors.length});
+      return;
+    }
     const document=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents?id=${encodeURIComponent(docs[0].id)}`)).json();
     writeFileSync(resolve(dir,'index-status-local.json'),JSON.stringify(document));
     const ready=document.data?.[0]||document.documents?.[0]||document.document||document;
@@ -75,4 +119,4 @@ async function main(){
     await page.screenshot({path:resolve(dir,'advisor-desktop.png')});
   }finally{await browser.close();}
 }
-main().catch(e=>{emit({phase:'browser_staging',result:'BLOCKED',safeError:['ISOLATION_FAILED','PDF_REQUIRED','STAGING_ALREADY_UPLOADED','INDEX_NOT_READY','ACTION_REQUIRED'].includes(e.message)?e.message:e.name});process.exitCode=1;});
+main().catch(e=>{emit({phase:'browser_staging',step:phase,result:'BLOCKED',safeError:['ISOLATION_FAILED','PDF_REQUIRED','STAGING_ALREADY_UPLOADED','INDEX_NOT_READY','ACTION_REQUIRED','FINAL_SOURCE_MISMATCH','BENCHMARK_LIMIT','DOCUMENT_NOT_UPLOADED'].includes(e.message)?e.message:e.name});process.exitCode=1;});

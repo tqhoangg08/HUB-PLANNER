@@ -10,6 +10,7 @@ import { CONDUCT_ACCEPTANCE_QUESTIONS } from '../scripts/verify-advisor-conduct-
 import { buildDocumentCandidateMetadataFilter, extractGenerateContentDocumentSources, extractOfficialDocumentLocators, groundGeminiReply, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { buildAiSearchAuthorizationFilter, CloudflareAiSearchRetrievalProvider } from '../cloudflare/worker/src/ai-search-retrieval.ts';
 import { aiAdvisorV2CanaryBucket } from '../cloudflare/worker/src/ai-advisor-v2-runtime.ts';
+import {createAdvisorReleaseMetrics,readAdvisorProviderUsage,type AdvisorReleaseEvent} from '../cloudflare/worker/src/ai-advisor-release-telemetry.ts';
 
 const DOC = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const USER = '11111111-1111-4111-8111-111111111111';
@@ -53,6 +54,48 @@ const providerResult = (reply = PASSAGE, documentId = DOC) => ({
   ...groundGeminiReply(reply, question, [{ documentId, title: TITLE, fileName: 'fixture.pdf', pageNumber: 2, evidenceText: PASSAGE }]),
   documentSources: [{ documentId, title: TITLE, fileName: 'fixture.pdf', pageNumber: 2, locators: ['Điều 1'], evidenceText: PASSAGE }],
   groundingChunkCount: 1, documentIdMetadataCount: 1, pageNumberCount: 1,
+});
+
+test('release telemetry contains only allowlisted counters; absent billing is unknown, late usage ignored',()=>{
+  assert.deepEqual(readAdvisorProviderUsage({promptTokenCount:3,candidatesTokenCount:7,email:'private',cost:'invented'}),{inputTokens:3,outputTokens:7});
+  assert.deepEqual(readAdvisorProviderUsage({promptTokenCount:-1,candidatesTokenCount:'secret'}),{inputTokens:null,outputTokens:null});
+  const m=createAdvisorReleaseMetrics();m.count('search_calls');m.usage(readAdvisorProviderUsage({prompt_tokens:4,completion_tokens:6}));
+  const final=m.finish();m.count('search_calls');m.usage({inputTokens:999,outputTokens:999});
+  assert.equal(final.search_calls,1);assert.equal(final.input_tokens,4);assert.equal(m.finish().output_tokens,6);assert.equal(final.provider_reported_cost_usd,null);
+  assert.doesNotMatch(JSON.stringify(final),/private|secret|email|question|evidence|source|user_id/);
+});
+test('completed request telemetry measures legacy fallback completion, preserves canary trace, and never logs content',async()=>{
+  const db=makeDb(),events:AdvisorReleaseEvent[]=[];let legacyReturned=false;
+  try{
+    db.insert();
+    const result=await send({...envFor(db.DB),AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'100',
+      advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorV2AiSearchClient:{search:async()=>({chunks:[]})},
+      fileSearchAnswer:async()=>{await new Promise(r=>setTimeout(r,5));legacyReturned=true;return{...providerResult(),usage:{inputTokens:10,outputTokens:20}};},
+      advisorReleaseTelemetry:{record:e=>{assert.equal(legacyReturned,true);events.push(e);}}});
+    assert.equal(result.documentSources.length,1);assert.equal(events.length,1);
+    assert.equal(events[0].fallback,true);assert.equal(events[0].grounding_result,'VALIDATED_DOCUMENT');
+    assert.equal(events[0].gemini_calls,1);assert.equal(events[0].search_calls,1);assert.equal(events[0].input_tokens,10);
+    assert.match(events[0].canary_trace_id!,/^[a-f0-9-]{36}$/);
+    assert.ok(!JSON.stringify(events).includes(PASSAGE));assert.ok(!JSON.stringify(events).includes(USER));
+  }finally{db.sql.close();}
+});
+test('Gemini timeout produces safe abstention and a completed timeout event without adding retries',async()=>{
+  const db=makeDb(),events:AdvisorReleaseEvent[]=[];
+  try{db.insert();const result=await send({...envFor(db.DB),AI_ADVISOR_V2_MODE:'off',fileSearchAnswer:async()=>{throw new GeminiFileSearchError('GEMINI_REQUEST_TIMEOUT',{});},
+    advisorReleaseTelemetry:{record:e=>events.push(e)}});
+    assert.equal(result.documentSearchUnavailable,true);assert.equal(events[0].timeout,true);assert.equal(events[0].gemini_calls,1);assert.equal(events[0].grounding_result,'SAFE_ABSTENTION');
+  }finally{db.sql.close();}
+});
+
+test('V2 adapter deadline is counted before an underlying AI call finishes',async()=>{
+  const db=makeDb(),events:AdvisorReleaseEvent[]=[];let calls=0;
+  try{db.insert();const result=await send({...envFor(db.DB),AI_ADVISOR_V2_MODE:'on',
+    advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorV2AiSearchClient:{search:async()=>({chunks:[{id:'fixture',score:0.9,text:PASSAGE,item:{key:'fixture.md',metadata:{document_id:DOC}}}]})},
+    advisorV2EvidenceGenerator:{id:'deadline-fixture',isConfigured:()=>true,generate:async()=>{calls++;throw Error('WORKERS_AI_EVIDENCE_TIMEOUT');}},
+    advisorReleaseTelemetry:{record:e=>events.push(e)}});
+    assert.equal(calls,1);assert.equal(events[0].timeout,true);assert.equal(events[0].grounding_result,'SAFE_ABSTENTION');
+    assert.equal(result.documentSources.length,0);assert.equal(events[0].gemini_calls,0);
+  }finally{db.sql.close();}
 });
 
 test('Vietnamese score wording and preceding numbered paragraph do not invent a legal point/clause', () => {

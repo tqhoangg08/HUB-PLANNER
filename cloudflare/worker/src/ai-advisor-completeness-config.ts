@@ -6,7 +6,7 @@ export type CompletenessEnv = {
   AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED?:unknown;
   DB?:D1Database;
   AI_DOCUMENTS_BUCKET?:Pick<R2Bucket,'get'>;
-  /** Content-free test observer; production installs none. */
+  /** Request-scoped content-free R2 attempt counter; never receives source data. */
   advisorCompletenessTelemetry?:{pageRead():void};
 };
 /** Trusted deployment flag only, never request parameters. Fail closed by default. */

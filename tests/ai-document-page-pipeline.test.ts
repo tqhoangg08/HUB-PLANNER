@@ -89,6 +89,23 @@ test('real local R2 binding stores page Markdown with only server-authoritative 
     assert.deepEqual(Object.keys(obj.customMetadata).sort(),['active','category','document_id','revision','visibility']);
   }finally{await mf.dispose();}
 });
+
+test('reprocess side-by-side revision retains original and previous pages; no existing-key overwrite allowed',async()=>{
+  const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("ok")}}',compatibilityDate:'2025-12-01',r2Buckets:['DOCS']});
+  try{
+    const bucket=await mf.getR2Bucket('DOCS'),input=await payload(),prepared=await parsePreparedPdfPages(JSON.stringify(input),input.sourceContentHash);
+    const doc={id:'11111111-1111-4111-8111-111111111111',content_hash:input.sourceContentHash,category:'training_regulation',visibility:'public' as const};
+    await bucket.put('ai-documents/original.pdf','original bytes');
+    const old=await storeDerivedPdfPages(bucket,{...doc,version:1},prepared);
+    const before=await (await bucket.get(old.keys[0]))!.text();
+    // Reprocess executor must allocate a NEW version, never reuse upload retry keys.
+    const next=await storeDerivedPdfPages(bucket,{...doc,version:2},prepared);
+    assert.notEqual(next.revision,old.revision);assert.ok(next.keys.every(k=>!old.keys.includes(k)));
+    assert.equal(await(await bucket.get('ai-documents/original.pdf'))!.text(),'original bytes');
+    assert.equal(await(await bucket.get(old.keys[0]))!.text(),before);
+    assert.equal(await(await bucket.get(next.keys[0]))!.text(),before);
+  }finally{await mf.dispose();}
+});
 test('UI prepares both native and scan PDFs; Gemini completion is not AI Search completion',()=>{
   const ui=readFileSync('components/AdminAIDocuments.tsx','utf8');
   const worker=readFileSync('cloudflare/worker/src/ai-documents.ts','utf8');
