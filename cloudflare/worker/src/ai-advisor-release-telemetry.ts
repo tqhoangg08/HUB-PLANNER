@@ -11,6 +11,7 @@ export type AdvisorReleaseEvent={
   fallback:boolean;timeout:boolean;latency_ms:number;r2_reads:number;search_calls:number;
   workers_ai_calls:number;gemini_calls:number;general_ai_calls:number;
   input_tokens:number|null;output_tokens:number|null;provider_reported_cost_usd:null;
+  document_provider_policy?: 'cloudflare_first';
 };
 export const createAdvisorReleaseMetrics=()=>{
   const started=Date.now();let closed=false,input:number|null=null,output:number|null=null;

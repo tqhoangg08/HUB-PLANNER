@@ -305,6 +305,97 @@ const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input:
   );
 };
 
+const policyFixture = () => {
+  const f=makeDatabase();
+  for(const name of ['0044_ai_document_ocr_ingestion.sql','0049_ai_document_derived_index_identity.sql','0054_ai_document_search_ingestion_state.sql'])f.sql.exec(readFileSync(`cloudflare/migrations/${name}`,'utf8'));
+  insertOfficialDocument(f,{id:DOCUMENT_A,title:'Quy chế rèn luyện',category:'student_conduct'});
+  f.sql.prepare("UPDATE ai_documents SET ai_search_revision='revision', ai_search_status='completed', extraction_pipeline_version='docx-native-structured-v1'").run();
+  return f;
+};
+const policyText='Điều 7. Phân loại kết quả rèn luyện\nTừ 90 đến 100 điểm: Loại xuất sắc.\nTừ 80 đến dưới 90 điểm: Loại tốt.';
+const policyChunk=(text=policyText)=>({id:'chunk',score:0.9,text,item:{key:buildDerivedPageObjectKey(DOCUMENT_A,'revision',1),metadata:{document_id:DOCUMENT_A,revision:'revision',visibility:'public',active:true}}});
+
+test('Cloudflare-first policy serves identical authorized completeness answers in every V2 mode/bucket without Gemini, generation or canary samples',async()=>{
+  for(const mode of ['off','shadow','canary','on'] as const)for(const percent of ['0','100']){
+    const f=policyFixture();let search=0,reads=0,gen=0,gemini=0,canary=0,telemetry:Record<string,unknown>|undefined;
+    const base={...env(f.DB),AI_ADVISOR_V2_MODE:mode,AI_ADVISOR_V2_CANARY_PERCENT:percent,
+      AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',
+      GEMINI_FILE_SEARCH_ENABLED:'true',GEMINI_FILE_SEARCH_API_KEY:'fixture',GEMINI_FILE_SEARCH_STORE:'fileSearchStores/fixture',
+      fileSearchAnswer:async()=>{gemini++;throw Error('must not call');},
+      AI_DOCUMENTS_BUCKET:{async get(){reads++;return{size:policyText.length,body:new ReadableStream(),text:async()=>policyText};}},
+      advisorV2AiSearchClient:{async search(_instance:unknown,request:unknown){search++;assert.match(JSON.stringify(request),/document_id/);assert.match(JSON.stringify(request),/hybrid/);return{chunks:[policyChunk()]};}},
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{gen++;throw Error('must not call');}},
+      advisorCanaryTelemetry:{record(){canary++;}},advisorReleaseTelemetry:{record(e:unknown){telemetry=e as Record<string,unknown>;}}};
+    try{
+      const req=v2RequestFor('89 điểm rèn luyện xếp loại gì?');
+      const result=await handleAiAdvisorImplementation(req,new URL(req.url),base as Parameters<typeof handleAiAdvisorImplementation>[2]) as {reply:string;documentSources:unknown[]};
+      assert.match(result.reply,/89: tốt/);assert.equal(result.documentSources.length,1);
+      assert.equal(search,1);assert.equal(reads,1);assert.equal(gen,0);assert.equal(gemini,0);assert.equal(canary,0);
+      assert.equal(telemetry?.document_provider_policy,'cloudflare_first');assert.equal(telemetry?.r2_reads,1);
+      assert.equal(base.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,'false');
+    }finally{f.sql.close();}
+  }
+});
+
+test('Cloudflare-first search failures safely abstain without general or Gemini fallback, preserving quota and private boundaries',async()=>{
+  for(const scenario of ['timeout','survival','private','stale','deleted'] as const){
+    const f=policyFixture();let searches=0,reads=0,generation=0;
+    if(scenario==='private')f.sql.prepare("UPDATE ai_documents SET visibility='admin'").run();
+    if(scenario==='deleted')f.sql.prepare("UPDATE ai_documents SET deleted_at='deleted'").run();
+    const request=v2RequestFor('89 điểm rèn luyện xếp loại gì?');
+    try{
+      const result=await handleAiAdvisorImplementation(request,new URL(request.url),{
+        ...env(f.DB),AI_ADVISOR_V2_MODE:'off',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+        advisorQuotaUsage:scenario==='survival'?{generationUsageRatio:1}:undefined,
+        advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{async search(){searches++;if(scenario==='timeout')throw new DOMException('private provider detail','TimeoutError');const c=policyChunk();c.item.metadata.revision='old';return{chunks:[c]};}},
+        AI_DOCUMENTS_BUCKET:{async get(){reads++;throw Error('must not read');}},
+        advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,async generate(){generation++;throw Error('must not generate');}},
+        GEMINI_FILE_SEARCH_ENABLED:'true',GEMINI_FILE_SEARCH_API_KEY:'fixture',GEMINI_FILE_SEARCH_STORE:'fileSearchStores/fixture',
+        fileSearchAnswer:async()=>{throw Error('must not call Gemini');},
+      } as Parameters<typeof handleAiAdvisorImplementation>[2]) as {reply:string;documentSources:unknown[];documentSearchStatus:string};
+      assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/89: tốt|private provider detail/);assert.equal(reads,0);assert.equal(generation,0);
+      assert.equal(searches,['private','deleted','survival'].includes(scenario)?0:1);
+      if(scenario==='timeout')assert.equal(result.documentSearchStatus,'provider_timeout');
+    }finally{f.sql.close();}
+  }
+});
+
+test('Cloudflare-first personal score remains unavailable without either document provider',async()=>{
+  const f=makeDatabase();
+  try{
+    const request=v2RequestFor('Tôi được bao nhiêu điểm ĐRL kỳ này?');
+    const result=await handleAiAdvisorImplementation(request,new URL(request.url),{...env(f.DB),AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchClient:{search:async()=>{throw Error('personal data must not retrieve documents');}},fileSearchAnswer:async()=>{throw Error('must not use Gemini');}}) as {reply:string};
+    assert.match(result.reply,/không có dữ liệu điểm rèn luyện cá nhân/);
+  }finally{f.sql.close();}
+});
+
+test('Cloudflare-first rechecks revoked authorization after search instead of publishing snapshot evidence',async()=>{
+  const f=policyFixture();
+  try{
+    const req=v2RequestFor('89 điểm rèn luyện xếp loại gì?');
+    const result=await handleAiAdvisorImplementation(req,new URL(req.url),{...env(f.DB),AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},
+      advisorV2AiSearchClient:{async search(){f.sql.prepare("UPDATE ai_documents SET visibility='admin'").run();return{chunks:[policyChunk()]};}},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('no generation necessary');}},
+    }) as {reply:string;documentSources:unknown[]};
+    assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/89: tốt/);
+  }finally{f.sql.close();}
+});
+
+test('Cloudflare-first malformed/fabricated generator citations abstain without another provider call',async()=>{
+  const f=policyFixture();let generations=0;
+  try{
+    const req=v2RequestFor('Theo quy chế, tình nguyện trên sao Hỏa được mấy điểm rèn luyện?');
+    const result=await handleAiAdvisorImplementation(req,new URL(req.url),{...env(f.DB),AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{search:async()=>({chunks:[policyChunk('Điểm rèn luyện được đánh giá bằng thang điểm 100.')]})},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{generations++;return{supported:true,answer:'Được 999 điểm.',sourceIds:['S999']};}},
+      fileSearchAnswer:async()=>{throw Error('must not call Gemini');},
+    }) as {reply:string;documentSources:unknown[]};
+    assert.equal(generations,1);assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/999/);
+  }finally{f.sql.close();}
+});
+
 test('final D1 citation recheck accepts adjacent tuition continuation but rejects a revoked document',async()=>{
   const fixture=makeDatabase();
   try{

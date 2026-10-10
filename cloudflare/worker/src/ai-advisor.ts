@@ -58,6 +58,7 @@ import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-adv
 import {buildCompletenessDependencies,completenessEnabled,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
 import {isTuitionContinuationEvidence} from './ai-advisor-source-sections.ts';
 import {createAdvisorReleaseMetrics,readAdvisorProviderUsage,type AdvisorReleaseEvent} from './ai-advisor-release-telemetry.ts';
+import {useCloudflareDocumentPolicy,createDocumentPolicyDeadline,type DocumentProviderPolicyEnv} from './ai-advisor-document-policy.ts';
 
 export type AdvisorAnswerPath = 'CACHE' | 'D1' | 'FAQ' | 'SEARCH_ONLY' | 'SEARCH_GENERATE';
 
@@ -80,6 +81,7 @@ export type AdvisorTelemetryEvent = {
   abstained?: boolean;
   abstentionReason?: string;
   quotaMode?: string;
+  documentProviderPolicy?: 'cloudflare_first';
 };
 
 export type AdvisorShadowEvent = {
@@ -133,7 +135,7 @@ type AdvisorShadowSkipReason = 'SENSITIVE_GUARD' | 'ZERO_AI' | 'NON_DOCUMENT_INT
 
 type AdvisorCachedAnswer = { reply: string; answerSources: AdvisorSource[] };
 
-export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProviderEnv, GroqLegacyProviderEnv, AiAdvisorV2ConfigEnv, CompletenessEnv {
+export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProviderEnv, GroqLegacyProviderEnv, AiAdvisorV2ConfigEnv, CompletenessEnv, DocumentProviderPolicyEnv {
   DB?: D1Database;
   /** Optional test override; production resolves the two legacy providers. */
   advisorProviders?: Partial<AiAdvisorProviders>;
@@ -1657,10 +1659,14 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
   let v2Config: ReturnType<typeof readAiAdvisorV2RuntimeConfig>;
   try { v2Config = readAiAdvisorV2RuntimeConfig(env); }
   catch { v2Config = { mode: 'off', canaryPercent: 0 }; }
+  const cloudflareFirst = useCloudflareDocumentPolicy(env, documentIntent);
+  // Request-local completeness scope: no rollout/deployment flag mutation.
+  const documentEnv: AiAdvisorEnv = cloudflareFirst
+    ? Object.defineProperty(Object.create(env), 'AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED', {value: 'true'}) : env;
   if (v2Config.mode === 'shadow' && !documentIntent) {
     emitShadowLifecycle('ai_advisor_v2_shadow_skip', shadowTraceId(), 'non_document', 'NON_DOCUMENT_INTENT');
   }
-  if (documentIntent && v2Config.mode === 'shadow') {
+  if (documentIntent && !cloudflareFirst && v2Config.mode === 'shadow') {
     // The first V2 instruction runs in a microtask only after waitUntil has
     // accepted the task. A failed registration therefore cannot start an
     // untracked V2 request or change the legacy response.
@@ -1682,8 +1688,10 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         logShadowSchedulingFailure(quota.mode, traceId);
       }
     } else logShadowSchedulingFailure(quota.mode, traceId);
-  } else if (documentIntent && v2Config.mode !== 'off' && await shouldUseAiAdvisorV2(v2Config, userId)) {
-    const canarySelected = v2Config.mode === 'canary';
+  } else if (documentIntent && (cloudflareFirst || v2Config.mode !== 'off' && await shouldUseAiAdvisorV2(v2Config, userId))) {
+    // Policy requests are not V2 canary samples (including selected buckets).
+    const canarySelected = !cloudflareFirst && v2Config.mode === 'canary';
+    const policyDeadline = cloudflareFirst ? createDocumentPolicyDeadline() : undefined;
     const canaryStartedAt = Date.now();
     const canaryTraceId = canarySelected ? shadowTraceId() : '';
     if (canarySelected) emitCanaryDispatch(canaryTraceId);
@@ -1714,37 +1722,42 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       }));
       const client = env.advisorV2AiSearchClient || productionAiSearchClient(env);
       const generator = env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env);
-      const countedClient: AiSearchClient | undefined = canarySelected && client ? {
+      const countedClient: AiSearchClient | undefined = (canarySelected || cloudflareFirst) && client ? {
         async search(instance, searchRequest) {
           searchCalls += 1;
           const startedAt = Date.now();
-          try { return await client.search(instance, searchRequest); }
+          try { return await (policyDeadline ? policyDeadline.run(() => client.search(instance, searchRequest)) : client.search(instance, searchRequest)); }
           finally { retrievalDurationMs += Math.max(0, Date.now() - startedAt); }
         },
       } : client;
-      const countedGenerator: EvidenceGenerationProvider = canarySelected ? {
+      const countedGenerator: EvidenceGenerationProvider = canarySelected || cloudflareFirst ? {
         id: generator.id,
         isConfigured(value) { return generator.isConfigured(value); },
         generate(generationRequest) {
           generatorCalls += 1;
           const startedAt = Date.now();
-          return Promise.resolve().then(() => generator.generate(generationRequest)).catch((error) => {
+          return Promise.resolve().then(() => policyDeadline ? policyDeadline.run(() => generator.generate(generationRequest)) : generator.generate(generationRequest)).catch((error) => {
             if (isV2Timeout(error)) generatorTimedOut = true;
             throw error;
           }).finally(() => { generatorDurationMs += Math.max(0, Date.now() - startedAt); });
         },
       } : generator;
+      const completeness = buildCompletenessDependencies(documentEnv,countedClient,env.advisorV2AiSearchInstances||productionAiSearchInstances(env));
+      const pageContent = completeness.pageContent;
       v2 = await executeAiAdvisorV2Document(question, v2Candidates, {
         aiSearchClient: countedClient,
         aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
-        ...buildCompletenessDependencies(env,countedClient,env.advisorV2AiSearchInstances||productionAiSearchInstances(env)),
+        ...completeness,
+        ...(policyDeadline && pageContent ? { pageContent: source => policyDeadline.run(() => pageContent(source)) } : {}),
         evidenceGenerator: countedGenerator,
         retrievalCache: env.advisorV2RetrievalCache,
         answerCache: env.advisorV2AnswerCache,
         quota,
       });
     } catch (error) {
-      if (!canarySelected) throw error;
+      if (!canarySelected && !cloudflareFirst) throw error;
+      if (cloudflareFirst) v2 = { kind: 'ABSTAIN', reason: isV2Timeout(error) ? 'AI_SEARCH_TIMEOUT' : 'AI_SEARCH_ERROR',
+        searchCallCount: searchCalls, retrievalCacheHit: false, retrievedChunkCount: 0, generatorCalled: generatorCalls > 0, quotaMode: quota.mode };
       canaryFailure = isV2Timeout(error)
         ? { v2_result_class: 'TIMEOUT', fallback_reason: 'timeout' }
         : { v2_result_class: 'OTHER_SAFE_FAILURE', fallback_reason: 'other_safe_failure' };
@@ -1760,7 +1773,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       if (citationResolution.sources.length !== new Set(answerEvidence.map((source) => source.documentId)).size
         || answerEvidence.some((source) => !isRelevantAdvisorEvidence(question, source.snippet,
           citationResolution.sources.find((resolved) => resolved.documentId === source.documentId)?.title)
-          &&!(completenessEnabled(env)&&isTuitionContinuationEvidence(question,source,answerEvidence)))) {
+          &&!(completenessEnabled(documentEnv)&&isTuitionContinuationEvidence(question,source,answerEvidence)))) {
         v2 = { kind: 'ABSTAIN', reason: 'INVALID_CITATIONS', searchCallCount: searchCalls,
           retrievalCacheHit: false, retrievedChunkCount: 0, generatorCalled: generatorCalls > 0, quotaMode: quota.mode };
       }
@@ -1786,12 +1799,13 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         });
         emitAdvisorTelemetry(env, {
           requestId, intent: retrieval.intents, answerPath: 'SEARCH_GENERATE', cacheHit: v2.answerCacheHit,
-          providerUsed: (env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env)).id,
+          providerUsed: cloudflareFirst && !v2.generatorCalled ? 'cloudflare-ai-search-extractive' : (env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env)).id,
           latencyMs: Date.now() - requestStartedAt, mode: v2Config.mode, zeroAiUsed: false,
           answerCacheHit: v2.answerCacheHit, retrievalCacheHit: v2.retrievalCacheHit,
           searchCallCount: v2.searchCallCount, retrievedChunkCount: v2.retrievedChunkCount,
           authorizedChunkCount: v2.answer.evidence.length, generatorCalled: v2.generatorCalled,
           abstained: false, quotaMode: quota.mode,
+          ...(cloudflareFirst ? { documentProviderPolicy: 'cloudflare_first' as const } : {}),
         });
         return { reply: v2.answer.reply, logId, conversationId, documentSources, answerSources, documentSearchUnavailable: false };
       }
@@ -1823,16 +1837,23 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         generatorCalled: v2.generatorCalled,
         abstained: v2.kind === 'ABSTAIN',
         abstentionReason: v2.reason,
+        ...(cloudflareFirst && generatorTimedOut ? { errorClass: 'provider_timeout' } : {}),
         quotaMode: quota.mode,
+        ...(cloudflareFirst ? { documentProviderPolicy: 'cloudflare_first' as const } : {}),
       };
-      const reply = v2.kind === 'UNAVAILABLE' ? UNVERIFIED_HUB_REPLY : INSUFFICIENT_GROUNDED_EVIDENCE_REPLY;
+      const providerFailed = v2.kind === 'UNAVAILABLE' || ['AI_SEARCH_ERROR','AI_SEARCH_TIMEOUT','GENERATOR_ERROR'].includes(v2.reason);
+      const reply = cloudflareFirst && providerFailed
+        ? 'Mình chưa thể truy xuất và xác minh tài liệu chính thức lúc này. Vui lòng thử lại sau; mình không thể suy đoán nội dung khi nguồn chưa được xác minh.'
+        : v2.kind === 'UNAVAILABLE' ? UNVERIFIED_HUB_REPLY : INSUFFICIENT_GROUNDED_EVIDENCE_REPLY;
       if (logId) await patchTurnLog(env, userId, logId, {
         bot_reply: reply,
         answer_sources: retrieval.sources,
-        document_search_unavailable: v2.kind === 'UNAVAILABLE',
+        document_search_unavailable: cloudflareFirst ? providerFailed : v2.kind === 'UNAVAILABLE',
       });
       emitAdvisorTelemetry(env, v2Telemetry);
-      return { reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: v2.kind === 'UNAVAILABLE' };
+      return { reply, logId, conversationId, documentSources: [], answerSources: retrieval.sources,
+        documentSearchUnavailable: cloudflareFirst ? providerFailed : v2.kind === 'UNAVAILABLE',
+        ...(cloudflareFirst ? { documentSearchStatus: providerFailed ? generatorTimedOut || v2.reason === 'AI_SEARCH_TIMEOUT' ? 'provider_timeout' : 'provider_unavailable' : v2.reason === 'QUOTA_SURVIVAL' ? 'quota_limited' : 'insufficient_evidence' } : {}) };
     }
   }
   if (retrieval.needsAuthoritativeSource && !retrieval.sources.length && !documentIntent) {
@@ -2068,13 +2089,15 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
     },
     advisorTelemetry:{record:e=>{
       if(e.abstained)m.event.grounding_result='SAFE_ABSTENTION';
+      if(e.documentProviderPolicy)m.event.document_provider_policy=e.documentProviderPolicy;
       m.event.timeout ||= e.abstentionReason==='AI_SEARCH_TIMEOUT';
+      m.event.timeout ||= e.errorClass==='provider_timeout';
       try{env.advisorTelemetry?.record(e);}catch{/* diagnostics only */}
     }},
   };
   for(const [key,value]of Object.entries(overrides))Object.defineProperty(scoped,key,{value,writable:true,configurable:true,enumerable:true});
   Object.defineProperty(scoped,'advisorV2AiSearchClient',{get(){
-    if(shadowModeEnabled(env))return env.advisorV2AiSearchClient;
+    if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))return env.advisorV2AiSearchClient;
     const client=env.advisorV2AiSearchClient||productionAiSearchClient(env);
     return client&&{search:(name:string,r:Parameters<AiSearchClient['search']>[1])=>{m.count('search_calls');return client.search(name,r);}};
   }});
@@ -2085,7 +2108,7 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
     }};
   }});
   Object.defineProperty(scoped,'advisorV2EvidenceGenerator',{get(){
-    if(shadowModeEnabled(env))return env.advisorV2EvidenceGenerator;
+    if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))return env.advisorV2EvidenceGenerator;
     const generator=env.advisorV2EvidenceGenerator||createWorkersAiEvidenceGenerator(scoped);
     return {...generator,generate:async(r:Parameters<EvidenceGenerationProvider['generate']>[0])=>{
       // Observe the adapter's deadline, not only a late rejection from AI.run.
@@ -2093,7 +2116,7 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
       try{return await generator.generate(r);}catch(e){m.event.timeout ||= isV2Timeout(e);throw e;}
     }};
   }});
-  if(shadowModeEnabled(env))Object.defineProperty(scoped,'advisorCompletenessTelemetry',{value:env.advisorCompletenessTelemetry});
+  if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))Object.defineProperty(scoped,'advisorCompletenessTelemetry',{value:env.advisorCompletenessTelemetry});
   try {
     const result=await chat(request,scoped,body,userId,lifetime);
     m.event.grounding_result='documentSources' in result&&result.documentSources?.length?'VALIDATED_DOCUMENT':

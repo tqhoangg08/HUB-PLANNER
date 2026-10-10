@@ -85,11 +85,14 @@ export default {
           advisorCompletenessTelemetry:{pageRead:()=>{pageReads++;}}};
         if(probe){
           Object.assign(advisor,{AI_ADVISOR_V2_MODE:probe.AI_ADVISOR_V2_MODE,AI_ADVISOR_V2_CANARY_PERCENT:probe.AI_ADVISOR_V2_CANARY_PERCENT,
-            AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:probe.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,GEMINI_FILE_SEARCH_ENABLED:probe.GEMINI_FILE_SEARCH_ENABLED});
-          if(probe.diagnostic.faultInjected)advisor.fileSearchAnswer=injectedGeminiFailure;
+            AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:probe.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,GEMINI_FILE_SEARCH_ENABLED:probe.GEMINI_FILE_SEARCH_ENABLED,
+            AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:probe.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED});
+          if(probe.diagnostic.geminiFault)advisor.fileSearchAnswer=injectedGeminiFailure;
+          if(probe.diagnostic.cloudflareFault)advisor.advisorV2AiSearchClient={search:async()=>{searchCalls++;throw new DOMException('Staging controlled fault.','TimeoutError');}};
         }
         advisor.advisorReleaseTelemetry={record:e=>{releaseMetrics=e;}};
         advisor.AI={run:async(model,input)=>{generatorCalls++;const t=Date.now();try{
+          if(probe?.diagnostic.workersFault)throw new DOMException('Staging controlled fault.','TimeoutError');
           const result=await (env.AI as unknown as NonNullable<AiAdvisorEnv['AI']>).run(model,input);
           const metadata=result as {usage?:unknown;choices?:Array<{finish_reason?:unknown}>};
           workersUsage=readAdvisorProviderUsage(metadata.usage);

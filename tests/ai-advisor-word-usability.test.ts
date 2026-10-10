@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import ts from 'typescript';
 import {readRoutingProbeProfile,routingProbeConfig,injectedGeminiFailure} from '../cloudflare/worker/src/staging/advisor-routing-probe.ts';
 import {shouldUseAiAdvisorV2,type AiAdvisorV2RuntimeConfig} from '../cloudflare/worker/src/ai-advisor-v2-runtime.ts';
 import {GeminiFileSearchError} from '../cloudflare/worker/src/gemini-file-search.ts';
@@ -12,6 +13,31 @@ import {buildEvidenceRetrievalPlan,tuitionTupleQuery,splitPolicyEvidenceQuestion
 import {resolvePolicyArticleExcerpt,resolveTuitionTableRow,resolveAcademicMilestone} from '../cloudflare/worker/src/ai-advisor-source-sections.ts';
 import {retrieveAiSearchCompleteEvidence} from '../cloudflare/worker/src/ai-search-completeness.ts';
 import {refreshOperation,type AiDocumentsEnv} from '../cloudflare/worker/src/ai-documents.ts';
+import {useCloudflareDocumentPolicy,createDocumentPolicyDeadline} from '../cloudflare/worker/src/ai-advisor-document-policy.ts';
+
+test('document policy is default-off, literal server flag only and never broadens non-document routing',()=>{
+  for(const flag of [undefined,false,true,'false','TRUE','1'])assert.equal(useCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:flag},true),false);
+  assert.equal(useCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true'},true),true);
+  for(const q of ['Lịch học của mình','Tôi đã tích lũy bao nhiêu tín chỉ?','IT101 có mấy tín chỉ?','Chào bạn']){
+    assert.equal(useCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true'},routeAdvisorDocuments(q).documentSearch),false,q);
+  }
+  const config=ts.parseConfigFileTextToJson('cloudflare/wrangler.jsonc',readFileSync('cloudflare/wrangler.jsonc','utf8')).config;
+  assert.equal(config.vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,'false');
+});
+test('policy deadline shares one budget and cannot start work after a timeout, with no retry',async()=>{
+  const budget=createDocumentPolicyDeadline(15);let calls=0;
+  await assert.rejects(budget.run(()=>{calls++;return new Promise(()=>{});}),e=>e instanceof DOMException&&e.name==='TimeoutError');
+  await assert.rejects(budget.run(async()=>{calls++;return 'late';}));assert.equal(calls,1);
+  assert.equal(await createDocumentPolicyDeadline(1000).run(async()=>42),42);
+});
+test('new policy staging profiles change only request-local flags and preserve real bucket calculation',async()=>{
+  for(const p of ['policy-selected','policy-unselected','policy-completeness-off','policy-cloudflare-error','policy-workers-error','policy-gemini-error'] as const){
+    const c=await routingProbeConfig(p,'synthetic');
+    assert.equal(c.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,'true');
+    assert.equal(await shouldUseAiAdvisorV2({mode:'canary',canaryPercent:Number(c.AI_ADVISOR_V2_CANARY_PERCENT)},'synthetic'),c.diagnostic.expectedSelected);
+    assert.equal(readRoutingProbeProfile(req('?profile='+p),'admin'),p);
+  }
+});
 
 const origin='https://hub-advisor-pr88-word-staging.example.workers.dev';
 const req=(suffix='?profile=canary-selected',method='POST')=>new Request(`${origin}/api/staging/ai-advisor-routing${suffix}`,{method});
