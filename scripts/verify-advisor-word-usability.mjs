@@ -101,7 +101,7 @@ async function main(){mkdirSync(OUT,{recursive:true});
       try{const next=page.waitForResponse(r=>r.url()===`${s.origin}/api/private/v1/ai-advisor`&&r.request().method()==='POST',{timeout:90000});
         const input=page.getByPlaceholder('Nhập câu hỏi tại đây...');await input.fill(c.q);await input.press('Enter');const response=await next,payload=await response.json();
         const anchor=normalize(sanitizeAIReply(payload.reply||'')).replace(/[|*#_`>]/g,'').trim().slice(0,45);
-        if(anchor)await page.waitForFunction(value=>[...document.querySelectorAll('.ai-message-markdown')].some(el=>el.textContent.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim().includes(value)),anchor,{timeout:15000});
+        if(anchor)await page.waitForFunction(value=>[...document.querySelectorAll('.ai-message-markdown')].some(el=>el.textContent.normalize('NFC').toLowerCase().replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim().includes(value)),anchor,{timeout:15000});
         await page.locator('.ai-message-markdown').last().waitFor({timeout:15000});
         const visibleReply=await page.locator('.ai-message-markdown').last().innerText();
         writeFileSync(resolve(OUT,`case-${i+1}-private.json`),JSON.stringify({question:c.q,expectation:c,payload,visibleReply}));
