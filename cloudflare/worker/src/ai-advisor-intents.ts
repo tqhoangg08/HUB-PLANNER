@@ -4,6 +4,7 @@ export const normalizeAdvisorIntentText = (value: string) => value.normalize('NF
   .replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').replace(/\bd r l\b/g, 'drl').trim();
 
 export type ConductIntent = 'regulations' | 'personal_score' | 'event_eligibility' | 'portal_help' | 'event_listing';
+export const isAcademicRegistrationQuestion = (question:string) => /\bdang ky (?:mon(?: hoc)?|hoc phan|hoc ky)\b/.test(normalizeAdvisorIntentText(question));
 
 /** Official semester milestones/processes, not the student's timetable/course lookup. */
 export const isAcademicPolicyQuestion = (question: string) => {

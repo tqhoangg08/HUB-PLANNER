@@ -15,6 +15,7 @@ import {resolveConductTableAnswer} from './ai-advisor-table-evidence.ts';
 import {resolveConductExcerptAnswer} from './ai-advisor-policy-excerpts.ts';
 import {resolveAcademicMilestone,resolveTuitionTableRow,isTuitionContinuationEvidence,resolvePolicyArticleExcerpt} from './ai-advisor-source-sections.ts';
 import {splitPolicyEvidenceQuestions,tuitionTupleQuery} from './ai-advisor-retrieval-plan.ts';
+import {isAcademicPolicyQuestion,isAcademicRegistrationQuestion} from './ai-advisor-intents.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -229,6 +230,8 @@ export const executeAiAdvisorV2Document = async (
     // A requested fee tuple must be proved by a row, program, cohort and
     // units together. Do not substitute another cohort's plausible amount.
     if(tuitionTupleQuery(question))return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
+    // A timetable/plan publication date is NOT a registration opening date.
+    if(isAcademicPolicyQuestion(question)&&isAcademicRegistrationQuestion(question))return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
   }
   try {
     const generated = await dependencies.evidenceGenerator.generate({

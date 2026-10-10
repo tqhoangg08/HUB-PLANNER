@@ -1,4 +1,4 @@
-import {normalizeAdvisorIntentText,isAcademicPolicyQuestion} from './ai-advisor-intents.ts';
+import {normalizeAdvisorIntentText,isAcademicPolicyQuestion,isAcademicRegistrationQuestion} from './ai-advisor-intents.ts';
 import {articleQuery,tuitionTupleQuery,policyHeadingQuery} from './ai-advisor-retrieval-plan.ts';
 import {stripWordExtractionEnvelope} from '../../../shared/ai-source-presentation.ts';
 import type {AuthorizedEvidenceSource} from './ai-advisor-evidence.ts';
@@ -44,7 +44,7 @@ export const isTuitionContinuationEvidence = (question:string,source:PageEvidenc
 export const resolveAcademicMilestone = (question:string,evidence:readonly AuthorizedEvidenceSource[]) => {
   const q=normalizeAdvisorIntentText(question);if(!isAcademicPolicyQuestion(question))return null;
   const term=q.match(/\b(?:hoc ky|ky)\s+(\d+)\b/)?.[1];
-  const registration=/\bdang ky (?:mon(?: hoc)?|hoc phan)\b/.test(q);
+  const registration=isAcademicRegistrationQuestion(question);
   const candidates=evidence.flatMap(s=>{
     const lines=s.snippet.split('\n');
     if(s.locatorKind==='word_unit'){
@@ -55,12 +55,12 @@ export const resolveAcademicMilestone = (question:string,evidence:readonly Autho
         if(/^(?:[IVXLCDM]+|\d+\.\d+)\.\s+\S/u.test(line))heading=line;
         if(/thoi gian dang ky mon hoc/.test(n))header=line;
         const semester=term?new RegExp(`\\b(?:hoc ky\\s*|hk)${term}\\b`).test(n):/\bhoc ky he\b/.test(q)&&/\b(?:hoc ky he|hk he)\b/.test(n);
-        const literalDate=/\b(?:\d{1,2}\/)?\d{1,2}\/\d{4}\b/.test(line);
+        const literalDate=/\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(line);
         const literalRegistration=registration&&semester&&literalDate
           &&(/dang ky hoc phan/.test(n)||Boolean(header)&&/^\|/.test(line)&&/^hoc ky\b/.test(n));
         const literalHoliday=/\bnghi tet\b/.test(q)&&/nghi tet/.test(n)
           &&(line.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g)||[]).length===2;
-        const literalTerm=semester&&literalDate&&/^(?:hoc ky|hk)\b/.test(n)&&/\b(?:bat dau|ket thuc)\b/.test(n);
+        const literalTerm=semester&&literalDate&&(!registration||/\bbat dau\b/.test(q))&&/^(?:hoc ky|hk)\b/.test(n)&&/\b(?:bat dau|ket thuc)\b/.test(n);
         if((literalRegistration||literalHoliday||literalTerm)&&!n.includes('khong doc ro'))found.push({text:line,sourceId:s.sourceId,
           excerpt:[/^\|/.test(line)?table:heading,literalRegistration?header:'',line].filter(Boolean).join('\n')});
       }

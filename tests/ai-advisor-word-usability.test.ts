@@ -9,7 +9,7 @@ import {sourceSupportedReply,isRelevantAdvisorEvidence,hasUnsupportedAnswerDetai
 import {extractOfficialDocumentLocators} from '../cloudflare/worker/src/gemini-file-search.ts';
 import {routeAdvisorDocuments,classifyAdvisorIntents} from '../cloudflare/worker/src/ai-advisor.ts';
 import {buildEvidenceRetrievalPlan,tuitionTupleQuery,splitPolicyEvidenceQuestions} from '../cloudflare/worker/src/ai-advisor-retrieval-plan.ts';
-import {resolvePolicyArticleExcerpt,resolveTuitionTableRow} from '../cloudflare/worker/src/ai-advisor-source-sections.ts';
+import {resolvePolicyArticleExcerpt,resolveTuitionTableRow,resolveAcademicMilestone} from '../cloudflare/worker/src/ai-advisor-source-sections.ts';
 import {retrieveAiSearchCompleteEvidence} from '../cloudflare/worker/src/ai-search-completeness.ts';
 import {refreshOperation,type AiDocumentsEnv} from '../cloudflare/worker/src/ai-documents.ts';
 
@@ -84,6 +84,11 @@ test('classification evaluates retrieved thresholds, not expected fixed labels; 
 test('following chapter is not attached to the preceding cited article',()=>{
   assert.deepEqual(extractOfficialDocumentLocators('Điều 15. Quyền khiếu nại\nNội dung.\nChương V\nTổ chức'),['Điều 15']);
   assert.deepEqual(extractOfficialDocumentLocators('Chương IV\nĐiều 15. Quyền khiếu nại\nNội dung.'),['Chương IV, Điều 15']);
+});
+test('registration day cannot be substituted by semester start or plan publication month',()=>{
+  const source=evidence('I. Kế hoạch tổ chức học tập\nHọc kỳ 2 bắt đầu từ 15/02/2027 đến 18/07/2027.\n1.2. Lịch học HK2 dự kiến ban hành tháng 11/2026.');
+  assert.equal(resolveAcademicMilestone('Kế hoạch chương trình tiếng Anh bán phần cho biết chính xác ngày nào trong tháng 11 mở đăng ký học kỳ 2?',[source]),null);
+  assert.match(resolveAcademicMilestone('Kế hoạch tổ chức học tập kỳ 2 bắt đầu và kết thúc ngày nào?',[source])!.reply,/15\/02\/2027/);
 });
 test('fee continuation requires adjacent authorized Word units and cites the actual header/row sources',()=>{
   const header='Bảng 2 (thứ tự bảng trong DOCX)\n| TT | HỆ/CHƯƠNG TRÌNH | Học phí theo năm | Học phí theo tín chỉ |\n| A | Đại học chính quy chuẩn | | |';
