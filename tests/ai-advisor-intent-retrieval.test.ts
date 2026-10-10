@@ -337,6 +337,20 @@ test('Cloudflare-first policy serves identical authorized completeness answers i
   }
 });
 
+test('Cloudflare-first counts the real Workers binding call in shadow mode instead of treating it as background work',async()=>{
+  const f=policyFixture();let calls=0,completion:Record<string,unknown>|undefined;
+  try{
+    const req=v2RequestFor('Theo các quy chế đang có, sinh viên tham gia hoạt động tình nguyện trên sao Hỏa được cộng chính xác mấy điểm rèn luyện?');
+    const result=await handleAiAdvisorImplementation(req,new URL(req.url),{...env(f.DB),AI_ADVISOR_V2_MODE:'shadow',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{search:async()=>({chunks:[policyChunk('Điểm rèn luyện được đánh giá bằng thang điểm 100.')]})},
+      AI:{run:async()=>{calls++;return{choices:[{message:{tool_calls:[{type:'function',function:{name:'submit_grounded_answer',arguments:JSON.stringify({supported:false,answer:'',source_ids:[],support_spans:[]})}}]}}]};}},
+      advisorReleaseTelemetry:{record:e=>{completion=e;}},fileSearchAnswer:async()=>{throw Error('must not call Gemini');},
+    }) as {documentSources:unknown[]};
+    assert.equal(calls,1);assert.equal(completion?.workers_ai_calls,1);assert.equal(completion?.gemini_calls,0);
+    assert.equal(completion?.document_provider_policy,'cloudflare_first');assert.equal(result.documentSources.length,0);
+  }finally{f.sql.close();}
+});
+
 test('Cloudflare-first search failures safely abstain without general or Gemini fallback, preserving quota and private boundaries',async()=>{
   for(const scenario of ['timeout','survival','private','stale','deleted'] as const){
     const f=policyFixture();let searches=0,reads=0,generation=0;

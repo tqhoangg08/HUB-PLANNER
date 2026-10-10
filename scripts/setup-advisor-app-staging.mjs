@@ -73,8 +73,17 @@ async function main(){
       writeFileSync(contextConfig,JSON.stringify({name:NAME,account_id:account,d1_databases:[{binding:'DB',database_name:NAME,database_id:state.db}]}));
       await cli(['d1','execute',NAME,'--remote','--config',contextConfig,'--file',sqlPath,'--yes']);
     }else if(!['catalogue_visibility','retired_at'].every(n=>columns.results.some(c=>c.name===n)))throw Error('PARTIAL_CONTEXT_SCHEMA_STOP');
+    // Personal schedule controls exposed a missing staging-only table (500
+    // with policy OFF as well as ON). Reuse the existing EMPTY schema only.
+    const [schedule]=await api(`accounts/${account}/d1/database/${state.db}/query`,'POST',{sql:'PRAGMA table_info(user_schedules)'});
+    if(!schedule.results.length){
+      const contextConfig=resolve(DIR,'context-wrangler.json');
+      writeFileSync(contextConfig,JSON.stringify({name:NAME,account_id:account,d1_databases:[{binding:'DB',database_name:NAME,database_id:state.db}]}));
+      await cli(['d1','execute',NAME,'--remote','--config',contextConfig,'--file',resolve('cloudflare/migrations/0011_create_user_schedules.sql'),'--yes']);
+    }else if(!['id','user_id','course_id','semester','created_at'].every(n=>schedule.results.some(c=>c.name===n)))throw Error('PARTIAL_CONTEXT_SCHEMA_STOP');
     const [count]=await api(`accounts/${account}/d1/database/${state.db}/query`,'POST',{sql:'SELECT COUNT(*) AS rows FROM course_schedules'});
-    emit({phase:'staging_context_schema',result:'PASS',catalogueRows:count.results[0].rows,productionChanged:false});if(action==='prepare-context')return;
+    const [schedules]=await api(`accounts/${account}/d1/database/${state.db}/query`,'POST',{sql:'SELECT COUNT(*) AS rows FROM user_schedules'});
+    emit({phase:'staging_context_schema',result:'PASS',catalogueRows:count.results[0].rows,scheduleRows:schedules.results[0].rows,productionChanged:false});if(action==='prepare-context')return;
   }
   const config={name:NAME,main:resolve('cloudflare/worker/src/staging/advisor-app.ts'),account_id:account,compatibility_date:'2026-10-10',compatibility_flags:['nodejs_compat'],workers_dev:true,routes:[],
     assets:{directory:resolve('.cache/advisor-staging-assets'),binding:'ASSETS',not_found_handling:'single-page-application',run_worker_first:['/api/*','/health']},

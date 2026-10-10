@@ -43,9 +43,11 @@ test('additional-topic staging has the existing empty course schema before conte
   assert.match(setup,/prepare-context/);assert.match(setup,/live.name!==NAME/);
   const db=new DatabaseSync(':memory:');
   try{
-    for(const name of ['0001_create_school_announcements','0002_create_course_schedules','0003_reduce_read_amplification','0018_add_course_authority_foundation'])db.exec(readFileSync(`cloudflare/migrations/${name}.sql`,'utf8'));
+    for(const name of ['0001_create_school_announcements','0002_create_course_schedules','0003_reduce_read_amplification','0018_add_course_authority_foundation','0011_create_user_schedules'])db.exec(readFileSync(`cloudflare/migrations/${name}.sql`,'utf8'));
     assert.deepEqual(db.prepare("SELECT id FROM course_schedules WHERE catalogue_visibility='published' AND retired_at IS NULL AND subject_name_search LIKE ? ORDER BY source_position LIMIT 8").all('%hoc%'),[]);
     assert.equal(db.prepare('SELECT COUNT(*) AS rows FROM course_schedules').get().rows,0);
+    assert.deepEqual(db.prepare('SELECT us.semester,cs.subject_name FROM user_schedules us LEFT JOIN course_schedules cs ON cs.id=us.course_id WHERE us.user_id=? ORDER BY us.created_at DESC LIMIT 24').all('synthetic'),[]);
+    assert.match(setup,/0011_create_user_schedules.sql/);
   }finally{db.close();}
 });
 test('Public live-state preflight rejects canary drift and missing 0054 without writing anything',()=>{

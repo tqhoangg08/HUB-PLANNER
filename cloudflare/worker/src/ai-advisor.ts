@@ -2102,7 +2102,7 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
     return client&&{search:(name:string,r:Parameters<AiSearchClient['search']>[1])=>{m.count('search_calls');return client.search(name,r);}};
   }});
   Object.defineProperty(scoped,'AI',{get(){
-    if(shadowModeEnabled(env))return env.AI;
+    if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))return env.AI;
     return env.AI&&{run:async(model:string,input:Parameters<NonNullable<AiAdvisorEnv['AI']>['run']>[1])=>{
       m.count('workers_ai_calls');try{const r=await env.AI!.run(model,input);m.usage(readAdvisorProviderUsage('usage' in r?r.usage:null));return r;}catch(e){m.event.timeout ||= isV2Timeout(e);throw e;}
     }};
