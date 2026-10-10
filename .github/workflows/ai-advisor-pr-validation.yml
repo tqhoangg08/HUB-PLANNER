@@ -35,6 +35,8 @@ jobs:
         run: npm run cf:typecheck
       - name: Build frontend without deploying
         run: npm run build
+      - name: Build isolated OCR review UI without deploying
+        run: npx vite build --config staging/advisor/vite.config.mjs
       - name: Full offline/local suite
         run: |
           npm test

@@ -62,7 +62,7 @@ const aiSearchStatusLabels:Record<string,string> = {
   completed:'Đã xác nhận index',failed:'Xử lý văn bản lỗi',
 };
 
-export const AdminAIDocuments: React.FC = () => {
+export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}> = ({onReviewOcr}) => {
   const [items, setItems] = useState<AIDocument[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -383,6 +383,7 @@ export const AdminAIDocuments: React.FC = () => {
                     )}
                   </span>
                   <div className="flex">
+                    {onReviewOcr && item.original_file_name.toLowerCase().endsWith('.pdf') && item.ai_search_status === 'completed' && <button onClick={()=>onReviewOcr(item.id)} className="p-2 text-blue-800" aria-label={`Hiệu đính OCR ${item.title}`}>Hiệu đính OCR</button>}
                     <button
                       onClick={() => openPolicyEditor(item)}
                       title="Chính sách xem công khai"

@@ -9,7 +9,7 @@ const NAME='hub-advisor-pr88-app-staging',DIR=resolve('.cache/advisor-app-stagin
 const emit=v=>console.log(JSON.stringify(v));
 async function cli(args,stdin){return new Promise((res,rej)=>{const c=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js',...args],{stdio:['pipe','pipe','pipe'],env:{...process.env,XDG_CONFIG_HOME:resolve('.cache/cloudflare/xdg')}});let output='';c.stdout.on('data',b=>{output+=b});c.stderr.resume();c.on('close',code=>code===0?res(output):rej(Error('STAGING_WRANGLER_FAILED')));c.on('error',()=>rej(Error('STAGING_WRANGLER_FAILED')));c.stdin.end(stdin||'');});}
 async function main(){
-  const action=process.argv.includes('--create')?'create':process.argv.includes('--finish-create')?'finish-create':process.argv.includes('--prepare-context')?'prepare-context':process.argv.includes('--deploy')?'deploy':null;if(!action)throw Error('ACTION_REQUIRED');
+  const action=process.argv.includes('--create')?'create':process.argv.includes('--finish-create')?'finish-create':process.argv.includes('--prepare-context')?'prepare-context':process.argv.includes('--prepare-review')?'prepare-review':process.argv.includes('--deploy')?'deploy':null;if(!action)throw Error('ACTION_REQUIRED');
   mkdirSync(DIR,{recursive:true});
   const token=readFileSync('.cache/cloudflare/xdg/.wrangler/config/default.toml','utf8').match(/^oauth_token\s*=\s*"([^"]+)"/m)?.[1];
   if(!token)throw Error('AUTH_UNAVAILABLE');
@@ -48,6 +48,15 @@ async function main(){
     emit({phase:'staging_resources',d1Created:true,r2Created:true,privateIndexCreated:true,existingBetterAuthReused:true,productionChanged:false});
   }
   if(state.name!==NAME||state.account!==account||!state.origin||state.db==='88d702e1-60d3-490a-8514-38ef881cf133')throw Error('ISOLATION_FAILED');
+  if(action==='prepare-review'){
+    const live=await api(`accounts/${account}/d1/database/${state.db}`);if(live.name!==NAME)throw Error('ISOLATION_FAILED');
+    const reviewConfig=resolve(DIR,'review-wrangler.json');
+    writeFileSync(reviewConfig,JSON.stringify({name:NAME,account_id:account,d1_databases:[{binding:'DB',database_name:NAME,database_id:state.db}]}));
+    await cli(['d1','execute',NAME,'--remote','--config',reviewConfig,'--file',resolve('staging/advisor/migrations/0001_ocr_review.sql'),'--yes']);
+    const [tables]=await api(`accounts/${account}/d1/database/${state.db}/query`,'POST',{sql:"SELECT COUNT(*) AS tables FROM sqlite_master WHERE type='table' AND name IN ('staging_ocr_reviews','staging_ocr_review_history')"});
+    if(tables.results[0].tables!==2)throw Error('ISOLATION_FAILED');
+    emit({phase:'staging_review_schema',tables:2,productionChanged:false});return;
+  }
   if(action==='prepare-context'||action==='create'){
     // Proven missing staging schema: ordinary "môn học" policy questions also
     // read the catalogue. Add EMPTY existing schema, never copy production data.
@@ -68,7 +77,7 @@ async function main(){
   }
   const config={name:NAME,main:resolve('cloudflare/worker/src/staging/advisor-app.ts'),account_id:account,compatibility_date:'2026-10-10',compatibility_flags:['nodejs_compat'],workers_dev:true,routes:[],
     assets:{directory:resolve('.cache/advisor-staging-assets'),binding:'ASSETS',not_found_handling:'single-page-application',run_worker_first:['/api/*','/health']},
-    vars:{STAGING_ORIGIN:state.origin,STAGING_SYNTHETIC_EMAIL:state.email,STAGING_SOURCE_COMMIT:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},
+    vars:{STAGING_ORIGIN:state.origin,STAGING_SYNTHETIC_EMAIL:state.email,STAGING_OCR_PROMOTION_ENABLED:'false',STAGING_SOURCE_COMMIT:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()},
     d1_databases:[{binding:'DB',database_name:NAME,database_id:state.db},{binding:'AUTH_DB',database_name:NAME,database_id:state.db}],
     r2_buckets:[{binding:'AI_DOCUMENTS_BUCKET',bucket_name:NAME}],ai:{binding:'AI'},ai_search:[{binding:'STAGING_AI_SEARCH',instance_name:NAME}],
     observability:{enabled:false},triggers:{crons:[]}};

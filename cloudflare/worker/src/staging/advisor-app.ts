@@ -7,12 +7,14 @@ import {buildDerivedPageObjectKey,buildServerDerivedMetadata} from '../ai-docume
 import {handlePrivatePolicyConsent} from '../private-policy-consent.ts';
 import {readAdvisorProviderUsage,type AdvisorReleaseEvent,type AdvisorProviderUsage} from '../ai-advisor-release-telemetry.ts';
 import {rehearseStagingReprocess} from './advisor-reprocess.ts';
+import {handleStagingOcrReview} from './advisor-ocr-review.ts';
 import {createWorkersAiEvidenceGenerator,type GroundingRejectionSubtype} from '../ai-advisor-workers-ai.ts';
 type StageEnv = {
   DB:D1Database; AUTH_DB:D1Database; AI_DOCUMENTS_BUCKET:R2Bucket; ASSETS:Fetcher; AI:Ai;
   STAGING_AI_SEARCH:AiSearchInstance; STAGING_ORIGIN:string; STAGING_SYNTHETIC_EMAIL:string;
   AUTH_BETTER_AUTH_SECRET:string; GEMINI_FILE_SEARCH_API_KEY?:string; GEMINI_FILE_SEARCH_STORE?:string;
   STAGING_SOURCE_COMMIT?:string;
+  STAGING_OCR_PROMOTION_ENABLED?:string;
 };
 const INSTANCE='hub-advisor-pr88-app-staging';
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -38,6 +40,7 @@ export default {
         return auth.handler(request);
       }
       if(url.pathname==='/api/private/v1/me')return json(await requireBetterAuthSession(request,shared));
+      if(url.pathname==='/api/staging/ocr-review')return handleStagingOcrReview(request,{...shared,DB:env.DB,AI_DOCUMENTS_BUCKET:env.AI_DOCUMENTS_BUCKET,STAGING_ORIGIN:env.STAGING_ORIGIN,STAGING_OCR_PROMOTION_ENABLED:env.STAGING_OCR_PROMOTION_ENABLED},instance);
       if(url.pathname==='/api/staging/reprocess'&&request.method==='POST')return rehearseStagingReprocess(request,{...shared,DB:env.DB,AI_DOCUMENTS_BUCKET:env.AI_DOCUMENTS_BUCKET},instance);
       if(url.pathname==='/api/user/v1/policy-consents')return json(await handlePrivatePolicyConsent(request,shared));
       if(url.pathname==='/api/admin/v1/ai-documents'){
