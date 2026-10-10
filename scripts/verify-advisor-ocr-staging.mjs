@@ -144,7 +144,7 @@ async function main(){
     // snippets, cache or real-user chat history. One independent case each.
     const result=await executeAiAdvisorV2Document(question,candidates,{aiSearchClient:scopedClient,
       aiSearchInstances:{text:INSTANCE,ocr:INSTANCE},evidenceGenerator:generator,
-      ...(action==='--completeness-benchmark'?{stagingCompletenessSearch:async(request)=>{searchCalls++;const r=await client.search(INSTANCE,request);retrieved=r.chunks||[];return r;}}:{}),
+      ...(action==='--completeness-benchmark'?{completenessSearch:async(request)=>{searchCalls++;const r=await client.search(INSTANCE,request);retrieved=r.chunks||[];return r;}}:{}),
       quota:{mode:'NORMAL',allowGeneration:true,allowRetrieval:true}});
     const answer=result.kind==='ANSWER'?result.answer.reply:'';
     const evidence=result.kind==='ANSWER'?result.answer.evidence:[];

@@ -61,17 +61,8 @@ export default {
         const advisor:AiAdvisorEnv={...shared,AI:env.AI as unknown as AiAdvisorEnv['AI'],AI_ADVISOR_V2_MODE:'on',AI_ADVISOR_V2_CANARY_PERCENT:'0',
           advisorTelemetry:{record:e=>{resultClass=e.abstentionReason||(e.abstained?'SAFE_ABSTENTION':e.zeroAiUsed?'ZERO_AI':'SUPPORTED_VALID_CITATIONS');}},
           advisorV2AiSearchClient:{search:async(_name,r)=>{searchCalls++;const t=Date.now();try{return await instance.search(r as AiSearchSearchRequest);}finally{retrievalDurationMs+=Date.now()-t;}}},
-          advisorV2AiSearchInstances:{text:INSTANCE,ocr:INSTANCE},advisorV2StagingCompleteness:true};
-        advisor.advisorV2StagingPageContent=async source=>{
-          if(!Number.isInteger(source.pageNumber)||Number(source.pageNumber)<1||Number(source.pageNumber)>40||pageReads>=3)return null;
-          const row=await env.DB.prepare("SELECT ai_search_revision FROM ai_documents WHERE id=? AND visibility='public' AND deleted_at IS NULL AND ai_search_status='completed'").bind(source.documentId).first<{ai_search_revision:string}>();
-          if(!row?.ai_search_revision)return null;
-          const key=buildDerivedPageObjectKey(source.documentId,row.ai_search_revision,source.pageNumber!);
-          if(source.itemKey!==key)return null;
-          pageReads++;const object=await env.AI_DOCUMENTS_BUCKET.get(key);
-          if(!object||object.size>32000)return null;
-          return object.text();
-        };
+          advisorV2AiSearchInstances:{text:INSTANCE,ocr:INSTANCE},AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
+          advisorCompletenessTelemetry:{pageRead:()=>{pageReads++;}}};
         advisor.AI={run:async(model,input)=>{generatorCalls++;const t=Date.now();try{return await (env.AI as unknown as NonNullable<AiAdvisorEnv['AI']>).run(model,input);}finally{generatorDurationMs+=Date.now()-t;}}};
         const result=await handleAiAdvisor(request,url,advisor,ctx);
         return json({...result,stagingMetrics:{searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass}});

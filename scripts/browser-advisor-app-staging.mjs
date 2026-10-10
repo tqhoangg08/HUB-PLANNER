@@ -2,12 +2,14 @@
 import {chromium} from 'playwright-core';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {CONDUCT_ACCEPTANCE_QUESTIONS} from './verify-advisor-conduct-providers.mjs';
 const emit=v=>console.log(JSON.stringify(v));
 async function main(){
   const state=JSON.parse(readFileSync('.cache/advisor-app-staging/private-state.json','utf8'));
   if(state.name!=='hub-advisor-pr88-app-staging'||!/^https:\/\/hub-advisor-pr88-app-staging\.[a-z0-9-]+\.workers\.dev$/.test(state.origin))throw Error('ISOLATION_FAILED');
-  const dir=resolve('.cache/advisor-app-staging/browser-results');mkdirSync(dir,{recursive:true});
+    const dir=resolve('.cache/advisor-app-staging/browser-results');mkdirSync(dir,{recursive:true});
+    const sourceCommit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
   const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
   try{
     const context=await browser.newContext({viewport:{width:1365,height:900}}),page=await context.newPage();
@@ -56,7 +58,17 @@ async function main(){
       const marker=content.replace(/<!--[\s\S]*?-->/g,'').replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim().slice(0,50);
       const rendered=marker?await page.locator('body').innerText().then(text=>text.replace(/\s+/g,' ').includes(marker)):false;
       const citations=payload.documentSources||[];
-      emit({phase:'browser_acceptance',case:index+1,httpStatus:r.status(),durationMs,visibleResponse:rendered,citations:citations.length,pages:citations.map(s=>s.pageNumbers||[s.pageNumber||null]),unavailable:payload.documentSearchUnavailable===true,pageErrors:errors.length,metrics:payload.stagingMetrics});
+      const pages=citations.flatMap(s=>s.pageNumbers||[s.pageNumber||null]);
+      const normalized=content.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase();
+      const pointMaxima=[...content.matchAll(/tối đa\s+(\d+)\s+điểm/gu)].map(m=>Number(m[1]));
+      let acceptance='NOT_VERIFIED';
+      if([0,2,3].includes(index))acceptance=JSON.stringify(pointMaxima)===JSON.stringify([25,20,20,15,20])&&pages.includes(2)&&pages.includes(3)?'PASS_COMPLETE_TABLE':'FAIL_TABLE';
+      if(index===4)acceptance=/mini game.*khong duoc tinh diem ren luyen/s.test(normalized)&&pages.includes(14)?'PASS_SOURCED_EXCLUSION':'FAIL_EXCLUSION';
+      if(index===5)acceptance=['hoat dong ngoai truong','minh chung','xac nhan','chu ky','dau tron'].every(s=>normalized.includes(s))&&pages.includes(14)?'PASS_SOURCED_REQUIREMENTS':'FAIL_REQUIREMENTS';
+      if(index===6)acceptance=/khong.*(?:truy cap|co du lieu)|chua.*(?:du lieu|xac minh)/s.test(normalized)&&!citations.length?'PASS_PERSONAL_UNAVAILABLE':'FAIL_PERSONAL_SAFETY';
+      // Identity/currentness require independently verified legal metadata.
+      // No script promotes these to PASS merely because a response/citation exists.
+      emit({phase:'browser_acceptance',sourceCommit,case:index+1,httpStatus:r.status(),durationMs,visibleResponse:rendered,citations:citations.length,pages:citations.map(s=>s.pageNumbers||[s.pageNumber||null]),unavailable:payload.documentSearchUnavailable===true,pageErrors:errors.length,acceptance,metrics:payload.stagingMetrics});
       await page.waitForTimeout(700);
       await page.screenshot({path:resolve(dir,`case-${index+1}-desktop.png`)});
     }

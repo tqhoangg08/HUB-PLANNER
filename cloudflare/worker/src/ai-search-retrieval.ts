@@ -26,7 +26,7 @@ export type AiSearchSearchRequest = {
   query: string;
   ai_search_options: {
     retrieval: {
-      retrieval_type: 'vector';
+      retrieval_type: 'vector'|'hybrid';
       match_threshold: number;
       max_num_results: number;
       filters: AiSearchMetadataFilter;
@@ -296,7 +296,7 @@ export class CloudflareAiSearchRetrievalProvider
 export const retrieveAiSearchWithCache = async (
   cache: RetrievalCache<AiSearchRetrievalResult> | undefined,
   cacheKey: string | undefined,
-  provider: CloudflareAiSearchRetrievalProvider,
+  provider: Pick<CloudflareAiSearchRetrievalProvider,'retrieve'>,
   request: AiSearchRetrievalRequest,
   ttlSeconds = 21_600,
 ) => {

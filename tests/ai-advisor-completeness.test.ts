@@ -5,6 +5,12 @@ import {retrieveCompletenessStaging} from '../cloudflare/worker/src/ai-search-co
 import {conductTableEvidencePriority,isConductTableQuestion,presentConductTableEvidence,resolveConductTableAnswer} from '../cloudflare/worker/src/ai-advisor-table-evidence.ts';
 import {createWorkersAiEvidenceGenerator,WORKERS_AI_EVIDENCE_TOOL} from '../cloudflare/worker/src/ai-advisor-workers-ai.ts';
 import {buildDocumentReprocessPlan} from '../shared/ai-document-reprocess.ts';
+import {conductExcerptTopic,resolveConductExcerptAnswer} from '../cloudflare/worker/src/ai-advisor-policy-excerpts.ts';
+import {buildCompletenessDependencies,completenessEnabled,type CompletenessEnv} from '../cloudflare/worker/src/ai-advisor-completeness-config.ts';
+import {executeAiAdvisorV2Document} from '../cloudflare/worker/src/ai-advisor-v2-runtime.ts';
+import {evaluateAdvisorQuota} from '../cloudflare/worker/src/ai-advisor-quota.ts';
+import {MemoryAdvisorCache} from '../cloudflare/worker/src/ai-advisor-cache.ts';
+import {buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-ingestion.ts';
 const DOC='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',PRIVATE='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const table='| STT | Nội dung đánh giá | Tiêu chí đánh giá | Khung điểm |\n| 1 | Mục đầu tiên | Văn bản gốc | 0—25 điểm |';
 const question='Phiếu ĐRL có những nhóm tiêu chí nào?';
@@ -34,7 +40,7 @@ test('bounded staging reranker recovers later table fragment without page-number
 });
 test('staging completeness makes zero calls with no authorization, one non-reranked call for ordinary questions',async()=>{
   let calls=0;await retrieveCompletenessStaging(question,[],async()=>{calls++;return{chunks:[]};});assert.equal(calls,0);
-  await retrieveCompletenessStaging('Mini game trực tuyến có tính điểm rèn luyện không?',[{id:DOC}],async r=>{calls++;assert.equal(r.ai_search_options.retrieval.max_num_results,3);assert.equal(r.ai_search_options.reranking,undefined);return{chunks:[]};});assert.equal(calls,1);
+  await retrieveCompletenessStaging('Học phí là gì?',[{id:DOC}],async r=>{calls++;assert.equal(r.ai_search_options.retrieval.max_num_results,3);assert.equal(r.ai_search_options.reranking,undefined);return{chunks:[]};});assert.equal(calls,1);
 });
 
 test('fragmented table hydrates only retrieved authorized pages, deduplicates page reads and respects size bounds',async()=>{
@@ -88,4 +94,92 @@ test('reprocess plan retains source and old revision, requires conditional promo
   assert.equal(plan[0].expectedSourceHash,row.sourceHash);assert.equal(plan[0].rollbackRevision,'old');assert.equal(plan[0].promotion,'COMPARE_AND_SWAP_AFTER_ALL_PAGES_READY');
   assert.throws(()=>buildDocumentReprocessPlan([row,row]),/duplicate/);
   assert.throws(()=>buildDocumentReprocessPlan([{...row,sourceHash:'bad'}]),/identity/);
+});
+
+const miniQuestion='Tham gia mini game trực tuyến có tính điểm rèn luyện không?';
+const proofQuestion='Minh chứng hoạt động ngoài trường cần đáp ứng yêu cầu gì?';
+const miniSource='SV tham gia các trò chơi trực tuyến (mini game) không được tính điểm rèn luyện.';
+const proofSource='Đối với hoạt động ngoài trường: minh chứng phải có xác nhận của cơ quan; văn bản xác nhận phải có chữ ký và đóng dấu tròn theo quy định.';
+const source=(snippet:string)=>({sourceId:'S1',documentId:DOC,revision:'v1',pageNumber:14,snippet});
+
+test('page14 mini game and outside-school proof render exact source, no invented verdict, no legal currency',()=>{
+  for(const [q,text]of [[miniQuestion,miniSource],[proofQuestion,proofSource]]){
+    const r=resolveConductExcerptAnswer(q,[source(text)])!;
+    assert.ok(r);assert.ok(r.reply.includes(text));assert.deepEqual(r.sourceIds,['S1']);
+    assert.match(r.reply,/chưa đủ bằng chứng/);
+  }
+  assert.equal(conductExcerptTopic('Lịch học tuần này'),null);
+  assert.equal(resolveConductExcerptAnswer(miniQuestion,[]),null);
+  assert.equal(resolveConductExcerptAnswer(miniQuestion,[source('SV tham gia hoạt động được cộng điểm.')]),null);
+  assert.equal(resolveConductExcerptAnswer(proofQuestion,[source(proofSource.replace(' và đóng dấu tròn',''))]),null);
+  assert.equal(resolveConductExcerptAnswer(proofQuestion,[source(proofSource.replace('chữ ký','[không đọc rõ]'))]),null);
+  assert.equal(resolveConductExcerptAnswer(proofQuestion,[source(proofSource.slice(0,-1))]),null);
+  assert.equal(resolveConductExcerptAnswer(miniQuestion,[source(miniSource),{...source(miniSource.replace('không được','được')),sourceId:'S2'}]),null);
+});
+
+test('hybrid lexical recall uses only query topic; no reranker that dropped decisive source, no facts injected',async()=>{
+  for(const q of[miniQuestion,proofQuestion]){
+    let calls=0,reads=0;
+    const r=await retrieveCompletenessStaging(q,[{id:DOC,revision:'v1',visibility:'public'}],async req=>{
+      calls++;assert.equal(req.ai_search_options.retrieval.retrieval_type,'hybrid');assert.equal(req.ai_search_options.retrieval.max_num_results,10);
+      assert.equal(req.ai_search_options.reranking,undefined);assert.equal(req.ai_search_options.retrieval.match_threshold,0.4);
+      assert.doesNotMatch(req.query,/không được|chữ ký|dấu tròn/);
+      return{chunks:[chunk('4','Quy chế chung'),chunk('9','Minh chứng chung'),chunk('14',q===miniQuestion?miniSource:proofSource),chunk('14','fragment'),chunk('14',miniSource,PRIVATE)]};
+    },async s=>{reads++;return s.pageNumber===14?q===miniQuestion?miniSource:proofSource:null;});
+    assert.equal(calls,1);assert.ok(reads<=3);assert.equal(r.sources[0].pageNumber,14);assert.ok(r.sources.every(s=>s.documentId===DOC));
+  }
+});
+
+test('Public Worker completeness flag defaults off and client-like truthy values cannot enable it',()=>{
+  for(const value of[undefined,false,true,1,'on','TRUE','1'])assert.equal(completenessEnabled({AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:value}),false);
+  assert.equal(completenessEnabled({AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true'}),true);
+  assert.deepEqual(buildCompletenessDependencies({}, {search:async()=>({})},{text:'text',ocr:'ocr'}),{});
+  assert.match(readFileSync('cloudflare/wrangler.jsonc','utf8'),/"AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED": "false"/);
+  assert.doesNotMatch(readFileSync('cloudflare/worker/src/ai-advisor.ts','utf8'),/advisorV2StagingCompleteness|advisorV2StagingPageContent/);
+});
+
+test('R2 hydration validates D1 public current revision/deletion/readiness and canonical key, at most3 reads',async()=>{
+  let reads=0,revision='v1',eligible=true;
+  const env:CompletenessEnv={AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
+    DB:{prepare:(sql:string)=>{assert.match(sql,/visibility='public'.*deleted_at IS NULL.*ai_search_status='completed'/);return{bind:()=>({first:async()=>eligible?{ai_search_revision:revision}:null})};}} as never,
+    AI_DOCUMENTS_BUCKET:{get:async()=>{reads++;return{size:100,body:new ReadableStream(),text:async()=>miniSource};}} as never};
+  const deps=buildCompletenessDependencies(env,{search:async()=>({})},{text:'text',ocr:'ocr'});
+  const s={documentId:DOC,pageNumber:14,itemKey:buildDerivedPageObjectKey(DOC,'v1',14)};
+  assert.equal(await deps.pageContent!({...s,itemKey:'private/arbitrary.md'}),null);assert.equal(reads,0);
+  eligible=false;assert.equal(await deps.pageContent!(s),null);eligible=true;
+  revision='v2';assert.equal(await deps.pageContent!(s),null);revision='v1';
+  for(let i=0;i<4;i++)await deps.pageContent!(s);assert.equal(reads,3);
+});
+
+test('hydration rejects oversized objects/text, pre0054 schema and noncanonical pages without writes',async()=>{
+  const env:CompletenessEnv={AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',DB:{prepare:()=>({bind:()=>({first:async()=>({ai_search_revision:'v1'})})})} as never,
+    AI_DOCUMENTS_BUCKET:{get:async()=>({size:32001,body:new ReadableStream(),text:async()=>{throw Error('must not buffer');}})} as never};
+  const get=()=>buildCompletenessDependencies(env,{search:async()=>({})},{text:'text',ocr:'ocr'}).pageContent!;
+  const s={documentId:DOC,pageNumber:14,itemKey:buildDerivedPageObjectKey(DOC,'v1',14)};
+  assert.equal(await get()(s),null);
+  env.AI_DOCUMENTS_BUCKET={get:async()=>({size:100,body:new ReadableStream(),text:async()=> 'x'.repeat(8001)})} as never;
+  assert.equal(await get()(s),null);assert.equal(await get()({...s,pageNumber:41}),null);
+  env.DB={prepare:()=>{throw Error('no such column');}} as never;assert.equal(await get()(s),null);
+});
+
+test('complete evidence answer cache avoids both AI and R2; flag and revision changes invalidate caches; quota retains precedence',async()=>{
+  let searches=0,generations=0,reads=0;
+  const candidate={id:DOC,revision:'v1',visibility:'public',active:true};
+  const deps={aiSearchClient:{search:async()=>({})},aiSearchInstances:{text:'text',ocr:'ocr'},quota:evaluateAdvisorQuota(undefined),
+    completenessSearch:async()=>{searches++;return{chunks:[chunk('14',miniSource)]};},pageContent:async()=>{reads++;return miniSource;},
+    evidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{generations++;return{supported:false,answer:'',sourceIds:[]};}},
+    answerCache:new MemoryAdvisorCache<import('../cloudflare/worker/src/ai-advisor-v2-runtime.ts').AiAdvisorV2Answer>(),retrievalCache:new MemoryAdvisorCache<import('../cloudflare/worker/src/ai-search-retrieval.ts').AiSearchRetrievalResult>()};
+  assert.equal((await executeAiAdvisorV2Document(miniQuestion,[candidate],deps)).kind,'ANSWER');
+  const cached=await executeAiAdvisorV2Document(miniQuestion,[candidate],deps);assert.equal(cached.kind,'ANSWER');if(cached.kind==='ANSWER')assert.equal(cached.answerCacheHit,true);
+  assert.equal(searches,1);assert.equal(reads,1);assert.equal(generations,0);
+  await executeAiAdvisorV2Document(miniQuestion,[candidate],{...deps,quota:evaluateAdvisorQuota({searchUsageRatio:0.99})});assert.equal(searches,1);
+  await executeAiAdvisorV2Document(miniQuestion,[{...candidate,revision:'v2'}],deps);assert.equal(searches,2);
+  await executeAiAdvisorV2Document(miniQuestion,[candidate],{...deps,completenessSearch:undefined,pageContent:undefined});assert.equal(searches,2);
+});
+
+test('fabricated support quote, missing span and unknown source remain INVALID_GROUNDING even with real topic evidence',async()=>{
+  for(const [ids,spans]of [[['S1'],[{source_id:'S1',quote:miniSource.replace('không được','được')}]], [['S1'],[]],[['S2'],[{source_id:'S2',quote:miniSource}]]]){
+    const provider=createWorkersAiEvidenceGenerator({AI:{run:async()=>({choices:[{message:{tool_calls:[{type:'function',function:{name:WORKERS_AI_EVIDENCE_TOOL,arguments:JSON.stringify({supported:true,answer:'Nguồn trả lời.',source_ids:ids,support_spans:spans})}}]}}]})}});
+    const r=await provider.generate({question:miniQuestion,evidence:[{...source(miniSource),score:1}]});assert.equal(r.rejectionReason,'INVALID_GROUNDING');
+  }
 });

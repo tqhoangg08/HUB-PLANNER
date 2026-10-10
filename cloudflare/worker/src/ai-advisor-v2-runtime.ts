@@ -10,8 +10,9 @@ import { validateEvidenceAbstention, type AuthorizedEvidenceSource } from './ai-
 import { containsDocumentInstructions, hasUnsupportedAnswerDetails, isRelevantAdvisorEvidence, sourceSupportedReply } from './ai-advisor-grounding.ts';
 import type { EvidenceGenerationProvider } from './ai-advisor-providers.ts';
 import type { QuotaDecision, QuotaMode } from './ai-advisor-quota.ts';
-import {retrieveCompletenessStaging, type CompletenessSearchRequest} from './ai-search-completeness-staging.ts';
+import {retrieveAiSearchCompleteEvidence, type CompletenessSearchRequest} from './ai-search-completeness.ts';
 import {resolveConductTableAnswer} from './ai-advisor-table-evidence.ts';
+import {resolveConductExcerptAnswer} from './ai-advisor-policy-excerpts.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -45,9 +46,9 @@ export type AiAdvisorV2Candidate = AiSearchAuthorizedDocument & {
 };
 
 export type AiAdvisorV2Dependencies = {
-  /** Server-injected staging experiment only; not selected by a client or production env var. */
-  stagingCompletenessSearch?: (request: CompletenessSearchRequest) => Promise<{chunks?: import('./ai-search-retrieval.ts').AiSearchRawChunk[]}>;
-  stagingPageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
+  /** Selected by trusted server flag; never client-controlled. */
+  completenessSearch?: (request: CompletenessSearchRequest) => Promise<{chunks?: import('./ai-search-retrieval.ts').AiSearchRawChunk[]}>;
+  pageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
   aiSearchClient?: AiSearchClient;
   aiSearchInstances?: AiSearchInstanceNames;
   onRetrievalError?: AiSearchRetrievalErrorReporter;
@@ -110,7 +111,7 @@ export const shouldUseAiAdvisorV2 = async (config: AiAdvisorV2RuntimeConfig, use
 
 const toRevisionRecords = (candidates: readonly AiAdvisorV2Candidate[]) => candidates.map((candidate) => ({
   id: candidate.id,
-  version: candidate.version,
+  version: candidate.revision ?? candidate.version,
   contentHash: candidate.contentHash,
   canonicalHash: candidate.canonicalHash,
   indexSourceKind: candidate.indexSourceKind || 'legacy',
@@ -155,7 +156,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.stagingCompletenessSearch ? 'staging-completeness-v1' : 'ai-search-full-authorized-conduct-v4-table-budget',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-extractive-v2' : 'ai-search-full-authorized-conduct-v4-table-budget',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -167,13 +168,12 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: 'ai-search-full-authorized-topk3-threshold04-chunks-v3',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-hybrid-page-v2':'ai-search-full-authorized-topk3-threshold04-chunks-v3',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
-    retrieved = dependencies.stagingCompletenessSearch
-      ? {...await retrieveCompletenessStaging(question, allowed, dependencies.stagingCompletenessSearch,dependencies.stagingPageContent), cacheHit:false}
-      : await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, provider, {
+    const selectedProvider=dependencies.completenessSearch?{retrieve:()=>retrieveAiSearchCompleteEvidence(question,allowed,dependencies.completenessSearch!,dependencies.pageContent)}:provider;
+    retrieved = await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, selectedProvider, {
       question,
       allowedDocuments: allowed,
       topK: 3,
@@ -201,10 +201,14 @@ export const executeAiAdvisorV2Document = async (
     ...(source.pageNumber ? {pageNumber:source.pageNumber}: {}),
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
-  if(dependencies.stagingCompletenessSearch){
-    const table=resolveConductTableAnswer(question,evidence);
-    if(table)return {kind:'ANSWER',answer:{reply:table.reply,evidence:evidence.filter(s=>table.sourceIds.includes(s.sourceId))},searchCallCount:retrieved.searchCallCount,
-      retrievalCacheHit:false,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
+  if(dependencies.completenessSearch){
+    const extracted=resolveConductTableAnswer(question,evidence)||resolveConductExcerptAnswer(question,evidence);
+    if(extracted){
+      const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId))};
+      if(dependencies.answerCache&&answerCacheKey){try{await dependencies.answerCache.put(answerCacheKey,answer,120);}catch{/* optional */}}
+      return {kind:'ANSWER',answer,searchCallCount:retrieved.searchCallCount,
+        retrievalCacheHit:retrieved.cacheHit,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
+    }
   }
   try {
     const generated = await dependencies.evidenceGenerator.generate({

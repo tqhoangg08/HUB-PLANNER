@@ -1,5 +1,7 @@
 # PR #88 — retrieval completeness and authenticated staging acceptance
 
+Follow-up: [acceptance follow-up](ai-advisor-acceptance-followup.md) supersedes mini-game/outside-proof results and wires completeness behind a default-off Public Worker flag. Measurements below remain historical; final-commit eight-case results are recorded on PR88.
+
 Date: 2026-10-10. Base: `15127ae`. Branch: `fix/ai-advisor-grounded-retrieval`.
 
 **Retrieval/table completeness repaired on staging; overall eight-question quality gate NOT MET. Keep Draft. No production or Auth Worker deployment, merge, production reprocess, or production writes.** This report supersedes the previous report's page13-pending and authenticated-staging-unavailable checkpoints, not its historical observations.

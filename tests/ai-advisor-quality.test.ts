@@ -74,7 +74,7 @@ test('uploaded derived index uses its current D1 revision, not numeric document 
     assert.equal(current[0].aiSearchRevision, 'derived-current-hash');
     assert.equal(current[0].aiSearchStatus, 'completed');
     let generatorCalled=false;
-    await send({...env, AI_ADVISOR_V2_MODE:'on', advisorV2StagingCompleteness:true,
+    await send({...env, AI_ADVISOR_V2_MODE:'on', AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
       advisorV2AiSearchInstances:{text:'staging',ocr:'staging'},
       advisorV2AiSearchClient:{async search(){return {chunks:[{id:'current-page',score:0.9,text:PASSAGE,item:{key:`${DOC}-page-002.md`,metadata:{document_id:DOC,active:true,visibility:'public',revision:'derived-current-hash'}}}]};}},
       advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,async generate(){generatorCalled=true;return {supported:false,answer:'',sourceIds:[]};}},
@@ -306,6 +306,25 @@ test('provider errors/timeouts are safe and preserve bounded existing fallback b
       if (reason === 'GEMINI_REQUEST_TIMEOUT') assert.match(result.reply, /quá thời gian chờ/);
     } finally { db.sql.close(); }
   }
+});
+
+test('opt-in page14 extractive V2 never calls failing Gemini; flag alone does not select noncanary users',async()=>{
+  const db=makeDb();let searches=0,geminiCalls=0,generatorCalls=0;
+  const q=CONDUCT_ACCEPTANCE_QUESTIONS[4];
+  try{
+    db.insert(DOC,'completed','public','Quy chế đánh giá kết quả rèn luyện sinh viên');
+    db.sql.exec(readFileSync('cloudflare/migrations/0054_ai_document_search_ingestion_state.sql','utf8'));
+    db.sql.prepare("UPDATE ai_documents SET ai_search_revision='v1',ai_search_status='completed' WHERE id=?").run(DOC);
+    const env:AiAdvisorEnv={...envFor(db.DB),AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorV2AiSearchClient:{search:async()=>{searches++;return{chunks:[{id:'page14',text:'SV tham gia các trò chơi trực tuyến (mini game) không được tính điểm rèn luyện.',score:0.9,item:{key:`${DOC}-page-014.md`,metadata:{document_id:DOC,revision:'v1',visibility:'public',active:true}}}]};}},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{generatorCalls++;throw Error('should not run');}},
+      fileSearchAnswer:async()=>{geminiCalls++;throw new GeminiFileSearchError('GEMINI_REQUEST_TIMEOUT',{model:'fixture'});}};
+    const result=await send({...env,AI_ADVISOR_V2_MODE:'on'},q);
+    assert.match(result.reply,/mini game.*không được tính/s);assert.equal(result.documentSources[0].pageNumber,14);
+    assert.equal(searches,1);assert.equal(geminiCalls,0);assert.equal(generatorCalls,0);
+    const nonselected=await send(env,q);assert.equal(searches,1);assert.equal(geminiCalls,1);
+    assert.equal(nonselected.documentSearchStatus,'provider_timeout');assert.deepEqual(nonselected.documentSources,[]);assert.match(nonselected.reply,/chưa thể xác minh/);
+  }finally{db.sql.close();}
 });
 test('personal DRL is not academic GPA and general generation remains available', async () => {
   const db = makeDb(); let calls = 0;

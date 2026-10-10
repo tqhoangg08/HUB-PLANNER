@@ -55,6 +55,7 @@ import type { Subject } from '../../../types.ts';
 import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { classifyConductIntent, normalizeAdvisorIntentText } from './ai-advisor-intents.ts';
 import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
+import {buildCompletenessDependencies,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
 
 export type AdvisorAnswerPath = 'CACHE' | 'D1' | 'FAQ' | 'SEARCH_ONLY' | 'SEARCH_GENERATE';
 
@@ -130,7 +131,7 @@ type AdvisorShadowSkipReason = 'SENSITIVE_GUARD' | 'ZERO_AI' | 'NON_DOCUMENT_INT
 
 type AdvisorCachedAnswer = { reply: string; answerSources: AdvisorSource[] };
 
-export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProviderEnv, GroqLegacyProviderEnv, AiAdvisorV2ConfigEnv {
+export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProviderEnv, GroqLegacyProviderEnv, AiAdvisorV2ConfigEnv, CompletenessEnv {
   DB?: D1Database;
   /** Optional test override; production resolves the two legacy providers. */
   advisorProviders?: Partial<AiAdvisorProviders>;
@@ -139,9 +140,6 @@ export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProvide
   /** Optional V2 seams. No real AI Search binding is required in Stage 6. */
   advisorV2AiSearchClient?: AiSearchClient;
   advisorV2AiSearchInstances?: AiSearchInstanceNames;
-  /** Trusted staging entrypoint only; never read from request body or production configuration. */
-  advisorV2StagingCompleteness?: boolean;
-  advisorV2StagingPageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
   advisorV2EvidenceGenerator?: EvidenceGenerationProvider;
   advisorV2RetrievalCache?: RetrievalCache<AiSearchRetrievalResult>;
   advisorV2AnswerCache?: AnswerCache<AiAdvisorV2Answer>;
@@ -1538,8 +1536,7 @@ const runAdvisorShadow = async (
     const v2 = await withinDeadline(() => executeAiAdvisorV2Document(question, v2Candidates, {
       aiSearchClient: countedClient,
       aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
-      ...(env.advisorV2StagingCompleteness && countedClient ? {stagingCompletenessSearch:(request)=>countedClient.search(env.advisorV2AiSearchInstances!.text,request)} : {}),
-      ...(env.advisorV2StagingCompleteness ? {stagingPageContent:env.advisorV2StagingPageContent}:{}),
+      ...buildCompletenessDependencies(env,countedClient,env.advisorV2AiSearchInstances||productionAiSearchInstances(env)),
       onRetrievalError: recordRetrievalError,
       evidenceGenerator: countedGenerator,
       retrievalCache: env.advisorV2RetrievalCache,
@@ -1726,8 +1723,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       v2 = await executeAiAdvisorV2Document(question, v2Candidates, {
         aiSearchClient: countedClient,
         aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
-        ...(env.advisorV2StagingCompleteness && countedClient ? {stagingCompletenessSearch:(request)=>countedClient.search(env.advisorV2AiSearchInstances!.text,request)} : {}),
-        ...(env.advisorV2StagingCompleteness ? {stagingPageContent:env.advisorV2StagingPageContent}:{}),
+        ...buildCompletenessDependencies(env,countedClient,env.advisorV2AiSearchInstances||productionAiSearchInstances(env)),
         evidenceGenerator: countedGenerator,
         retrievalCache: env.advisorV2RetrievalCache,
         answerCache: env.advisorV2AnswerCache,
