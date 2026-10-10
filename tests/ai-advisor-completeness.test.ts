@@ -296,7 +296,7 @@ test('requested article heading disambiguates issuing-decision Article3 from its
   const issuing={sourceId:'S1',documentId:DOC,pageNumber:2,snippet:'Điều 3. Tổ chức thực hiện\nCác đơn vị thực hiện quyết định ban hành và có trách nhiệm triển khai quy định này.'};
   const attached={sourceId:'S2',documentId:DOC,pageNumber:3,snippet:'Điều 3. Trách nhiệm với bản thân, gia đình và xã hội\n1. Trung thực, khách quan.\n2. Chấp hành an toàn giao thông.'};
   const r=resolvePolicyArticleExcerpt(q,[issuing,attached])!;assert.ok(r);assert.deepEqual(r.sourceIds,['S2']);assert.doesNotMatch(r.reply,/Tổ chức thực hiện/);
-  assert.ok(extractOfficialDocumentLocators(r.sourceExcerpts.S2).includes('Điều 3'));
+  assert.match(extractOfficialDocumentLocators(r.sourceExcerpts.S2).join(';'),/^Điều 3(?:,|$)/);
   assert.equal(resolvePolicyArticleExcerpt(q,[issuing]),null);
 });
 
@@ -309,7 +309,7 @@ test('Article3 citation locators use the actual selected excerpt, not Article1 e
     evidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('No generation needed')}},
   });
   assert.equal(result.kind,'ANSWER');if(result.kind==='ANSWER'){
-    assert.ok(extractOfficialDocumentLocators(result.answer.evidence[0].snippet).includes('Điều 3'));
+    assert.match(extractOfficialDocumentLocators(result.answer.evidence[0].snippet).join(';'),/^Điều 3(?:,|$)/);
     assert.ok(snippet.includes(result.answer.evidence[0].snippet));assert.doesNotMatch(result.answer.evidence[0].snippet,/Điều 1/);
   }
 });
