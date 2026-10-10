@@ -100,7 +100,7 @@ test('multipart policy splits only on pages and refuses a single oversized page'
     { pageNumber: 1, sourceKind: 'native_text' as const, text: 'A'.repeat(20) },
     { pageNumber: 2, sourceKind: 'native_text' as const, text: 'B'.repeat(20) },
   ];
-  const parts = splitDerivedMarkdownByPage(pages, 50);
+  const parts = splitDerivedMarkdownByPage(pages, 160);
   assert.deepEqual(parts.map((part) => [part.partNumber, part.pageStart, part.pageEnd]), [[1, 1, 1], [2, 2, 2]]);
   assert.throws(() => splitDerivedMarkdownByPage([{ pageNumber: 1, sourceKind: 'ocr', text: 'x'.repeat(100) }], 20), /split semantically/);
 });

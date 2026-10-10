@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { privateApiRequest } from '../utils/privateApi';
 import { showConfirm } from '../utils/appNotifications';
-import { inspectPdfTextLayer, runPdfOcrInBrowser } from '../utils/aiDocumentOcr';
+import { inspectPdfTextLayer, runPdfOcrInBrowser, isPdfDocument, type AiDocumentOcrResult } from '../utils/aiDocumentOcr';
 import { aiDocumentCategoryLabel, AI_DOCUMENT_CATEGORY_OPTIONS } from '../shared/ai-document-categories';
 
 type AIDocument = {
@@ -34,6 +34,8 @@ type AIDocument = {
   ocr_status?: string;
   ocr_page_count?: number | null;
   ocr_used?: number;
+  ai_search_status?: string;
+  gemini_indexing_status?: string;
   uploaded_by: string;
   created_at: string;
 };
@@ -55,8 +57,12 @@ const ocrStatusLabels: Record<string, string> = {
   completed: 'OCR hoàn tất',
   failed: 'OCR lỗi',
 };
+const aiSearchStatusLabels:Record<string,string> = {
+  not_prepared:'Chưa có văn bản phân trang',derived_ready:'Văn bản sẵn sàng, chờ index xác nhận',
+  completed:'Đã xác nhận index',failed:'Xử lý văn bản lỗi',
+};
 
-export const AdminAIDocuments: React.FC = () => {
+export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}> = ({onReviewOcr}) => {
   const [items, setItems] = useState<AIDocument[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -105,7 +111,7 @@ export const AdminAIDocuments: React.FC = () => {
 
   useEffect(() => {
     const active = items.filter((item) =>
-      ['uploading', 'processing'].includes(item.indexing_status),
+      ['uploading', 'processing'].includes(item.indexing_status) || item.ai_search_status === 'derived_ready',
     );
     if (!active.length) return;
     const timer = setInterval(async () => {
@@ -132,17 +138,15 @@ export const AdminAIDocuments: React.FC = () => {
     setBusy(true);
     setError('');
     try {
-      let ocr: { text: string; pageCount: number } | null = null;
-      if (file.type === 'application/pdf') {
+      let ocr: AiDocumentOcrResult | null = null;
+      if (isPdfDocument(file)) {
         setOcrProgress({ current: 0, total: 0, percent: 0, stage: 'analyzing' });
         const inspection = await inspectPdfTextLayer(file, ocrAbort.signal);
-        if (!inspection.hasUsableText) {
-          setOcrProgress({ current: 0, total: inspection.pageCount, percent: 0, stage: 'ocr' });
-          const result = await runPdfOcrInBrowser(file, (current, total, percent) => {
+        setOcrProgress({ current: 0, total: inspection.pageCount, percent: 0, stage: 'ocr' });
+        ocr = await runPdfOcrInBrowser(file, (current, total, percent) => {
             setOcrProgress({ current, total, percent, stage: 'ocr' });
-          }, ocrAbort.signal);
-          ocr = { text: result.text, pageCount: result.pageCount };
-        }
+          }, ocrAbort.signal, inspection);
+        if (ocr.uncertainTokens > 0 && !(await showConfirm(`OCR có ${ocr.uncertainTokens} phần không đọc rõ, đã được đánh dấu và không đoán số/điều khoản. Tiếp tục tải bản phân trang này? Hãy đối chiếu bản gốc trước khi dùng làm nguồn chính thức.`))) return;
       }
       setOcrProgress({ current: 0, total: 0, percent: 100, stage: 'upload' });
       const form = new FormData();
@@ -155,9 +159,9 @@ export const AdminAIDocuments: React.FC = () => {
       form.set('publicViewPolicy', publicViewPolicy);
       form.set('officialSourceUrl', officialSourceUrl.trim());
       if (ocr) {
-        form.set('ocrText', ocr.text);
-        form.set('ocrPageCount', String(ocr.pageCount));
-        form.set('ocrUsed', 'true');
+        form.set('preparedPages', JSON.stringify({ pages:ocr.pages,
+          sourceContentHash:ocr.sourceContentHash, derivedContentHash:ocr.derivedContentHash,
+          pipelineVersion:ocr.pipelineVersion }));
       }
       const response = await privateApiRequest('/api/admin/v1/ai-documents', {
         method: 'POST',
@@ -339,6 +343,8 @@ export const AdminAIDocuments: React.FC = () => {
                     {item.ocr_used === 1 && item.ocr_page_count && (
                       <div className="mt-1 text-xs text-slate-500">{item.ocr_page_count} trang · OCR tiếng Việt + Anh</div>
                     )}
+                    {item.ai_search_status && <div className="mt-1 text-xs text-slate-500">AI Search: {aiSearchStatusLabels[item.ai_search_status] || 'Chưa xác nhận'}</div>}
+                    {item.gemini_indexing_status && <div className="mt-1 text-xs text-slate-500">Gemini: {statusLabels[item.gemini_indexing_status] || 'Chưa xác nhận'}</div>}
                   </div>
                   <div className="text-xs text-slate-500">
                     {item.academic_year || 'Mọi năm'}
@@ -377,6 +383,7 @@ export const AdminAIDocuments: React.FC = () => {
                     )}
                   </span>
                   <div className="flex">
+                    {onReviewOcr && item.original_file_name.toLowerCase().endsWith('.pdf') && item.ai_search_status === 'completed' && <button onClick={()=>onReviewOcr(item.id)} className="p-2 text-blue-800" aria-label={`Hiệu đính OCR ${item.title}`}>Hiệu đính OCR</button>}
                     <button
                       onClick={() => openPolicyEditor(item)}
                       title="Chính sách xem công khai"
@@ -477,9 +484,14 @@ export const AdminAIDocuments: React.FC = () => {
                   }}
                   className="mt-1 block w-full rounded-lg border p-3 font-normal"
                 />
-                {file?.type === 'application/pdf' && (
+                {file && isPdfDocument(file) && (
                   <small className="mt-2 block font-normal text-slate-500">
-                    PDF scan sẽ được nhận dạng chữ trực tiếp trên thiết bị của quản trị viên trước khi tải lên.
+                    Mỗi trang PDF được kiểm tra; trang scan hoặc lớp chữ lỗi sẽ tự OCR tiếng Việt. Giữ số trang/cột; phần không đọc rõ không được đoán thành số hay điều khoản.
+                  </small>
+                )}
+                {file && /\.docx$/i.test(file.name) && (
+                  <small className="mt-2 block font-normal text-slate-500">
+                    Word: trích xuất văn bản và bảng gốc trên server, không OCR. Nguồn dùng điều/mục/bảng; không suy ra số trang từ các đoạn lập chỉ mục.
                   </small>
                 )}
               </label>

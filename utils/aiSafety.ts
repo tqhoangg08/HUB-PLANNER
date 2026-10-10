@@ -1,3 +1,4 @@
+import {stripWordExtractionEnvelope} from '../shared/ai-source-presentation.ts';
 const SAFE_TECH_REPLY = [
   'Mình không thể chia sẻ thông tin kỹ thuật hoặc bảo mật nội bộ của website.',
   'HUB Planner được xây dựng để hỗ trợ sinh viên quản lý học tập, theo dõi GPA, lịch học, thông báo, sự kiện và các tiện ích sinh viên thuận tiện hơn.',
@@ -42,6 +43,7 @@ const compactReferenceLinks = (reply = '') => reply
   .replace(/(<a\b[^>]*>)\s*Link tham kh(?:a|á|ảo|ao)\s*(<\/a>)/gi, '$1<b>Link tham khảo</b>$2');
 
 export const sanitizeAIReply = (reply = '') => {
+  reply = stripWordExtractionEnvelope(reply);
   const text = normalizeText(reply);
   return SENSITIVE_REPLY_KEYWORDS.some((keyword) => text.includes(keyword))
     ? SAFE_TECH_REPLY

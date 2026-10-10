@@ -9,7 +9,7 @@ import {
   extractCourseCode,
   extractAdvisorPolicyScope,
   extractSearchTerms,
-  handleAiAdvisor,
+  handleAiAdvisor as handleAiAdvisorImplementation,
   isGroundedPolicyDeflection,
   resolveDocumentSources,
   resolveDocumentSourcesWithDiagnostics,
@@ -44,12 +44,35 @@ import {
 } from '../cloudflare/worker/src/ai-advisor-cache.ts';
 import { evaluateAdvisorQuota } from '../cloudflare/worker/src/ai-advisor-quota.ts';
 import { resolveZeroAiStructuredAnswer } from '../cloudflare/worker/src/ai-advisor-zero-ai.ts';
+import {buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-ingestion.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
 const DOCUMENT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const DOCUMENT_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const DOCUMENT_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const DOCUMENT_D = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+// These older fixtures isolate routing/D1 authority, not provider grounding.
+// Their mocked provider explicitly attests grounding. The quality suite tests
+// the real grounding parser and rejects missing/false attestations separately.
+const ROUTING_FIXTURE_EVIDENCE = 'Tài liệu kiểm thử có điểm học phần, học bổng, học phí, tốt nghiệp, đăng ký học phần, cảnh báo học vụ và điểm rèn luyện.';
+const handleAiAdvisor: typeof handleAiAdvisorImplementation = async (request, url, env, lifetime) => {
+  const answer = env.fileSearchAnswer;
+  const provider = env.advisorProviders?.groundedDocument;
+  const copy = Object.defineProperties({}, Object.getOwnPropertyDescriptors(env));
+  return handleAiAdvisorImplementation(request, url, Object.assign(copy, {
+    ...(answer ? { fileSearchAnswer: async (...args: Parameters<NonNullable<typeof answer>>) => {
+      const result = await answer(...args);
+      return result ? { ...result, groundingVerified: true, documentSources: result.documentSources.map((source) => ({ ...source, evidenceText: source.evidenceText || ROUTING_FIXTURE_EVIDENCE })) } : null;
+    } } : {}),
+    ...(provider ? { advisorProviders: { ...env.advisorProviders, groundedDocument: {
+      ...provider, retrieve: async (...args: Parameters<typeof provider.retrieve>) => {
+        const result = await provider.retrieve(...args);
+        return result ? { ...result, groundingVerified: true, documentSources: result.documentSources.map((source) => ({ ...source, evidenceText: source.evidenceText || ROUTING_FIXTURE_EVIDENCE })) } : null;
+      },
+    } } } : {}),
+  }), lifetime);
+};
 
 const v2RequestFor = (question: string) => new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
   method: 'POST',
@@ -282,6 +305,133 @@ const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input:
   );
 };
 
+const policyFixture = () => {
+  const f=makeDatabase();
+  for(const name of ['0044_ai_document_ocr_ingestion.sql','0049_ai_document_derived_index_identity.sql','0054_ai_document_search_ingestion_state.sql'])f.sql.exec(readFileSync(`cloudflare/migrations/${name}`,'utf8'));
+  insertOfficialDocument(f,{id:DOCUMENT_A,title:'Quy chế rèn luyện',category:'student_conduct'});
+  f.sql.prepare("UPDATE ai_documents SET ai_search_revision='revision', ai_search_status='completed', extraction_pipeline_version='docx-native-structured-v1'").run();
+  return f;
+};
+const policyText='Điều 7. Phân loại kết quả rèn luyện\nTừ 90 đến 100 điểm: Loại xuất sắc.\nTừ 80 đến dưới 90 điểm: Loại tốt.';
+const policyChunk=(text=policyText)=>({id:'chunk',score:0.9,text,item:{key:buildDerivedPageObjectKey(DOCUMENT_A,'revision',1),metadata:{document_id:DOCUMENT_A,revision:'revision',visibility:'public',active:true}}});
+
+test('Cloudflare-first policy serves identical authorized completeness answers in every V2 mode/bucket without Gemini, generation or canary samples',async()=>{
+  for(const mode of ['off','shadow','canary','on'] as const)for(const percent of ['0','100']){
+    const f=policyFixture();let search=0,reads=0,gen=0,gemini=0,canary=0,telemetry:Record<string,unknown>|undefined;
+    const base={...env(f.DB),AI_ADVISOR_V2_MODE:mode,AI_ADVISOR_V2_CANARY_PERCENT:percent,
+      AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',
+      GEMINI_FILE_SEARCH_ENABLED:'true',GEMINI_FILE_SEARCH_API_KEY:'fixture',GEMINI_FILE_SEARCH_STORE:'fileSearchStores/fixture',
+      fileSearchAnswer:async()=>{gemini++;throw Error('must not call');},
+      AI_DOCUMENTS_BUCKET:{async get(){reads++;return{size:policyText.length,body:new ReadableStream(),text:async()=>policyText};}},
+      advisorV2AiSearchClient:{async search(_instance:unknown,request:unknown){search++;assert.match(JSON.stringify(request),/document_id/);assert.match(JSON.stringify(request),/hybrid/);return{chunks:[policyChunk()]};}},
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{gen++;throw Error('must not call');}},
+      advisorCanaryTelemetry:{record(){canary++;}},advisorReleaseTelemetry:{record(e:unknown){telemetry=e as Record<string,unknown>;}}};
+    try{
+      const req=v2RequestFor('89 điểm rèn luyện xếp loại gì?');
+      const result=await handleAiAdvisorImplementation(req,new URL(req.url),base as Parameters<typeof handleAiAdvisorImplementation>[2]) as {reply:string;documentSources:unknown[]};
+      assert.match(result.reply,/89: tốt/);assert.equal(result.documentSources.length,1);
+      assert.equal(search,1);assert.equal(reads,1);assert.equal(gen,0);assert.equal(gemini,0);assert.equal(canary,0);
+      assert.equal(telemetry?.document_provider_policy,'cloudflare_first');assert.equal(telemetry?.r2_reads,1);
+      assert.equal(base.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,'false');
+    }finally{f.sql.close();}
+  }
+});
+
+test('Cloudflare-first counts the real Workers binding call in shadow mode instead of treating it as background work',async()=>{
+  const f=policyFixture();let calls=0,completion:Record<string,unknown>|undefined;
+  try{
+    const req=v2RequestFor('Theo các quy chế đang có, sinh viên tham gia hoạt động tình nguyện trên sao Hỏa được cộng chính xác mấy điểm rèn luyện?');
+    const result=await handleAiAdvisorImplementation(req,new URL(req.url),{...env(f.DB),AI_ADVISOR_V2_MODE:'shadow',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{search:async()=>({chunks:[policyChunk('Điểm rèn luyện được đánh giá bằng thang điểm 100.')]})},
+      AI:{run:async()=>{calls++;return{choices:[{message:{tool_calls:[{type:'function',function:{name:'submit_grounded_answer',arguments:JSON.stringify({supported:false,answer:'',source_ids:[],support_spans:[]})}}]}}]};}},
+      advisorReleaseTelemetry:{record:e=>{completion=e;}},fileSearchAnswer:async()=>{throw Error('must not call Gemini');},
+    }) as {documentSources:unknown[]};
+    assert.equal(calls,1);assert.equal(completion?.workers_ai_calls,1);assert.equal(completion?.gemini_calls,0);
+    assert.equal(completion?.document_provider_policy,'cloudflare_first');assert.equal(result.documentSources.length,0);
+  }finally{f.sql.close();}
+});
+
+test('Cloudflare-first search failures safely abstain without general or Gemini fallback, preserving quota and private boundaries',async()=>{
+  for(const scenario of ['timeout','survival','private','stale','deleted'] as const){
+    const f=policyFixture();let searches=0,reads=0,generation=0;
+    if(scenario==='private')f.sql.prepare("UPDATE ai_documents SET visibility='admin'").run();
+    if(scenario==='deleted')f.sql.prepare("UPDATE ai_documents SET deleted_at='deleted'").run();
+    const request=v2RequestFor('89 điểm rèn luyện xếp loại gì?');
+    try{
+      const result=await handleAiAdvisorImplementation(request,new URL(request.url),{
+        ...env(f.DB),AI_ADVISOR_V2_MODE:'off',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+        advisorQuotaUsage:scenario==='survival'?{generationUsageRatio:1}:undefined,
+        advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{async search(){searches++;if(scenario==='timeout')throw new DOMException('private provider detail','TimeoutError');const c=policyChunk();c.item.metadata.revision='old';return{chunks:[c]};}},
+        AI_DOCUMENTS_BUCKET:{async get(){reads++;throw Error('must not read');}},
+        advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,async generate(){generation++;throw Error('must not generate');}},
+        GEMINI_FILE_SEARCH_ENABLED:'true',GEMINI_FILE_SEARCH_API_KEY:'fixture',GEMINI_FILE_SEARCH_STORE:'fileSearchStores/fixture',
+        fileSearchAnswer:async()=>{throw Error('must not call Gemini');},
+      } as Parameters<typeof handleAiAdvisorImplementation>[2]) as {reply:string;documentSources:unknown[];documentSearchStatus:string};
+      assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/89: tốt|private provider detail/);assert.equal(reads,0);assert.equal(generation,0);
+      assert.equal(searches,['private','deleted','survival'].includes(scenario)?0:1);
+      if(scenario==='timeout')assert.equal(result.documentSearchStatus,'provider_timeout');
+    }finally{f.sql.close();}
+  }
+});
+
+test('Cloudflare-first personal score remains unavailable without either document provider',async()=>{
+  const f=makeDatabase();
+  try{
+    const request=v2RequestFor('Tôi được bao nhiêu điểm ĐRL kỳ này?');
+    const result=await handleAiAdvisorImplementation(request,new URL(request.url),{...env(f.DB),AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchClient:{search:async()=>{throw Error('personal data must not retrieve documents');}},fileSearchAnswer:async()=>{throw Error('must not use Gemini');}}) as {reply:string};
+    assert.match(result.reply,/không có dữ liệu điểm rèn luyện cá nhân/);
+  }finally{f.sql.close();}
+});
+
+test('Cloudflare-first rechecks revoked authorization after search instead of publishing snapshot evidence',async()=>{
+  const f=policyFixture();
+  try{
+    const req=v2RequestFor('89 điểm rèn luyện xếp loại gì?');
+    const result=await handleAiAdvisorImplementation(req,new URL(req.url),{...env(f.DB),AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},
+      advisorV2AiSearchClient:{async search(){f.sql.prepare("UPDATE ai_documents SET visibility='admin'").run();return{chunks:[policyChunk()]};}},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('no generation necessary');}},
+    }) as {reply:string;documentSources:unknown[]};
+    assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/89: tốt/);
+  }finally{f.sql.close();}
+});
+
+test('Cloudflare-first malformed/fabricated generator citations abstain without another provider call',async()=>{
+  const f=policyFixture();let generations=0;
+  try{
+    const req=v2RequestFor('Theo quy chế, tình nguyện trên sao Hỏa được mấy điểm rèn luyện?');
+    const result=await handleAiAdvisorImplementation(req,new URL(req.url),{...env(f.DB),AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{search:async()=>({chunks:[policyChunk('Điểm rèn luyện được đánh giá bằng thang điểm 100.')]})},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{generations++;return{supported:true,answer:'Được 999 điểm.',sourceIds:['S999']};}},
+      fileSearchAnswer:async()=>{throw Error('must not call Gemini');},
+    }) as {reply:string;documentSources:unknown[]};
+    assert.equal(generations,1);assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/999/);
+  }finally{f.sql.close();}
+});
+
+test('final D1 citation recheck accepts adjacent tuition continuation but rejects a revoked document',async()=>{
+  const fixture=makeDatabase();
+  try{
+    for(const file of['0044_ai_document_ocr_ingestion.sql','0049_ai_document_derived_index_identity.sql','0054_ai_document_search_ingestion_state.sql'])fixture.sql.exec(readFileSync(`cloudflare/migrations/${file}`,'utf8'));
+    insertOfficialDocument(fixture,{id:DOCUMENT_A,title:'Mức thu học phí năm học 2026-2027',category:'tuition'});
+    fixture.sql.prepare("UPDATE ai_documents SET ai_search_status='completed',ai_search_revision='v1' WHERE id=?").run(DOCUMENT_A);
+    const head='| TT | Hệ/chương trình | Học phí theo năm (đồng) | Học phí theo tín chỉ (đồng) |\n| A | Đại học chính quy chuẩn | | |';
+    const row='| Khóa | 39 | | |\n| 1 | Ngành Tài chính ngân hàng | 25.600.000 | 747.000 |';
+    let revoke=false;
+    const runtime={...env(fixture.DB),AI_ADVISOR_V2_MODE:'on',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
+      advisorV2AiSearchInstances:{text:'text',ocr:'ocr'},
+      advisorV2AiSearchClient:{search:async()=>({chunks:[3,4].map(page=>({id:String(page),score:1,text:page===3?head:row,item:{key:buildDerivedPageObjectKey(DOCUMENT_A,'v1',page),metadata:{document_id:DOCUMENT_A,revision:'v1',active:true,visibility:'public'}}}))})},
+      AI_DOCUMENTS_BUCKET:{get:async key=>{const text=key.endsWith('003.md')?head:row;if(revoke&&key.endsWith('004.md'))fixture.sql.prepare("UPDATE ai_documents SET visibility='admin' WHERE id=?").run(DOCUMENT_A);return{size:text.length,body:new ReadableStream(),text:async()=>text}}},
+      advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('No generator required')}},
+    };
+    const q='Đại học chính quy chuẩn khóa 39 ngành Tài chính ngân hàng có học phí bao nhiêu?';
+    const run=async()=>{const request=v2RequestFor(q);return handleAiAdvisorImplementation(request,new URL(request.url),runtime as never) as Promise<{reply:string;documentSources:unknown[];documentSearchUnavailable:boolean}>};
+    const valid=await run();assert.match(valid.reply,/25\.600\.000/);assert.match(valid.reply,/747\.000/);assert.equal(valid.documentSources.length,1);assert.equal(valid.documentSearchUnavailable,false);
+    revoke=true;const invalid=await run();assert.equal(invalid.documentSources.length,0);assert.doesNotMatch(invalid.reply,/25\.600\.000/);
+  }finally{fixture.sql.close();}
+});
+
 test('document citations are D1-validated and ordered by applicable academic-year then version', async () => {
   const fixture = makeDatabase();
   try {
@@ -295,7 +445,7 @@ test('document citations are D1-validated and ordered by applicable academic-yea
     ], route);
     assert.deepEqual(result.map((source) => source.documentId), [DOCUMENT_A, DOCUMENT_B]);
     assert.equal(result[0]?.title, 'Quy chế 2026');
-    assert.equal(result.every((source) => source.inferredCurrent), true);
+    assert.equal(result.every((source) => source.inferredCurrent === false), true);
   } finally { fixture.sql.close(); }
 });
 
@@ -351,7 +501,7 @@ test('canonical categories normalize legacy labels without an online migration',
   assert.equal(normalizeAiDocumentCategory('unclassified legacy text'), 'general');
 });
 
-test('D1 candidate selection is bounded, normalized, and excludes unrelated official categories', async () => {
+test('D1 selection reads all authorized documents before provider relevance scoring', async () => {
   const fixture = makeDatabase();
   try {
     const training = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -362,15 +512,15 @@ test('D1 candidate selection is bounded, normalized, and excludes unrelated offi
     insertOfficialDocument(fixture, { id: handbook, title: 'Cẩm nang', category: 'student_handbook' });
     insertOfficialDocument(fixture, { id: tuition, title: 'Học phí', category: 'tuition' });
     const grading = await selectAdvisorDocumentCandidates(env(fixture.DB), routeAdvisorDocuments('quy đổi điểm ở HUB như nào?'));
-    assert.deepEqual(new Set(grading.map((candidate) => candidate.id)), new Set([DOCUMENT_A, training, handbook]));
-    assert.equal(grading.some((candidate) => candidate.id === tuition), false);
+    assert.deepEqual(new Set(grading.map((candidate) => candidate.id)), new Set([DOCUMENT_A, training, handbook, tuition]));
+    assert.equal(grading.some((candidate) => candidate.id === tuition), true);
     assert.equal(grading.find((candidate) => candidate.id === training)?.category, 'training_regulation');
     assertCandidateFilter(buildDocumentCandidateMetadataFilter(grading.map((candidate) => candidate.id)) || '', [DOCUMENT_A, training, handbook]);
     assert.equal(fixture.queries.filter((query) => query.includes('FROM ai_documents')).length, 1);
   } finally { fixture.sql.close(); }
 });
 
-test('scholarship candidates include only its bounded official category set', async () => {
+test('scholarship selection does not discard authorized documents based on category hints', async () => {
   const fixture = makeDatabase();
   try {
     const handbook = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -383,7 +533,7 @@ test('scholarship candidates include only its bounded official category set', as
     insertOfficialDocument(fixture, { id: grading, title: 'Thang điểm', category: 'grading' });
     insertOfficialDocument(fixture, { id: tuition, title: 'Học phí', category: 'tuition' });
     const candidates = await selectAdvisorDocumentCandidates(env(fixture.DB), routeAdvisorDocuments('các loại học bổng ở HUB?'));
-    assert.deepEqual(new Set(candidates.map((candidate) => candidate.id)), new Set([DOCUMENT_A, handbook, general]));
+    assert.deepEqual(new Set(candidates.map((candidate) => candidate.id)), new Set([DOCUMENT_A, handbook, general, grading, tuition]));
   } finally { fixture.sql.close(); }
 });
 
@@ -448,6 +598,19 @@ test('camelCase Gemini citations are extracted then resolved through the same bo
   } finally { fixture.sql.close(); }
 });
 
+test('D1 canonical DOCX citations retain title/locator but suppress unverified provider physical pages',async()=>{
+  const fixture=makeDatabase();
+  try{
+    insertOfficialDocument(fixture,{id:DOCUMENT_A,title:'Quy chế công tác sinh viên',category:'regulation'});
+    fixture.sql.prepare('UPDATE ai_documents SET original_file_name=? WHERE id=?').run('Nguồn Word.docx',DOCUMENT_A);
+    const evidenceText='Điều 3. Nguyên tắc thực hiện\n1. Công tác sinh viên phải công khai và minh bạch.';
+    const resolution=await resolveDocumentSourcesWithDiagnostics(env(fixture.DB),[{documentId:DOCUMENT_A,title:'Untrusted',fileName:'Fake.pdf',pageNumber:4,pageNumbers:[4,5],evidenceText,locators:extractOfficialDocumentLocators(evidenceText)}],routeAdvisorDocuments('Quy chế công tác sinh viên Điều 3 quy định gì?'));
+    assert.equal(resolution.reason,'SUCCESS');assert.equal(resolution.sources[0].title,'Quy chế công tác sinh viên');
+    assert.equal(resolution.sources[0].pageNumber,null);assert.equal(resolution.sources[0].pageNumbers,undefined);
+    assert.match(resolution.sources[0].locators!.join(';'),/Điều 3/);
+  }finally{fixture.sql.close();}
+});
+
 test('GenerateContent camelCase grounding extracts only metadata-backed document sources with locators and scope', async () => {
   const fixture = makeDatabase();
   try {
@@ -465,11 +628,13 @@ test('GenerateContent camelCase grounding extracts only metadata-backed document
         text: 'Điều 21. Thang điểm đánh giá học phần\n2. Thang điểm áp dụng:\nb) Áp dụng cho các khóa tuyển sinh từ năm 2027.',
       },
     }] } }] });
-    assert.deepEqual(sources.map((source) => source.documentId), [DOCUMENT_A]);
-    assert.deepEqual(sources[0]?.locators, ['Điều 21, khoản 2, điểm a', 'Điều 21, khoản 2, điểm b']);
-    assert.deepEqual(sources[0]?.pageNumbers, [18, 19]);
+    assert.deepEqual(sources.map((source) => source.documentId), [DOCUMENT_A, DOCUMENT_A]);
+    assert.deepEqual(sources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+    assert.deepEqual(sources[1]?.locators, ['Điều 21, khoản 2, điểm b']);
+    assert.deepEqual(sources[0]?.pageNumbers, [18]);
+    assert.deepEqual(sources[1]?.pageNumbers, [19]);
     assert.equal(sources[0]?.applicability?.[0]?.cohortYear, 2026);
-    assert.equal(sources[0]?.applicability?.[1]?.fromCohortYear, 2027);
+    assert.equal(sources[1]?.applicability?.[0]?.fromCohortYear, 2027);
     const resolution = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), sources as unknown as Array<Record<string, unknown>>, routeAdvisorDocuments('Quy đổi điểm ở HUB'));
     assert.equal(resolution.reason, 'SUCCESS');
   } finally { fixture.sql.close(); }
@@ -513,7 +678,7 @@ test('grounded applicability extraction distinguishes intake years from academic
   assert.deepEqual(extractOfficialDocumentApplicability('Trang 18, năm 2026.'), []);
 });
 
-test('Gemini citations use grounded snippets or attributed output spans for locator metadata', async () => {
+test('Gemini citations use source snippets, never attributed model output, for locator metadata', async () => {
   const fixture = makeDatabase();
   try {
     insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
@@ -526,14 +691,15 @@ test('Gemini citations use grounded snippets or attributed output spans for loca
       endIndex: new TextEncoder().encode(reply).byteLength,
       pageNumber: 18,
     }] }] } });
-    assert.deepEqual(citations[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+    assert.equal(citations[0]?.locators, undefined);
+    assert.equal(citations[0]?.evidenceText, undefined);
     const snippetCitation = extractGeminiDocumentSources({ annotations: [{
       type: 'file_citation', customMetadata: { document_id: DOCUMENT_A }, fileName: 'quy-che.pdf',
       snippet: 'Điều 21.\n2. Thang điểm đánh giá học phần.\na) Áp dụng cho khóa tuyển sinh năm 2026.',
     }] });
     assert.deepEqual(snippetCitation[0]?.locators, ['Điều 21, khoản 2, điểm a']);
     const resolution = await resolveDocumentSourcesWithDiagnostics(
-      env(fixture.DB), citations as unknown as Array<Record<string, unknown>>, routeAdvisorDocuments('Quy đổi điểm ở HUB'),
+      env(fixture.DB), snippetCitation as unknown as Array<Record<string, unknown>>, routeAdvisorDocuments('Quy đổi điểm ở HUB'),
     );
     assert.deepEqual(resolution.sources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
   } finally { fixture.sql.close(); }
@@ -565,7 +731,7 @@ test('grading policy question is grounded in a D1-validated Gemini citation and 
         fileSearchCalls += 1;
         return {
         reply: 'Theo Điều 21, khoản 2, điểm a của quy chế chính thức.',
-        documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: 'Quy chế đào tạo', pageNumber: 1 }],
+        documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: 'Quy chế đào tạo', pageNumber: 1, locators: ['Điều 21, khoản 2, điểm a'] }],
         };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; locators?: string[]; publicView: string; publicUrl?: string }>; answerSources: Array<{ type: string }> };
@@ -720,7 +886,7 @@ test('coverage-mode grading uses one broad File Search call and persists grounde
     }) as { reply: string; documentSources: Array<{ documentId: string; applicability?: Array<{ cohortYear?: number; fromCohortYear?: number }> }> };
     assert.equal(filters.length, 1);
     assertCandidateFilter(filters[0], [DOCUMENT_A, DOCUMENT_B, DOCUMENT_C]);
-    assert.doesNotMatch(String(filters[0]), new RegExp(`document_id = "${DOCUMENT_D}"`));
+    assert.match(String(filters[0]), new RegExp(`document_id = "${DOCUMENT_D}"`));
     assert.match(result.reply, /2026/);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_B, DOCUMENT_A]);
     assert.equal(result.documentSources[0]?.applicability?.[0]?.fromCohortYear, 2027);
@@ -1060,7 +1226,7 @@ test('an empty D1-authoritative candidate set returns safely without a broad sto
     assert.match(result.reply, /chưa thể xác minh/i);
     assert.equal(result.documentSearchUnavailable, true);
     assert.equal(fileSearchCalls, 0);
-    assert.equal(fixture.queries.filter((query) => query.includes('FROM ai_documents')).length, 1);
+    assert.equal(fixture.queries.filter((query) => query.includes('FROM ai_documents')).length, 2);
   } finally { fixture.sql.close(); }
 });
 
@@ -1523,7 +1689,7 @@ test('Stage 7B1C ON uses the configured local bindings and validates Workers AI 
           return {
             async search() {
               searchCalls += 1;
-              return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10', item: { key: 'safe-part.md', metadata: { document_id: DOCUMENT_A, active: true } } }] };
+              return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10 quy định thang điểm 4.', item: { key: 'safe-part.md', metadata: { document_id: DOCUMENT_A, active: true } } }] };
             },
           };
         },
@@ -1537,7 +1703,8 @@ test('Stage 7B1C ON uses the configured local bindings and validates Workers AI 
         },
       },
     }) as { reply: string };
-    assert.equal(result.reply, 'V2 có dẫn nguồn.');
+    assert.match(result.reply, /Đoạn nguồn liên quan/);
+    assert.doesNotMatch(result.reply, /V2 có dẫn nguồn/);
     assert.equal(searchCalls, 1);
     assert.equal(workersAiCalls, 1);
   } finally { fixture.sql.close(); }
@@ -1594,7 +1761,7 @@ test('Stage 7B2A1 SHADOW returns legacy before pending V2 and emits one content-
     for (let step = 0; step < 200 && searchCalls === 0; step += 1) await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(searchCalls, 1, 'V2 should still be pending after the legacy response');
     assert.equal(events.length, 0, 'final event is emitted only after V2 settles');
-    releaseSearch({ chunks: [{ id: 'chunk', score: 0.7, text: 'SECRET_EVIDENCE_SENTINEL', item: { key: 'private-r2-path', metadata: { document_id: DOCUMENT_A, active: true } } }] });
+    releaseSearch({ chunks: [{ id: 'chunk', score: 0.7, text: 'Điểm SECRET_EVIDENCE_SENTINEL', item: { key: 'private-r2-path', metadata: { document_id: DOCUMENT_A, active: true } } }] });
     await Promise.all(background);
     assert.equal(generatorCalls, 1);
     assert.equal(events.length, 1);
@@ -1724,7 +1891,7 @@ test('Stage 7B2A1 SHADOW isolates identity, retrieval, generator, citation and t
         advisorV2AiSearchClient: { async search() {
           searches += 1;
           if (scenario.name === 'search') throw new Error('provider detail must not be logged');
-          return { chunks: scenario.name === 'empty' ? [] : [{ id: 'chunk', score: 0.7, text: 'Public support', item: { key: 'r2-secret-path', metadata: { document_id: DOCUMENT_A, active: true } } }] };
+          return { chunks: scenario.name === 'empty' ? [] : [{ id: 'chunk', score: 0.7, text: 'Thang điểm Public support', item: { key: 'r2-secret-path', metadata: { document_id: DOCUMENT_A, active: true } } }] };
         } },
         advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
         advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() {
@@ -1967,7 +2134,7 @@ test('Stage 6 CANARY zero percent remains legacy and ON exposes only citation-va
       advisorV2AiSearchClient: {
         async search() {
           searchCalls += 1;
-          return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10', item: { key: 'private-key-never-returned', metadata: { document_id: DOCUMENT_A, active: true } } }] };
+          return { chunks: [{ id: 'chunk', score: 0.7, text: 'Điều 10 quy định thang điểm 4.', item: { key: 'private-key-never-returned', metadata: { document_id: DOCUMENT_A, active: true } } }] };
         },
       },
       advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
@@ -1979,10 +2146,11 @@ test('Stage 6 CANARY zero percent remains legacy and ON exposes only citation-va
     assert.equal(searchCalls, 0);
     const onRequest = v2RequestFor('Quy đổi điểm ở HUB như nào?');
     const on = await handleAiAdvisor(onRequest, new URL(onRequest.url), { ...common, AI_ADVISOR_V2_MODE: 'on' }) as { reply: string; documentSources: unknown[] };
-    assert.equal(on.reply, 'V2 grounded');
+    assert.match(on.reply, /Đoạn nguồn liên quan/);
+    assert.doesNotMatch(on.reply, /V2 grounded/);
     assert.equal(searchCalls, 1);
     assert.equal(legacyCalls, 1);
-    assert.deepEqual(on.documentSources, []);
+    assert.equal(on.documentSources.length, 1);
   } finally { fixture.sql.close(); }
 });
 
@@ -2012,7 +2180,8 @@ test('selected CANARY serves a validated V2 answer without invoking legacy or re
       advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { generatorCalls += 1; return { supported: true, answer: 'V2 grounded answer', sourceIds: ['S1'] }; } },
       advisorCanaryTelemetry: { record(event: AdvisorCanaryEvent) { events.push(event); } },
     }) as { reply: string };
-    assert.equal(result.reply, 'V2 grounded answer');
+    assert.match(result.reply, /Điều 10 quy định thang điểm 4/);
+    assert.doesNotMatch(result.reply, /V2 grounded answer/);
     assert.equal(legacyCalls, 0);
     assert.equal(searchCalls, 1);
     assert.equal(generatorCalls, 1);

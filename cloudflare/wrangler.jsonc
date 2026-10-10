@@ -61,7 +61,9 @@
     "PROFILE_D1_SHADOW_INTERNAL_ENABLED": "true",
     "AI_ADVISOR_V2_MODE": "canary",
     "AI_ADVISOR_V2_CANARY_PERCENT": "7",
-    "AI_ADVISOR_V2_GENERATOR_MODEL": "@cf/zai-org/glm-4.7-flash"
+    "AI_ADVISOR_V2_GENERATOR_MODEL": "@cf/zai-org/glm-4.7-flash",
+    "AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED": "false",
+    "AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED": "false"
   },
   "observability": {
     "enabled": true,

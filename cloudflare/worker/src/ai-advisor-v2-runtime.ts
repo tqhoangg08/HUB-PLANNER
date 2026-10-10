@@ -7,8 +7,15 @@ import {
   type RetrievalCache,
 } from './ai-advisor-cache.ts';
 import { validateEvidenceAbstention, type AuthorizedEvidenceSource } from './ai-advisor-evidence.ts';
+import { containsDocumentInstructions, hasUnsupportedAnswerDetails, isRelevantAdvisorEvidence, sourceSupportedReply } from './ai-advisor-grounding.ts';
 import type { EvidenceGenerationProvider } from './ai-advisor-providers.ts';
 import type { QuotaDecision, QuotaMode } from './ai-advisor-quota.ts';
+import {retrieveAiSearchCompleteEvidence, type CompletenessSearchRequest} from './ai-search-completeness.ts';
+import {resolveConductTableAnswer} from './ai-advisor-table-evidence.ts';
+import {resolveConductExcerptAnswer} from './ai-advisor-policy-excerpts.ts';
+import {resolveAcademicMilestone,resolveTuitionTableRow,isTuitionContinuationEvidence,resolvePolicyArticleExcerpt} from './ai-advisor-source-sections.ts';
+import {splitPolicyEvidenceQuestions,tuitionTupleQuery} from './ai-advisor-retrieval-plan.ts';
+import {isAcademicPolicyQuestion,isAcademicRegistrationQuestion} from './ai-advisor-intents.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -42,6 +49,9 @@ export type AiAdvisorV2Candidate = AiSearchAuthorizedDocument & {
 };
 
 export type AiAdvisorV2Dependencies = {
+  /** Selected by trusted server flag; never client-controlled. */
+  completenessSearch?: (request: CompletenessSearchRequest) => Promise<{chunks?: import('./ai-search-retrieval.ts').AiSearchRawChunk[]}>;
+  pageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
   aiSearchClient?: AiSearchClient;
   aiSearchInstances?: AiSearchInstanceNames;
   onRetrievalError?: AiSearchRetrievalErrorReporter;
@@ -104,7 +114,7 @@ export const shouldUseAiAdvisorV2 = async (config: AiAdvisorV2RuntimeConfig, use
 
 const toRevisionRecords = (candidates: readonly AiAdvisorV2Candidate[]) => candidates.map((candidate) => ({
   id: candidate.id,
-  version: candidate.version,
+  version: candidate.revision ?? candidate.version,
   contentHash: candidate.contentHash,
   canonicalHash: candidate.canonicalHash,
   indexSourceKind: candidate.indexSourceKind || 'legacy',
@@ -149,7 +159,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-v1', answerPathVersion: 'ai-search-vector-v1',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -161,11 +171,12 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: 'ai-search-vector-topk3-threshold04-v1',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-word-native-v5':'ai-search-word-native-topk3-threshold04-v4',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
-    retrieved = await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, provider, {
+    const selectedProvider=dependencies.completenessSearch?{retrieve:()=>retrieveAiSearchCompleteEvidence(question,allowed,dependencies.completenessSearch!,dependencies.pageContent)}:provider;
+    retrieved = await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, selectedProvider, {
       question,
       allowedDocuments: allowed,
       topK: 3,
@@ -182,21 +193,59 @@ export const executeAiAdvisorV2Document = async (
   if (!dependencies.evidenceGenerator || !generatorConfigured) {
     return abstain('GENERATOR_ERROR', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length);
   }
-  const evidence: AuthorizedEvidenceSource[] = retrieved.sources.slice(0, 3).map((source) => ({
+  const evidence: AuthorizedEvidenceSource[] = retrieved.sources
+    .filter((source) => !containsDocumentInstructions(source.snippet) && (isRelevantAdvisorEvidence(question, source.snippet,
+      allowed.find((candidate) => candidate.id === source.documentId)?.title)
+      ||Boolean(dependencies.completenessSearch)&&isTuitionContinuationEvidence(question,source,retrieved.sources)))
+    .slice(0, 3).map((source) => ({
     sourceId: source.sourceId,
     documentId: source.documentId,
+    documentTitle: allowed.find(candidate=>candidate.id===source.documentId)?.title,
     revision: String(allowed.find((candidate) => candidate.id === source.documentId)?.revision || ''),
     snippet: source.snippet,
+    ...(source.pageNumber ? {pageNumber:source.pageNumber}: {}),
+    ...(allowed.find(candidate=>candidate.id===source.documentId)?.locatorKind==='word_unit'
+      ? {locatorKind:'word_unit' as const,unitNumber:Number(source.itemKey.match(/page-(\d{3})\.md$/)?.[1])||undefined} : {}),
   }));
+  if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
+  if(dependencies.completenessSearch){
+    const parts=splitPolicyEvidenceQuestions(question);
+    const answers=parts.map(part=>resolveConductTableAnswer(part,evidence)||resolveConductExcerptAnswer(part,evidence)
+      ||resolveAcademicMilestone(part,evidence)||resolveTuitionTableRow(part,evidence)||resolvePolicyArticleExcerpt(part,evidence));
+    const available=answers.filter(a=>a!==null);
+    const extracted=parts.length===1?answers[0]:available.length?{
+      reply:answers.map((a,i)=>`Ý ${i+1}:\n${a?.reply||'Chưa truy xuất đủ nguồn để xác minh phần này.'}`).join('\n\n'),
+      sourceIds:[...new Set(available.flatMap(a=>a.sourceIds))],
+      sourceExcerpts:Object.assign({},...available.map(a=>'sourceExcerpts' in a?a.sourceExcerpts:{})),
+    }:null;
+    if(extracted){
+      // Locators must describe the cited passage, not the first unrelated
+      // article on a physical page that happens to contain several articles.
+      const excerpts='sourceExcerpts' in extracted?extracted.sourceExcerpts as Record<string,string>:{};
+      const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId)).map(s=>({...s,snippet:excerpts[s.sourceId]||s.snippet}))};
+      if(dependencies.answerCache&&answerCacheKey){try{await dependencies.answerCache.put(answerCacheKey,answer,120);}catch{/* optional */}}
+      return {kind:'ANSWER',answer,searchCallCount:retrieved.searchCallCount,
+        retrievalCacheHit:retrieved.cacheHit,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
+    }
+    // A requested fee tuple must be proved by a row, program, cohort and
+    // units together. Do not substitute another cohort's plausible amount.
+    if(tuitionTupleQuery(question))return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
+    // A timetable/plan publication date is NOT a registration opening date.
+    if(isAcademicPolicyQuestion(question)&&isAcademicRegistrationQuestion(question))return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
+  }
   try {
     const generated = await dependencies.evidenceGenerator.generate({
       question: bounded(question, 2_000),
       evidence: evidence.map((source) => ({ ...source, score: retrieved.sources.find((item) => item.sourceId === source.sourceId)?.score ?? null })),
     });
     if (!generated.supported) return abstain(generated.rejectionReason === 'INVALID_GROUNDING' ? 'INVALID_CITATIONS' : 'GENERATOR_ABSTAINED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
+    if (hasUnsupportedAnswerDetails(generated.answer, evidence.filter((source) => generated.sourceIds.includes(source.sourceId)).map((source) => source.snippet))) {
+      return abstain('INVALID_CITATIONS', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
+    }
     const decision = validateEvidenceAbstention({ question, evidence }, { text: generated.answer, citedSourceIds: generated.sourceIds });
     if (decision.kind !== 'ANSWER') return abstain('INVALID_CITATIONS', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
-    const answer: AiAdvisorV2Answer = { reply: generated.answer.trim(), evidence: evidence.filter((source) => decision.citedSourceIds.includes(source.sourceId)) };
+    const citedEvidence = evidence.filter((source) => decision.citedSourceIds.includes(source.sourceId));
+    const answer: AiAdvisorV2Answer = { reply: sourceSupportedReply(generated.answer.trim(), citedEvidence.map((source) => source.snippet), question), evidence: citedEvidence };
     if (dependencies.answerCache && answerCacheKey) {
       try { await dependencies.answerCache.put(answerCacheKey, answer, 120); } catch { /* optional */ }
     }

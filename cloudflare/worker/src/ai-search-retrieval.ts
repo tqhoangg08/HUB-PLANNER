@@ -5,6 +5,10 @@ export type AiSearchBackend = 'TEXT' | 'OCR';
 
 export type AiSearchAuthorizedDocument = {
   id: string;
+  /** D1-authorized document identity hint; never used as a support quote. */
+  title?: string;
+  /** D1-derived format, never inferred from provider text or object filename. */
+  locatorKind?: 'word_unit' | 'page';
   /** Stage 5 will source this from D1 ingestion metadata. Unknown stays TEXT. */
   backend?: AiSearchBackend;
   category?: string;
@@ -14,7 +18,7 @@ export type AiSearchAuthorizedDocument = {
 };
 
 export type AiSearchMetadataFilter = {
-  document_id: { $in: string[] };
+  document_id?: { $in: string[] };
   active: true;
   /** Present only when every server-authorized document has the same visibility. */
   visibility?: string;
@@ -24,7 +28,7 @@ export type AiSearchSearchRequest = {
   query: string;
   ai_search_options: {
     retrieval: {
-      retrieval_type: 'vector';
+      retrieval_type: 'vector'|'hybrid';
       match_threshold: number;
       max_num_results: number;
       filters: AiSearchMetadataFilter;
@@ -59,6 +63,8 @@ export type RetrievedAiSearchSource = {
   /** Internal mapping data only; never return raw provider responses to clients. */
   chunkId: string;
   itemKey: string;
+  /** Server ingestion's one-page object identity, not a model-invented locator. */
+  pageNumber?: number;
 };
 
 export type AiSearchRetrievalResult = {
@@ -136,8 +142,12 @@ export const buildAiSearchAuthorizationFilter = (documents: readonly AiSearchAut
   }
   const ids = [...byId.keys()].sort();
   if (!ids.length) return null;
-  if (ids.length > MAX_AI_SEARCH_AUTHORIZED_DOCUMENTS) throw new Error('Authorized AI Search document limit exceeded.');
   const visibility = [...new Set([...byId.values()].map((document) => boundedText(document.visibility, 64)).filter(Boolean))];
+  if (ids.length > MAX_AI_SEARCH_AUTHORIZED_DOCUMENTS) {
+    if (visibility.length !== 1 || visibility[0] !== 'public'
+      || [...byId.values()].some((document) => document.visibility !== 'public')) throw new Error('Authorized AI Search document limit exceeded.');
+    return { active: true, visibility: 'public' };
+  }
   return {
     document_id: { $in: ids },
     active: true,
@@ -160,6 +170,7 @@ const postAuthorizeResults = (
 const normalizeResults = (
   chunks: readonly AiSearchRawChunk[],
   backend: AiSearchBackend,
+  documents: readonly AiSearchAuthorizedDocument[],
 ) => chunks.flatMap((chunk) => {
   const documentId = boundedText(chunk.item?.metadata?.document_id, 64);
   const snippet = boundedText(chunk.text, 8_000);
@@ -167,14 +178,27 @@ const normalizeResults = (
   const itemKey = boundedText(chunk.item?.key, 1_024);
   if (!documentId || !snippet || !chunkId || !itemKey) return [];
   const score = typeof chunk.score === 'number' && Number.isFinite(chunk.score) ? chunk.score : null;
-  return [{ sourceId: '', documentId, snippet, score, backend, chunkId, itemKey }];
+  // Accept only our exact per-document one-page key convention. Older
+  // multi-page part-NNN objects cannot supply a page number this way.
+  const pageMatch = itemKey.startsWith(`ai-search/text/${documentId}/`)
+    ? itemKey.match(/\/page-(\d{3})\.md$/) : itemKey.match(new RegExp(`^${documentId}-page-(\\d{3})\\.md$`));
+  const pageNumber = pageMatch ? Number(pageMatch[1]) : 0;
+  return [{ sourceId: '', documentId, snippet, score, backend, chunkId, itemKey,
+    ...(pageNumber>=1&&pageNumber<=40 && documents.find(d=>d.id===documentId)?.locatorKind!=='word_unit' ? {pageNumber}: {}) }];
 });
+
+/** Staging experiments reuse the runtime's post-authorization and locator contract. */
+export const normalizeAuthorizedAiSearchChunks = (
+  chunks: readonly AiSearchRawChunk[], documents: readonly AiSearchAuthorizedDocument[], backend: AiSearchBackend = 'TEXT',
+) => normalizeResults(postAuthorizeResults(chunks, new Set(documents.filter((d) => d.active !== false).map((d) => d.id))), backend, documents);
 
 const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 'sourceId'>[], topK: number) => {
   const deduped = new Map<string, Omit<RetrievedAiSearchSource, 'sourceId'>>();
   for (const source of sources) {
-    // One best chunk per document-part/object. Page/part mapping remains D1-owned.
-    const key = `${source.documentId}\n${source.itemKey}`;
+    // A PDF/object can contain multiple relevant chunks (e.g. both pages of a
+    // criteria table). Deduplicate identical text, not the entire source file.
+    // Exact comparison only: no accent folding/fuzzy evidence normalization.
+    const key = JSON.stringify([source.documentId, source.itemKey, source.snippet]);
     const current = deduped.get(key);
     const currentScore = current?.score ?? Number.NEGATIVE_INFINITY;
     const sourceScore = source.score ?? Number.NEGATIVE_INFINITY;
@@ -225,9 +249,9 @@ export class CloudflareAiSearchRetrievalProvider
       const backendIds = new Set(allowedDocuments.filter((document) => backendFor(document) === backend).map((document) => document.id));
       const backendFilter: AiSearchMetadataFilter = {
         ...filter,
-        document_id: { $in: filter.document_id.$in.filter((id) => backendIds.has(id)) },
+        ...(filter.document_id ? { document_id: { $in: filter.document_id.$in.filter((id) => backendIds.has(id)) } } : {}),
       };
-      if (!backendFilter.document_id.$in.length) continue;
+      if (backendFilter.document_id && !backendFilter.document_id.$in.length) continue;
       searchCallCount += 1;
       let response: Awaited<ReturnType<AiSearchClient['search']>>;
       try {
@@ -258,7 +282,7 @@ export class CloudflareAiSearchRetrievalProvider
       let authorizedChunks: AiSearchRawChunk[];
       try { authorizedChunks = postAuthorizeResults(chunks, backendIds); }
       catch (error) { this.reportError('POST_AUTHORIZATION', error); throw error; }
-      try { sources.push(...normalizeResults(authorizedChunks, backend)); }
+      try { sources.push(...normalizeResults(authorizedChunks, backend, allowedDocuments)); }
       catch (error) { this.reportError('RESPONSE_NORMALIZATION', error); throw error; }
     }
     return {
@@ -275,7 +299,7 @@ export class CloudflareAiSearchRetrievalProvider
 export const retrieveAiSearchWithCache = async (
   cache: RetrievalCache<AiSearchRetrievalResult> | undefined,
   cacheKey: string | undefined,
-  provider: CloudflareAiSearchRetrievalProvider,
+  provider: Pick<CloudflareAiSearchRetrievalProvider,'retrieve'>,
   request: AiSearchRetrievalRequest,
   ttlSeconds = 21_600,
 ) => {

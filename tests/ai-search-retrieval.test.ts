@@ -39,6 +39,22 @@ const providerFor = (client: AiSearchClient) => new CloudflareAiSearchRetrievalP
   text: 'hub-ai-text-test', ocr: 'hub-ai-ocr-test',
 }, true);
 
+test('page locators come only from exact authorized one-page object keys, not arbitrary filenames or old parts',async()=>{
+  const cases=[
+    [`ai-search/text/${DOC_A}/v1-test/page-014.md`,14],
+    [`${DOC_A}-page-002.md`,2],
+    [`ai-search/text/${DOC_A}/v1-test/part-014.md`,undefined],
+    ['other-page-014.md',undefined],
+    [`${DOC_B}-page-002.md`,undefined],
+    [`${DOC_A}-page-099.md`,undefined],
+  ] as const;
+  for(const [key,expected]of cases){
+    const client=fakeClient(()=>({chunks:[chunk('page',DOC_A,0.9,key)]}));
+    const result=await providerFor(client).retrieve({question:'quy chế?',allowedDocuments:[{id:DOC_A}]});
+    assert.equal(result.sources[0]?.pageNumber,expected);
+  }
+});
+
 test('AI Search adapter is disabled by default and never becomes the current production provider', () => {
   const client = fakeClient(() => ({ chunks: [] }));
   const adapter = new CloudflareAiSearchRetrievalProvider(client, { text: 'hub-ai-text-test', ocr: 'hub-ai-ocr-test' });
@@ -161,7 +177,7 @@ test('retrieval diagnostics classify search, response, post-authorization and no
 
 test('TEXT/OCR routing has at most one search per needed backend and merges deterministically at global topK', async () => {
   const client = fakeClient((instance) => instance === 'hub-ai-text-test'
-    ? { chunks: [chunk('duplicate-low', DOC_A, 0.6, `${DOC_A}/part-1.txt`), chunk('duplicate-high', DOC_A, 0.9, `${DOC_A}/part-1.txt`), chunk('c1', DOC_C, 0.5)] }
+    ? { chunks: [{ ...chunk('duplicate-low', DOC_A, 0.6, `${DOC_A}/part-1.txt`), text: 'Identical passage' }, { ...chunk('duplicate-high', DOC_A, 0.9, `${DOC_A}/part-1.txt`), text: 'Identical passage' }, chunk('c1', DOC_C, 0.5)] }
     : { chunks: [chunk('b1', DOC_B, 0.8), chunk('c2', DOC_C, 0.7)] });
   const adapter = providerFor(client);
   const textOnly = await adapter.retrieve({ question: 'text', allowedDocuments: [{ id: DOC_A, backend: 'TEXT' }] });
@@ -180,6 +196,20 @@ test('TEXT/OCR routing has at most one search per needed backend and merges dete
   assert.deepEqual(mixed.sources.map((source) => source.documentId), [DOC_A, DOC_B, DOC_C]);
   assert.equal(mixed.sources.filter((source) => source.documentId === DOC_A && source.itemKey === `${DOC_A}/part-1.txt`).length, 1);
   assert.deepEqual(mixed.sources.map((source) => source.sourceId), ['S1', 'S2', 'S3']);
+});
+
+test('different chunks of the same PDF survive while identical passages deduplicate at unchanged topK', async () => {
+  const client = fakeClient(() => ({ chunks: [
+    { ...chunk('p2', DOC_A, 0.9, 'one.pdf'), text: 'Điều 4: Điểm rèn luyện được đánh giá bằng thang điểm 100.' },
+    { ...chunk('p3', DOC_A, 0.8, 'one.pdf'), text: 'Điều 5: Nhóm 4 và nhóm 5 của bảng khung điểm.' },
+    { ...chunk('p14', DOC_A, 0.7, 'one.pdf'), text: 'Mini game trực tuyến không được tính điểm rèn luyện.' },
+    { ...chunk('p2-copy', DOC_A, 0.6, 'one.pdf'), text: 'Điều 4: Điểm rèn luyện được đánh giá bằng thang điểm 100.' },
+  ] }));
+  const result = await providerFor(client).retrieve({ question: 'Bảng tiêu chí ĐRL', allowedDocuments: [{ id: DOC_A }] });
+  assert.equal(result.searchCallCount, 1);
+  assert.equal(client.calls[0].request.ai_search_options.retrieval.max_num_results, 3);
+  assert.deepEqual(result.sources.map((source) => source.chunkId), ['p2', 'p3', 'p14']);
+  assert.deepEqual(result.sources.map((source) => source.sourceId), ['S1', 'S2', 'S3']);
 });
 
 test('retrieval cache composition uses revision-aware keys and reports actual executed search calls', async () => {
