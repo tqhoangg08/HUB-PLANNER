@@ -2,7 +2,8 @@
 import {createAuthForProfile,handleInternalSession,allowsIntegrationSyntheticCredentialRequest,type AuthRuntimeProfile,type AuthRuntimeEnv} from '../../../auth-production-worker/src/auth-production.ts';
 import {handleAdminAiDocuments,handleAiDocumentFile,handleAiDocumentSource, type AiDocumentsEnv} from '../ai-documents.ts';
 import {handleAiAdvisor,aiAdvisorErrorStatus,type AiAdvisorEnv} from '../ai-advisor.ts';
-import {requireBetterAuthSession} from '../better-auth-identity.ts';
+import {requireBetterAuthSession,requireBetterAuthStaff} from '../better-auth-identity.ts';
+import {readRoutingProbeProfile,routingProbeConfig,injectedGeminiFailure} from './advisor-routing-probe.ts';
 import {buildDerivedPageObjectKey,buildServerDerivedMetadata} from '../ai-document-ingestion.ts';
 import {handlePrivatePolicyConsent} from '../private-policy-consent.ts';
 import {readAdvisorProviderUsage,type AdvisorReleaseEvent,type AdvisorProviderUsage} from '../ai-advisor-release-telemetry.ts';
@@ -62,7 +63,13 @@ export default {
       }
       if(url.pathname.startsWith('/api/private/v1/ai-document-source/'))return json(await handleAiDocumentSource(request,url.pathname.split('/').pop()!,shared));
       if(url.pathname.startsWith('/api/private/v1/ai-document-file/'))return handleAiDocumentFile(request,url.pathname.split('/').pop()!,shared);
-      if(url.pathname==='/api/private/v1/ai-advisor'||url.pathname==='/api/staging/ai-advisor-gemini'){
+      if(url.pathname==='/api/private/v1/ai-advisor'||url.pathname==='/api/staging/ai-advisor-gemini'||url.pathname==='/api/staging/ai-advisor-routing'){
+        let probe:Awaited<ReturnType<typeof routingProbeConfig>>|undefined;
+        if(url.pathname==='/api/staging/ai-advisor-routing'){
+          const identity=await requireBetterAuthStaff(request,shared);
+          try{probe=await routingProbeConfig(readRoutingProbeProfile(request,identity.role),identity.userId);}
+          catch(e){return json({error:(e as Error).message},(e as Error).message==='STAGING_ADMIN_REQUIRED'?403:400);}
+        }
         // Structural diagnostics for the isolated acceptance run only. Never
         // return request identity, raw provider payloads, tokens or passages.
         let searchCalls=0,generatorCalls=0,pageReads=0,retrievalDurationMs=0,generatorDurationMs=0;
@@ -76,6 +83,11 @@ export default {
           advisorV2AiSearchClient:{search:async(_name,r)=>{searchCalls++;const t=Date.now();try{return await instance.search(r as AiSearchSearchRequest);}finally{retrievalDurationMs+=Date.now()-t;}}},
           advisorV2AiSearchInstances:{text:INSTANCE,ocr:INSTANCE},AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',
           advisorCompletenessTelemetry:{pageRead:()=>{pageReads++;}}};
+        if(probe){
+          Object.assign(advisor,{AI_ADVISOR_V2_MODE:probe.AI_ADVISOR_V2_MODE,AI_ADVISOR_V2_CANARY_PERCENT:probe.AI_ADVISOR_V2_CANARY_PERCENT,
+            AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:probe.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,GEMINI_FILE_SEARCH_ENABLED:probe.GEMINI_FILE_SEARCH_ENABLED});
+          if(probe.diagnostic.faultInjected)advisor.fileSearchAnswer=injectedGeminiFailure;
+        }
         advisor.advisorReleaseTelemetry={record:e=>{releaseMetrics=e;}};
         advisor.AI={run:async(model,input)=>{generatorCalls++;const t=Date.now();try{
           const result=await (env.AI as unknown as NonNullable<AiAdvisorEnv['AI']>).run(model,input);
@@ -86,8 +98,11 @@ export default {
           return result;
         }finally{generatorDurationMs+=Date.now()-t;}}};
         advisor.advisorV2EvidenceGenerator=createWorkersAiEvidenceGenerator(advisor,{onValidationFailure:reason=>{groundingRejectionSubtype=reason}});
-        const result=await handleAiAdvisor(request,url,advisor,ctx);
-        return json({...result,stagingMetrics:{searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass,groundingRejectionSubtype,workersUsage,providerFinishReason,releaseMetrics}});
+        const metrics=()=>({searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass,groundingRejectionSubtype,workersUsage,providerFinishReason,releaseMetrics,...(probe?{routingProbe:probe.diagnostic}:{})});
+        try{
+          const result=await handleAiAdvisor(request,url,advisor,ctx);
+          return json({...result,stagingMetrics:metrics()});
+        }catch(e){return json({error:'Yêu cầu staging chưa hoàn tất.',code:'STAGING_REQUEST_FAILED',stagingMetrics:metrics()},aiAdvisorErrorStatus(e));}
       }
       if(url.pathname.startsWith('/api/'))return json({error:'Not found'},404);
       return env.ASSETS.fetch(request);
