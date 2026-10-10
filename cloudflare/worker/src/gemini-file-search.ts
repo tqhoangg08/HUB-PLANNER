@@ -295,7 +295,7 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   const subitem = text.match(/(?:^|[^\p{L}\p{N}])tiểu\s*mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
 
   const components: string[] = [];
-  const table = text.match(/(?:^|\n)\s*bảng\s+(\d{1,3})(?:\s*\(thứ tự bảng trong DOCX\))?/imu)?.[0]?.trim();
+  const tables = [...new Set([...text.matchAll(/(?:^|\n)\s*bảng\s+(\d{1,3})(?:\s*\(thứ tự bảng trong DOCX\))?/gimu)].map(m=>m[0].trim()))].slice(0,MAX_LOCATORS_PER_SOURCE);
   if (part) components.push(`Phần ${part.toUpperCase()}`);
   if (chapter) components.push(`Chương ${chapter.toUpperCase()}`);
   if (section) components.push(`Mục ${section}`);
@@ -304,7 +304,7 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   if (point) components.push(`điểm ${point.toLowerCase()}`);
   if (subitem) components.push(`tiểu mục ${subitem}`);
   const heading=!article&&!section?text.match(/(?:^|\n)\s*((?:[IVXLCDM]+|\d+\.\d+)\.\s+[^\n]{1,160})/u)?.[1]?.trim():undefined;
-  return [...(components.length ? [components.join(', ')] : []), ...(table ? [table] : []),...(heading?[heading]:[])];
+  return [...(components.length ? [components.join(', ')] : []), ...tables,...(heading?[heading]:[])].slice(0,MAX_LOCATORS_PER_SOURCE);
 };
 
 const applicabilityKey = (value: GeminiDocumentApplicability) => [

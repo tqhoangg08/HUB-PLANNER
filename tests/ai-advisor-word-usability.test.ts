@@ -85,6 +85,9 @@ test('following chapter is not attached to the preceding cited article',()=>{
   assert.deepEqual(extractOfficialDocumentLocators('Điều 15. Quyền khiếu nại\nNội dung.\nChương V\nTổ chức'),['Điều 15']);
   assert.deepEqual(extractOfficialDocumentLocators('Chương IV\nĐiều 15. Quyền khiếu nại\nNội dung.'),['Chương IV, Điều 15']);
 });
+test('two requested milestones retain both actual table locators instead of only the first',()=>{
+  assert.deepEqual(extractOfficialDocumentLocators('Bảng 1 (thứ tự bảng trong DOCX)\n| Học kỳ Hè | Bắt đầu |\nBảng 2 (thứ tự bảng trong DOCX)\n| Học kỳ Hè | Đăng ký |'),['Bảng 1 (thứ tự bảng trong DOCX)','Bảng 2 (thứ tự bảng trong DOCX)']);
+});
 test('registration day cannot be substituted by semester start or plan publication month',()=>{
   const source=evidence('I. Kế hoạch tổ chức học tập\nHọc kỳ 2 bắt đầu từ 15/02/2027 đến 18/07/2027.\n1.2. Lịch học HK2 dự kiến ban hành tháng 11/2026.');
   assert.equal(resolveAcademicMilestone('Kế hoạch chương trình tiếng Anh bán phần cho biết chính xác ngày nào trong tháng 11 mở đăng ký học kỳ 2?',[source]),null);
