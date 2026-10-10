@@ -44,7 +44,8 @@ async function main(){
     const editor=page.getByLabel('Nội dung hiệu đính trang',{exact:true});
     await editor.fill(baseline+'\n');await editor.fill(baseline);
     phase='save_unchanged_draft';await page.getByRole('button',{name:'Lưu bản nháp',exact:true}).click();
-    await page.getByText(/lần lưu 2/).waitFor();
+    // History entries also contain "lần lưu 2"; target only the current state.
+    await page.getByText('Trạng thái: draft · lần lưu 2',{exact:true}).waitFor();
     if(!await page.getByRole('button',{name:'Phê duyệt nội dung đã đối chiếu',exact:true}).isDisabled())throw Error('APPROVAL_AUTOMATIC');
     const after=await(await context.request.get(route)).json();
     if(after.document.baseRevision!==read.document.baseRevision||after.document.sourceHash!==read.document.sourceHash)throw Error('LIVE_SOURCE_CHANGED');
@@ -57,4 +58,4 @@ async function main(){
     emit({phase:'review_ui_mobile',result:'PASS',width:390,horizontalOverflow:false,pageErrors:0});
   }finally{if(browser.isConnected())await browser.close();}
 }
-main().catch(error=>{emit({phase,result:'BLOCKED',reason:/^[A-Z_]+$/.test(error.message)?error.message:error.name,productionChanged:false,credentialsPrinted:false});process.exitCode=1;});
+main().catch(error=>{emit({phase,result:'BLOCKED',reason:/^[A-Z_]+$/.test(error.message)?error.message:/strict mode violation/.test(error.message)?'AMBIGUOUS_TEST_LOCATOR':error.name,productionChanged:false,credentialsPrinted:false});process.exitCode=1;});
