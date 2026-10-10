@@ -289,3 +289,11 @@ test('article excerpt preserves uncertain OCR verbatim, never repairs words or m
   assert.equal(resolvePolicyArticleExcerpt(q,[{...s,snippet:'Điều 4. Nội dung khác'}]),null);
   assert.equal(resolvePolicyArticleExcerpt(q,[s,{...s,sourceId:'S2',snippet:s.snippet.replace('Trung thực','Thiếu trung thực')}]),null);
 });
+
+test('requested article heading disambiguates issuing-decision Article3 from its attached rules',()=>{
+  const q='Theo quy tắc ứng xử, Điều 3 quy định trách nhiệm nào với bản thân, gia đình và xã hội?';
+  const issuing={sourceId:'S1',documentId:DOC,pageNumber:2,snippet:'Điều 3. Tổ chức thực hiện\nCác đơn vị thực hiện quyết định ban hành và có trách nhiệm triển khai quy định này.'};
+  const attached={sourceId:'S2',documentId:DOC,pageNumber:3,snippet:'Điều 3. Trách nhiệm với bản thân, gia đình và xã hội\n1. Trung thực, khách quan.\n2. Chấp hành an toàn giao thông.'};
+  const r=resolvePolicyArticleExcerpt(q,[issuing,attached])!;assert.ok(r);assert.deepEqual(r.sourceIds,['S2']);assert.doesNotMatch(r.reply,/Tổ chức thực hiện/);
+  assert.equal(resolvePolicyArticleExcerpt(q,[issuing]),null);
+});

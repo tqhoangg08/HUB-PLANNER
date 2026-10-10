@@ -32,6 +32,10 @@ Only the existing isolated `hub-advisor-pr88-app-staging` is used.
    `SUPPORT_QUOTE_NOT_FOUND` (not authorization denial or output truncation;
    finish reason `tool_calls`,1960input/259output tokens). The exact changed
    word of that binding response was not captured and is NOT VERIFIED.
+   The issuing decision and attached rules each have an Article3; their
+   extracted paragraphs conflict when selected by article number alone.
+   Explicitly requested heading subjects disambiguate them; unrelated issuing
+   clauses do not establish the contents of the attached conduct rules.
    Independently inspected indexed OCR has `khiêm tôn`, missing list/word
    characters and `[không đọc rõ]`, unlike the original visual PDF. No fuzzy
    quote matching or source rewriting is permitted. The requested article can

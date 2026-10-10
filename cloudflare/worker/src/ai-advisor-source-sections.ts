@@ -64,9 +64,14 @@ export const resolveAcademicMilestone = (question:string,evidence:readonly Autho
  * A partial source excerpt is not acceptance of a generated paraphrase. */
 export const resolvePolicyArticleExcerpt = (question:string,evidence:readonly AuthorizedEvidenceSource[]) => {
   const article=articleQuery(question);if(!article)return null;
+  const q=normalizeAdvisorIntentText(question);
+  // A decision and its attached regulation can both contain Article3. Match
+  // the heading subject explicitly requested by the user, not just a number.
+  const subjects=['trach nhiem','ban than','gia dinh','xa hoi'].filter(term=>q.includes(term));
   const candidates=evidence.flatMap(s=>{
     const lines=s.snippet.split('\n'),start=lines.findIndex(l=>new RegExp(`^dieu ${article.number}\\b`).test(normalizeAdvisorIntentText(l)));
     if(start<0)return[];
+    if(subjects.some(term=>!normalizeAdvisorIntentText(lines[start]).includes(term)))return[];
     let end=start+1;while(end<lines.length&&!/^dieu \d+\b/.test(normalizeAdvisorIntentText(lines[end]))&&!/^```/.test(lines[end]))end++;
     const text=lines.slice(start,end).join('\n').trim();
     if(text.length<80||text.length>1500)return[];
