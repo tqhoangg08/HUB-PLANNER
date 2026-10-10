@@ -82,7 +82,7 @@ async function main(){
         // prose, not raw Markdown table delimiters/comments, and wait for UI.
         const anchor=normalize(String(payload.reply||'').replace(/<!--[\s\S]*?-->/g,'').replace(/[|*#_`>]/g,'')).trim().slice(0,40);
         const visible=Boolean(anchor)&&await page.waitForFunction(value=>{
-          const text=document.body.innerText.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/\s+/g,' ').trim();
+          const text=document.body.innerText.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim();
           return text.includes(value);
         },anchor,{timeout:5000}).then(()=>true,()=>false);
         emit({phase:'multi_pdf_ui',case:i+1,topic:c.topic,sourceCommit,deployedCommit:health.sourceCommit,httpStatus:r.status(),durationMs:Date.now()-t,

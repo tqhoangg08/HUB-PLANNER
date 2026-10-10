@@ -126,7 +126,11 @@ const resolveWordTuitionTableRow=(question:string,evidence:readonly AuthorizedEv
   }
   if(!matches.length||new Set(matches.map(m=>JSON.stringify([m.row,m.header,m.program,m.cohort]))).size!==1)return null;
   const m=matches[0],cells=m.header.split('|').slice(1,-1);
-  return{reply:`Dòng học phí trong bảng đã truy xuất — ${m.program}, khóa ${m.cohort}:\n\n| Ngành | ${cells[2].trim()} | ${cells[3].trim()} |\n| --- | --- | --- |\n${m.row}\n\n${note}`,sourceIds:[m.sourceId],sourceExcerpts:{[m.sourceId]:m.excerpt}};
+  // Native multi-line cells are encoded as <br> in evidence. The safe GFM UI
+  // does not enable raw HTML; present the line break as whitespace only.
+  // Original evidence/quotes remain byte-for-byte unchanged for citations.
+  const displayCell=(text:string)=>text.replace(/<br\s*\/?\s*>/gi,' ').trim();
+  return{reply:`Dòng học phí trong bảng đã truy xuất — ${m.program}, khóa ${m.cohort}:\n\n| Ngành | ${displayCell(cells[2])} | ${displayCell(cells[3])} |\n| --- | --- | --- |\n${m.row}\n\n${note}`,sourceIds:[m.sourceId],sourceExcerpts:{[m.sourceId]:m.excerpt}};
 };
 
 /** Tuple and units/program must be proven by the SAME physical table, with

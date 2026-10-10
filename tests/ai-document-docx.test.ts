@@ -124,8 +124,9 @@ test('Word student-affairs article is scoped and excerpted without borrowing an 
 
 test('Word tuition requires literal units/program/cohort/major inside one unit; rejects ambiguity without guessing unreadable text',()=>{
   const q='Học phí K39 ngành Tài chính ngân hàng chương trình đại học chính quy chuẩn theo năm và theo tín chỉ là bao nhiêu?';
-  const s={sourceId:'S1',documentId:DOC,revision:'r',locatorKind:'word_unit' as const,snippet:'Bảng 2 (thứ tự bảng trong DOCX)\n| TT | HỆ/CHƯƠNG TRÌNH | Học phí theo năm (đồng) | Học phí theo tín chỉ (đồng) |\n| A | Đại học chính quy chuẩn | | |\nBảng 3 (thứ tự bảng trong DOCX)\n| Khóa 39 | | | |\n| 1 | Ngành Tài chính ngân hàng | 25.600.000 | 747.000 |'};
+  const s={sourceId:'S1',documentId:DOC,revision:'r',locatorKind:'word_unit' as const,snippet:'Bảng 2 (thứ tự bảng trong DOCX)\n| TT | HỆ/CHƯƠNG TRÌNH | Học phí theo năm<br>(đồng) | Học phí theo tín chỉ<br>(đồng) |\n| A | Đại học chính quy chuẩn | | |\nBảng 3 (thứ tự bảng trong DOCX)\n| Khóa 39 | | | |\n| 1 | Ngành Tài chính ngân hàng | 25.600.000 | 747.000 |'};
   const r=resolveTuitionTableRow(q,[s])!;assert.match(r.reply,/25\.600\.000/);assert.match(r.reply,/747\.000/);assert.match(r.sourceExcerpts.S1,/Bảng 3/);
+  assert.doesNotMatch(r.reply,/<br>/);assert.match(r.sourceExcerpts.S1,/<br>/);assert.match(r.reply,/Đại học chính quy chuẩn/);
   assert.equal(resolveTuitionTableRow(q,[{...s,snippet:s.snippet.replace('Khóa 39','Khóa 40')}]),null);
   assert.equal(resolveTuitionTableRow(q,[{...s,snippet:s.snippet.replace('747.000','[KHÔNG ĐỌC RÕ]')}]),null);
   assert.equal(resolveTuitionTableRow(q,[s,{...s,sourceId:'S2',snippet:s.snippet.replace('747.000','748.000')}]),null);
