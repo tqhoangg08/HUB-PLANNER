@@ -121,3 +121,26 @@ test('additive migration and local D1 readiness persist independent AI Search co
     assert.equal(result.gemini_indexing_status,'failed');
   }finally{db.close();}
 });
+
+test('readiness refresh cannot promote a replaced revision or revive a deleting document',async()=>{
+  for(const mutation of ["ai_search_revision='v2-new'","indexing_status='deleting'","deleted_at='2026-10-10'","visibility='admin'","ocr_page_count=2"]){
+    const db=new DatabaseSync(':memory:');
+    try{
+      db.exec('CREATE TABLE ai_documents(id TEXT PRIMARY KEY, visibility TEXT, indexing_status TEXT, updated_at TEXT, deleted_at TEXT, ocr_page_count INTEGER)');
+      db.exec(readFileSync('cloudflare/migrations/0054_ai_document_search_ingestion_state.sql','utf8'));
+      const id='11111111-1111-4111-8111-111111111111';
+      db.prepare("INSERT INTO ai_documents(id,visibility,indexing_status,ocr_page_count,ai_search_status,ai_search_revision) VALUES(?,'public','processing',1,'derived_ready','v1-test')").run(id);
+      const snapshot=db.prepare('SELECT * FROM ai_documents').get() as Parameters<typeof refreshAiSearchDocument>[1];
+      const storage={prepare:(sql:string)=>({bind:(...args:unknown[])=>({first:async()=>db.prepare(sql).get(...args as never[]),run:async()=>db.prepare(sql).run(...args as never[])})})};
+      const env={DB:storage,AI_DOCUMENTS_BUCKET:{},AI_ADVISOR_SEARCH:{get:()=>({items:{list:async()=>{
+        // Concurrent admin action while the provider request was in flight.
+        db.exec(`UPDATE ai_documents SET ${mutation}`);
+        return {result:[{key:buildDerivedPageObjectKey(id,'v1-test',1),status:'completed',metadata:{document_id:id,revision:'v1-test',visibility:'public',active:true}}]};
+      }}})}};
+      await refreshAiSearchDocument(env as never,snapshot);
+      const current=db.prepare('SELECT * FROM ai_documents').get()!;
+      assert.equal(current.ai_search_status,'derived_ready',mutation);
+      assert.notEqual(current.indexing_status,'completed',mutation);
+    }finally{db.close();}
+  }
+});

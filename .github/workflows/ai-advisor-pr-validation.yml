@@ -1,0 +1,43 @@
+name: AI Advisor PR validation (no deployment)
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: advisor-pr-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Focused Advisor and release safety regressions
+        run: npm run test:advisor
+      - name: Frontend typecheck
+        run: npm run typecheck
+      - name: Worker typecheck
+        run: npm run cf:typecheck
+      - name: Build frontend without deploying
+        run: npm run build
+      - name: Full offline/local suite
+        run: |
+          npm test
+          node --test scripts/hub-roster-parser.test.mjs tools/hub-devtools-snippets/hk1-course-schedule-audit.test.mjs
+      - name: Diff whitespace check
+        run: git diff --check HEAD^ HEAD

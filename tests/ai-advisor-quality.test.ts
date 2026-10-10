@@ -83,6 +83,25 @@ test('uploaded derived index uses its current D1 revision, not numeric document 
   } finally { db.sql.close(); }
 });
 
+test('0054 defaults preserve legacy V2 eligibility with completeness off, never activate unfinished derivatives',async()=>{
+  for(const state of ['old_schema','migrated_legacy','derived_ready','failed','not_prepared_revision','completed']){
+    const db=makeDb();let generated=0,legacy=0;
+    try{
+      db.insert();
+      if(state!=='old_schema')db.sql.exec(readFileSync('cloudflare/migrations/0054_ai_document_search_ingestion_state.sql','utf8'));
+      if(!['old_schema','migrated_legacy'].includes(state))db.sql.prepare('UPDATE ai_documents SET ai_search_status=?,ai_search_revision=? WHERE id=?')
+        .run(state==='not_prepared_revision'?'not_prepared':state,'v1-test',DOC);
+      const result=await send({...envFor(db.DB),AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'100',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',
+        advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorV2AiSearchClient:{search:async()=>({chunks:[{id:'legacy',text:PASSAGE,score:0.9,item:{key:'fixture.md',metadata:{document_id:DOC,active:true}}}]})},
+        advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{generated++;return{supported:true,answer:PASSAGE,sourceIds:['S1']};}},
+        fileSearchAnswer:async()=>{legacy++;return providerResult();}});
+      const eligible=['old_schema','migrated_legacy','completed'].includes(state);
+      assert.equal(generated,eligible?1:0,state);assert.equal(legacy,eligible?0:1,state);
+      assert.equal(result.documentSources.length,1,state);
+    }finally{db.sql.close();}
+  }
+});
+
 for (const q of ['Bạn có bảng điểm rèn luyện mới nhất không?', question, 'bang diem ren luyen moi nhat', 'Phiếu ĐRL hiện hành có những mục nào?', 'Quyết định 3529/QĐ-ĐHNH quy định gì?']) {
   test(`DRL regulations route: ${q}`, () => {
     assert.equal(classifyConductIntent(q), 'regulations');

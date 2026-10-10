@@ -220,7 +220,15 @@ export const refreshAiSearchDocument = async (env:AiDocumentsEnv, document:AiDoc
     if(!items)return document;
     const response=await items.list({per_page:50,metadata_filter:JSON.stringify({document_id:document.id,revision:document.ai_search_revision})});
     if(!isCompleteDerivedRevision({id:document.id,revision:String(document.ai_search_revision),pages,visibility:document.visibility},response.result))return document;
-    return await updateAiDocument(env,document.id,{ai_search_status:'completed',indexing_status:'completed'});
+    // Provider readiness is for this exact snapshot only. A concurrent delete,
+    // visibility edit or revision promotion must not be overwritten by it.
+    await requireStorage(env).db.prepare(`UPDATE ai_documents
+      SET ai_search_status='completed', indexing_status='completed', updated_at=?
+      WHERE id=? AND ai_search_revision=? AND ai_search_status='derived_ready'
+        AND visibility=? AND ocr_page_count=? AND deleted_at IS NULL
+        AND indexing_status NOT IN ('deleting','deleted')`)
+      .bind(new Date().toISOString(),document.id,document.ai_search_revision,document.visibility,pages).run();
+    return await findAiDocument(env,document.id,true) || document;
   }catch{return document;} // Provider errors cannot pretend index completion.
 };
 

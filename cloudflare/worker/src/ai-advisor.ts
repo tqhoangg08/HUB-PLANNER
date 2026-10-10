@@ -1147,6 +1147,12 @@ export const selectAdvisorDocumentCandidates = async (env: AiAdvisorEnv, route: 
     .sort((left, right) => candidatePrecedence(route, left, right));
 };
 
+/** 0054 defaults must not disable the pre-migration legacy catalog. Once a
+ * derived revision exists, only its independently completed state is usable. */
+const hasReadyAiSearchIdentity = (candidate: AdvisorDocumentCandidateWithIndexIdentity) =>
+  !candidate.aiSearchStatus || candidate.aiSearchStatus === 'completed'
+  || (candidate.aiSearchStatus === 'not_prepared' && !candidate.aiSearchRevision);
+
 /** Scan metadata, not content. A safety bound fails closed, never silently truncates recall. */
 const readAdvisorDocumentPages = async <T extends { id: string }>(db: D1Database, columns: string): Promise<T[]> => {
   const result: T[] = [];
@@ -1501,7 +1507,7 @@ const runAdvisorShadow = async (
   try {
     const candidates = await withinDeadline(() => selectAdvisorDocumentCandidatesWithIndexIdentity(env, route));
     const v2Candidates: AiAdvisorV2Candidate[] = candidates.map((candidate) => ({
-      id: candidate.id, title: candidate.title, category: candidate.category, visibility: 'public', revision: candidate.aiSearchRevision || candidate.version, active: !candidate.aiSearchStatus || candidate.aiSearchStatus === 'completed',
+      id: candidate.id, title: candidate.title, category: candidate.category, visibility: 'public', revision: candidate.aiSearchRevision || candidate.version, active: hasReadyAiSearchIdentity(candidate),
       contentHash: candidate.contentHash, canonicalHash: candidate.canonicalHash,
       indexSourceKind: candidate.indexSourceKind || 'legacy', derivedSourceKind: candidate.derivedSourceKind || 'legacy',
       extractionPipelineVersion: candidate.extractionPipelineVersion, derivedContentHash: candidate.derivedContentHash,
@@ -1689,7 +1695,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         category: candidate.category,
         visibility: 'public',
         revision: candidate.aiSearchRevision || candidate.version,
-        active: !candidate.aiSearchStatus || candidate.aiSearchStatus === 'completed',
+        active: hasReadyAiSearchIdentity(candidate),
         contentHash: candidate.contentHash,
         canonicalHash: candidate.canonicalHash,
         indexSourceKind: candidate.indexSourceKind || 'legacy',
