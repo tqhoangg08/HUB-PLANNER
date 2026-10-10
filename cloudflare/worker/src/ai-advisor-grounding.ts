@@ -1,5 +1,6 @@
 import { normalizeAdvisorIntentText } from './ai-advisor-intents.ts';
 import {selectEvidenceWindow} from './ai-advisor-source-sections.ts';
+import {stripWordExtractionEnvelope} from '../../../shared/ai-source-presentation.ts';
 
 /** Conservative guard; document text is data, never higher-priority instructions. */
 export const containsDocumentInstructions = (text: string) => /(?:system|assistant)\s*:/i.test(text)
@@ -9,6 +10,12 @@ export const containsDocumentInstructions = (text: string) => /(?:system|assista
 export const isRelevantAdvisorEvidence = (question: string, text: string, documentTitle = '') => {
   const query = normalizeAdvisorIntentText(question);
   const evidence = normalizeAdvisorIntentText(text);
+  // Independent topics require independent authorized evidence. Relevance is
+  // OR across explicitly requested subjects, not the first domain winning.
+  if (/\b(?:drl|ren luyen)\b/.test(query) && /\bhoc phi\b/.test(query)) {
+    return isRelevantAdvisorEvidence('điểm rèn luyện', text, documentTitle)
+      || isRelevantAdvisorEvidence('học phí', text, documentTitle);
+  }
   const decision = query.match(/\bquyet dinh\s+(\d{2,6})\b/);
   if (decision && !new RegExp(`\\b${decision[1]}\\b`).test(`${evidence} ${normalizeAdvisorIntentText(documentTitle)}`)) return false;
   if (/\b(?:drl|ren luyen|3529)\b/.test(query)) {
@@ -28,7 +35,8 @@ export const isRelevantAdvisorEvidence = (question: string, text: string, docume
     [/\b(?:dang ky hoc phan|rut hoc phan)\b/, /\b(?:dang ky|rut|hoc phan)\b/],
     [/\b(?:canh bao hoc vu|buoc thoi hoc)\b/, /\b(?:canh bao|thoi hoc)\b/],
   ];
-  for (const [queryTopic, sourceTopic] of policyTopics) if (queryTopic.test(query) && !sourceTopic.test(evidence)) return false;
+  for (const [queryTopic, sourceTopic] of policyTopics) if (queryTopic.test(query) && !sourceTopic.test(evidence)
+    && !sourceTopic.test(normalizeAdvisorIntentText(documentTitle))) return false;
   return true;
 };
 
@@ -89,6 +97,6 @@ export const sourceSupportedReply = (reply: string, passages: readonly string[],
   const normalized = exactEvidenceText(reply);
   const assertsCurrency = /\b(?:hien hanh|moi nhat|con hieu luc)\b/.test(normalizeAdvisorIntentText(reply));
   if (normalized && !assertsCurrency && isRelevantAdvisorEvidence(question, reply)
-    && passages.some((passage) => exactEvidenceText(passage).includes(normalized))) return reply;
-  return `Đoạn nguồn liên quan đã truy xuất (chưa xác nhận hiệu lực hiện hành; các trích đoạn có thể chưa đủ để trả lời toàn bộ câu hỏi):\n\n${passages.slice(0, 3).map((passage) => `> ${quoteRelevantWindow(passage, question).replace(/\n/g, '\n> ')}`).join('\n\n')}`;
+    && passages.some((passage) => exactEvidenceText(passage).includes(normalized))) return stripWordExtractionEnvelope(reply);
+  return `Đoạn nguồn liên quan đã truy xuất (chưa xác nhận hiệu lực hiện hành; các trích đoạn có thể chưa đủ để trả lời toàn bộ câu hỏi):\n\n${passages.slice(0, 3).map((passage) => `> ${stripWordExtractionEnvelope(quoteRelevantWindow(passage, question)).replace(/\n/g, '\n> ')}`).join('\n\n')}`;
 };

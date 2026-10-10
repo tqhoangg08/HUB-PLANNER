@@ -270,10 +270,13 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   if (!text) return [];
   // Headings use a line boundary so "học phần 2" cannot become "Phần 2".
   const part = text.match(/(?:^|\n)\s*phần\s+([ivxlcdm]+|\d{1,3})\b/imu)?.[1];
-  const chapter = text.match(/(?:^|[^\p{L}\p{N}])chương\s+([ivxlcdm]+|\d{1,3})\b/iu)?.[1];
+  const chapterMatch = text.match(/(?:^|[^\p{L}\p{N}])chương\s+([ivxlcdm]+|\d{1,3})\b/iu);
   const section = text.match(/(?:^|[^\p{L}\p{N}])mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
   const articleMatch = text.match(/(?:^|[^\p{L}\p{N}])điều\s+(\d{1,3}[a-z]?)\b/iu);
   const article = articleMatch?.[1];
+  // A following chapter heading belongs to the NEXT article, not the
+  // cited article. Never attach the first unrelated heading in a chunk.
+  const chapter = chapterMatch && (!articleMatch || (chapterMatch.index||0)<(articleMatch.index||0)) ? chapterMatch[1] : undefined;
   const articleText = articleMatch ? text.slice((articleMatch.index || 0) + articleMatch[0].length) : text;
   const explicitClause = text.match(/(?:^|[^\p{L}\p{N}])khoản\s+(\d{1,3})\b/iu)?.[1];
   // A bare "2." is a clause only in an excerpt that already names an article.

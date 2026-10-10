@@ -304,7 +304,7 @@ const POLICY_DOMAIN_CUES: Array<[AdvisorDocumentDomain, string[]]> = [
   ['graduation', ['điều kiện tốt nghiệp', 'xét tốt nghiệp', 'khóa luận tốt nghiệp', 'thực tập cuối khóa']],
   ['course_registration', ['đăng ký học phần', 'rút học phần', 'bảo lưu', 'nghỉ học tạm thời', 'học hai chương trình', 'song ngành', 'chuyển ngành', 'chuyển trường']],
   ['academic_warning', ['cảnh báo học vụ', 'buộc thôi học']],
-  ['tuition', ['học phí']],
+  ['tuition', ['học phí', 'mức thu năm và tín chỉ', 'muc thu nam va tin chi']],
   ['scholarship', ['học bổng']],
   ['discipline', ['kỷ luật', 'vi phạm']],
   ['student_handbook', ['sổ tay sinh viên', 'student handbook']],

@@ -9,6 +9,9 @@ export type ConductIntent = 'regulations' | 'personal_score' | 'event_eligibilit
 export const isAcademicPolicyQuestion = (question: string) => {
   const q=normalizeAdvisorIntentText(question);
   return /\bke hoach (?:to chuc )?hoc tap\b/.test(q)
+    || /\b(?:nghi tet|hoc ky he)\b/.test(q)
+      && /\b(?:ke hoach|chuong trinh|he chuan|chinh quy chuan|tinh hoa|tieng anh ban phan)\b/.test(q)
+    || /\bke hoach\b/.test(q) && /\b(?:chuong trinh|hoc ky|ky 2)\b/.test(q)
     || /\b(?:dang ky|rut) (?:mon hoc|hoc phan)\b/.test(q)
       && /\b(?:thoi gian|ngay|han|bat dau|khi nao|quy dinh|quy trinh|hoc ky)\b/.test(q);
 };

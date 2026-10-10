@@ -14,6 +14,7 @@ import {retrieveAiSearchCompleteEvidence, type CompletenessSearchRequest} from '
 import {resolveConductTableAnswer} from './ai-advisor-table-evidence.ts';
 import {resolveConductExcerptAnswer} from './ai-advisor-policy-excerpts.ts';
 import {resolveAcademicMilestone,resolveTuitionTableRow,isTuitionContinuationEvidence,resolvePolicyArticleExcerpt} from './ai-advisor-source-sections.ts';
+import {splitPolicyEvidenceQuestions,tuitionTupleQuery} from './ai-advisor-retrieval-plan.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -157,7 +158,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-word-native-v6' : 'ai-search-word-native-v5-table-budget',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -169,7 +170,7 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-word-native-v4':'ai-search-word-native-topk3-threshold04-v4',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-word-native-v5':'ai-search-word-native-topk3-threshold04-v4',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
@@ -198,16 +199,24 @@ export const executeAiAdvisorV2Document = async (
     .slice(0, 3).map((source) => ({
     sourceId: source.sourceId,
     documentId: source.documentId,
+    documentTitle: allowed.find(candidate=>candidate.id===source.documentId)?.title,
     revision: String(allowed.find((candidate) => candidate.id === source.documentId)?.revision || ''),
     snippet: source.snippet,
     ...(source.pageNumber ? {pageNumber:source.pageNumber}: {}),
     ...(allowed.find(candidate=>candidate.id===source.documentId)?.locatorKind==='word_unit'
-      ? {locatorKind:'word_unit' as const} : {}),
+      ? {locatorKind:'word_unit' as const,unitNumber:Number(source.itemKey.match(/page-(\d{3})\.md$/)?.[1])||undefined} : {}),
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
   if(dependencies.completenessSearch){
-    const extracted=resolveConductTableAnswer(question,evidence)||resolveConductExcerptAnswer(question,evidence)
-      ||resolveAcademicMilestone(question,evidence)||resolveTuitionTableRow(question,evidence)||resolvePolicyArticleExcerpt(question,evidence);
+    const parts=splitPolicyEvidenceQuestions(question);
+    const answers=parts.map(part=>resolveConductTableAnswer(part,evidence)||resolveConductExcerptAnswer(part,evidence)
+      ||resolveAcademicMilestone(part,evidence)||resolveTuitionTableRow(part,evidence)||resolvePolicyArticleExcerpt(part,evidence));
+    const available=answers.filter(a=>a!==null);
+    const extracted=parts.length===1?answers[0]:available.length?{
+      reply:answers.map((a,i)=>`Ý ${i+1}:\n${a?.reply||'Chưa truy xuất đủ nguồn để xác minh phần này.'}`).join('\n\n'),
+      sourceIds:[...new Set(available.flatMap(a=>a.sourceIds))],
+      sourceExcerpts:Object.assign({},...available.map(a=>'sourceExcerpts' in a?a.sourceExcerpts:{})),
+    }:null;
     if(extracted){
       // Locators must describe the cited passage, not the first unrelated
       // article on a physical page that happens to contain several articles.
@@ -217,6 +226,9 @@ export const executeAiAdvisorV2Document = async (
       return {kind:'ANSWER',answer,searchCallCount:retrieved.searchCallCount,
         retrievalCacheHit:retrieved.cacheHit,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
     }
+    // A requested fee tuple must be proved by a row, program, cohort and
+    // units together. Do not substitute another cohort's plausible amount.
+    if(tuitionTupleQuery(question))return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
   }
   try {
     const generated = await dependencies.evidenceGenerator.generate({

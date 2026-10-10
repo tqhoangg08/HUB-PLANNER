@@ -5,6 +5,7 @@ import {chromium} from 'playwright-core';
 import dotenv from 'dotenv';
 import {GoogleGenAI,UploadToFileSearchStoreOperation} from '@google/genai';
 import {normalizeAcceptanceText as normalize} from '../shared/ai-advisor-acceptance-text.ts';
+import {sanitizeAIReply} from '../utils/aiSafety.ts';
 const DIR=resolve('.cache/advisor-word-staging'),OUT=resolve(DIR,'usability-results');
 const emit=value=>console.log(JSON.stringify(value));
 export const WORD_USABILITY_CASES=[
@@ -90,7 +91,8 @@ async function main(){mkdirSync(OUT,{recursive:true});
   }
   if(!process.argv.includes('--ui'))throw Error('ACTION_REQUIRED');
   const {s,browser,context,page}=await login();
-  try{const health=await(await context.request.get(`${s.origin}/health`)).json();if(health.sourceCommit!=='a24e001a10f71b8e79074734a82545fe0d197a03')throw Error('STAGING_SOURCE_MISMATCH');
+  try{const expected=process.argv[process.argv.indexOf('--expected-source')+1];if(!process.argv.includes('--expected-source')||!/^[a-f0-9]{40}$/.test(expected))throw Error('STAGING_SOURCE_MISMATCH');
+    const health=await(await context.request.get(`${s.origin}/health`)).json();if(health.sourceCommit!==expected)throw Error('STAGING_SOURCE_MISMATCH');
     const sources=JSON.parse(readFileSync(resolve(DIR,'source-inspection-private.json'))),list=await(await context.request.get(`${s.origin}/api/admin/v1/ai-documents`)).json(),docs=list.documents||list.data||[];
     if(docs.length!==5||docs.some(d=>!sources.some(s=>s.sourceHash===d.content_hash)))throw Error('CORPUS_CHANGED');
     const errors=[];page.on('pageerror',e=>errors.push(e.name));await page.locator('button.fixed.bottom-6').click();const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
@@ -98,11 +100,14 @@ async function main(){mkdirSync(OUT,{recursive:true});
       if(i)await page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true}).click();const started=Date.now();
       try{const next=page.waitForResponse(r=>r.url()===`${s.origin}/api/private/v1/ai-advisor`&&r.request().method()==='POST',{timeout:90000});
         const input=page.getByPlaceholder('Nhập câu hỏi tại đây...');await input.fill(c.q);await input.press('Enter');const response=await next,payload=await response.json();
-        writeFileSync(resolve(OUT,`case-${i+1}-private.json`),JSON.stringify({question:c.q,expectation:c,payload}));
-        await page.waitForFunction(()=>!document.querySelector('.ai-message-markdown')?.textContent?.includes('Đang suy nghĩ'),undefined,{timeout:5000});
+        const anchor=normalize(sanitizeAIReply(payload.reply||'')).replace(/[|*#_`>]/g,'').trim().slice(0,45);
+        if(anchor)await page.waitForFunction(value=>[...document.querySelectorAll('.ai-message-markdown')].some(el=>el.textContent.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim().includes(value)),anchor,{timeout:15000});
+        await page.locator('.ai-message-markdown').last().waitFor({timeout:15000});
+        const visibleReply=await page.locator('.ai-message-markdown').last().innerText();
+        writeFileSync(resolve(OUT,`case-${i+1}-private.json`),JSON.stringify({question:c.q,expectation:c,payload,visibleReply}));
         const citations=payload.documentSources||[],expectedIds=c.topics.map(t=>docs.find(d=>d.content_hash===sources.find(s=>s.topic===t).sourceHash)?.id);
         const citationChecks={allExpectedSources:expectedIds.every(id=>citations.some(x=>x.documentId===id)),allSourcesAuthorized:citations.every(x=>docs.some(d=>d.id===x.documentId)),noFakeWordPages:citations.every(x=>!x.pageNumber&&!x.pageNumbers?.length),hasLocators:citations.length>0&&citations.every(x=>x.locators?.length>0)};
-        emit({phase:'word_usability_ui',case:i+1,expectedAnswer:c.insufficient?'INSUFFICIENT_SOURCE':'ANSWERABLE',http:response.status(),durationMs:Date.now()-started,expectedFacts:(c.facts||[]).every(f=>normalize(payload.reply).includes(normalize(f))),...citationChecks,pageErrors:errors.length,metrics:payload.stagingMetrics,verdict:'AWAITING_CONTENT_REVIEW'});
+        emit({phase:'word_usability_ui',case:i+1,expectedAnswer:c.insufficient?'INSUFFICIENT_SOURCE':'ANSWERABLE',http:response.status(),durationMs:Date.now()-started,expectedFacts:(c.facts||[]).every(f=>normalize(visibleReply).includes(normalize(f))),technicalRefusal:visibleReply.includes('thông tin kỹ thuật hoặc bảo mật'),metadataVisible:/word_unit|uncertain_tokens/.test(visibleReply),...citationChecks,pageErrors:errors.length,metrics:payload.stagingMetrics,verdict:'AWAITING_CONTENT_REVIEW'});
         await page.screenshot({path:resolve(OUT,`case-${i+1}-desktop.png`)});
       }catch(e){emit({phase:'word_usability_ui',case:i+1,errorClass:e.name,durationMs:Date.now()-started,verdict:'FAIL'});throw e;}
     }

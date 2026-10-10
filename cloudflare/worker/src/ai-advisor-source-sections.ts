@@ -1,5 +1,6 @@
-import {normalizeAdvisorIntentText} from './ai-advisor-intents.ts';
-import {articleQuery,tuitionTupleQuery} from './ai-advisor-retrieval-plan.ts';
+import {normalizeAdvisorIntentText,isAcademicPolicyQuestion} from './ai-advisor-intents.ts';
+import {articleQuery,tuitionTupleQuery,policyHeadingQuery} from './ai-advisor-retrieval-plan.ts';
+import {stripWordExtractionEnvelope} from '../../../shared/ai-source-presentation.ts';
 import type {AuthorizedEvidenceSource} from './ai-advisor-evidence.ts';
 
 /** Locate original bytes by line offsets; selection NEVER normalizes a quote. */
@@ -41,9 +42,9 @@ export const isTuitionContinuationEvidence = (question:string,source:PageEvidenc
 /** Lossless academic milestone extraction: require section + semester row on
  * the SAME authorized page. Never infer a date from a neighboring semester. */
 export const resolveAcademicMilestone = (question:string,evidence:readonly AuthorizedEvidenceSource[]) => {
-  const q=normalizeAdvisorIntentText(question);if(!/\bke hoach (?:to chuc )?hoc tap\b/.test(q))return null;
-  const term=q.match(/\bhoc ky\s+(\d+)\b/)?.[1];
-  const registration=/\bdang ky (?:mon hoc|hoc phan)\b/.test(q);
+  const q=normalizeAdvisorIntentText(question);if(!isAcademicPolicyQuestion(question))return null;
+  const term=q.match(/\b(?:hoc ky|ky)\s+(\d+)\b/)?.[1];
+  const registration=/\bdang ky (?:mon(?: hoc)?|hoc phan)\b/.test(q);
   const candidates=evidence.flatMap(s=>{
     const lines=s.snippet.split('\n');
     if(s.locatorKind==='word_unit'){
@@ -53,13 +54,14 @@ export const resolveAcademicMilestone = (question:string,evidence:readonly Autho
         if(/^Bảng \d+ \(thứ tự bảng trong DOCX\)/.test(line))table=line;
         if(/^(?:[IVXLCDM]+|\d+\.\d+)\.\s+\S/u.test(line))heading=line;
         if(/thoi gian dang ky mon hoc/.test(n))header=line;
-        const semester=term&&new RegExp(`\\b(?:hoc ky\\s*|hk)${term}\\b`).test(n);
+        const semester=term?new RegExp(`\\b(?:hoc ky\\s*|hk)${term}\\b`).test(n):/\bhoc ky he\b/.test(q)&&/\b(?:hoc ky he|hk he)\b/.test(n);
         const literalDate=/\b(?:\d{1,2}\/)?\d{1,2}\/\d{4}\b/.test(line);
         const literalRegistration=registration&&semester&&literalDate
           &&(/dang ky hoc phan/.test(n)||Boolean(header)&&/^\|/.test(line)&&/^hoc ky\b/.test(n));
         const literalHoliday=/\bnghi tet\b/.test(q)&&/nghi tet/.test(n)
           &&(line.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g)||[]).length===2;
-        if((literalRegistration||literalHoliday)&&!n.includes('khong doc ro'))found.push({text:line,sourceId:s.sourceId,
+        const literalTerm=semester&&literalDate&&/^(?:hoc ky|hk)\b/.test(n)&&/\b(?:bat dau|ket thuc)\b/.test(n);
+        if((literalRegistration||literalHoliday||literalTerm)&&!n.includes('khong doc ro'))found.push({text:line,sourceId:s.sourceId,
           excerpt:[/^\|/.test(line)?table:heading,literalRegistration?header:'',line].filter(Boolean).join('\n')});
       }
       return found;
@@ -74,32 +76,53 @@ export const resolveAcademicMilestone = (question:string,evidence:readonly Autho
     if(/\bthuc tap cuoi khoa\b/.test(q))return lines.filter(l=>/thuc tap cuoi khoa.*\d+ tuan/.test(normalizeAdvisorIntentText(l))&&!l.includes('[không đọc rõ]')).map(text=>({text,sourceId:s.sourceId,excerpt:text}));
     return[];
   });
-  if(!candidates.length||new Set(candidates.map(c=>c.text.trim())).size!==1)return null;
-  return{reply:`Theo dòng trong kế hoạch đã truy xuất:\n\n${quote(candidates[0].text.trim())}\n\n${note}`,sourceIds:[candidates[0].sourceId],sourceExcerpts:{[candidates[0].sourceId]:candidates[0].excerpt}};
+  if(!candidates.length)return null;
+  // Independent plans must remain separate; distinct dates are not a conflict
+  // across documents. Never combine dates into one unlabeled program answer.
+  const perSource=[...new Map(candidates.map(c=>[c.sourceId,c])).values()];
+  const multipleMilestones=registration&&/\bbat dau\b/.test(q);
+  if(!/\bnghi tet\b/.test(q)&&!multipleMilestones&&new Set(candidates.map(c=>c.text.trim())).size!==1)return null;
+  const distinct=[...new Map(candidates.map(c=>[JSON.stringify([c.sourceId,c.text]),c])).values()];
+  return{reply:`Theo dòng trong kế hoạch đã truy xuất:\n\n${distinct.map(c=>`${evidence.find(s=>s.sourceId===c.sourceId)?.documentTitle||`Nguồn ${c.sourceId}`}:\n${quote(c.text.trim().replace(/<br\s*\/?\s*>/g,' '))}`).join('\n\n')}\n\n${note}`,sourceIds:perSource.map(c=>c.sourceId),sourceExcerpts:Object.fromEntries(perSource.map(c=>[c.sourceId,distinct.filter(d=>d.sourceId===c.sourceId).map(d=>d.excerpt).join('\n')]))};
 };
 
 /** Requested article only, original text/unclear markers unchanged. Never
  * repairs OCR spelling or claims completeness/currentness of uncertain text.
  * A partial source excerpt is not acceptance of a generated paraphrase. */
 export const resolvePolicyArticleExcerpt = (question:string,evidence:readonly AuthorizedEvidenceSource[]) => {
-  const article=articleQuery(question);if(!article)return null;
+  const article=articleQuery(question),policy=policyHeadingQuery(question);if(!article&&!policy)return null;
   const q=normalizeAdvisorIntentText(question);
   // A decision and its attached regulation can both contain Article3. Match
   // the heading subject explicitly requested by the user, not just a number.
   const subjects=['trach nhiem','ban than','gia dinh','xa hoi','nguyen tac'].filter(term=>q.includes(term));
   const candidates=evidence.flatMap(s=>{
-    const lines=s.snippet.split('\n'),start=lines.findIndex(l=>new RegExp(`^dieu ${article.number}\\b`).test(normalizeAdvisorIntentText(l)));
+    const lines=s.snippet.split('\n'),start=lines.findIndex(l=>/^dieu \d+\b/.test(normalizeAdvisorIntentText(l))
+      &&(article?new RegExp(`^dieu ${article.number}\\b`).test(normalizeAdvisorIntentText(l)):policy!.heading.test(normalizeAdvisorIntentText(l))));
     if(start<0)return[];
     if(subjects.some(term=>!normalizeAdvisorIntentText(lines[start]).includes(term)))return[];
     let end=start+1;while(end<lines.length&&!/^(?:dieu \d+\b|chuong [ivx]+\b)/.test(normalizeAdvisorIntentText(lines[end]))&&!/^```/.test(lines[end]))end++;
-    const text=lines.slice(start,end).join('\n').trim();
-    if(text.length<80||text.length>1500)return[];
+    const text=stripWordExtractionEnvelope(lines.slice(start,end).join('\n'));
+    if(text.length<80||text.length>5000)return[];
     return[{text,sourceId:s.sourceId}];
   });
   if(!candidates.length||new Set(candidates.map(c=>c.text)).size!==1)return null;
   const c=candidates[0];
+  // Range evaluation uses ONLY literal thresholds/labels in the retrieved
+  // classification article. No fixed scale or invented label in this code.
+  const scores=[...q.matchAll(/\b(\d{1,3})\s+diem\b/g)].map(m=>Number(m[1]));
+  let classification='';
+  if(policy?.heading.test('phan loai ket qua ren luyen')&&scores.length&&scores.length<=2){
+    const ranges=c.text.split('\n').flatMap(line=>{
+      const bounded=line.match(/Từ\s+(\d+)\s+đến\s+(dưới\s+)?(\d+)\s+điểm:\s*Loại\s+([^\.]+)\./iu);
+      if(bounded)return [{min:Number(bounded[1]),max:Number(bounded[3]),exclusive:Boolean(bounded[2]),label:bounded[4]}];
+      const below=line.match(/Dưới\s+(\d+)\s+điểm:\s*Loại\s+([^\.]+)\./iu);
+      return below?[{min:0,max:Number(below[1]),exclusive:true,label:below[2]}]:[];
+    });
+    const selected=scores.map(score=>ranges.filter(r=>score>=r.min&&(r.exclusive?score<r.max:score<=r.max)));
+    if(selected.every(rows=>rows.length===1))classification=selected.map((rows,i)=>`Mức điểm ${scores[i]}: ${rows[0].label}.`).join('\n')+'\n\n';
+  }
   const native=evidence.find(s=>s.sourceId===c.sourceId)?.locatorKind==='word_unit';
-  return{reply:`Đoạn điều khoản đã truy xuất (${native?'nguyên văn Word':'nguyên văn OCR'}, không tự sửa chữ):\n\n${quote(c.text)}\n\n${note}${native?'':' Không suy diễn phần chưa đọc rõ; đây không phải xác nhận đầy đủ nội dung khi OCR còn lỗi.'}`,sourceIds:[c.sourceId],sourceExcerpts:{[c.sourceId]:c.text}};
+  return{reply:`${classification}Đoạn điều khoản đã truy xuất (${native?'nguyên văn Word':'nguyên văn OCR'}, không tự sửa chữ):\n\n${quote(c.text)}\n\n${note}${native?'':' Không suy diễn phần chưa đọc rõ; đây không phải xác nhận đầy đủ nội dung khi OCR còn lỗi.'}`,sourceIds:[c.sourceId],sourceExcerpts:{[c.sourceId]:c.text}};
 };
 
 /** Native Word fee tables use literal cohort headings in the first cell.
@@ -108,20 +131,24 @@ export const resolvePolicyArticleExcerpt = (question:string,evidence:readonly Au
  * invented and conflicting matching rows fail closed. */
 const resolveWordTuitionTableRow=(question:string,evidence:readonly AuthorizedEvidenceSource[])=>{
   const tuple=tuitionTupleQuery(question);if(!tuple?.program)return null;
-  const matches:Array<{row:string;header:string;program:string;cohort:string;sourceId:string;excerpt:string}>=[];
-  for(const source of evidence.filter(s=>s.locatorKind==='word_unit')){
-    let header='',program='',cohort='',table='',programLine='',cohortLine='';
+  const matches:Array<{row:string;header:string;program:string;cohort:string;sourceId:string;headerSource:string;excerpt:string;headerExcerpt:string}>=[];
+  let header='',program='',cohort='',table='',programLine='',cohortLine='',headerSource='',previous:AuthorizedEvidenceSource|undefined;
+  for(const source of evidence.filter(s=>s.locatorKind==='word_unit').sort((a,b)=>a.documentId.localeCompare(b.documentId)||(a.unitNumber||0)-(b.unitNumber||0))){
+    if(!previous||previous.documentId!==source.documentId||!source.unitNumber||source.unitNumber!==Number(previous.unitNumber)+1){header='';program='';cohort='';}
+    previous=source;
     for(const line of source.snippet.split('\n')){
       if(/^Bảng \d+ \(thứ tự bảng trong DOCX\)/.test(line))table=line;
       const cells=line.split('|').slice(1,-1).map(c=>c.trim());if(cells.length!==4)continue;
       const normalized=cells.map(c=>normalizeAdvisorIntentText(c.replace(/<br\s*\/?\s*>/g,' ')));
-      if(/hoc phi theo nam/.test(normalized[2])&&/hoc phi theo tin chi/.test(normalized[3])){header=line;program='';cohort='';}
+      if(/hoc phi theo nam/.test(normalized[2])&&/hoc phi theo tin chi/.test(normalized[3])){header=line;headerSource=source.sourceId;program='';cohort='';}
       if(!cells[2]&&!cells[3]&&/^(?:dai hoc|thac si|tien si)\b/.test(normalized[1])){program=cells[1];programLine=line;cohort='';}
       if(/^khoa\s+\d{2}\b/.test(normalized[0])){cohort=normalized[0].match(/^khoa\s+(\d{2})\b/)![1];cohortLine=line;}
-      if(!header||normalizeAdvisorIntentText(program)!==tuple.program||cohort!==tuple.cohort||normalized[1]!==`nganh ${tuple.major}`)continue;
+      // "(Mới)" is an explicit catalog annotation, not a different major.
+      const major=normalized[1].replace(/\s+moi$/,'');
+      if(!header||normalizeAdvisorIntentText(program)!==tuple.program||cohort!==tuple.cohort||major!==`nganh ${tuple.major}`)continue;
       if(!/^\d{1,3}(?:[.,]\d{3})+$/.test(cells[2])||!/^\d{1,3}(?:[.,]\d{3})+$/.test(cells[3]))continue;
-      matches.push({row:`| ${cells[1]} | ${cells[2]} | ${cells[3]} |`,header,program,cohort,sourceId:source.sourceId,
-        excerpt:[header,programLine,table,cohortLine,line].join('\n')});
+      matches.push({row:`| ${cells[1]} | ${cells[2]} | ${cells[3]} |`,header,program,cohort,sourceId:source.sourceId,headerSource,
+        headerExcerpt:[header,programLine].join('\n'),excerpt:[table,cohortLine,line].join('\n')});
     }
   }
   if(!matches.length||new Set(matches.map(m=>JSON.stringify([m.row,m.header,m.program,m.cohort]))).size!==1)return null;
@@ -130,7 +157,8 @@ const resolveWordTuitionTableRow=(question:string,evidence:readonly AuthorizedEv
   // does not enable raw HTML; present the line break as whitespace only.
   // Original evidence/quotes remain byte-for-byte unchanged for citations.
   const displayCell=(text:string)=>text.replace(/<br\s*\/?\s*>/gi,' ').trim();
-  return{reply:`Dòng học phí trong bảng đã truy xuất — ${m.program}, khóa ${m.cohort}:\n\n| Ngành | ${displayCell(cells[2])} | ${displayCell(cells[3])} |\n| --- | --- | --- |\n${m.row}\n\n${note}`,sourceIds:[m.sourceId],sourceExcerpts:{[m.sourceId]:m.excerpt}};
+  const sourceExcerpts=m.headerSource===m.sourceId?{[m.sourceId]:`${m.headerExcerpt}\n${m.excerpt}`}:{[m.headerSource]:m.headerExcerpt,[m.sourceId]:m.excerpt};
+  return{reply:`Dòng học phí trong bảng đã truy xuất — ${m.program}, khóa ${m.cohort}:\n\n| Ngành | ${displayCell(cells[2])} | ${displayCell(cells[3])} |\n| --- | --- | --- |\n${m.row}\n\n${note}`,sourceIds:[...new Set([m.headerSource,m.sourceId])],sourceExcerpts};
 };
 
 /** Tuple and units/program must be proven by the SAME physical table, with

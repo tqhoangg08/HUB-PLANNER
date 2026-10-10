@@ -162,7 +162,7 @@ const aiClient = (env: AiDocumentsEnv) => {
   const apiKey = String(env.GEMINI_FILE_SEARCH_API_KEY || '').trim();
   const store = String(env.GEMINI_FILE_SEARCH_STORE || '').trim();
   if (!apiKey || !store) throw new AiDocumentsError(503, 'Gemini File Search chưa được cấu hình.');
-  return { ai: new GoogleGenAI({ apiKey }), store };
+  return { ai: new GoogleGenAI({ apiKey, httpOptions: {timeout:15_000,retryOptions:{attempts:1}} }), store };
 };
 
 export const findAiDocument = async (env: AiDocumentsEnv, id: string, includeDeleted = false) => {
@@ -194,19 +194,30 @@ export const updateAiDocument = async (env: AiDocumentsEnv, id: string, patch: R
   return findAiDocument(env, id, true);
 };
 
-const refreshOperation = async (env: AiDocumentsEnv, document: AiDocumentRow) => {
-  if (!document.gemini_operation_name || !['uploading', 'processing'].includes(String(document.gemini_indexing_status || document.indexing_status))) return document;
+export const refreshOperation = async (env: AiDocumentsEnv, document: AiDocumentRow,
+  readOperation?: (name:string)=>Promise<{done?:boolean;error?:unknown;response?:{documentName?:string}}>) => {
+  if (document.deleted_at || !document.gemini_operation_name || !['uploading', 'processing', 'failed'].includes(String(document.gemini_indexing_status || document.indexing_status))) return document;
   try {
-    const { ai } = aiClient(env);
     const persistedOperation = new UploadToFileSearchStoreOperation();
     persistedOperation.name = String(document.gemini_operation_name);
-    const operation = await ai.operations.get({ operation: persistedOperation });
+    const operation = readOperation ? await readOperation(persistedOperation.name)
+      : await aiClient(env).ai.operations.get({ operation: persistedOperation });
     if (!operation.done) return document;
-    return await updateAiDocument(env, String(document.id), operation.error
-      ? { indexing_status: document.ai_search_status === 'completed' ? 'completed':'failed', gemini_indexing_status:'failed', indexing_error: 'Gemini không thể lập chỉ mục tài liệu.' }
-      : { indexing_status: 'completed', gemini_indexing_status:'completed', indexing_error: null, gemini_document_name: (operation.response as { documentName?: string } | undefined)?.documentName || document.gemini_document_name });
+    const receipt=(operation.response as {documentName?:string}|undefined)?.documentName||document.gemini_document_name;
+    // done alone is not a provider receipt. A missing upload operation is
+    // never promoted by this reconciliation path.
+    if(!operation.error&&(!receipt||!receipt.startsWith(`${env.GEMINI_FILE_SEARCH_STORE}/documents/`)))return document;
+    const {db}=requireStorage(env);
+    await db.prepare(`UPDATE ai_documents SET indexing_status=?, gemini_indexing_status=?, indexing_error=?, gemini_document_name=?, updated_at=?
+      WHERE id=? AND deleted_at IS NULL AND content_hash=? AND gemini_operation_name=? AND COALESCE(ai_search_revision,'')=?`)
+      .bind(operation.error?(document.ai_search_status==='completed'?'completed':'failed'):'completed',operation.error?'failed':'completed',
+        operation.error?'Gemini không thể lập chỉ mục tài liệu.':null,operation.error?document.gemini_document_name:receipt,new Date().toISOString(),
+        document.id,document.content_hash,document.gemini_operation_name,document.ai_search_revision||'').run();
+    return await findAiDocument(env,String(document.id))||document;
   } catch {
-    return updateAiDocument(env, String(document.id), { indexing_status: document.ai_search_status === 'completed' ? 'completed':'failed', gemini_indexing_status:'failed', indexing_error: 'Không thể kiểm tra trạng thái lập chỉ mục Gemini.' });
+    // A timeout/status-check outage is not evidence of indexing failure.
+    // Preserve the last known receipt/state; allow a later bounded check.
+    return document;
   }
 };
 

@@ -4,7 +4,7 @@ import {
   type AiSearchAuthorizedDocument, type AiSearchRawChunk, type AiSearchRetrievalResult,
 } from './ai-search-retrieval.ts';
 import {presentConductTableEvidence} from './ai-advisor-table-evidence.ts';
-import {buildEvidenceRetrievalPlan} from './ai-advisor-retrieval-plan.ts';
+import {buildEvidenceRetrievalPlan,splitPolicyEvidenceQuestions} from './ai-advisor-retrieval-plan.ts';
 
 export type CompletenessSearchRequest = {
   query: string;
@@ -17,7 +17,15 @@ export const retrieveAiSearchCompleteEvidence = async (
   question: string, documents: readonly AiSearchAuthorizedDocument[],
   search: (request: CompletenessSearchRequest) => Promise<{chunks?: AiSearchRawChunk[]}>,
   readAuthorizedPage?: (source: {documentId:string;itemKey:string;pageNumber?:number}) => Promise<string|null>,
+  sourceBudget = 3,
 ): Promise<AiSearchRetrievalResult> => {
+  const parts=splitPolicyEvidenceQuestions(question);
+  if(parts.length===2){
+    // 2 + 1 objects, <=3 searches (tuition header inclusive), zero extra AI.
+    const results=[];
+    for(const [i,part] of parts.entries())results.push(await retrieveAiSearchCompleteEvidence(part,documents,search,readAuthorizedPage,i===0?2:1));
+    return {sources:results.flatMap(r=>r.sources).map((s,i)=>({...s,sourceId:`S${i+1}`})),rawChunkCount:results.reduce((n,r)=>n+r.rawChunkCount,0),searchCallCount:results.reduce((n,r)=>n+r.searchCallCount,0),backends:['TEXT'],latencyMs:results.reduce((n,r)=>n+(r.latencyMs||0),0)};
+  }
   const started=Date.now(),plan=buildEvidenceRetrievalPlan(question,documents), filters=buildAiSearchAuthorizationFilter(plan.scoped);
   if(!filters) return {sources:[],rawChunkCount:0,searchCallCount:0,backends:[],latencyMs:0};
   const {table,hydrate}=plan;
@@ -44,7 +52,10 @@ export const retrieveAiSearchCompleteEvidence = async (
   // A page can have multiple 512-token chunks. Do not mistake a matching
   // fragment for complete table evidence. Hydrate only already-authorized
   // retrieved page identities, at most three bounded server-owned objects.
-  const selected=(hydrate&&readAuthorizedPage?[...new Map(sorted.map(s=>[s.itemKey,s])).values()]:sorted).slice(0,3);
+  const units=hydrate&&readAuthorizedPage?[...new Map(sorted.map(s=>[s.itemKey,s])).values()]:sorted;
+  const comparePlans=plan.academic&&plan.scoped.length===2;
+  const balanced=comparePlans?[...new Map(units.map(s=>[s.documentId,s])).keys()].map(id=>units.find(s=>s.documentId===id)!):[];
+  const selected=[...balanced,...units.filter(s=>!balanced.includes(s))].slice(0,Math.min(3,sourceBudget));
   const sources=[];
   for(const [i,s]of selected.entries()){
     const page=hydrate&&readAuthorizedPage?await readAuthorizedPage(s):null;
