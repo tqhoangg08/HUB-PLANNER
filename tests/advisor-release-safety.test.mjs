@@ -37,6 +37,17 @@ test('rehearsal never restores production or the original app staging DB',()=>{
   assert.equal(assertRehearsalTarget('isolated','hub-pr88-0054-rehearsal-aaaa','app'),undefined);
   for(const [id,name]of [['88d702e1-60d3-490a-8514-38ef881cf133','hub-pr88-0054-rehearsal-aaaa'],['app','hub-pr88-0054-rehearsal-aaaa'],['isolated','hub-planner-public-dev']])assert.throws(()=>assertRehearsalTarget(id,name,'app'));
 });
+
+test('additional-topic staging has the existing empty course schema before context retrieval',()=>{
+  const setup=readFileSync('scripts/setup-advisor-app-staging.mjs','utf8');
+  assert.match(setup,/prepare-context/);assert.match(setup,/live.name!==NAME/);
+  const db=new DatabaseSync(':memory:');
+  try{
+    for(const name of ['0001_create_school_announcements','0002_create_course_schedules','0003_reduce_read_amplification','0018_add_course_authority_foundation'])db.exec(readFileSync(`cloudflare/migrations/${name}.sql`,'utf8'));
+    assert.deepEqual(db.prepare("SELECT id FROM course_schedules WHERE catalogue_visibility='published' AND retired_at IS NULL AND subject_name_search LIKE ? ORDER BY source_position LIMIT 8").all('%hoc%'),[]);
+    assert.equal(db.prepare('SELECT COUNT(*) AS rows FROM course_schedules').get().rows,0);
+  }finally{db.close();}
+});
 test('Public live-state preflight rejects canary drift and missing 0054 without writing anything',()=>{
   const config={name:'hub-planner-public-dev-api',main:'worker/src/index.ts',vars:{AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'7',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false'},assets:{binding:'ASSETS'},ai:{binding:'AI'},observability:{enabled:true}};
   const settings={bindings:[{name:'ASSETS',type:'assets'},{name:'AI',type:'ai'},...Object.entries(config.vars).map(([name,text])=>({name,type:'plain_text',text}))],observability:config.observability};

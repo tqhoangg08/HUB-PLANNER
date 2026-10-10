@@ -72,7 +72,7 @@ async function main(){
         const citations=payload.documentSources||[],content=normalize(payload.reply),matching=citations.filter(s=>s.documentId===doc.id);
         const pageNumbers=matching.flatMap(s=>s.pageNumbers||[s.pageNumber]);
         const facts=(c.contains||[]).every(s=>content.includes(normalize(s))),location=(c.pages||[]).every(n=>pageNumbers.includes(n));
-        const visible=await page.locator('body').innerText().then(s=>normalize(s).includes(normalize(String(payload.reply||'').replace(/[|*#_`>]/g,'').replace(/<!--[\s\S]*?-->/g,'').slice(0,40))));
+        const visible=Boolean(String(payload.reply||'').trim())&&await page.locator('body').innerText().then(s=>normalize(s).includes(normalize(String(payload.reply).replace(/[|*#_`>]/g,'').replace(/<!--[\s\S]*?-->/g,'').slice(0,40))));
         emit({phase:'multi_pdf_ui',case:i+1,topic:c.topic,sourceCommit,deployedCommit:health.sourceCommit,httpStatus:r.status(),durationMs:Date.now()-t,
           visibleResponse:visible,correctDocument:matching.length>0,expectedFactsPresent:facts,expectedPagesPresent:location,pageErrors:errors.length,
           acceptance:r.status()===200&&visible&&facts&&location&&matching.length>0?'PASS':'FAIL',metrics:payload.stagingMetrics});

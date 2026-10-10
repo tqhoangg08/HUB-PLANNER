@@ -45,6 +45,28 @@ answer, no unsupported additions; fresh chat per case. Repeat the original 8 con
 cases as regression, retaining two legal questions NOT VERIFIED absent authority.
 The browser harness checks the staging health SHA equals clean Git HEAD.
 
+First real UI run on `b27a76e`: two academic questions HTTP500, regulation HTTP200
+safe abstention with GENERATOR_ERROR. These are **FAIL**, not citation success.
+Read-only execution of the actual context function proved `no such table:
+course_schedules` in isolated staging. A narrowly scoped `--prepare-context` adds
+the existing empty catalogue schema there (no production data copy); setup now
+includes it for future staging creation. No production schema/route was changed.
+The compound trigger SQL failed through D1 REST query with `incomplete input` and
+no tables created. Switching this staging-only setup to Wrangler SQL-file import
+worked: empty catalogue count0. Partial schemas stop rather than blindly rerunning
+ALTER statements. A local SQLite regression executes these same existing migrations.
+The first academic question also routes only to course_catalog rather than policy
+retrieval; this is a separately proven routing gap, not an OCR defect. It is reported
+as a NO-GO issue rather than expanding this gate task into new prompt/OCR development.
+
+Three actual isolated Gemini SDK controls: academic24339ms, tuition6708ms,
+regulation20320ms; one call each, no diagnostic retries,215 input+617 output tokens.
+All returned authorized grounded source excerpts, but tuition did not contain the
+requested K39 row; regulation contained an OCR spelling error and lacked exact page
+metadata. Thus HTTP200/groundingVerified are **not** complete-quality PASS. No timeout
+in these three controls does not prove the intermittent Gemini timeout repaired.
+These controls are not complete legacy-routing or browser equivalence.
+
 ## D1 staging backup/restore and 0054: actual PASS
 
 `scripts/rehearse-advisor-d1-staging.mjs` exported the real isolated app D1
@@ -128,6 +150,18 @@ creates next revision, and checks original/old page digests plus unchanged D1 li
 pointer. It uploads only to the private staging index; **no D1 promotion**. New pages
 may remain pending and are not counted ready. It is not imported by production routes.
 Actual one-document result is recorded on the PR after final staging deployment.
+
+Actual academic rehearsal on `b27a76e`: HTTP200,10 new pages, original/old revision
+digests preserved, D1 pointer unchanged, productionWrites0. New pages were not all
+completed at response time: retention/allocation PASS, new-index readiness pending.
+Subsequent read-only listing of that exact new revision returned10/10 completed;
+no D1 promotion or manual status change. Original54 source pages also completed.
+
+One additional direct Workers AI adapter control against the real regulation page
+returned HTTP200 in4308ms but deterministic INVALID_GROUNDING. This is not a valid
+answer or proof of the browser GENERATOR_ERROR root cause (REST vsbinding differ).
+The provider result stays private. No fuzzy matching, quote rewriting, retry or
+second verifier was added to turn that rejection into a success.
 
 Production CAS promotion/apply tooling is not authorized/validated here. Before any
 future apply: per-document visual review and semantic benchmarks; all pages actually
