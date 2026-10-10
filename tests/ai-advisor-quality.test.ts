@@ -435,6 +435,29 @@ const selectedFixtureUser = async () => {
   throw new Error('Synthetic canary fixture selection failed');
 };
 
+const assertSafeCanaryFixtureTelemetry = (event:Record<string,unknown>) => {
+  const allowed=['event','trace_id','mode','canary_selected','v2_result_class','response_source','fallback_reason',
+    'search_calls','generator_calls','retrieved_count','authorized_count','duration_ms','retrieval_duration_ms','generator_duration_ms'];
+  assert.ok(Object.keys(event).every(key=>allowed.includes(key)),'No content/identity fields may enter telemetry');
+  assert.match(String(event.trace_id),/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);
+  for(const field of ['search_calls','generator_calls','retrieved_count','authorized_count','duration_ms','retrieval_duration_ms','generator_duration_ms'])
+    assert.ok(typeof event[field]==='number'&&Number.isFinite(event[field])&&Number(event[field])>=0);
+  // Random opaque UUIDs and numerical metrics can legitimately contain 999/3529.
+  // Check payload strings, not incidental decimal substrings in structural metadata.
+  const strings=Object.fromEntries(Object.entries(event).filter(([key,value])=>key!=='trace_id'&&typeof value==='string'));
+  assert.doesNotMatch(JSON.stringify(strings),/3529|fixture@example|snippet|support_spans|999/);
+};
+
+test('privacy assertion accepts opaque UUID/latency digits, but still rejects content and identity leakage',()=>{
+  const event={event:'ai_advisor_v2_canary',trace_id:'8de30762-f99d-46a5-ad31-999733e27f18',mode:'canary',canary_selected:true,
+    v2_result_class:'SUPPORTED_VALID_CITATIONS',response_source:'v2',fallback_reason:null,search_calls:1,generator_calls:1,
+    retrieved_count:1,authorized_count:1,duration_ms:999,retrieval_duration_ms:0,generator_duration_ms:0};
+  assertSafeCanaryFixtureTelemetry(event);
+  assertSafeCanaryFixtureTelemetry({...event,trace_id:'3529aaaa-1111-4111-8111-111111111111'});
+  for(const patch of [{answer:'private'},{email:'fixture@example.test'},{support_spans:[]},{trace_id:'fixture@example.test'},{fallback_reason:'snippet +999'}])
+    assert.throws(()=>assertSafeCanaryFixtureTelemetry({...event,...patch}));
+});
+
 test('selected 7% canary exposes authorized DRL source cards; invalid facts fall through to grounded legacy once', async () => {
   for (const invalid of [false, true]) {
     const db = makeDb(); let searches = 0; let generations = 0; let legacy = 0;
@@ -458,7 +481,7 @@ test('selected 7% canary exposes authorized DRL source cards; invalid facts fall
       assert.equal(events.length, 1); assert.equal(events[0].response_source, invalid ? 'legacy_fallback' : 'v2');
       assert.equal(events[0].v2_result_class, invalid ? 'INVALID_GROUNDING' : 'SUPPORTED_VALID_CITATIONS');
       assert.equal(events[0].search_calls, 1); assert.equal(events[0].generator_calls, 1);
-      assert.doesNotMatch(JSON.stringify(events), /3529|fixture@example|snippet|support_spans|999/);
+      events.forEach(assertSafeCanaryFixtureTelemetry);
       assert.equal(JSON.stringify(result.documentSources).includes('evidenceText'), false);
     } finally { db.sql.close(); }
   }

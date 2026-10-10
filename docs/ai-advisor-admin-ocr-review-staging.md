@@ -56,4 +56,6 @@ Regression tests use synthetic fixtures, real SQLite constraints/triggers and si
 
 Independent PR CI runs targeted/full tests, both typechecks, production and isolated staging builds and diff check, with no deployment credentials or deployment jobs.
 
+First CI attempt found a pre-existing privacy-test false positive: random opaque trace UUID `...999...` matched a forbidden content-number substring. The assertion now validates a strict telemetry field allowlist, a UUID-shaped trace and finite nonnegative metrics separately from payload strings. A regression still rejects unknown content/identity fields and forbidden payload text. Runtime telemetry is unchanged. Real desktop/mobile review smoke has passed with anonymous401, forged approval400, unchanged draft save and unchanged serving revision; no real approval occurred.
+
 Pending: actual human proofreading/approval, new revision provider completion, separately approved staging promotion, corrected citations and 12-case semantic rerun, latency/token/cost measurements. Gemini timeout remains a separate unresolved risk. Production remains untouched, canary7% and completenessOFF; PR remains Draft/unmerged.
