@@ -98,6 +98,72 @@ test('V2 adapter deadline is counted before an underlying AI call finishes',asyn
   }finally{db.sql.close();}
 });
 
+test('staging validation observer uses measured Workers AI exactly once, as does the non-injected default generator',async()=>{
+  for(const observe of [false,true])for(const outcome of ['success','supported','validation','fault','timeout'] as const){
+    const db=makeDb(),events:AdvisorReleaseEvent[]=[],diagnostics:string[]=[];let calls=0;
+    try{
+      db.insert();
+      const result=await send({...envFor(db.DB),AI_ADVISOR_V2_MODE:'on',
+        advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},
+        advisorV2AiSearchClient:{search:async()=>({chunks:[{id:'fixture',score:0.9,text:PASSAGE,item:{key:'fixture.md',metadata:{document_id:DOC}}}]})},
+        ...(observe?{advisorV2EvidenceValidationFailure:(reason:string)=>{diagnostics.push(reason);}}:{}),
+        AI:{run:async()=>{
+          calls++;
+          if(outcome==='fault')throw Error('private provider detail');
+          if(outcome==='timeout')throw new DOMException('private provider detail','TimeoutError');
+          const args=outcome==='supported'?{supported:true,answer:PASSAGE,source_ids:['S1'],support_spans:[{source_id:'S1',quote:PASSAGE}]}:
+            outcome==='validation'?{supported:true,answer:'untrusted',source_ids:['S9'],support_spans:[]}:
+            {supported:false,answer:'',source_ids:[],support_spans:[]};
+          return {usage:{prompt_tokens:13,completion_tokens:7,private:'must not log'},choices:[{message:{tool_calls:[{type:'function',function:{name:'submit_grounded_answer',arguments:JSON.stringify(args)}}]}}]};
+        }},advisorReleaseTelemetry:{record:e=>events.push(e)},
+      });
+      assert.equal(calls,1);assert.equal(events.length,1);assert.equal(events[0].workers_ai_calls,1);
+      assert.equal(events[0].input_tokens,['success','supported','validation'].includes(outcome)?13:null);
+      assert.equal(events[0].output_tokens,['success','supported','validation'].includes(outcome)?7:null);
+      assert.equal(events[0].timeout,outcome==='timeout');assert.equal(events[0].gemini_calls,0);
+      assert.equal(result.documentSources.length,outcome==='supported'?1:0);assert.equal(events[0].grounding_result,outcome==='supported'?'VALIDATED_DOCUMENT':'SAFE_ABSTENTION');
+      assert.deepEqual(diagnostics,observe&&outcome==='validation'?['UNKNOWN_SOURCE_ID']:[]);
+      assert.doesNotMatch(JSON.stringify(events),/private provider detail|must not log|untrusted|fixture@example|3529/);
+    }finally{db.sql.close();}
+  }
+});
+test('a throwing staging validation observer cannot change grounding or hide measured usage',async()=>{
+  const db=makeDb(),events:AdvisorReleaseEvent[]=[];
+  try{
+    db.insert();
+    const result=await send({...envFor(db.DB),AI_ADVISOR_V2_MODE:'on',
+      advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorV2AiSearchClient:{search:async()=>({chunks:[{id:'fixture',score:0.9,text:PASSAGE,item:{key:'fixture.md',metadata:{document_id:DOC}}}]})},
+      advisorV2EvidenceValidationFailure:()=>{throw Error('observer private detail');},
+      AI:{run:async()=>({usage:{prompt_tokens:3,completion_tokens:2},choices:[]})},
+      advisorReleaseTelemetry:{record:e=>events.push(e)},
+    });
+    assert.equal(result.documentSources.length,0);assert.equal(events[0].workers_ai_calls,1);
+    assert.equal(events[0].input_tokens,3);assert.equal(events[0].output_tokens,2);
+  }finally{db.sql.close();}
+});
+test('injected non-Workers generator and retrieval abstention never fabricate or double-count Workers AI calls',async()=>{
+  for(const outcome of ['injected','no_evidence'] as const){
+    const db=makeDb(),events:AdvisorReleaseEvent[]=[];let gen=0,ai=0,observer=0;
+    try{
+      db.insert();await send({...envFor(db.DB),AI_ADVISOR_V2_MODE:'on',
+        advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorV2AiSearchClient:{search:async()=>({chunks:outcome==='no_evidence'?[]:[{id:'fixture',score:0.9,text:PASSAGE,item:{key:'fixture.md',metadata:{document_id:DOC}}}]})},
+        advisorV2EvidenceGenerator:{id:'injected-fixture',isConfigured:()=>true,generate:async()=>{gen++;return{supported:false,answer:'',sourceIds:[]};}},
+        advisorV2EvidenceValidationFailure:()=>{observer++;},AI:{run:async()=>{ai++;throw Error('must not call');}},
+        advisorReleaseTelemetry:{record:e=>events.push(e)},
+      });
+      assert.equal(gen,outcome==='injected'?1:0);assert.equal(ai,0);assert.equal(observer,0);
+      assert.equal(events[0].workers_ai_calls,0);assert.equal(events[0].input_tokens,null);assert.equal(events[0].output_tokens,null);
+    }finally{db.sql.close();}
+  }
+});
+test('staging injects a diagnostics-only observer, not a prebuilt generator; no client/production flag exposes it',()=>{
+  const stage=readFileSync('cloudflare/worker/src/staging/advisor-app.ts','utf8');
+  assert.match(stage,/advisor\.advisorV2EvidenceValidationFailure=reason=>/);
+  assert.doesNotMatch(stage,/advisor\.advisorV2EvidenceGenerator\s*=|createWorkersAiEvidenceGenerator\(advisor/);
+  assert.doesNotMatch(readFileSync('cloudflare/wrangler.jsonc','utf8'),/advisorV2EvidenceValidationFailure/);
+  assert.doesNotMatch(readFileSync('components/AIAdvisor.tsx','utf8'),/advisorV2EvidenceValidationFailure/);
+});
+
 test('Vietnamese score wording and preceding numbered paragraph do not invent a legal point/clause', () => {
   assert.deepEqual(extractOfficialDocumentLocators('2. Điểm rèn luyện được đánh giá bằng thang điểm 100.\nChương II\nĐiều 5. Căn cứ đánh giá'), ['Chương II, Điều 5']);
   assert.deepEqual(extractOfficialDocumentLocators('Điều 5\n2. Nội dung\na) Quy định'), ['Điều 5, khoản 2, điểm a']);

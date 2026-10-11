@@ -45,6 +45,7 @@ import {
 } from './ai-search-retrieval.ts';
 import {
   createWorkersAiEvidenceGenerator,
+  type GroundingRejectionSubtype,
   type WorkersAiBinding,
 } from './ai-advisor-workers-ai.ts';
 import {
@@ -145,6 +146,9 @@ export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiLegacyProvide
   advisorV2AiSearchClient?: AiSearchClient;
   advisorV2AiSearchInstances?: AiSearchInstanceNames;
   advisorV2EvidenceGenerator?: EvidenceGenerationProvider;
+  /** Staging diagnostics only; observes validation without prebuilding a
+   * generator that bypasses the request-scoped AI call/usage measurement. */
+  advisorV2EvidenceValidationFailure?: (reason: GroundingRejectionSubtype) => void;
   advisorV2RetrievalCache?: RetrievalCache<AiSearchRetrievalResult>;
   advisorV2AnswerCache?: AnswerCache<AiAdvisorV2Answer>;
   /** Optional future production bindings. OFF mode never resolves or invokes them. */
@@ -2115,7 +2119,7 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
   }});
   Object.defineProperty(scoped,'advisorV2EvidenceGenerator',{get(){
     if(shadowModeEnabled(env)&&!policySelected)return env.advisorV2EvidenceGenerator;
-    const generator=env.advisorV2EvidenceGenerator||createWorkersAiEvidenceGenerator(scoped);
+    const generator=env.advisorV2EvidenceGenerator||createWorkersAiEvidenceGenerator(scoped,{onValidationFailure:env.advisorV2EvidenceValidationFailure});
     return {...generator,generate:async(r:Parameters<EvidenceGenerationProvider['generate']>[0])=>{
       // Observe the adapter's deadline, not only a late rejection from AI.run.
       // The runtime still receives the original error and keeps its safe path.

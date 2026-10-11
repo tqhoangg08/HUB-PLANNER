@@ -9,7 +9,7 @@ import {handlePrivatePolicyConsent} from '../private-policy-consent.ts';
 import {readAdvisorProviderUsage,type AdvisorReleaseEvent,type AdvisorProviderUsage} from '../ai-advisor-release-telemetry.ts';
 import {rehearseStagingReprocess} from './advisor-reprocess.ts';
 import {handleStagingOcrReview} from './advisor-ocr-review.ts';
-import {createWorkersAiEvidenceGenerator,type GroundingRejectionSubtype} from '../ai-advisor-workers-ai.ts';
+import type {GroundingRejectionSubtype} from '../ai-advisor-workers-ai.ts';
 type StageEnv = {
   DB:D1Database; AUTH_DB:D1Database; AI_DOCUMENTS_BUCKET:R2Bucket; ASSETS:Fetcher; AI:Ai;
   STAGING_AI_SEARCH:AiSearchInstance; STAGING_ORIGIN:string; STAGING_SYNTHETIC_EMAIL:string;
@@ -101,7 +101,9 @@ export default {
           providerFinishReason=typeof reason==='string'&&['stop','length','tool_calls'].includes(reason)?reason:null;
           return result;
         }finally{generatorDurationMs+=Date.now()-t;}}};
-        advisor.advisorV2EvidenceGenerator=createWorkersAiEvidenceGenerator(advisor,{onValidationFailure:reason=>{groundingRejectionSubtype=reason}});
+        // Let measuredChat construct the generator from its scoped AI binding.
+        // A prebuilt generator closes over advisor.AI and skips that wrapper.
+        advisor.advisorV2EvidenceValidationFailure=reason=>{groundingRejectionSubtype=reason};
         const metrics=()=>({searchCalls,generatorCalls,pageReads,retrievalDurationMs,generatorDurationMs,resultClass,groundingRejectionSubtype,workersUsage,providerFinishReason,releaseMetrics,...(probe?{routingProbe:probe.diagnostic}:{})});
         try{
           const result=await handleAiAdvisor(request,url,advisor,ctx);
