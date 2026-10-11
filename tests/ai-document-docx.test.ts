@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
 import {zipSync,strToU8} from 'fflate';
 import {extractNativeDocx,prepareNativeDocx,DOCX_NATIVE_PIPELINE} from '../cloudflare/worker/src/ai-document-docx.ts';
 import {normalizeAuthorizedAiSearchChunks} from '../cloudflare/worker/src/ai-search-retrieval.ts';
@@ -17,6 +18,20 @@ const archive=(body:string,other:Record<string,Uint8Array>={})=>zipSync({'word/d
 const p=(text:string)=>`<w:p><w:r><w:t>${text}</w:t></w:r></w:p>`;
 const cell=(text:string,props='')=>`<w:tc><w:tcPr>${props}</w:tcPr>${p(text)}</w:tc>`;
 const table=(rows:string)=>`<w:tbl><w:tblGrid><w:gridCol/><w:gridCol/></w:tblGrid>${rows}</w:tbl>`;
+
+test('malformed ZIP64 without its extra field rejects instead of hanging the native DOCX parser',()=>{
+  // GHSA-px8p-9vwx-vf98: streaming Unzip shares the vulnerable ZIP64 reader.
+  // An isolated process with a timeout makes the regression safe on old versions.
+  const name=Buffer.from('word/document.xml'),bytes=Buffer.alloc(31+name.length);
+  bytes.writeUInt32LE(0x04034b50,0);bytes.writeUInt16LE(45,4);
+  bytes.writeUInt32LE(0xffffffff,18);bytes.writeUInt32LE(0xffffffff,22);
+  bytes.writeUInt16LE(name.length,26);name.copy(bytes,30);
+  const result=spawnSync(process.execPath,['--experimental-strip-types','--input-type=module','-e',
+    `import{extractNativeDocx,DocxExtractionError}from './cloudflare/worker/src/ai-document-docx.ts';try{extractNativeDocx(Buffer.from('${bytes.toString('hex')}','hex'));process.exitCode=1;}catch(e){if(!(e instanceof DocxExtractionError))process.exitCode=2;}`],
+    {timeout:2500,encoding:'utf8'});
+  assert.equal(result.error,undefined,'parser must terminate on malformed ZIP64');
+  assert.equal(result.status,0,'malformed archive must be rejected safely');
+});
 test('native Word preserves Vietnamese, literal numbering, dates, amounts and split runs without OCR or invented pages',()=>{
   const result=extractNativeDocx(archive(p('Điều 3. Quy định')+'<w:p><w:r><w:t>25.600.</w:t></w:r><w:r><w:t>000 đồng/năm</w:t></w:r></w:p>'+p('1. Ngày 07/10/2026; 747.000 đồng/tín chỉ.')));
   assert.equal(result.ocrUsed,false);assert.equal(result.pipelineVersion,DOCX_NATIVE_PIPELINE);

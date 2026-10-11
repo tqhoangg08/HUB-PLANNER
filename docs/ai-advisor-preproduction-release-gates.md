@@ -15,7 +15,8 @@ an independent legal verification of document authority/effectiveness.
 | Gate | Evidence / current result |
 |---|---|
 | Prior real Word-first staging quality | Selected 30/30, nonselected 30/30, controls 9/9 at baseline; five unchanged DOCX, 73/73 indexed units. Not a new live run of the changes below. |
-| This revision local validation | Advisor 283/283; Word usability 22/22; full npm suite 693/693; frontend/Worker typecheck, build and diff check PASS. Independent CI must pass on the pushed final SHA. |
+| Patched parser against real sources | Re-read exactly the five approved local DOCX after fflate patch: source SHA-256 and extracted Markdown/counts equal the prior private staging manifest for all five. Zero OCR/provider calls/index writes. This verifies extraction stability, not a new UI/provider acceptance run. |
+| This revision local validation | Advisor 284/284; Word usability 22/22; full npm suite 694/694; frontend/Worker typecheck, build and diff check PASS. Independent CI must pass on the pushed final SHA. |
 | Production read-only health | Public `9bcf3e62-00db-4794-8020-4c4891929896` at 100%; homepage 200; anonymous Advisor 401; V2 canary 7%; completeness unset/OFF. No synthetic production questions. |
 | Production catalog/schema | 10 active PDFs and 1 deleted record; none restored. 0054 columns present: 0/4. No production writes or backup export performed. |
 | Isolated full backup/restore | Staging export 489,577 bytes; 25 table row digests match after restore, including WITHOUT ROWID tables. Private artifacts outside Git. |
@@ -39,6 +40,12 @@ an independent legal verification of document authority/effectiveness.
    protected-environment inspection.
 5. Rehearsal digest supports WITHOUT ROWID and canonical row ordering; no PII
    or provider error body printed. No OCR, prompt or source content changes.
+6. Dependency audit found fflate 0.8.2's malformed ZIP64 infinite-loop advisory.
+   A 2.5-second isolated regression **reproduced a hang in the streaming DOCX
+   parser**, not only unzipSync. Minimal patch to 0.8.3 now rejects the same
+   synthetic archive with a bounded extraction error. No Word content changed.
+   Seven other production-dependency audit findings remain (6 high/1 moderate);
+   they require owner security triage, not an unrelated bulk audit-fix here.
 
 ### Security, bounds and remaining operational limits
 
@@ -198,7 +205,8 @@ pending owner review. These thresholds require owner acceptance before use.
 
 ## Approval sequence and remaining NO-GO conditions
 
-1. Owner approval: workflow/environment/token controls; resolve isolated DB capacity.
+1. Owner approval: workflow/environment/token controls; resolve isolated DB capacity
+   and triage the remaining dependency audit findings.
 2. Approved production-copy backup/rehearsal and exact 0054 application separately.
 3. Approved Public-only code release with flags OFF; health/schema/routing checks.
 4. Separate Admin approval of five sources and reversible no-duplicate cutover.
@@ -218,3 +226,4 @@ still required before pilot; baseline 60-question success is not claimed anew.
 - [D1 query permissions](https://developers.cloudflare.com/api/resources/d1/subresources/database/methods/query/)
 - [D1 export/import](https://developers.cloudflare.com/d1/best-practices/import-export-data/) and [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)
 - [AI Search pricing](https://developers.cloudflare.com/ai-search/platform/limits-pricing/), [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) and [R2 pricing](https://developers.cloudflare.com/r2/pricing/)
+- [fflate ZIP64 advisory](https://github.com/advisories/GHSA-px8p-9vwx-vf98) and [maintainer patch](https://github.com/101arrowz/fflate/releases/tag/v0.8.3)
