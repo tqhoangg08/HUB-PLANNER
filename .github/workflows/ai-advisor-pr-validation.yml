@@ -1,0 +1,44 @@
+name: AI Advisor PR validation (no deployment)
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: independent-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: AI Advisor independent validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Metadata probe security regressions (offline, no secrets)
+        run: node --test tests/public-release-metadata-probe.test.mjs
+      - name: Frontend typecheck
+        run: npm run typecheck
+      - name: Worker typecheck (no Cloudflare access)
+        run: npm run cf:typecheck
+      - name: Build without deploying
+        run: npm run build
+      - name: Existing main test suite
+        run: |
+          npm test
+          node --test scripts/hub-roster-parser.test.mjs tools/hub-devtools-snippets/hk1-course-schedule-audit.test.mjs
+      - name: Diff check
+        run: git diff --check HEAD^ HEAD
