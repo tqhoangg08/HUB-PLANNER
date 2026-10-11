@@ -47,30 +47,23 @@ const latestCheck=(checks,sha)=>{
   if(!candidates.length||candidates.some(r=>!Number.isSafeInteger(r.id)||r.id<=0||!Number.isFinite(Date.parse(r.started_at))))fail('EXACT_SHA_CI_REQUIRED');
   return candidates.sort((a,b)=>Date.parse(b.started_at)-Date.parse(a.started_at)||b.id-a.id)[0];
 };
-export function validateMainProtection({branch,classicProtection,effectiveRules,rulesets}){
+export function validateMainProtection({repository,branch,classicProtection}){
   if(branch?.protected!==true)fail('MAIN_PROTECTION_REQUIRED');
-  if(classicProtection){
-    const p=classicProtection;
-    if(p.enforce_admins?.enabled!==true||p.allow_force_pushes?.enabled!==false||p.allow_deletions?.enabled!==false||
-      !Number.isInteger(p.required_pull_request_reviews?.required_approving_review_count)||p.required_pull_request_reviews.required_approving_review_count<0||
-      p.required_status_checks?.strict!==true||!hasRequiredCheck(p.required_status_checks.checks,'app_id'))
-      fail('MAIN_CLASSIC_PROTECTION_REQUIRED');
-    return true;
-  }
-  if(!Array.isArray(effectiveRules)||!Array.isArray(rulesets))fail('MAIN_RULESET_UNVERIFIED');
-  const valid=rulesets.some(s=>{
-    if(s.target!=='branch'||s.enforcement!=='active'||s.source!==RELEASE_REPOSITORY||s.source_type!=='Repository'||
-      !Array.isArray(s.bypass_actors)||s.bypass_actors.length!==0||
-      !Array.isArray(s.conditions?.ref_name?.include)||!s.conditions.ref_name.include.includes('refs/heads/main')||
-      !Array.isArray(s.conditions.ref_name.exclude)||s.conditions.ref_name.exclude.length!==0||!Array.isArray(s.rules))return false;
-    const required=['deletion','non_fast_forward','pull_request','required_status_checks'];
-    if(!required.every(t=>s.rules.some(r=>r.type===t)&&effectiveRules.some(r=>r.type===t&&r.ruleset_id===s.id)))return false;
-    const pr=s.rules.find(r=>r.type==='pull_request').parameters;
-    const checks=s.rules.find(r=>r.type==='required_status_checks').parameters;
-    return Number.isInteger(pr?.required_approving_review_count)&&pr.required_approving_review_count>=0&&
-      checks?.strict_required_status_checks_policy===true&&hasRequiredCheck(checks.required_status_checks,'integration_id');
-  });
-  if(!valid)fail('MAIN_RULESET_PROTECTION_REQUIRED');
+  // Ruleset GET can hide bypass_actors from read-only callers. It cannot be our
+  // protection authority, even when branch.protected is true or the field is [].
+  // Classic protection is independently enforced alongside any rulesets and
+  // its security settings are readable with Administration:read.
+  const p=classicProtection;
+  if(repository?.owner?.type!=='User'||!p||p.enforce_admins?.enabled!==true||p.allow_force_pushes?.enabled!==false||p.allow_deletions?.enabled!==false||
+    !Number.isInteger(p.required_pull_request_reviews?.required_approving_review_count)||p.required_pull_request_reviews.required_approving_review_count<0||
+    p.required_status_checks?.strict!==true||!hasRequiredCheck(p.required_status_checks.checks,'app_id'))
+    fail('MAIN_CLASSIC_PROTECTION_REQUIRED');
+  // Classic named PR bypass lists are organization-only (this policy rejects
+  // organization owners). Absence here is documented non-applicability, NOT an
+  // inference about hidden ruleset bypass metadata. Unexpected lists fail closed.
+  const allowances=p.required_pull_request_reviews.bypass_pull_request_allowances;
+  if(allowances!==undefined&&(!allowances||['users','teams','apps'].some(k=>!Array.isArray(allowances[k])||allowances[k].length!==0)))
+    fail('MAIN_CLASSIC_BYPASS_UNVERIFIED');
   return true;
 }
 
@@ -114,12 +107,10 @@ export async function readGitHubReleaseMetadata(context,{token,fetchImpl=fetch,p
   validateDispatchContext(c);validateEnvironment(environment,deploymentPolicies);
   if(branch.protected!==true)fail('MAIN_PROTECTION_REQUIRED');
   if(preflight)return c; // No deployment uses this partial check.
-  const effectiveRules=await get('/rules/branches/main');
-  if(!Array.isArray(effectiveRules))fail('MAIN_RULESET_UNVERIFIED');
-  const ids=[...new Set(effectiveRules.map(r=>r.ruleset_id))];
-  if(ids.some(id=>!Number.isSafeInteger(id)||id<=0)||ids.length>16)fail('RULESET_BOUND_REQUIRED');
-  const rulesets=await Promise.all(ids.map(id=>get(`/rulesets/${id}`)));
-  const classicProtection=ids.length?undefined:await get('/branches/main/protection');
+  // Always read classic protection, including when active rulesets also exist.
+  // Never request write-only bypass metadata or fall back on a ruleset/404.
+  const classicProtection=await get('/branches/main/protection');
+  validateMainProtection({...c,classicProtection});
   const [ownerApproval,ownerRunApproval,checks]=await Promise.all([
     get(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_SHA`),
     get(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_RUN_ID`),
@@ -136,13 +127,10 @@ export async function readGitHubReleaseMetadata(context,{token,fetchImpl=fetch,p
   const [currentBranch,currentEnvironment,currentPolicies]=await Promise.all([get('/branches/main'),get(`/environments/${RELEASE_ENVIRONMENT}`),
     get(`/environments/${RELEASE_ENVIRONMENT}/deployment-branch-policies?per_page=100`)]);
   validateDispatchContext({...c,branch:currentBranch});validateEnvironment(currentEnvironment,currentPolicies);
-  if(ids.length){
-    const currentRules=await get('/rules/branches/main');
-    const currentSets=await Promise.all(ids.map(id=>get(`/rulesets/${id}`)));
-    if(JSON.stringify(currentRules)!==JSON.stringify(effectiveRules)||JSON.stringify(currentSets)!==JSON.stringify(rulesets))
-      fail('MAIN_PROTECTION_CHANGED');
-  }else if(JSON.stringify(await get('/branches/main/protection'))!==JSON.stringify(classicProtection))fail('MAIN_PROTECTION_CHANGED');
-  return {...c,branch:currentBranch,environment:currentEnvironment,deploymentPolicies:currentPolicies,effectiveRules,rulesets,
+  const currentProtection=await get('/branches/main/protection');
+  if(JSON.stringify(currentProtection)!==JSON.stringify(classicProtection))fail('MAIN_PROTECTION_CHANGED');
+  validateMainProtection({...c,branch:currentBranch,classicProtection:currentProtection});
+  return {...c,branch:currentBranch,environment:currentEnvironment,deploymentPolicies:currentPolicies,
     classicProtection,ownerApproval,ownerRunApproval,checkRuns:checks.check_runs,ciRuns};
 }
 

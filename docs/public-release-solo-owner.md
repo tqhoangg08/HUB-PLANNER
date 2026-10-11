@@ -28,7 +28,7 @@ workflow input can disable the final guard. The policy is committed code for
    at least five minutes; custom deployment policies contain exactly one branch,
    `main`, no tag/wildcard/extra branch. Final guard also requires five minutes to
    have elapsed since dispatch. GitHub enforces the release job's environment wait.
-4. API verifies main protection, including Admin enforcement, no force pushes or
+4. API verifies **mandatory classic main protection**, including Admin enforcement, no force pushes or
    deletion, PR-only changes and a strict required status check from the GitHub
    Actions App: `AI Advisor independent validation` (App ID 15368).
    Solo PRs may require **zero human approvals**; no pretend reviewer is added.
@@ -62,21 +62,26 @@ Existing live-state checks still reject missing 0054 or canary/observability dri
 - Environment API 200: `public-production`, bypass false, wait timer 5.
 - Deployment policy API 200: exactly `main`, type branch.
 - No required reviewers. This is expected for the chosen solo model.
-- Main API 200: `protected=false`; effective rules API 200: `[]`.
-- Existing ruleset 11881794 is **disabled**, not active protection.
+- Main API 200: `protected=true`; effective rules API 200: deletion,
+  non-fast-forward, pull-request and required-status-check rules from **24867954**.
+- Ruleset 24867954 API 200: **active**, but `bypass_actors` is omitted in this
+  unauthenticated read. Its bypass list is **NOT VERIFIED**, never inferred empty.
 - Classic protection and environment-variable APIs returned 401 without an
   existing authenticated read credential; they are NOT VERIFIED, not inferred.
 - Old production workflow is `disabled_manually`; independent PR CI active.
 - PR #88 remains Draft. No GitHub protection/variable/secret was changed here.
 
-The current live configuration MUST fail the new release guard. Unit fixtures
-demonstrate the valid configuration, not a successful live production dispatch.
+The available live evidence cannot satisfy the new release guard: classic
+protection needs an authenticated Administration-read response. HTTP 401 does NOT
+prove classic protection is absent. No real fine-grained read-only PAT was
+available for an authenticated end-to-end guard run; API compatibility below is
+documentation-backed and fixture-tested, not a live token/release PASS.
 
 ## Owner actions required on GitHub — do not deploy yet
 
 ### 1. Protect main
 
-Recommended: **classic branch protection**, branch name `main`:
+Required: **classic branch protection**, branch name `main`:
 
 - Require a pull request before merging; leave human approval count at zero.
 - Require status checks and require branch to be up to date.
@@ -85,12 +90,25 @@ Recommended: **classic branch protection**, branch name `main`:
 - Enable "Do not allow bypassing the above settings" (API `enforce_admins=true`).
 - Leave force pushes and branch deletions disabled.
 
-An active branch ruleset is also supported: explicitly target `refs/heads/main`,
-no excludes, **empty bypass list**, deletion/non-fast-forward/PR/strict status-check
-rules together. The guard verifies both effective branch rules and the actual
-ruleset, including bypass actors. If the API omits that field, release is blocked;
-do not treat an omitted field as an empty list. Organization/inherited rulesets
-are not silently accepted by this personal-repository policy.
+Keep ruleset 24867954 active as an additional protection; do not delete or weaken
+it. A ruleset alone is **not an accepted release authority**. GitHub documents
+that GET ruleset hides `bypass_actors` unless the caller has write access to the
+ruleset. Thus a read-only PAT cannot guarantee the old ruleset-only guard passes,
+even when the owner has configured an empty list. Missing metadata is unknown,
+not `[]`; do not grant Administration Write to work around this.
+
+Classic protection and rulesets are cumulative. Bypassing an additional ruleset
+does not bypass the independently enforced classic protection. The guard always
+GETs `/branches/main/protection`, validates it before reading approval variables,
+and re-reads it immediately before final approval; it no longer depends on
+`/rulesets` or effective-rules metadata. Rulesets cannot rescue absent or invalid
+classic protection. Their bypass lists are not certified by this guard.
+
+This policy supports only a personal repository (`owner.type=User`). Classic named
+PR bypass lists are organization-only, so omission of that optional classic field
+is documented non-applicability, not the ruleset's write-only redaction behavior.
+If an unexpected classic allowance object is returned, all users/teams/apps arrays
+must be explicitly present and empty; nonempty/incomplete/null objects block.
 
 ### 2. Arrange read-only GitHub metadata access
 
@@ -101,11 +119,29 @@ If an existing suitable credential is available, owner must arrange it as the
 Otherwise arranging a credential is a separate owner action, not permission for
 this agent to create one.
 
-Scope to this repository only, read-only: Administration (classic protection or
-ruleset metadata), Environments (approval variables), Actions (run/environment
-metadata), Checks (CI receipts), Contents/Metadata (repository/branch reads).
-No write permission, workflow dispatch privilege or Cloudflare secret is needed
-for the GitHub guard. Use expiration/rotation; never paste a token in a comment,
+Scope to this repository only. The complete endpoint permission set is:
+
+| Permission | Level | GET endpoints used by the guard |
+|---|---|---|
+| Administration | Read | `/branches/main/protection`, including enforce_admins, strict checks, force/deletion flags |
+| Environments | Read | The two `/environments/public-production/variables/...` owner confirmations |
+| Actions | Read | Workflow run provenance, environment protection rules, deployment branch policies |
+| Checks | Read | Exact-SHA check runs and GitHub Actions publisher |
+| Contents | Read | `/branches/main` and its live SHA |
+| Metadata | Read (automatic) | Repository identity/owner |
+
+These are read permissions only: **no Administration Write**, Contents Write,
+Actions Write, Secrets permission or workflow-dispatch privilege is required.
+GitHub allows the public repository/run/check/branch/environment endpoints above
+without authentication. Consequently the strictly indispensable extra grants for
+this currently public repository are Administration Read + Environments Read
+(Metadata is automatic); Actions/Checks/Contents Read form the explicit complete
+set and avoid dependence on public-resource access. If repository visibility
+changes, use the full set. This is not a claim that a particular PAT was tested.
+The PAT principal must already have access to read the repository's environment
+variables (the owner qualifies). A token's permissions cannot create that access.
+
+No Cloudflare secret is needed for the GitHub guard. Use expiration/rotation; never paste a token in a comment,
 workflow input, local report or frontend. If permissions are inadequate, fix the
 owner-controlled configuration; do not grant a broad write token as a shortcut.
 
@@ -152,12 +188,13 @@ production state, not because a production configuration write was performed.
 
 ## Validation evidence for this change
 
-- Focused release/security regressions: 104/104 PASS.
-- Final full npm suite: 788/788 PASS; Advisor subset 378/378; auxiliary tests 2/2.
+- Focused release/security regressions for read-only compatibility: 119/119 PASS.
+- Full npm suite: 803/803 PASS (248.8 seconds); Advisor subset 393/393;
+  auxiliary tests 2/2. This does not exercise a real PAT or release workflow.
 - Frontend/Worker typecheck, frontend/staging build, YAML parse, diff check PASS.
-- Real GitHub API metadata evaluated by the implemented validators: environment
-  PASS; main protection correctly BLOCKED (`MAIN_PROTECTION_REQUIRED`).
-- Valid classic/ruleset/approval combinations were tested with offline fixtures;
+- Real read-only GitHub API: active main ruleset with omitted bypass metadata;
+  classic protection HTTP 401 without a credential => NOT VERIFIED / blocked.
+- Valid classic/approval combinations and ruleset non-substitution were tested with offline fixtures;
   they are NOT a live successful release proof. No production workflow ran.
 - Independent GitHub CI result must be verified on the pushed commit, not inferred
   from the preceding commit's successful run. The final response links that run.
@@ -166,5 +203,11 @@ production state, not because a production configuration write was performed.
 
 - [GitHub environment API](https://docs.github.com/en/rest/deployments/environments#get-an-environment)
 - [Classic protection API / Administration-read](https://docs.github.com/en/rest/branches/branch-protection#get-branch-protection)
+- [Ruleset API / write-only bypass metadata](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset)
+- [Classic/ruleset cumulative enforcement](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets#about-rulesets-and-protected-branches)
+- [Classic bypass lists are organization-only](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches#require-pull-request-reviews-before-merging)
 - [Effective branch rules](https://docs.github.com/en/rest/repos/rules#get-rules-for-a-branch)
 - [Environment variables API / Environments-read](https://docs.github.com/en/rest/actions/variables#get-an-environment-variable)
+- [Branches / Contents-read](https://docs.github.com/en/rest/branches/branches#get-a-branch)
+- [Workflow runs / Actions-read](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)
+- [Check runs / Checks-read](https://docs.github.com/en/rest/checks/runs#list-check-runs-for-a-git-reference)

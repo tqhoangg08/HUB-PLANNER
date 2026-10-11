@@ -5,7 +5,10 @@ read-only review, not permission to merge, deploy, migrate, upload, backfill,
 reindex or change production flags. No Auth release is required or authorized.
 
 Update (2026-10-11): GitHub environment now verified main-only / bypass OFF /
-wait 5 minutes; old deployment workflow disabled. Main is NOT yet protected.
+wait 5 minutes; old deployment workflow disabled. Main is protected by active
+ruleset 24867954, but its bypass metadata was omitted in the unauthenticated GET.
+The guard now requires independently enforced classic protection, readable with
+Administration Read; its live configuration is NOT VERIFIED (unauthenticated 401).
 Approved fixture-only 0054 rehearsal and restore passed, but full production-copy
 rehearsal remains pending. The independent-reviewer requirement below is superseded
 by [explicit solo-owner authorization](public-release-solo-owner.md); no production
@@ -23,12 +26,12 @@ an independent legal verification of document authority/effectiveness.
 |---|---|
 | Prior real Word-first staging quality | Selected 30/30, nonselected 30/30, controls 9/9 at baseline; five unchanged DOCX, 73/73 indexed units. Not a new live run of the changes below. |
 | Patched parser against real sources | Re-read exactly the five approved local DOCX after fflate patch: source SHA-256 and extracted Markdown/counts equal the prior private staging manifest for all five. Zero OCR/provider calls/index writes. This verifies extraction stability, not a new UI/provider acceptance run. |
-| Latest solo-owner revision local validation | Release/security 104/104; Advisor 378/378; full npm suite 788/788 plus 2 auxiliary tests; frontend/Worker typecheck, frontend/staging builds, YAML parse and diff check PASS. Independent CI must pass on the pushed final SHA. |
+| Latest read-only guard revision local validation | Release/security 119/119; Advisor 393/393; full npm suite 803/803 plus 2 auxiliary tests; frontend/Worker typecheck, frontend/staging builds, YAML parse and diff check PASS. Independent CI must pass on the pushed final SHA. Real read-only PAT execution remains NOT VERIFIED. |
 | Production read-only health | Public `9bcf3e62-00db-4794-8020-4c4891929896` at 100%; homepage 200; anonymous Advisor 401; V2 canary 7%; completeness unset/OFF. No synthetic production questions. |
 | Production catalog/schema | 10 active PDFs and 1 deleted record; none restored. 0054 columns present: 0/4. No production writes or backup export performed. |
 | Isolated full backup/restore | Staging export 489,577 bytes; 25 table row digests match after restore, including WITHOUT ROWID tables. Private artifacts outside Git. |
 | Remote 0054/Time Travel fixture rehearsal | Owner-approved existing unbound fixture: full private export/local restore/hash validation, remote 0054-only apply and Time Travel restore PASS; exact original schema/row digests restored. No DB created/deleted. Full production-copy rehearsal remains pending and is NOT replaced by this fixture. |
-| Protected GitHub environment | READ-ONLY API 200 confirms main-only policy, bypass false and wait 5 minutes; no reviewers under explicit solo policy. Main protected=false, effective rules empty, existing ruleset disabled. Release remains BLOCKED; authenticated protection/approval-variable reads still need owner configuration. No token/secret/protection was created. |
+| Protected GitHub environment | READ-ONLY API 200 confirms main-only policy, bypass false and wait 5 minutes; no reviewers under explicit solo policy. Main protected=true, active ruleset 24867954; omitted bypass metadata is unknown. Mandatory classic protection and approval variables need authenticated read verification. No Administration Write required; no token/secret/protection was created. |
 | Production DOCX cutover | NOT PERFORMED; needs separate Admin/source approval and reversible eligibility cutover rehearsal. |
 | Gemini | Special-program plan missing receipt and timeouts remain separate unresolved risks; Cloudflare success does not prove Gemini indexing. |
 

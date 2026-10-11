@@ -37,6 +37,8 @@ const invalid=[
   ['environment.deployment_branch_policy.custom_branch_policies',false],['environment.deployment_branch_policy.protected_branches',true],
   ['deploymentPolicies.total_count',2],['deploymentPolicies.branch_policies',[{name:'*',type:'branch'}]],['deploymentPolicies.branch_policies',[{name:'main',type:'tag'}]],
   ['branch.protected',false],['classicProtection.enforce_admins.enabled',false],['classicProtection.allow_force_pushes.enabled',true],
+  ['classicProtection',undefined],['classicProtection',null],['classicProtection',{}],
+  ['classicProtection.enforce_admins',undefined],['classicProtection.allow_force_pushes',undefined],['classicProtection.allow_deletions',undefined],
   ['classicProtection.allow_deletions.enabled',true],['classicProtection.required_pull_request_reviews',null],
   ['classicProtection.required_status_checks.strict',false],['classicProtection.required_status_checks.checks',[]],
   ['classicProtection.required_status_checks.checks',[{context:RELEASE_CHECK,app_id:-1}]],
@@ -68,13 +70,13 @@ const ruleFixture=()=>{
  c.rulesets=[{id:7,target:'branch',source:RELEASE_REPOSITORY,source_type:'Repository',enforcement:'active',bypass_actors:[],conditions:{ref_name:{include:['refs/heads/main'],exclude:[]}},rules}];
  c.effectiveRules=rules.map(r=>({...r,ruleset_id:7}));return c;
 };
-test('active main ruleset supports solo zero-review PRs but enforces CI/no bypass/no deletion/no force push',()=>assert.equal(validateReleaseApproval(ruleFixture()),true));
+test('even an active no-bypass ruleset cannot substitute for read-verifiable classic protection',()=>assert.throws(()=>validateReleaseApproval(ruleFixture()),/MAIN_CLASSIC_PROTECTION_REQUIRED/));
 for(const [path,value]of [
  ['rulesets.0.enforcement','disabled'],['rulesets.0.enforcement','evaluate'],['rulesets.0.bypass_actors',[{actor_type:'RepositoryRole',actor_id:5}]],
  ['rulesets.0.bypass_actors',undefined],['rulesets.0.conditions.ref_name.exclude',['refs/heads/main']],['rulesets.0.conditions.ref_name.include',['refs/heads/other']],
  ['rulesets.0.rules',[]],['effectiveRules',[]],['rulesets.0.rules.3.parameters.strict_required_status_checks_policy',false],
  ['rulesets.0.rules.3.parameters.required_status_checks',[{context:RELEASE_CHECK,integration_id:999}]]
-])test(`ruleset fails closed: ${path}`,()=>{const c=ruleFixture();set(c,path,value);assert.throws(()=>validateReleaseApproval(c));});
+])test(`ruleset-only configuration cannot replace classic protection: ${path}`,()=>{const c=ruleFixture();set(c,path,value);assert.throws(()=>validateReleaseApproval(c),/MAIN_CLASSIC_PROTECTION_REQUIRED/);});
 
 function fakeApi(c,override=()=>undefined){
  const calls=[];
@@ -93,7 +95,18 @@ function fakeApi(c,override=()=>undefined){
 test('final metadata comes from fixed environment/API; all network operations are read-only',async()=>{
  const c=fixture(),a=fakeApi(c);const result=await readGitHubReleaseMetadata(c,{fetchImpl:a.fn});assert.equal(validateReleaseApproval(result),true);
  assert.ok(a.calls.some(x=>x.url.includes('/variables/PUBLIC_RELEASE_APPROVAL_SHA')));
- assert.ok(a.calls.some(x=>x.url.includes('/branches/main/protection')));
+ assert.equal(a.calls.filter(x=>x.url.endsWith('/branches/main/protection')).length,2);
+ assert.ok(a.calls.every(x=>!x.url.includes('/rulesets/')&&!x.url.includes('/rules/branches/')));
+});
+for(const status of [401,403,404])test(`classic protection HTTP ${status} blocks even with an active main ruleset`,async()=>{
+ const c=ruleFixture(),a=fakeApi(c,p=>p==='/branches/main/protection'?{ok:false,status}:undefined);
+ await assert.rejects(()=>readGitHubReleaseMetadata(c,{fetchImpl:a.fn}),new RegExp(`GITHUB_METADATA_HTTP_${status}`));
+ assert.ok(a.calls.every(x=>!x.url.includes('/rulesets/')));
+});
+for(const path of [`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_SHA`,`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_RUN_ID`,`/actions/runs/5678`])
+test(`insufficient read permission at ${path} blocks`,async()=>{
+ const c=fixture(),a=fakeApi(c,p=>p===path?{ok:false,status:403}:undefined);
+ await assert.rejects(()=>readGitHubReleaseMetadata(c,{fetchImpl:a.fn}),/GITHUB_METADATA_HTTP_403/);
 });
 for(const status of [401,403,404,429,500])test(`metadata HTTP ${status} always blocks`,async()=>{
  const c=fixture(),a=fakeApi(c,()=>({ok:false,status,json:async()=>({value:c.sha})}));await assert.rejects(()=>readGitHubReleaseMetadata(c,{fetchImpl:a.fn}),/GITHUB_METADATA_HTTP/);
@@ -121,10 +134,34 @@ test('protection removed or admin bypass added during metadata reads blocks',asy
  const a=fakeApi(c,p=>p==='/branches/main/protection'&&++reads>1?{ok:true,json:async()=>({...c.classicProtection,enforce_admins:{enabled:false}})}:undefined);
  await assert.rejects(()=>readGitHubReleaseMetadata(c,{fetchImpl:a.fn}),/MAIN_PROTECTION_CHANGED/);
 });
-test('ruleset path reads actual bypass actors and effective rules, never assumes omitted fields are empty',async()=>{
- const c=ruleFixture(),a=fakeApi(c);assert.equal(validateReleaseApproval(await readGitHubReleaseMetadata(c,{fetchImpl:a.fn})),true);
- delete c.rulesets[0].bypass_actors;const b=fakeApi(c);assert.throws(()=>validateReleaseApproval(c));
- const read=await readGitHubReleaseMetadata(c,{fetchImpl:b.fn});assert.throws(()=>validateReleaseApproval(read));
+test('hidden or explicit ruleset bypass cannot rescue absent/invalid classic protection',()=>{
+ for(const bypass of [undefined,[],[{actor_type:'RepositoryRole',actor_id:5}]]){
+  const c=ruleFixture();c.rulesets[0].bypass_actors=bypass;
+  assert.throws(()=>validateReleaseApproval(c),/MAIN_CLASSIC_PROTECTION_REQUIRED/);
+  c.classicProtection={...fixture().classicProtection,enforce_admins:{enabled:false}};
+  assert.throws(()=>validateReleaseApproval(c),/MAIN_CLASSIC_PROTECTION_REQUIRED/);
+ }
+});
+test('classic authority works alongside extra rulesets without claiming their hidden bypass is empty',async()=>{
+ for(const bypass of [undefined,[{actor_type:'RepositoryRole',actor_id:5}]]){
+  const c=ruleFixture();c.rulesets[0].bypass_actors=bypass;c.classicProtection=fixture().classicProtection;
+  const a=fakeApi(c);assert.equal(validateReleaseApproval(await readGitHubReleaseMetadata(c,{fetchImpl:a.fn})),true);
+  assert.equal(c.rulesets[0].bypass_actors,bypass);
+  assert.ok(a.calls.every(x=>!x.url.includes('/rulesets/')&&!x.url.includes('/rules/branches/')));
+ }
+});
+test('unexpected classic named bypass or incomplete allowance metadata is rejected',()=>{
+ for(const allowances of [null,{}, {users:[],teams:[]},...['users','teams','apps'].map(k=>({users:[],teams:[],apps:[],[k]:[{id:7}]}))]){
+  const c=fixture();c.classicProtection.required_pull_request_reviews.bypass_pull_request_allowances=allowances;
+  assert.throws(()=>validateReleaseApproval(c),/MAIN_CLASSIC_BYPASS_UNVERIFIED/);
+ }
+ const c=fixture();c.classicProtection.required_pull_request_reviews.bypass_pull_request_allowances={users:[],teams:[],apps:[]};
+ assert.equal(validateReleaseApproval(c),true);
+});
+test('missing classic settings returned with HTTP 200 fail closed before approval metadata',async()=>{
+ const c=fixture(),a=fakeApi(c,p=>p==='/branches/main/protection'?{ok:true,json:async()=>({enforce_admins:{enabled:true}})}:undefined);
+ await assert.rejects(()=>readGitHubReleaseMetadata(c,{fetchImpl:a.fn}),/MAIN_CLASSIC_PROTECTION_REQUIRED/);
+ assert.ok(a.calls.every(x=>!x.url.includes('/variables/')));
 });
 test('unsupported CLI bypass flags fail before network access',()=>{
  for(const flag of ['--skip-guard','--require-owner-sha','--solo-owner','--force']){
