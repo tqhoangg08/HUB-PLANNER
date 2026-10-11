@@ -126,6 +126,46 @@ test('page14 mini game and outside-school proof render exact source, no invented
   assert.equal(resolveConductExcerptAnswer(miniQuestion,[source(miniSource),{...source(miniSource.replace('không được','được')),sourceId:'S2'}]),null);
 });
 
+const appendixSnippet=`Điều 17. Điều khoản thi hành\n\n1. Quy chế áp dụng theo văn bản gốc.\n\nPhụ lục\n\nPHIẾU ĐÁNH GIÁ\n\nBảng 3 (thứ tự bảng trong DOCX)\n| TỔNG ĐIỂM | 100 |\n\nGhi chú:\n\n- ${miniSource}\n\n- ${proofSource}`;
+test('conduct notes cite their literal appendix/table scope, never the preceding Article17',()=>{
+  for(const [q,text]of [[miniQuestion,miniSource],[proofQuestion,proofSource]]){
+    const r=resolveConductExcerptAnswer(q,[source(appendixSnippet)])!;
+    assert.ok(r.reply.includes(text));assert.deepEqual(r.sourceIds,['S1']);
+    const excerpt=r.sourceExcerpts.S1;
+    assert.ok(excerpt.includes(text));assert.doesNotMatch(excerpt,/Điều 17|Điều khoản thi hành|Quy chế áp dụng/);
+    assert.deepEqual(extractOfficialDocumentLocators(excerpt),['Phụ lục, Ghi chú','Bảng 3 (thứ tự bảng trong DOCX)']);
+    assert.ok(!excerpt.includes(q),'headings must never originate from the question');
+  }
+});
+test('missing appendix context uses proven broad citation; article/clause/table context remains intact',()=>{
+  const plain=resolveConductExcerptAnswer(miniQuestion,[source(miniSource)])!;
+  assert.equal(plain.sourceExcerpts.S1,miniSource);assert.deepEqual(extractOfficialDocumentLocators(plain.sourceExcerpts.S1),[]);
+  const article=resolveConductExcerptAnswer(miniQuestion,[source(`Điều 9. Hoạt động\n\n2. Quy định hoạt động\n\nBảng 4\n\n- ${miniSource}`)])!;
+  assert.deepEqual(extractOfficialDocumentLocators(article.sourceExcerpts.S1),['Điều 9, khoản 2','Bảng 4']);
+  assert.equal(resolveConductExcerptAnswer(miniQuestion,[source(appendixSnippet),{...source(miniSource.replace('không được','được')),sourceId:'S2'}]),null);
+  assert.equal(resolveConductExcerptAnswer(proofQuestion,[source(appendixSnippet.replace(proofSource,'Minh chứng chưa đầy đủ.'))]),null);
+  const nextArticle=resolveConductExcerptAnswer(miniQuestion,[source(`Phụ lục\n\nBảng 3\n\nGhi chú:\n\nĐiều 9\n\n2. Hoạt động\n\n${miniSource}`)])!;
+  assert.deepEqual(extractOfficialDocumentLocators(nextArticle.sourceExcerpts.S1),['Điều 9, khoản 2']);
+  assert.equal(resolveConductExcerptAnswer(miniQuestion,[source(`Điều 17. Thi hành\nPhụ lục\nGhi chú:\n${miniSource}`)]),null,'mixed structural paragraph is not a supported single-note excerpt');
+});
+test('appendix support excerpt survives runtime hydration with source/revision authorization and no generation',async()=>{
+  for(const q of [miniQuestion,proofQuestion]){
+    let gen=0;
+    const candidate={id:DOC,revision:'v1',visibility:'public' as const,active:true,locatorKind:'word_unit' as const};
+    const deps={aiSearchClient:{search:async()=>({})},aiSearchInstances:{text:'fixture',ocr:'fixture'},quota:evaluateAdvisorQuota(undefined),
+      completenessSearch:async()=>({chunks:[chunk('18',appendixSnippet)]}),pageContent:async()=>appendixSnippet,
+      evidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{gen++;return{supported:false,answer:'',sourceIds:[]};}}};
+    const r=await executeAiAdvisorV2Document(q,[candidate],deps);assert.equal(r.kind,'ANSWER');assert.equal(gen,0);
+    if(r.kind==='ANSWER'){
+      assert.equal(r.answer.evidence[0].documentId,DOC);assert.equal(r.answer.evidence[0].revision,'v1');
+      assert.doesNotMatch(r.answer.evidence[0].snippet,/Điều 17/);
+      assert.deepEqual(extractOfficialDocumentLocators(r.answer.evidence[0].snippet),['Phụ lục, Ghi chú','Bảng 3 (thứ tự bảng trong DOCX)']);
+    }
+    const stale=await executeAiAdvisorV2Document(q,[{...candidate,revision:'different'}],deps);assert.equal(stale.kind,'ABSTAIN');
+    const unauthorized=await executeAiAdvisorV2Document(q,[],deps);assert.equal(unauthorized.kind,'ABSTAIN');
+  }
+});
+
 test('hybrid lexical recall uses only query topic; no reranker that dropped decisive source, no facts injected',async()=>{
   for(const q of[miniQuestion,proofQuestion]){
     let calls=0,reads=0;

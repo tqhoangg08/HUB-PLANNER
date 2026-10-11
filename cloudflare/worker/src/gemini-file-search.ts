@@ -295,6 +295,9 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   const subitem = text.match(/(?:^|[^\p{L}\p{N}])tiểu\s*mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
 
   const components: string[] = [];
+  // Appendix/notes labels must be literal source headings, not question terms.
+  const appendix = text.match(/(?:^|\n)\s*(Phụ lục(?:\s+(?:[IVXLCDM]+|\d+))?)\s*[:.]?\s*(?=\n|$)/imu)?.[1];
+  const notes = /(?:^|\n)\s*Ghi chú\s*[:.]?\s*(?=\n|$)/imu.test(text);
   const tables = [...new Set([...text.matchAll(/(?:^|\n)\s*bảng\s+(\d{1,3})(?:\s*\(thứ tự bảng trong DOCX\))?/gimu)].map(m=>m[0].trim()))].slice(0,MAX_LOCATORS_PER_SOURCE);
   if (part) components.push(`Phần ${part.toUpperCase()}`);
   if (chapter) components.push(`Chương ${chapter.toUpperCase()}`);
@@ -303,6 +306,8 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   if (clause) components.push(`khoản ${clause}`);
   if (point) components.push(`điểm ${point.toLowerCase()}`);
   if (subitem) components.push(`tiểu mục ${subitem}`);
+  if (appendix) components.push(appendix);
+  if (notes) components.push('Ghi chú');
   const heading=!article&&!section?text.match(/(?:^|\n)\s*((?:[IVXLCDM]+|\d+\.\d+)\.\s+[^\n]{1,160})/u)?.[1]?.trim():undefined;
   return [...(components.length ? [components.join(', ')] : []), ...tables,...(heading?[heading]:[])].slice(0,MAX_LOCATORS_PER_SOURCE);
 };
