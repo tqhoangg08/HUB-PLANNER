@@ -43,11 +43,11 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Verify exact SHA and protected approval environment
+      - name: Verify owner dispatch, current main SHA and protected environment (not final approval)
         env:
           APPROVED_SHA: ${{ inputs.approved_sha }}
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/check-public-release-approval.mjs
+        run: node scripts/check-public-release-approval.mjs --preflight
 
       - run: npm run test:advisor
       - run: npm run typecheck
@@ -77,18 +77,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Recheck separately approved SHA
-        env:
-          APPROVED_SHA: ${{ inputs.approved_sha }}
-          OWNER_APPROVED_SHA: ${{ vars.PUBLIC_RELEASE_APPROVAL_SHA }}
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/check-public-release-approval.mjs --require-owner-sha
       - run: npm run build
       - name: Verify live settings and schema without applying migrations
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/check-public-release-state.mjs
+
+      # Final mandatory guard immediately before deploy; there is no bypass input.
+      - name: Verify solo owner approval, live protections and exact-SHA CI
+        env:
+          APPROVED_SHA: ${{ inputs.approved_sha }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_GITHUB_READ_TOKEN: ${{ secrets.PUBLIC_RELEASE_GITHUB_READ_TOKEN }}
+        run: node scripts/check-public-release-approval.mjs
 
       - name: Deploy Public Worker and frontend assets
         env:

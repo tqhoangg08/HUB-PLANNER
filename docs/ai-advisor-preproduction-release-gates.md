@@ -4,6 +4,13 @@
 read-only review, not permission to merge, deploy, migrate, upload, backfill,
 reindex or change production flags. No Auth release is required or authorized.
 
+Update (2026-10-11): GitHub environment now verified main-only / bypass OFF /
+wait 5 minutes; old deployment workflow disabled. Main is NOT yet protected.
+Approved fixture-only 0054 rehearsal and restore passed, but full production-copy
+rehearsal remains pending. The independent-reviewer requirement below is superseded
+by [explicit solo-owner authorization](public-release-solo-owner.md); no production
+approval is implied. Historical measurements/gates below retain their original scope.
+
 ## Evidence and review outcome
 
 Baseline reviewed: `b90131c7573d4199ee1b18627099433d8d2fd20f` against main
@@ -16,12 +23,12 @@ an independent legal verification of document authority/effectiveness.
 |---|---|
 | Prior real Word-first staging quality | Selected 30/30, nonselected 30/30, controls 9/9 at baseline; five unchanged DOCX, 73/73 indexed units. Not a new live run of the changes below. |
 | Patched parser against real sources | Re-read exactly the five approved local DOCX after fflate patch: source SHA-256 and extracted Markdown/counts equal the prior private staging manifest for all five. Zero OCR/provider calls/index writes. This verifies extraction stability, not a new UI/provider acceptance run. |
-| This revision local validation | Advisor 284/284; Word usability 22/22; full npm suite 694/694; frontend/Worker typecheck, build and diff check PASS. Independent CI must pass on the pushed final SHA. |
+| Latest solo-owner revision local validation | Release/security 104/104; Advisor 378/378; full npm suite 788/788 plus 2 auxiliary tests; frontend/Worker typecheck, frontend/staging builds, YAML parse and diff check PASS. Independent CI must pass on the pushed final SHA. |
 | Production read-only health | Public `9bcf3e62-00db-4794-8020-4c4891929896` at 100%; homepage 200; anonymous Advisor 401; V2 canary 7%; completeness unset/OFF. No synthetic production questions. |
 | Production catalog/schema | 10 active PDFs and 1 deleted record; none restored. 0054 columns present: 0/4. No production writes or backup export performed. |
 | Isolated full backup/restore | Staging export 489,577 bytes; 25 table row digests match after restore, including WITHOUT ROWID tables. Private artifacts outside Git. |
-| Current remote 0054/Time Travel rehearsal | **BLOCKED** at creation of the next isolated DB: HTTP 403/code 7406, provider error classified account capacity limit; inventory contains 10 D1 databases. Read-only staging query succeeds. No DB deleted to bypass the limit. Local SQLite additive-migration regression passes, but does not replace this remote gate. |
-| Protected GitHub environment | Read-only GET returned 404: absent or inaccessible, not proven configured. Required reviewer settings/plan availability NOT VERIFIED. No environment or token configured. |
+| Remote 0054/Time Travel fixture rehearsal | Owner-approved existing unbound fixture: full private export/local restore/hash validation, remote 0054-only apply and Time Travel restore PASS; exact original schema/row digests restored. No DB created/deleted. Full production-copy rehearsal remains pending and is NOT replaced by this fixture. |
+| Protected GitHub environment | READ-ONLY API 200 confirms main-only policy, bypass false and wait 5 minutes; no reviewers under explicit solo policy. Main protected=false, effective rules empty, existing ruleset disabled. Release remains BLOCKED; authenticated protection/approval-variable reads still need owner configuration. No token/secret/protection was created. |
 | Production DOCX cutover | NOT PERFORMED; needs separate Admin/source approval and reversible eligibility cutover rehearsal. |
 | Gemini | Special-program plan missing receipt and timeouts remain separate unresolved risks; Cloudflare success does not prove Gemini indexing. |
 
@@ -79,20 +86,20 @@ an independent legal verification of document authority/effectiveness.
 
 ## Owner checklist: protected Public-only release
 
-**Before any future main merge**, owner must separately approve disabling the
-old main push workflow: current main still automatically applies pending D1
-migrations and deploys Auth plus Public. Do not merge now or rely on skip-CI as
-the permanent solution. PR workflow replacement is manual-only and does not
-apply migrations or deploy Auth. Verify that replacement landed before dispatch.
+The owner has disabled the old main push workflow, verified READ-ONLY as
+`disabled_manually`. Its SOURCE on main still applies pending migrations and
+deploys Auth plus Public. Do not enable it before a separately approved merge
+lands the manual/Public-only replacement. Do not merge now or rely on skip-CI.
+Verify the replacement source before any future release dispatch.
 
 Owner setup, not performed by this task:
 
-- Create/verify `public-production` and GitHub plan support for required reviews.
-  Require a reviewer other than the dispatcher; prevent self-review, disable
-  administrator bypass, restrict deployment branch to main.
+- Keep verified `public-production` main-only, bypass OFF, wait at least five
+  minutes; configure protected main and the explicit solo-owner API checks in
+  `public-release-solo-owner.md`. No second human reviewer is simulated.
 - Keep deployment credentials in this environment, not repository-wide secrets.
-  Set `PUBLIC_RELEASE_APPROVAL_SHA` to the separately approved full main SHA.
-  Dispatch with explicit approval (default false) and exactly that SHA.
+  Confirm environment approval SHA and run ID separately after a future authorized
+  dispatch; see the solo-owner sequence. Explicit release input defaults false.
 - Use a dedicated expiring Cloudflare API token, only the intended account:
   Workers Scripts Edit for deploy/settings; D1 Read for schema preflight.
   Zone Read/Workers Routes Edit only for existing configured production zones.

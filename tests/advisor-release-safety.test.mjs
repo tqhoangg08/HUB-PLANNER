@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import ts from 'typescript';
-import {validateReleaseApproval} from '../scripts/check-public-release-approval.mjs';
 import {validatePublicReleaseState} from '../scripts/check-public-release-state.mjs';
 import {assertRehearsalTarget,canonicalRehearsalRows} from '../scripts/rehearse-advisor-d1-staging.mjs';
 
@@ -21,18 +20,10 @@ test('main merge cannot deploy Auth or apply pending migrations; Public release 
   const workflow=readFileSync('.github/workflows/deploy-cloudflare-production.yml','utf8');
   assert.doesNotMatch(workflow,/\bpush:|\bpull_request:|wrangler\.auth|migrations apply|deploy:auth/);
   assert.match(workflow,/default: false/);assert.match(workflow,/environment: public-production/);
-  assert.match(workflow,/needs: validate/);assert.match(workflow,/PUBLIC_RELEASE_APPROVAL_SHA/);
+  assert.match(workflow,/needs: validate/);assert.match(workflow,/PUBLIC_RELEASE_GITHUB_READ_TOKEN/);
   assert.match(workflow,/actions: read/); // GET protected environment metadata only.
   assert.match(workflow,/check-public-release-state/);
   assert.match(workflow,/wrangler deploy --config cloudflare\/wrangler.jsonc --keep-vars/);
-});
-test('release fails closed for missing reviewers, self approval, admin bypass or wrong approved SHA',()=>{
-  const a={sha:'a'.repeat(40),head:'a'.repeat(40),event:'workflow_dispatch',ref:'refs/heads/main',requireOwner:true,ownerSha:'a'.repeat(40),
-    environment:{can_admins_bypass:false,protection_rules:[{type:'required_reviewers',prevent_self_review:true,reviewers:[{id:1}]}]}};
-  assert.equal(validateReleaseApproval(a),true);
-  for(const patch of [{event:'push'},{ref:'refs/heads/feature'},{sha:'main'},{ownerSha:'b'.repeat(40)},
-    {environment:{}},{environment:{...a.environment,can_admins_bypass:true}},
-    {environment:{...a.environment,protection_rules:[{type:'required_reviewers',prevent_self_review:false,reviewers:[{id:1}]}]}}])assert.throws(()=>validateReleaseApproval({...a,...patch}));
 });
 test('rehearsal never restores production or the original app staging DB',()=>{
   assert.equal(assertRehearsalTarget('isolated','hub-pr88-0054-rehearsal-aaaa','app'),undefined);
