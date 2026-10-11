@@ -5,7 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import ts from 'typescript';
 import {validateReleaseApproval} from '../scripts/check-public-release-approval.mjs';
 import {validatePublicReleaseState} from '../scripts/check-public-release-state.mjs';
-import {assertRehearsalTarget} from '../scripts/rehearse-advisor-d1-staging.mjs';
+import {assertRehearsalTarget,canonicalRehearsalRows} from '../scripts/rehearse-advisor-d1-staging.mjs';
 
 test('PR CI is credential-free validation, never a production deployment',()=>{
   const ci=readFileSync('.github/workflows/ai-advisor-pr-validation.yml','utf8');
@@ -22,6 +22,7 @@ test('main merge cannot deploy Auth or apply pending migrations; Public release 
   assert.doesNotMatch(workflow,/\bpush:|\bpull_request:|wrangler\.auth|migrations apply|deploy:auth/);
   assert.match(workflow,/default: false/);assert.match(workflow,/environment: public-production/);
   assert.match(workflow,/needs: validate/);assert.match(workflow,/PUBLIC_RELEASE_APPROVAL_SHA/);
+  assert.match(workflow,/actions: read/); // GET protected environment metadata only.
   assert.match(workflow,/check-public-release-state/);
   assert.match(workflow,/wrangler deploy --config cloudflare\/wrangler.jsonc --keep-vars/);
 });
@@ -38,6 +39,16 @@ test('rehearsal never restores production or the original app staging DB',()=>{
   for(const [id,name]of [['88d702e1-60d3-490a-8514-38ef881cf133','hub-pr88-0054-rehearsal-aaaa'],['app','hub-pr88-0054-rehearsal-aaaa'],['isolated','hub-planner-public-dev']])assert.throws(()=>assertRehearsalTarget(id,name,'app'));
 });
 
+test('rehearsal digests preserve all rows without relying on rowid or result order',()=>{
+  const db=new DatabaseSync(':memory:');
+  try {
+    db.exec("CREATE TABLE fixture(id TEXT PRIMARY KEY,v TEXT) WITHOUT ROWID; INSERT INTO fixture VALUES('b','2'),('a','1')");
+    const rows=db.prepare('SELECT * FROM fixture').all();
+    assert.deepEqual(canonicalRehearsalRows(rows),canonicalRehearsalRows([...rows].reverse().map(r=>({v:r.v,id:r.id}))));
+    assert.notDeepEqual(canonicalRehearsalRows(rows),canonicalRehearsalRows(rows.slice(1)));
+  } finally {db.close();}
+});
+
 test('additional-topic staging has the existing empty course schema before context retrieval',()=>{
   const setup=readFileSync('scripts/setup-advisor-app-staging.mjs','utf8');
   assert.match(setup,/prepare-context/);assert.match(setup,/live.name!==NAME/);
@@ -51,19 +62,26 @@ test('additional-topic staging has the existing empty course schema before conte
   }finally{db.close();}
 });
 test('Public live-state preflight rejects canary drift and missing 0054 without writing anything',()=>{
-  const config={name:'hub-planner-public-dev-api',main:'worker/src/index.ts',vars:{AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'7',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false'},assets:{binding:'ASSETS'},ai:{binding:'AI'},observability:{enabled:true}};
+  const config={name:'hub-planner-public-dev-api',main:'worker/src/index.ts',vars:{AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'7',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0'},assets:{binding:'ASSETS'},ai:{binding:'AI'},observability:{enabled:true}};
   const settings={bindings:[{name:'ASSETS',type:'assets'},{name:'AI',type:'ai'},...Object.entries(config.vars).map(([name,text])=>({name,type:'plain_text',text}))],observability:config.observability};
   const schema=['ai_search_status','ai_search_revision','ocr_uncertain_tokens','gemini_indexing_status'].map(name=>({name}));
   assert.equal(validatePublicReleaseState(config,settings,schema),true);
   assert.throws(()=>validatePublicReleaseState(config,settings,[]),/0054/);
   assert.throws(()=>validatePublicReleaseState(config,{...settings,bindings:settings.bindings.map(b=>b.name==='AI_ADVISOR_V2_MODE'?{...b,text:'on'}:b)},schema));
   assert.throws(()=>validatePublicReleaseState(config,{...settings,observability:{enabled:false}},schema));
+  const unset={...settings,bindings:settings.bindings.filter(b=>!b.name.startsWith('AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST'))};
+  assert.equal(validatePublicReleaseState(config,unset,schema),true); // unset is OFF; keep-vars does not enable the policy
+  for(const [name,text] of [['AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED','true'],['AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT','1'],['AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT','']]) {
+    assert.throws(()=>validatePublicReleaseState(config,{...unset,bindings:[...unset.bindings,{name,type:'plain_text',text}]},schema));
+  }
 });
 
 test('initial release configuration leaves completeness off and canary at seven percent',()=>{
   const parsed=ts.parseConfigFileTextToJson('cloudflare/wrangler.jsonc',readFileSync('cloudflare/wrangler.jsonc','utf8'));
   assert.equal(parsed.error,undefined);
   assert.equal(parsed.config.vars.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,'false');
+  assert.equal(parsed.config.vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,'false');
+  assert.equal(parsed.config.vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT,'0');
   assert.equal(parsed.config.vars.AI_ADVISOR_V2_MODE,'canary');
   assert.equal(String(parsed.config.vars.AI_ADVISOR_V2_CANARY_PERCENT),'7');
   assert.ok(!String(parsed.config.main).includes('staging'));

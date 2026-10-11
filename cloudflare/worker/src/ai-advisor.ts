@@ -55,10 +55,10 @@ import type { Subject } from '../../../types.ts';
 import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { classifyConductIntent, normalizeAdvisorIntentText, isAcademicPolicyQuestion } from './ai-advisor-intents.ts';
 import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
-import {buildCompletenessDependencies,completenessEnabled,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
+import {buildCompletenessDependencies,completenessEnabled,areDocumentEvidenceRevisionsCurrent,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
 import {isTuitionContinuationEvidence} from './ai-advisor-source-sections.ts';
 import {createAdvisorReleaseMetrics,readAdvisorProviderUsage,type AdvisorReleaseEvent} from './ai-advisor-release-telemetry.ts';
-import {useCloudflareDocumentPolicy,createDocumentPolicyDeadline,type DocumentProviderPolicyEnv} from './ai-advisor-document-policy.ts';
+import {useCloudflareDocumentPolicy,selectCloudflareDocumentPolicy,createDocumentPolicyDeadline,type DocumentProviderPolicyEnv} from './ai-advisor-document-policy.ts';
 
 export type AdvisorAnswerPath = 'CACHE' | 'D1' | 'FAQ' | 'SEARCH_ONLY' | 'SEARCH_GENERATE';
 
@@ -1724,6 +1724,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       const generator = env.advisorV2EvidenceGenerator || createWorkersAiEvidenceGenerator(env);
       const countedClient: AiSearchClient | undefined = (canarySelected || cloudflareFirst) && client ? {
         async search(instance, searchRequest) {
+          if(cloudflareFirst&&searchCalls>=3)throw new Error('Document retrieval budget exhausted.');
           searchCalls += 1;
           const startedAt = Date.now();
           try { return await (policyDeadline ? policyDeadline.run(() => client.search(instance, searchRequest)) : client.search(instance, searchRequest)); }
@@ -1771,6 +1772,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
           applicability: extractOfficialDocumentApplicability(source.snippet) })), retrieval.documentRoute);
       // Recheck current D1 authorization after awaited generation/cache access.
       if (citationResolution.sources.length !== new Set(answerEvidence.map((source) => source.documentId)).size
+        || cloudflareFirst && !await areDocumentEvidenceRevisionsCurrent(env,answerEvidence)
         || answerEvidence.some((source) => !isRelevantAdvisorEvidence(question, source.snippet,
           citationResolution.sources.find((resolved) => resolved.documentId === source.documentId)?.title)
           &&!(completenessEnabled(documentEnv)&&isTuitionContinuationEvidence(question,source,answerEvidence)))) {
@@ -2076,6 +2078,10 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
   // Do not eagerly resolve V2 bindings: OFF/zero-AI and shadow scheduling must
   // retain their isolation even when a binding getter is broken.
   const scoped:AiAdvisorEnv=Object.create(env);
+  // Trusted identity was resolved by Better Auth before this wrapper. Resolve
+  // the cohort once per request; no body/header flag can change this decision.
+  const policySelected = await selectCloudflareDocumentPolicy(env,userId);
+  Object.defineProperty(scoped,'AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED',{value:policySelected?'true':'false'});
   const overrides:Partial<AiAdvisorEnv>={
     advisorCanaryTelemetry:{record:e=>{m.event.canary_trace_id=e.trace_id;m.event.fallback=e.response_source==='legacy_fallback';m.event.timeout ||= e.v2_result_class==='TIMEOUT';try{env.advisorCanaryTelemetry?.record(e);}catch{/* diagnostics only */}}},
     advisorCompletenessTelemetry:{pageRead:()=>{m.count('r2_reads');try{env.advisorCompletenessTelemetry?.pageRead();}catch{/* diagnostics only */}}},
@@ -2097,18 +2103,18 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
   };
   for(const [key,value]of Object.entries(overrides))Object.defineProperty(scoped,key,{value,writable:true,configurable:true,enumerable:true});
   Object.defineProperty(scoped,'advisorV2AiSearchClient',{get(){
-    if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))return env.advisorV2AiSearchClient;
+    if(shadowModeEnabled(env)&&!policySelected)return env.advisorV2AiSearchClient;
     const client=env.advisorV2AiSearchClient||productionAiSearchClient(env);
     return client&&{search:(name:string,r:Parameters<AiSearchClient['search']>[1])=>{m.count('search_calls');return client.search(name,r);}};
   }});
   Object.defineProperty(scoped,'AI',{get(){
-    if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))return env.AI;
+    if(shadowModeEnabled(env)&&!policySelected)return env.AI;
     return env.AI&&{run:async(model:string,input:Parameters<NonNullable<AiAdvisorEnv['AI']>['run']>[1])=>{
       m.count('workers_ai_calls');try{const r=await env.AI!.run(model,input);m.usage(readAdvisorProviderUsage('usage' in r?r.usage:null));return r;}catch(e){m.event.timeout ||= isV2Timeout(e);throw e;}
     }};
   }});
   Object.defineProperty(scoped,'advisorV2EvidenceGenerator',{get(){
-    if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))return env.advisorV2EvidenceGenerator;
+    if(shadowModeEnabled(env)&&!policySelected)return env.advisorV2EvidenceGenerator;
     const generator=env.advisorV2EvidenceGenerator||createWorkersAiEvidenceGenerator(scoped);
     return {...generator,generate:async(r:Parameters<EvidenceGenerationProvider['generate']>[0])=>{
       // Observe the adapter's deadline, not only a late rejection from AI.run.
@@ -2116,7 +2122,7 @@ const measuredChat = async (request:Request,env:AiAdvisorEnv,body:Record<string,
       try{return await generator.generate(r);}catch(e){m.event.timeout ||= isV2Timeout(e);throw e;}
     }};
   }});
-  if(shadowModeEnabled(env)&&!useCloudflareDocumentPolicy(env,true))Object.defineProperty(scoped,'advisorCompletenessTelemetry',{value:env.advisorCompletenessTelemetry});
+  if(shadowModeEnabled(env)&&!policySelected)Object.defineProperty(scoped,'advisorCompletenessTelemetry',{value:env.advisorCompletenessTelemetry});
   try {
     const result=await chat(request,scoped,body,userId,lifetime);
     m.event.grounding_result='documentSources' in result&&result.documentSources?.length?'VALIDATED_DOCUMENT':

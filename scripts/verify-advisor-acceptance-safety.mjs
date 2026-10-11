@@ -25,7 +25,7 @@ async function main(){
     const deployments=await cf('workers/scripts/hub-planner-public-dev-api/deployments');
     const settings=await cf('workers/scripts/hub-planner-public-dev-api/settings');
     const bindings=settings.bindings||[],binding=n=>bindings.find(b=>b.name===n)?.text;
-    console.log(JSON.stringify({phase:'production_state',versions:deployments.deployments?.[0]?.versions,mode:binding('AI_ADVISOR_V2_MODE'),canaryPercent:binding('AI_ADVISOR_V2_CANARY_PERCENT'),completenessFlag:binding('AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED')||'UNSET_OFF',productionChanged:false}));
+    console.log(JSON.stringify({phase:'production_state',versions:deployments.deployments?.[0]?.versions,mode:binding('AI_ADVISOR_V2_MODE'),canaryPercent:binding('AI_ADVISOR_V2_CANARY_PERCENT'),completenessFlag:binding('AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED')||'UNSET_OFF',documentPolicyFlag:binding('AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED')??'UNSET_OFF',documentPolicyPercent:binding('AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT')??'UNSET_ZERO',productionChanged:false}));
     const homepage=await fetch('https://hotrosinhvienhub.id.vn/'),anonymous=await fetch('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor');
     console.log(JSON.stringify({phase:'production_health',homepageHttp:homepage.status,anonymousAdvisorHttp:anonymous.status,syntheticProductionQuestionSent:false}));return;
   }

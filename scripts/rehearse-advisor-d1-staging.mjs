@@ -4,6 +4,8 @@ import {resolve,relative,isAbsolute} from 'node:path';
 import {spawn} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 const emit=v=>console.log(JSON.stringify(v));
+/** Includes WITHOUT ROWID tables; hashes are order-independent, never PII logs. */
+export const canonicalRehearsalRows=rows=>rows.map(row=>JSON.stringify(Object.fromEntries(Object.keys(row).sort().map(key=>[key,row[key]])))).sort();
 export const assertRehearsalTarget=(db,name,appDb)=>{
   if(!/^hub-pr88-0054-rehearsal-[a-f0-9-]+$/.test(name)||!db||[appDb,'88d702e1-60d3-490a-8514-38ef881cf133'].includes(db))throw Error('STAGING_WRITE_GUARD');
 };
@@ -13,15 +15,20 @@ async function main(){
   const dir=resolve(process.argv[at+1]),rel=relative(process.cwd(),dir);if(!rel.startsWith('..')&&!isAbsolute(rel))throw Error('OUTSIDE_GIT_REQUIRED');mkdirSync(dir,{recursive:true});
   const app=JSON.parse(readFileSync('.cache/advisor-app-staging/private-state.json'));
   if(app.name!=='hub-advisor-pr88-app-staging'||app.db==='88d702e1-60d3-490a-8514-38ef881cf133')throw Error('ISOLATION_FAILED');
-  const token=readFileSync('.cache/cloudflare/xdg/.wrangler/config/default.toml','utf8').match(/^oauth_token\s*=\s*"([^"]+)"/m)?.[1];
-  const cf=async(p,body)=>{const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${app.account}/${p}`,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});const j=await r.json();if(!r.ok||!j.success)throw Error(`STAGING_HTTP_${r.status}`);return j.result;};
+  // Wrangler export/import may refresh OAuth. Do not reuse an expired snapshot.
+  const readToken=()=>readFileSync('.cache/cloudflare/xdg/.wrangler/config/default.toml','utf8').match(/^oauth_token\s*=\s*"([^"]+)"/m)?.[1];
+  const cf=async(p,body)=>{const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${app.account}/${p}`,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${readToken()}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});const j=await r.json();if(!r.ok||!j.success){
+    // Provider messages may contain private identifiers; expose only a class.
+    const capacity=(j.errors||[]).some(e=>/maximum|limit|quota|too many/i.test(String(e.message||'')));
+    throw Error(`${capacity?'STAGING_CAPACITY_LIMIT':'STAGING_HTTP'}_${r.status}_${(j.errors||[]).map(e=>Number.isSafeInteger(e.code)?e.code:0).join('_')}`);
+  }return j.result;};
   const owned=new Map();
   const create=async()=>{const name=`hub-pr88-0054-rehearsal-${randomUUID()}`;const db=await cf('d1/database',{name});owned.set(db.uuid,name);writeFileSync(resolve(dir,`${name}.json`),JSON.stringify({name,db:db.uuid}));return db.uuid;};
   const verify=async db=>{const name=owned.get(db);assertRehearsalTarget(db,name,app.db);const live=await cf(`d1/database/${db}`);if(live.name!==name)throw Error('STAGING_NAME_MISMATCH');};
   const query=async(db,sql)=>{if(db!==app.db)await verify(db);else if(!/^(SELECT|PRAGMA)\b/i.test(sql)||sql.includes(';'))throw Error('APP_READ_ONLY_GUARD');return cf(`d1/database/${db}/query`,{sql});};
   const config=db=>{const name=db===app.db?app.name:owned.get(db);const p=resolve(dir,`${name}-wrangler.json`);writeFileSync(p,JSON.stringify({name,account_id:app.account,d1_databases:[{binding:'DB',database_name:name,database_id:db,migrations_dir:resolve(dir,'only-0054')}]}));return p;};
   const cli=(args,stdin='')=>new Promise((res,rej)=>{const p=spawn(process.execPath,['scripts/run-wrangler.mjs',...args],{stdio:['pipe','pipe','pipe']});let s='';p.stdout.on('data',b=>s+=b);p.stderr.resume();p.on('error',()=>rej(Error('STAGING_CLI_FAILED')));p.on('close',c=>c?rej(Error('STAGING_CLI_FAILED')):res(s));p.stdin.end(stdin);});
-  const digest=async db=>{const[tables]=await query(db,"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name");const hashes=[];for(const {name}of tables.results){if(!/^[a-z0-9_]+$/i.test(name))throw Error('TABLE_NAME_GUARD');const[rows]=await query(db,`SELECT * FROM ${name} ORDER BY rowid`);hashes.push([name,rows.results.length,createHash('sha256').update(JSON.stringify(rows.results)).digest('hex')]);}return hashes;};
+  const digest=async db=>{const[tables]=await query(db,"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name");const hashes=[];for(const {name}of tables.results){if(!/^[a-z0-9_]+$/i.test(name))throw Error('TABLE_NAME_GUARD');const[rows]=await query(db,`SELECT * FROM ${name}`);hashes.push([name,rows.results.length,createHash('sha256').update(JSON.stringify(canonicalRehearsalRows(rows.results))).digest('hex')]);}return hashes;};
   const before=await digest(app.db),backup=resolve(dir,'app-staging-backup-private.sql');
   let restore,db;
   if(process.argv.includes('--resume-migration')){

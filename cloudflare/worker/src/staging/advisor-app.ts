@@ -86,7 +86,8 @@ export default {
         if(probe){
           Object.assign(advisor,{AI_ADVISOR_V2_MODE:probe.AI_ADVISOR_V2_MODE,AI_ADVISOR_V2_CANARY_PERCENT:probe.AI_ADVISOR_V2_CANARY_PERCENT,
             AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:probe.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,GEMINI_FILE_SEARCH_ENABLED:probe.GEMINI_FILE_SEARCH_ENABLED,
-            AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:probe.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED});
+            AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:probe.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,
+            AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:probe.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT});
           if(probe.diagnostic.geminiFault)advisor.fileSearchAnswer=injectedGeminiFailure;
           if(probe.diagnostic.cloudflareFault)advisor.advisorV2AiSearchClient={search:async()=>{searchCalls++;throw new DOMException('Staging controlled fault.','TimeoutError');}};
         }

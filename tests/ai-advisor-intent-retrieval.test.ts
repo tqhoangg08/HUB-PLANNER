@@ -136,6 +136,7 @@ const makeDatabase = () => {
 
 const env = (DB: D1Database) => ({
   DB,
+  AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT: '100',
   AUTH_SERVICE: {
     async fetch() {
       return Response.json({ userId: USER, role: 'user', email: 'student@example.test' });
@@ -315,6 +316,30 @@ const policyFixture = () => {
 const policyText='Điều 7. Phân loại kết quả rèn luyện\nTừ 90 đến 100 điểm: Loại xuất sắc.\nTừ 80 đến dưới 90 điểm: Loại tốt.';
 const policyChunk=(text=policyText)=>({id:'chunk',score:0.9,text,item:{key:buildDerivedPageObjectKey(DOCUMENT_A,'revision',1),metadata:{document_id:DOCUMENT_A,revision:'revision',visibility:'public',active:true}}});
 
+test('trusted document rollout selects once, leaves excluded users on the old route and ignores client rollout overrides',async()=>{
+  const {documentPolicyBucket}=await import('../cloudflare/worker/src/ai-advisor-document-policy.ts');
+  const bucket=await documentPolicyBucket(USER);
+  for(const percent of [String(Math.floor(bucket)),String(Math.floor(bucket)+1)]) {
+    const f=policyFixture();let searches=0,gemini=0,completion:Record<string,unknown>|undefined;
+    const selected=Number(percent)>bucket;
+    try {
+      const req=new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor?AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT=100',{
+        method:'POST',headers:{Cookie:'hubplanner_auth.session_token=opaque','Content-Type':'application/json','X-Document-Policy':'true'},
+        body:JSON.stringify({question:'89 điểm rèn luyện xếp loại gì?',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'100',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true'})});
+      const base={...env(f.DB),AI_ADVISOR_V2_MODE:'off',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:percent,
+        GEMINI_FILE_SEARCH_ENABLED:'true',GEMINI_FILE_SEARCH_API_KEY:'fixture',GEMINI_FILE_SEARCH_STORE:'fileSearchStores/fixture',
+        fileSearchAnswer:async()=>{gemini++;throw Error('controlled unavailable');},
+        advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{search:async()=>{searches++;return{chunks:[policyChunk()]};}},
+        advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('not needed');}},
+        advisorReleaseTelemetry:{record:e=>{completion=e;}}};
+      const result=await handleAiAdvisorImplementation(req,new URL(req.url),base) as {reply:string};
+      assert.equal(searches,selected?1:0);assert.equal(completion?.document_provider_policy,selected?'cloudflare_first':undefined);
+      assert.equal(gemini,selected?0:1);assert.equal(base.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT,percent);
+      if(selected)assert.match(result.reply,/89: tốt/);else assert.doesNotMatch(result.reply,/89: tốt/);
+    } finally {f.sql.close();}
+  }
+});
+
 test('Cloudflare-first policy serves identical authorized completeness answers in every V2 mode/bucket without Gemini, generation or canary samples',async()=>{
   for(const mode of ['off','shadow','canary','on'] as const)for(const percent of ['0','100']){
     const f=policyFixture();let search=0,reads=0,gen=0,gemini=0,canary=0,telemetry:Record<string,unknown>|undefined;
@@ -408,6 +433,20 @@ test('Cloudflare-first malformed/fabricated generator citations abstain without 
     }) as {reply:string;documentSources:unknown[]};
     assert.equal(generations,1);assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/999/);
   }finally{f.sql.close();}
+});
+
+test('Cloudflare-first rejects a revision or index-readiness change after search, even if the document stays public',async()=>{
+  for(const change of ["ai_search_revision='new-revision'","ai_search_status='derived_ready'"]) {
+    const f=policyFixture();
+    try {
+      const req=v2RequestFor('89 điểm rèn luyện xếp loại gì?');
+      const result=await handleAiAdvisorImplementation(req,new URL(req.url),{...env(f.DB),AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',
+        advisorV2AiSearchInstances:{text:'stage',ocr:'stage'},advisorV2AiSearchClient:{search:async()=>{f.sql.exec(`UPDATE ai_documents SET ${change}`);return{chunks:[policyChunk()]};}},
+        advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,generate:async()=>{throw Error('not needed');}},
+      }) as {reply:string;documentSources:unknown[]};
+      assert.equal(result.documentSources.length,0);assert.doesNotMatch(result.reply,/89: tốt/);
+    } finally { f.sql.close(); }
+  }
 });
 
 test('final D1 citation recheck accepts adjacent tuition continuation but rejects a revoked document',async()=>{

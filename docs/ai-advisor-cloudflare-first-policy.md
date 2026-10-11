@@ -7,13 +7,18 @@ this document. The five original Word files and active revisions are reused.
 ## Selection and rollout
 
 `AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED` is a server-only string flag.
-Only literal `"true"` enables the policy; missing/false/invalid values disable
-it. Repo default is `"false"`. Do not accept body/query/header overrides.
+Only literal `"true"` together with `AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT`
+greater than zero enables the policy. Percent must be an integer string from
+`"0"` to `"100"`; missing, blank, fractional or invalid values fail closed.
+Repo defaults are `"false"` and `"0"`. Do not accept body/query/header overrides.
+Selection uses a stable SHA-256 bucket of the trusted authenticated identity,
+with its own namespace independent of V2. No identity or bucket hash is logged.
+The original environment is not mutated; excluded users keep existing routing.
 
 | Request | Policy OFF | Policy ON |
 |---|---|---|
 | Personal scores/GPA/schedule/course catalog/general | Existing routing | Same existing routing |
-| Official-document questions | Existing V2 rollout / Gemini path | Shared Cloudflare completeness path for every bucket |
+| Official-document questions | Existing V2 rollout / Gemini path | Selected policy cohort uses shared Cloudflare completeness; excluded cohort keeps existing routing |
 | Insufficient/invalid/private/stale evidence | Existing safe paths | Safe abstention; no ungrounded provider fallback |
 | Cloudflare provider failure | Existing safe paths | Meaningful provider-unavailable response, no fabricated claims |
 
@@ -26,7 +31,7 @@ executions; safe completion telemetry labels `document_provider_policy`.
 ## Bounds and safety
 
 - Reuse existing authorized D1 catalog, exact metadata/revision post-filter,
-  final citation authorization recheck and exact support-span validation.
+  final citation authorization/readiness/revision recheck and exact support-span validation.
 - At most3 searches,3 R2 reads and1 optional Workers AI generation, no retries
   or second verifier. R2 hydration only for current canonical authorized keys,
   max32000bytes/object and8000characters; no directory/corpus scan.
@@ -66,7 +71,7 @@ review is required before declaring PASS. Controls cover completeness OFF,
 Gemini fault isolation, controlled Cloudflare/Workers faults and non-document
 queries. No real provider outage is induced.
 
-Rollback is the literal server policy flag `"false"` (or remove it), leaving
+Rollback is the literal server policy flag `"false"` (or percent `"0"`), leaving
 canary7% and deployment completeness OFF unchanged. Do not purge/reprocess
 source data to roll back provider policy. Initial release and later flag
 activation both require separate owner approval and a Public-only procedure.
@@ -85,3 +90,6 @@ Gemini special-plan missing receipt and intermittent provider timeout remain
 separate issues. Do not mark a receipt-less document completed or upload an
 original source again without approval. Successful Cloudflare answers do not
 prove Gemini has indexed it or that legal identity/currentness is established.
+
+See [pre-production gates](ai-advisor-preproduction-release-gates.md) for owner
+approvals, the protected Public-only workflow, migration/corpus cutover and budgets.

@@ -13,16 +13,43 @@ import {buildEvidenceRetrievalPlan,tuitionTupleQuery,splitPolicyEvidenceQuestion
 import {resolvePolicyArticleExcerpt,resolveTuitionTableRow,resolveAcademicMilestone} from '../cloudflare/worker/src/ai-advisor-source-sections.ts';
 import {retrieveAiSearchCompleteEvidence} from '../cloudflare/worker/src/ai-search-completeness.ts';
 import {refreshOperation,type AiDocumentsEnv} from '../cloudflare/worker/src/ai-documents.ts';
-import {useCloudflareDocumentPolicy,createDocumentPolicyDeadline} from '../cloudflare/worker/src/ai-advisor-document-policy.ts';
+import {useCloudflareDocumentPolicy,selectCloudflareDocumentPolicy,documentPolicyBucket,readDocumentPolicyPercent,createDocumentPolicyDeadline} from '../cloudflare/worker/src/ai-advisor-document-policy.ts';
 
 test('document policy is default-off, literal server flag only and never broadens non-document routing',()=>{
   for(const flag of [undefined,false,true,'false','TRUE','1'])assert.equal(useCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:flag},true),false);
-  assert.equal(useCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true'},true),true);
+  assert.equal(useCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'100'},true),true);
   for(const q of ['Lịch học của mình','Tôi đã tích lũy bao nhiêu tín chỉ?','IT101 có mấy tín chỉ?','Chào bạn']){
     assert.equal(useCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true'},routeAdvisorDocuments(q).documentSearch),false,q);
   }
   const config=ts.parseConfigFileTextToJson('cloudflare/wrangler.jsonc',readFileSync('cloudflare/wrangler.jsonc','utf8')).config;
   assert.equal(config.vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,'false');
+  assert.equal(config.vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT,'0');
+});
+
+test('document rollout defaults to zero and rejects malformed percentages without coercion',async()=>{
+  for(const p of [undefined,null,true,1,'',' 1','01','1.5','-1','101','Infinity']) {
+    assert.equal(readDocumentPolicyPercent(p),0);
+    assert.equal(await selectCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:p},'synthetic'),false);
+  }
+  for(const p of ['0','1','7','100'])assert.equal(readDocumentPolicyPercent(p),Number(p));
+  assert.equal(await selectCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'100'},'synthetic'),false);
+  assert.equal(await selectCloudflareDocumentPolicy({AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'100'},''),false);
+});
+
+test('document rollout has stable independent cohorts and monotonically expands without changing V2 configuration',async()=>{
+  const env={AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'true',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'7'};
+  let selected=0;
+  for(let i=0;i<500;i++) {
+    const id=`synthetic-rollout-${i}`,bucket=await documentPolicyBucket(id);
+    assert.ok(bucket>=0&&bucket<100);
+    assert.equal(bucket,await documentPolicyBucket(id));
+    const decision=await selectCloudflareDocumentPolicy(env,id);
+    assert.equal(decision,bucket<7);
+    if(decision){selected++;assert.equal(await selectCloudflareDocumentPolicy({...env,AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'10'},id),true);}
+    assert.equal(await selectCloudflareDocumentPolicy({...env,AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'100'},id),true);
+  }
+  assert.ok(selected>0&&selected<100);
+  assert.equal(env.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT,'7');
 });
 test('policy deadline shares one budget and cannot start work after a timeout, with no retry',async()=>{
   const budget=createDocumentPolicyDeadline(15);let calls=0;
@@ -34,6 +61,7 @@ test('new policy staging profiles change only request-local flags and preserve r
   for(const p of ['policy-selected','policy-unselected','policy-completeness-off','policy-cloudflare-error','policy-workers-error','policy-gemini-error'] as const){
     const c=await routingProbeConfig(p,'synthetic');
     assert.equal(c.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,'true');
+    assert.equal(c.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT,'100');
     assert.equal(await shouldUseAiAdvisorV2({mode:'canary',canaryPercent:Number(c.AI_ADVISOR_V2_CANARY_PERCENT)},'synthetic'),c.diagnostic.expectedSelected);
     assert.equal(readRoutingProbeProfile(req('?profile='+p),'admin'),p);
   }

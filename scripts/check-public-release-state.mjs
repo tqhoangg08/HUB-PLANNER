@@ -9,10 +9,13 @@ export function validatePublicReleaseState(config,settings,schema) {
   if(config.name!=='hub-planner-public-dev-api'||config.main!=='worker/src/index.ts')throw Error('PUBLIC_ONLY_CONFIG_REQUIRED');
   const live=settings.bindings||[],vars=Object.fromEntries(live.filter(b=>b.type==='plain_text').map(b=>[b.name,b.text]));
   for(const [key,value]of Object.entries(config.vars||{})) {
-    if(key==='AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED'&&!vars[key]&&value==='false')continue;
+    if(['AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED','AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED'].includes(key)&&vars[key]===undefined&&value==='false')continue;
+    if(key==='AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT'&&vars[key]===undefined&&value==='0')continue;
     if(vars[key]!==value)throw Error('LIVE_VARIABLE_DRIFT');
   }
   if(vars.AI_ADVISOR_V2_MODE!=='canary'||vars.AI_ADVISOR_V2_CANARY_PERCENT!=='7'||!['false',undefined].includes(vars.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED))throw Error('AI_RELEASE_STATE_DRIFT');
+  if(!['false',undefined].includes(vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED)||!['0',undefined].includes(vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT)
+    ||config.vars?.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED!=='false'||config.vars?.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT!=='0')throw Error('INITIAL_DOCUMENT_POLICY_MUST_BE_OFF');
   const expected=[...(config.d1_databases||[]).map(b=>[b.binding,'d1',b.database_id]),...(config.r2_buckets||[]).map(b=>[b.binding,'r2_bucket',b.bucket_name]),
     ...(config.services||[]).map(b=>[b.binding,'service',b.service]),...(config.queues?.producers||[]).map(b=>[b.binding,'queue',b.queue]),
     ...(config.workflows||[]).map(b=>[b.binding,'workflow',b.name]),...(config.ai_search_namespaces||[]).map(b=>[b.binding,'ai_search_namespace',b.namespace]),

@@ -27,6 +27,7 @@ export async function routingProbeConfig(profile: RoutingProbeProfile, authentic
   return {AI_ADVISOR_V2_MODE: 'canary', AI_ADVISOR_V2_CANARY_PERCENT: String(bucket + (selected ? 1 : 0)),
     AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED: ['selected-completeness-off','policy-completeness-off'].includes(profile) ? 'false' : 'true',
     AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED: profile.startsWith('policy-') ? 'true' : 'false',
+    AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT: profile.startsWith('policy-') ? '100' : '0',
     GEMINI_FILE_SEARCH_ENABLED: 'true',
     diagnostic: {profile, expectedSelected: selected, faultInjected: profile.endsWith('provider-error') || profile.endsWith('-error'),
       cloudflareFault: profile==='policy-cloudflare-error', workersFault:profile==='policy-workers-error',
