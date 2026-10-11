@@ -1,0 +1,162 @@
+name: Public release GitHub metadata probe (NO DEPLOYMENT)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: public-release-metadata-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'tqhoangg08/HUB-PLANNER' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'tqhoangg08' &&
+      github.triggering_actor == 'tqhoangg08' &&
+      github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: public-production
+      deployment: false # Access protected metadata only; create no GitHub deployment.
+    steps:
+      # Deliberately no checkout, actions, dependencies, artifacts or PR scripts.
+      - name: Fixed GET-only metadata checks (never release approval)
+        env:
+          CI_READ_TOKEN: ${{ github.token }}
+          METADATA_READ_TOKEN: ${{ secrets.PUBLIC_RELEASE_GITHUB_READ_TOKEN }}
+        shell: bash
+        run: |
+          node --input-type=module <<'PROBE'
+          const REPO = 'tqhoangg08/HUB-PLANNER';
+          const ENV = 'public-production';
+          const WORKFLOW = '.github/workflows/public-release-metadata-probe.yml';
+          const CHECK = 'AI Advisor independent validation';
+          const blocked = code => { throw new Error(code); };
+          const requireValue = (condition, code) => { if (!condition) blocked(code); };
+
+          export async function probe(c, {ciToken, metadataToken, fetchImpl = fetch, now = Date.now()} = {}) {
+            requireValue(c.repository === REPO && c.event === 'workflow_dispatch' && c.ref === 'refs/heads/main', 'CONTEXT_BLOCKED');
+            requireValue(/^[a-f0-9]{40}$/.test(c.sha || '') && /^\d+$/.test(c.runId || '') && c.attempt === '1', 'CONTEXT_BLOCKED');
+            requireValue(c.workflowRef === `${REPO}/${WORKFLOW}@refs/heads/main`, 'PROVENANCE_BLOCKED');
+            requireValue(c.actor === 'tqhoangg08' && c.triggeringActor === c.actor && /^\d+$/.test(c.actorId || ''), 'ACTOR_BLOCKED');
+            requireValue(Number.isFinite(now), 'TIME_BLOCKED');
+            for (const token of [ciToken, metadataToken]) requireValue(typeof token === 'string' && token.trim() && !/[\r\n]/.test(token), 'CREDENTIAL_BLOCKED');
+            requireValue(ciToken !== metadataToken, 'CREDENTIAL_BLOCKED');
+            const ciPaths = new Set(['', '/branches/main', `/actions/runs/${c.runId}`,
+              '/actions/workflows/public-release-metadata-probe.yml', `/environments/${ENV}`,
+              `/environments/${ENV}/deployment-branch-policies?per_page=100`]);
+            const patPaths = new Set(['/branches/main/protection', `/environments/${ENV}/variables?per_page=100`,
+              ...['PUBLIC_RELEASE_APPROVAL_SHA', 'PUBLIC_RELEASE_APPROVAL_RUN_ID'].map(name => `/environments/${ENV}/variables/${name}`)]);
+            const read = async (suffix, pat = false) => {
+              requireValue((pat ? patPaths : ciPaths).has(suffix), 'ENDPOINT_BLOCKED');
+              let response;
+              try {
+                response = await fetchImpl(`https://api.github.com/repos/${REPO}${suffix}`, {
+                  method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15000),
+                  headers: {Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+                    Authorization: `Bearer ${pat ? metadataToken : ciToken}`}
+                });
+              } catch { blocked('NETWORK_BLOCKED'); }
+              requireValue(response.ok && response.status === 200 && !response.redirected, `HTTP_${Number.isInteger(response.status) ? response.status : 0}_BLOCKED`);
+              // Bound metadata parsing; never dump any response or variable value.
+              const reader = response.body?.getReader();
+              requireValue(reader, 'METADATA_BLOCKED');
+              const chunks = []; let bytes = 0;
+              try {
+                for (;;) {
+                  const item = await reader.read(); if (item.done) break;
+                  bytes += item.value.byteLength;
+                  if (bytes > 2097152) { await reader.cancel(); blocked('METADATA_SIZE_BLOCKED'); }
+                  chunks.push(item.value);
+                }
+              } catch (error) { blocked(error?.message === 'METADATA_SIZE_BLOCKED' ? error.message : 'METADATA_BLOCKED'); }
+              let json;
+              try { json = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { blocked('METADATA_BLOCKED'); }
+              requireValue(json && typeof json === 'object' && !Array.isArray(json), 'METADATA_BLOCKED');
+              return json;
+            };
+            const validateContext = (repo, branch, run, workflow) => {
+              const owner = repo.owner;
+              requireValue(repo.full_name === REPO && repo.default_branch === 'main' && owner?.type === 'User' && owner.login === c.actor &&
+                Number.isSafeInteger(owner.id) && owner.id > 0 && String(owner.id) === c.actorId, 'ACTOR_BLOCKED');
+              requireValue(branch.name === 'main' && branch.protected === true && branch.commit?.sha === c.sha, 'MAIN_SHA_BLOCKED');
+              requireValue(String(run.id) === c.runId && run.run_attempt === 1 && run.status === 'in_progress' && run.event === 'workflow_dispatch' &&
+                run.head_branch === 'main' && run.head_sha === c.sha && run.path === WORKFLOW && run.repository?.full_name === REPO &&
+                run.actor?.id === owner.id && run.triggering_actor?.id === owner.id &&
+                run.actor?.login === owner.login && run.triggering_actor?.login === owner.login, 'PROVENANCE_BLOCKED');
+              requireValue(workflow.path === WORKFLOW && workflow.state === 'active' && Number.isSafeInteger(workflow.id) && workflow.id > 0 &&
+                run.workflow_id === workflow.id, 'PROVENANCE_BLOCKED');
+              const created = Date.parse(run.created_at);
+              requireValue(Number.isFinite(created) && now - created >= 300000 && now - created <= 86400000, 'TIME_BLOCKED');
+            };
+            const validateEnvironment = (environment, policies) => {
+              requireValue(environment.name === ENV && environment.can_admins_bypass === false &&
+                environment.deployment_branch_policy?.protected_branches === false && environment.deployment_branch_policy?.custom_branch_policies === true,
+                'ENVIRONMENT_BLOCKED');
+              const rules = environment.protection_rules;
+              requireValue(Array.isArray(rules) && rules.length === 2 && rules.filter(r => r.type === 'branch_policy').length === 1 &&
+                rules.filter(r => r.type === 'wait_timer' && Number.isInteger(r.wait_timer) && r.wait_timer >= 5 && r.wait_timer <= 43200).length === 1,
+                'ENVIRONMENT_BLOCKED');
+              requireValue(policies.total_count === 1 && Array.isArray(policies.branch_policies) && policies.branch_policies.length === 1 &&
+                policies.branch_policies[0].name === 'main' && policies.branch_policies[0].type === 'branch', 'ENVIRONMENT_BLOCKED');
+            };
+            const validateClassic = p => {
+              requireValue(p.enforce_admins?.enabled === true && p.allow_force_pushes?.enabled === false && p.allow_deletions?.enabled === false &&
+                Number.isInteger(p.required_pull_request_reviews?.required_approving_review_count) && p.required_pull_request_reviews.required_approving_review_count >= 0 &&
+                p.required_status_checks?.strict === true && Array.isArray(p.required_status_checks.checks) &&
+                p.required_status_checks.checks.some(check => check.context === CHECK && check.app_id === 15368), 'CLASSIC_PROTECTION_BLOCKED');
+              // Named classic PR bypass lists are organization-only; owner type was checked above.
+              // Missing ruleset bypass_actors is NEVER treated as an empty list or used as authority.
+              const bypass = p.required_pull_request_reviews.bypass_pull_request_allowances;
+              requireValue(bypass === undefined || (bypass && ['users', 'teams', 'apps'].every(key => Array.isArray(bypass[key]) && bypass[key].length === 0)),
+                'CLASSIC_BYPASS_BLOCKED');
+            };
+            const snapshot = async () => {
+              const data = await Promise.all(['', '/branches/main', `/actions/runs/${c.runId}`, '/actions/workflows/public-release-metadata-probe.yml',
+                `/environments/${ENV}`, `/environments/${ENV}/deployment-branch-policies?per_page=100`].map(path => read(path)));
+              validateContext(...data.slice(0, 4)); validateEnvironment(...data.slice(4));
+              return data;
+            };
+            const before = await snapshot(); // Validate owner/provenance/live policy BEFORE sending PAT.
+            const classic = await read('/branches/main/protection', true); validateClassic(classic);
+            const list = await read(`/environments/${ENV}/variables?per_page=100`, true);
+            requireValue(Number.isInteger(list.total_count) && list.total_count >= 0 && list.total_count <= 100 &&
+              Array.isArray(list.variables) && list.variables.length === list.total_count, 'VARIABLE_METADATA_BLOCKED');
+            const validVariable = v => typeof v?.name === 'string' && v.name.length > 0 && typeof v.value === 'string' &&
+              Number.isFinite(Date.parse(v.created_at)) && Number.isFinite(Date.parse(v.updated_at));
+            requireValue(list.variables.every(validVariable) && new Set(list.variables.map(v => v.name)).size === list.total_count, 'VARIABLE_METADATA_BLOCKED');
+            const names = ['PUBLIC_RELEASE_APPROVAL_SHA', 'PUBLIC_RELEASE_APPROVAL_RUN_ID'];
+            for (const name of names.filter(name => list.variables.some(v => v.name === name))) {
+              const variable = await read(`/environments/${ENV}/variables/${name}`, true);
+              requireValue(validVariable(variable) && variable.name === name, 'VARIABLE_METADATA_BLOCKED');
+            }
+            const after = await snapshot();
+            const currentClassic = await read('/branches/main/protection', true); validateClassic(currentClassic);
+            requireValue(JSON.stringify(before[4]) === JSON.stringify(after[4]) && JSON.stringify(before[5]) === JSON.stringify(after[5]) &&
+              JSON.stringify(classic) === JSON.stringify(currentClassic), 'PROTECTION_CHANGED_BLOCKED');
+            return {approvalVariablesPresent: names.every(name => list.variables.some(v => v.name === name))};
+          }
+
+          // Runner entrypoint: output ONLY static verdicts/sanitized HTTP error codes.
+          try {
+            const e = process.env;
+            const result = await probe({repository:e.GITHUB_REPOSITORY, event:e.GITHUB_EVENT_NAME, ref:e.GITHUB_REF, sha:e.GITHUB_SHA,
+              runId:e.GITHUB_RUN_ID, attempt:e.GITHUB_RUN_ATTEMPT, actor:e.GITHUB_ACTOR, actorId:e.GITHUB_ACTOR_ID,
+              triggeringActor:e.GITHUB_TRIGGERING_ACTOR, workflowRef:e.GITHUB_WORKFLOW_REF},
+              {ciToken:e.CI_READ_TOKEN, metadataToken:e.METADATA_READ_TOKEN});
+            console.log('CLASSIC_PROTECTION=PASS HTTP=200');
+            console.log('PAT_VARIABLES_READ=PASS HTTP=200');
+            console.log(result.approvalVariablesPresent ? 'APPROVAL_VARIABLE_METADATA=PASS' : 'APPROVAL_VARIABLE_METADATA=BLOCKED_NOT_PRESENT; PAT_READ=PASS');
+            console.log('RELEASE_APPROVAL=BLOCKED_NOT_EVALUATED; METADATA_PROBE=PASS');
+          } catch (error) {
+            const code = /^[A-Z_0-9]+$/.test(error?.message || '') ? error.message : 'UNVERIFIED_BLOCKED';
+            console.log(`METADATA_PROBE=BLOCKED ${code}`); process.exitCode = 1;
+          }
+          PROBE
