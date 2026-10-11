@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  checks: read # Verify real Checks API access with this job's GITHUB_TOKEN.
 
 concurrency:
   group: advisor-pr-validation-${{ github.event.pull_request.number }}
@@ -45,3 +47,7 @@ jobs:
           node --test scripts/hub-roster-parser.test.mjs tools/hub-devtools-snippets/hk1-course-schedule-audit.test.mjs
       - name: Diff whitespace check
         run: git diff --check HEAD^ HEAD
+      - name: Verify real GitHub Actions read-only CI credentials (not release approval)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-github-ci-read-access.mjs

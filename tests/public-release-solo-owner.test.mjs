@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
-import {validateReleaseApproval,readGitHubReleaseMetadata,RELEASE_REPOSITORY,RELEASE_ENVIRONMENT,RELEASE_WORKFLOW,RELEASE_CHECK,VALIDATION_WORKFLOW} from '../scripts/check-public-release-approval.mjs';
+import {validateReleaseApproval,readGitHubReleaseMetadata as readMetadata,verifyGitHubCIReadAccess,RELEASE_REPOSITORY,RELEASE_ENVIRONMENT,RELEASE_WORKFLOW,RELEASE_CHECK,VALIDATION_WORKFLOW} from '../scripts/check-public-release-approval.mjs';
+
+const credentials={ciToken:'fixture-actions-read',metadataToken:'fixture-admin-env-read'};
+const readGitHubReleaseMetadata=(c,options={})=>readMetadata(c,{...credentials,...options});
 
 const fixture=()=>{
   const sha='a'.repeat(40),runId='1234',owner={id:42,login:'solo',type:'User'};
@@ -83,7 +86,10 @@ function fakeApi(c,override=()=>undefined){
  const fn=async(url,options)=>{
    calls.push({url,options});assert.equal(options.method,'GET');assert.equal(options.redirect,'error');
    const path=new URL(url).pathname.replace(`/repos/${RELEASE_REPOSITORY}`,'');
-   const forced=override(path);if(forced)return forced;
+   const protectedPath=path==='/branches/main/protection'||path.startsWith(`/environments/${RELEASE_ENVIRONMENT}/variables/`);
+   if(options.headers.Authorization!==`Bearer ${protectedPath?credentials.metadataToken:credentials.ciToken}`)
+     return {ok:false,status:403}; // Simulate endpoint permission separation, no cross-token recovery.
+   const forced=override(path,options);if(forced)return forced;
    const data={'':c.repository,'/branches/main':c.branch,[`/actions/runs/${c.runId}`]:c.run,[`/environments/${RELEASE_ENVIRONMENT}`]:c.environment,
      [`/environments/${RELEASE_ENVIRONMENT}/deployment-branch-policies`]:c.deploymentPolicies,'/rules/branches/main':c.effectiveRules||[],
      '/branches/main/protection':c.classicProtection,[`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_SHA`]:c.ownerApproval,
@@ -97,6 +103,58 @@ test('final metadata comes from fixed environment/API; all network operations ar
  assert.ok(a.calls.some(x=>x.url.includes('/variables/PUBLIC_RELEASE_APPROVAL_SHA')));
  assert.equal(a.calls.filter(x=>x.url.endsWith('/branches/main/protection')).length,2);
  assert.ok(a.calls.every(x=>!x.url.includes('/rulesets/')&&!x.url.includes('/rules/branches/')));
+});
+test('PAT is confined to protection/approval variables; GITHUB_TOKEN handles Checks and workflow provenance',async()=>{
+ const c=fixture(),a=fakeApi(c);assert.equal(validateReleaseApproval(await readGitHubReleaseMetadata(c,{fetchImpl:a.fn})),true);
+ const patCalls=a.calls.filter(x=>x.options.headers.Authorization===`Bearer ${credentials.metadataToken}`);
+ assert.equal(patCalls.length,4); // Two protection reads plus two owner variables.
+ assert.ok(patCalls.every(x=>x.url.endsWith('/branches/main/protection')||x.url.includes('/variables/PUBLIC_RELEASE_APPROVAL_')));
+ assert.ok(a.calls.filter(x=>x.url.includes('/check-runs')||x.url.includes('/actions/runs/')).every(x=>x.options.headers.Authorization===`Bearer ${credentials.ciToken}`));
+});
+for(const missing of ['ciToken','metadataToken'])test(`missing ${missing} blocks before any API request`,async()=>{
+ const a=fakeApi(fixture());await assert.rejects(()=>readMetadata(fixture(),{...credentials,[missing]:undefined,fetchImpl:a.fn}),/GITHUB_READ_TOKEN_REQUIRED/);
+ assert.equal(a.calls.length,0);
+});
+test('the old single-token option and identical credentials cannot silently replace separation',async()=>{
+ const a=fakeApi(fixture());
+ await assert.rejects(()=>readMetadata(fixture(),{token:credentials.metadataToken,fetchImpl:a.fn}),/GITHUB_READ_TOKEN_REQUIRED/);
+ await assert.rejects(()=>readMetadata(fixture(),{ciToken:credentials.ciToken,metadataToken:credentials.ciToken,fetchImpl:a.fn}),/DISTINCT_READ_CREDENTIALS_REQUIRED/);
+ assert.equal(a.calls.length,0);
+});
+for(const patch of [{ciToken:credentials.metadataToken},{metadataToken:credentials.ciToken},{ciToken:credentials.metadataToken,metadataToken:credentials.ciToken}])
+test(`wrong credential role blocks without retry: ${Object.keys(patch).join(',')}`,async()=>{
+ const a=fakeApi(fixture());await assert.rejects(()=>readMetadata(fixture(),{...credentials,...patch,fetchImpl:a.fn}),/DISTINCT_READ_CREDENTIALS_REQUIRED|GITHUB_METADATA_HTTP_403/);
+ assert.ok(a.calls.length<=5); // Initial parallel reads only; no alternate-token retry.
+});
+for(const status of [401,403,404])test(`Checks HTTP ${status} fails closed without PAT/anonymous fallback`,async()=>{
+ const c=fixture(),a=fakeApi(c,p=>p.endsWith('/check-runs')?{ok:false,status}:undefined);
+ await assert.rejects(()=>readGitHubReleaseMetadata(c,{fetchImpl:a.fn}),new RegExp(`GITHUB_METADATA_HTTP_${status}`));
+ const attempts=a.calls.filter(x=>x.url.includes('/check-runs'));assert.equal(attempts.length,1);
+ assert.equal(attempts[0].options.headers.Authorization,`Bearer ${credentials.ciToken}`);
+});
+test('preflight uses only GITHUB_TOKEN and does not acquire or substitute a PAT',async()=>{
+ const c=fixture(),a=fakeApi(c);await readMetadata(c,{ciToken:credentials.ciToken,fetchImpl:a.fn,preflight:true});
+ assert.ok(a.calls.every(x=>x.options.headers.Authorization===`Bearer ${credentials.ciToken}`));
+ assert.ok(a.calls.every(x=>!x.url.includes('/protection')&&!x.url.includes('/variables/')&&!x.url.includes('/check-runs')));
+});
+test('real-CI read probe reuses Checks reader and validates exact SHA, Actions publisher and run provenance',async()=>{
+ const c=fixture(),a=fakeApi(c);
+ assert.equal(await verifyGitHubCIReadAccess({sha:c.sha,runId:'5678',event:'workflow_dispatch'},{ciToken:credentials.ciToken,fetchImpl:a.fn}),true);
+ assert.equal(a.calls.length,2);
+ assert.ok(a.calls.every(x=>x.options.headers.Authorization===`Bearer ${credentials.ciToken}`));
+});
+for(const [path,value]of [['checkRuns.0.head_sha','b'.repeat(40)],['checkRuns.0.app.id',7],['checkRuns.0.details_url','https://attacker.invalid'],
+ ['ciRuns.0.head_sha','b'.repeat(40)],['ciRuns.0.path','.github/workflows/fake.yml'],['ciRuns.0.repository.full_name','fork/repo'],['ciRuns.0.event','push']])
+test(`CI credential probe rejects forged metadata: ${path}`,async()=>{
+ const c=fixture();set(c,path,value);const a=fakeApi(c);
+ await assert.rejects(()=>verifyGitHubCIReadAccess({sha:c.sha,runId:'5678',event:'workflow_dispatch'},{ciToken:credentials.ciToken,fetchImpl:a.fn}),/EXACT_SHA_CI_REQUIRED|CI_PROBE_PROVENANCE_REQUIRED/);
+});
+test('CI credential probe rejects missing permission and incomplete metadata without release approval',async()=>{
+ const c=fixture();
+ for(const forced of [{ok:false,status:403},{ok:true,json:async()=>({total_count:2,check_runs:c.checkRuns})},{ok:true,json:async()=>({check_runs:c.checkRuns})}]){
+  const a=fakeApi(c,p=>p.endsWith('/check-runs')?forced:undefined);
+  await assert.rejects(()=>verifyGitHubCIReadAccess({sha:c.sha,runId:'5678',event:'workflow_dispatch'},{ciToken:credentials.ciToken,fetchImpl:a.fn}),/GITHUB_METADATA_HTTP_403|CI_METADATA_INCOMPLETE/);
+ }
 });
 for(const status of [401,403,404])test(`classic protection HTTP ${status} blocks even with an active main ruleset`,async()=>{
  const c=ruleFixture(),a=fakeApi(c,p=>p==='/branches/main/protection'?{ok:false,status}:undefined);
@@ -171,7 +229,16 @@ test('unsupported CLI bypass flags fail before network access',()=>{
 test('release workflow uses final guard without bypass immediately before Public-only deploy',()=>{
  const y=readFileSync('.github/workflows/deploy-cloudflare-production.yml','utf8');const release=y.split('  release-public:')[1];
  assert.match(release,/RELEASE_GITHUB_READ_TOKEN: \$\{\{ secrets.PUBLIC_RELEASE_GITHUB_READ_TOKEN \}\}/);
+ assert.match(release,/GH_TOKEN: \$\{\{ github.token \}\}/);
+ assert.match(release,/permissions:\s+contents: read\s+actions: read\s+checks: read/);
+ assert.doesNotMatch(y,/\b(?:contents|actions|checks|administration|environments): write/);
  assert.doesNotMatch(release,/--preflight|--require-owner|vars.PUBLIC_RELEASE_APPROVAL_SHA|migrations apply|wrangler.auth/);
  assert.match(release,/run: node scripts\/check-public-release-approval.mjs\s+- name: Deploy Public/);
  assert.doesNotMatch(y,/skip_guard:|bypass:|approval_mode:|solo_owner:/);
+});
+test('independent CI checks real short-lived token access without PAT, settings writes or deployment',()=>{
+ const y=readFileSync('.github/workflows/ai-advisor-pr-validation.yml','utf8');
+ assert.match(y,/permissions:\s+contents: read\s+actions: read\s+checks: read/);
+ assert.match(y,/GH_TOKEN: \$\{\{ github.token \}\}/);assert.match(y,/node scripts\/check-github-ci-read-access.mjs/);
+ assert.doesNotMatch(y,/secrets\.|: write|pull_request_target|wrangler/);
 });

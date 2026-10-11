@@ -48,10 +48,15 @@ workflow input can disable the final guard. The policy is committed code for
    transaction and a small residual check-to-deploy race remains.
 
 All metadata calls are GET, bounded, with deadlines and redirects disallowed.
+Credentials are separated by fixed endpoint ownership: the owner PAT reads only
+classic protection and the two confirmation variables; the short-lived workflow
+GITHUB_TOKEN reads repository/head/environment/run/check metadata. Missing or
+identical credentials fail before final metadata reads. An API failure never
+retries with the other credential or anonymously, even for this public repository.
 HTTP 401/403/404/429/5xx, unavailable/malformed/incomplete metadata or missing
 protection fails closed. Provider response bodies and credentials are not printed.
 
-The credential-free validate job runs only partial dispatch/environment preflight
+The validate job (no owner PAT or Cloudflare secrets) runs only partial dispatch/environment preflight
 and tests. Its PASS is explicitly **NOT release approval**. The protected
 release-public job always runs the complete guard without the preflight argument.
 It does not deploy Auth, apply migrations, backfill, upload documents or index them.
@@ -79,9 +84,11 @@ documentation-backed and fixture-tested, not a live token/release PASS.
 
 ## Owner actions required on GitHub — do not deploy yet
 
-### 1. Protect main
+### 1. Verify main protection
 
 Required: **classic branch protection**, branch name `main`:
+The owner reports this is already configured. Verify the authenticated response
+against these settings; do not recreate/change a correct protection just to test.
 
 - Require a pull request before merging; leave human approval count at zero.
 - Require status checks and require branch to be up to date.
@@ -110,34 +117,54 @@ is documented non-applicability, not the ruleset's write-only redaction behavior
 If an unexpected classic allowance object is returned, all users/teams/apps arrays
 must be explicitly present and empty; nonempty/incomplete/null objects block.
 
-### 2. Arrange read-only GitHub metadata access
+### 2. Arrange split read-only GitHub metadata access
 
-No token or secret has been created by this task. The ordinary workflow
+No owner token or secret has been created by this task. The ordinary workflow
 GITHUB_TOKEN cannot be assumed to read Administration/Environment-variable data.
 If an existing suitable credential is available, owner must arrange it as the
 **environment secret** `PUBLIC_RELEASE_GITHUB_READ_TOKEN` in `public-production`.
 Otherwise arranging a credential is a separate owner action, not permission for
 this agent to create one.
 
-Scope to this repository only. The complete endpoint permission set is:
+**Correction to the previous single-token instructions:** do not try to add
+Checks Read to the PAT. The Checks endpoint documentation lists fine-grained PAT
+as a token type and requires Checks Read, but GitHub's fine-grained PAT permission
+catalog has no Checks section and the owner confirms it is absent in the UI.
+That documentation does not prove a usable PAT grant exists. We do not create a
+PAT or claim an authenticated PAT Checks experiment succeeded. We avoid the
+incompatibility by using the GitHub App installation credential `GITHUB_TOKEN`
+with explicit read-only workflow permissions. Commit Status API is not a
+replacement: it cannot preserve our check-run publisher/provenance verification.
 
-| Permission | Level | GET endpoints used by the guard |
+Scope the owner PAT to **only HUB-PLANNER**. Choose exactly:
+
+- **Administration: Read-only**
+- **Environments: Read-only**
+- Metadata Read is automatically included.
+
+No PAT Actions, Checks, Contents, Commit statuses or Write permissions are needed.
+Keep it as `public-production` environment secret
+`PUBLIC_RELEASE_GITHUB_READ_TOKEN`; do not paste it into workflow inputs or chat.
+The endpoint/credential split is:
+
+| Credential | Permission | GET endpoints used by the guard |
 |---|---|---|
-| Administration | Read | `/branches/main/protection`, including enforce_admins, strict checks, force/deletion flags |
-| Environments | Read | The two `/environments/public-production/variables/...` owner confirmations |
-| Actions | Read | Workflow run provenance, environment protection rules, deployment branch policies |
-| Checks | Read | Exact-SHA check runs and GitHub Actions publisher |
-| Contents | Read | `/branches/main` and its live SHA |
-| Metadata | Read (automatic) | Repository identity/owner |
+| Owner PAT | Administration Read | `/branches/main/protection`, including enforce_admins, strict checks, force/deletion flags |
+| Owner PAT | Environments Read | The two `/environments/public-production/variables/...` owner confirmations |
+| GITHUB_TOKEN | Actions Read | Workflow run provenance, environment protection rules, deployment branch policies |
+| GITHUB_TOKEN | Checks Read | Exact-SHA check runs and GitHub Actions publisher |
+| GITHUB_TOKEN | Contents Read | `/branches/main` and its live SHA |
+| GITHUB_TOKEN | Metadata Read (automatic) | Repository identity/owner |
 
 These are read permissions only: **no Administration Write**, Contents Write,
 Actions Write, Secrets permission or workflow-dispatch privilege is required.
-GitHub allows the public repository/run/check/branch/environment endpoints above
-without authentication. Consequently the strictly indispensable extra grants for
-this currently public repository are Administration Read + Environments Read
-(Metadata is automatic); Actions/Checks/Contents Read form the explicit complete
-set and avoid dependence on public-resource access. If repository visibility
-changes, use the full set. This is not a claim that a particular PAT was tested.
+The protected release job declares `contents: read`, `actions: read` and
+`checks: read` for GITHUB_TOKEN. Its guard step passes `${{ github.token }}` as
+`GH_TOKEN`, and the PAT as `RELEASE_GITHUB_READ_TOKEN`. There is no single-token
+fallback. Validate/preflight uses only GITHUB_TOKEN and cannot approve release.
+Public-resource anonymous access is not used as a fallback or proof of token
+permission. These same read scopes cover the respective endpoints if visibility
+later changes, provided both principals retain repository access.
 The PAT principal must already have access to read the repository's environment
 variables (the owner qualifies). A token's permissions cannot create that access.
 
@@ -157,7 +184,8 @@ the owner consider re-enabling that workflow. Enabling it is not authorized here
 1. Merge only with separate approval; record the resulting exact main SHA.
 2. Manually run **AI Advisor PR validation (no deployment)** on main and wait for
    success on that SHA. Its new workflow_dispatch trigger validates only, with no
-   credentials, migration, Cloudflare access or deployment.
+   owner credentials, migration, Cloudflare access or deployment. Its short-lived
+   GITHUB_TOKEN reads CI metadata only, with no write grants.
 3. Owner manually dispatches the Public-only release on main with the exact SHA
    and explicit approval. This is a future action, NOT requested now.
 4. After obtaining that new run ID, independently update both environment variables:
@@ -188,9 +216,9 @@ production state, not because a production configuration write was performed.
 
 ## Validation evidence for this change
 
-- Focused release/security regressions for read-only compatibility: 119/119 PASS.
-- Full npm suite: 803/803 PASS (248.8 seconds); Advisor subset 393/393;
-  auxiliary tests 2/2. This does not exercise a real PAT or release workflow.
+- Focused split-token release/security regressions: 140/140 PASS.
+- Full npm suite: 824/824 PASS (314.9 seconds); Advisor subset 414/414;
+  auxiliary tests 2/2. No successful production release is implied.
 - Frontend/Worker typecheck, frontend/staging build, YAML parse, diff check PASS.
 - Real read-only GitHub API: active main ruleset with omitted bypass metadata;
   classic protection HTTP 401 without a credential => NOT VERIFIED / blocked.
@@ -198,6 +226,15 @@ production state, not because a production configuration write was performed.
   they are NOT a live successful release proof. No production workflow ran.
 - Independent GitHub CI result must be verified on the pushed commit, not inferred
   from the preceding commit's successful run. The final response links that run.
+- The independent CI now runs `check-github-ci-read-access.mjs` against the real
+  Checks and Actions APIs using its short-lived GITHUB_TOKEN. The probe validates
+  source SHA, Actions publisher and current validation-workflow provenance; it
+  accepts the current in-progress run only as **read capability**, not successful
+  release approval. PR source SHA is taken from the trusted event payload, not
+  confused with the synthetic merge checkout SHA. The final release guard still
+  requires successful manual validation of the exact main SHA and all owner gates.
+- Owner reports classic protection configured; its live authenticated response
+  and the split PAT + GITHUB_TOKEN final production gate remain NOT VERIFIED.
 
 ## Primary references
 
@@ -211,3 +248,6 @@ production state, not because a production configuration write was performed.
 - [Branches / Contents-read](https://docs.github.com/en/rest/branches/branches#get-a-branch)
 - [Workflow runs / Actions-read](https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run)
 - [Check runs / Checks-read](https://docs.github.com/en/rest/checks/runs#list-check-runs-for-a-git-reference)
+- [Fine-grained PAT permission catalog (no Checks section)](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens)
+- [Workflow read-only Checks permissions](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions)
+- [GITHUB_TOKEN is a GitHub App installation credential](https://docs.github.com/en/actions/concepts/security/github_token)

@@ -9,6 +9,9 @@ wait 5 minutes; old deployment workflow disabled. Main is protected by active
 ruleset 24867954, but its bypass metadata was omitted in the unauthenticated GET.
 The guard now requires independently enforced classic protection, readable with
 Administration Read; its live configuration is NOT VERIFIED (unauthenticated 401).
+Owner now reports classic protection configured. Final guard uses separate
+credentials: owner PAT Administration/Environments Read only; ephemeral
+GITHUB_TOKEN Contents/Actions/Checks Read. No PAT Checks grant is required.
 Approved fixture-only 0054 rehearsal and restore passed, but full production-copy
 rehearsal remains pending. The independent-reviewer requirement below is superseded
 by [explicit solo-owner authorization](public-release-solo-owner.md); no production
@@ -26,7 +29,7 @@ an independent legal verification of document authority/effectiveness.
 |---|---|
 | Prior real Word-first staging quality | Selected 30/30, nonselected 30/30, controls 9/9 at baseline; five unchanged DOCX, 73/73 indexed units. Not a new live run of the changes below. |
 | Patched parser against real sources | Re-read exactly the five approved local DOCX after fflate patch: source SHA-256 and extracted Markdown/counts equal the prior private staging manifest for all five. Zero OCR/provider calls/index writes. This verifies extraction stability, not a new UI/provider acceptance run. |
-| Latest read-only guard revision local validation | Release/security 119/119; Advisor 393/393; full npm suite 803/803 plus 2 auxiliary tests; frontend/Worker typecheck, frontend/staging builds, YAML parse and diff check PASS. Independent CI must pass on the pushed final SHA. Real read-only PAT execution remains NOT VERIFIED. |
+| Latest split-token guard revision local validation | Release/security 140/140; Advisor 414/414; full npm suite 824/824 plus 2 auxiliary tests; frontend/Worker typecheck, frontend/staging builds, YAML parse and diff check PASS. Independent CI includes a real GITHUB_TOKEN Checks/Actions GET probe; its result must be verified on the pushed final SHA. Real owner PAT/final-release execution remains NOT VERIFIED. |
 | Production read-only health | Public `9bcf3e62-00db-4794-8020-4c4891929896` at 100%; homepage 200; anonymous Advisor 401; V2 canary 7%; completeness unset/OFF. No synthetic production questions. |
 | Production catalog/schema | 10 active PDFs and 1 deleted record; none restored. 0054 columns present: 0/4. No production writes or backup export performed. |
 | Isolated full backup/restore | Staging export 489,577 bytes; 25 table row digests match after restore, including WITHOUT ROWID tables. Private artifacts outside Git. |
@@ -118,7 +121,7 @@ Owner setup, not performed by this task:
 - Validate token/resource scope in a credential-controlled dry run before release.
   This checklist is not proof that a minimum-scope token has already deployed.
 
-Workflow: credential-free tests/build first, exact main/owner SHA checks, protected
+Workflow: tests/build without owner/Cloudflare secrets first, exact main/owner SHA checks, protected
 approval, read-only live settings/schema check, then only
 `wrangler deploy --config cloudflare/wrangler.jsonc --keep-vars`. Preflight compares
 bindings, vars and observability; `--keep-vars` alone does not prove preservation.

@@ -6,7 +6,7 @@ import ts from 'typescript';
 import {validatePublicReleaseState} from '../scripts/check-public-release-state.mjs';
 import {assertRehearsalTarget,canonicalRehearsalRows} from '../scripts/rehearse-advisor-d1-staging.mjs';
 
-test('PR CI is credential-free validation, never a production deployment',()=>{
+test('PR CI uses no owner/Cloudflare secrets and remains read-only validation, never a production deployment',()=>{
   const ci=readFileSync('.github/workflows/ai-advisor-pr-validation.yml','utf8');
   assert.match(ci,/pull_request:/);
   assert.match(ci,/contents: read/);

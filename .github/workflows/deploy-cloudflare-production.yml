@@ -68,6 +68,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: public-production
+    permissions:
+      contents: read
+      actions: read
+      checks: read # Short-lived GITHUB_TOKEN only; PAT does not need Checks.
     steps:
       - uses: actions/checkout@v4
         with:

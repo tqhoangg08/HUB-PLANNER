@@ -90,15 +90,29 @@ export function validateReleaseApproval(c){
   return true;
 }
 
-// Only GET fixed GitHub.com endpoints. No config/policy/bypass flags from callers.
-export async function readGitHubReleaseMetadata(context,{token,fetchImpl=fetch,preflight=false}={}){
-  const get=async suffix=>{
+// Only GET fixed GitHub.com endpoints. No token fallback, anonymous retry or
+// caller-selected endpoint/provider policy. Never send the PAT to Checks API.
+function githubReader(token,fetchImpl){
+  if(typeof token!=='string'||!token.trim()||/[\r\n]/.test(token))fail('GITHUB_READ_TOKEN_REQUIRED');
+  return async suffix=>{
     let r;
     try{r=await fetchImpl(`https://api.github.com/repos/${RELEASE_REPOSITORY}${suffix}`,{
-      method:'GET',redirect:'error',headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(token?{Authorization:`Bearer ${token}`}:{})},signal:AbortSignal.timeout(15000)});}catch{fail('GITHUB_METADATA_UNAVAILABLE');}
+      method:'GET',redirect:'error',headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});}catch{fail('GITHUB_METADATA_UNAVAILABLE');}
     if(!r.ok)fail(`GITHUB_METADATA_HTTP_${r.status}`);
     try{return await r.json();}catch{fail('GITHUB_METADATA_MALFORMED');}
   };
+}
+const readChecks=async(get,sha)=>{
+  if(!SHA.test(sha||''))fail('EXACT_SHA_CI_REQUIRED');
+  const checks=await get(`/commits/${sha}/check-runs?check_name=${encodeURIComponent(RELEASE_CHECK)}&filter=latest&per_page=100`);
+  if(!Array.isArray(checks?.check_runs)||checks.total_count!==checks.check_runs.length)fail('CI_METADATA_INCOMPLETE');
+  return checks.check_runs;
+};
+
+export async function readGitHubReleaseMetadata(context,{ciToken,metadataToken,fetchImpl=fetch,preflight=false}={}){
+  const get=githubReader(ciToken,fetchImpl);
+  const protectedGet=preflight?undefined:githubReader(metadataToken,fetchImpl);
+  if(!preflight&&ciToken===metadataToken)fail('DISTINCT_READ_CREDENTIALS_REQUIRED');
   if(!/^\d+$/.test(context.runId||''))fail('RUN_ID_REQUIRED');
   const [repository,branch,run,environment,deploymentPolicies]=await Promise.all([
     get(''),get('/branches/main'),get(`/actions/runs/${context.runId}`),get(`/environments/${RELEASE_ENVIRONMENT}`),
@@ -109,14 +123,13 @@ export async function readGitHubReleaseMetadata(context,{token,fetchImpl=fetch,p
   if(preflight)return c; // No deployment uses this partial check.
   // Always read classic protection, including when active rulesets also exist.
   // Never request write-only bypass metadata or fall back on a ruleset/404.
-  const classicProtection=await get('/branches/main/protection');
+  const classicProtection=await protectedGet('/branches/main/protection');
   validateMainProtection({...c,classicProtection});
-  const [ownerApproval,ownerRunApproval,checks]=await Promise.all([
-    get(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_SHA`),
-    get(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_RUN_ID`),
-    get(`/commits/${context.sha}/check-runs?check_name=${encodeURIComponent(RELEASE_CHECK)}&filter=latest&per_page=100`)]);
-  if(!Array.isArray(checks.check_runs)||checks.total_count!==checks.check_runs.length)fail('CI_METADATA_INCOMPLETE');
-  const selected=latestCheck(checks.check_runs,context.sha);
+  const [ownerApproval,ownerRunApproval,checkRuns]=await Promise.all([
+    protectedGet(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_SHA`),
+    protectedGet(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_RUN_ID`),
+    readChecks(get,context.sha)]);
+  const selected=latestCheck(checkRuns,context.sha);
   const ciIds=[...new Set([selected].filter(r=>r.status==='completed'&&r.conclusion==='success').map(r=>{
       const m=new RegExp(`^https://github\\.com/${RELEASE_REPOSITORY}/actions/runs/(\\d+)/job/${r.id}$`).exec(r.details_url||'');
       if(!m)fail('CI_PROVENANCE_UNVERIFIED');return m[1];
@@ -127,11 +140,24 @@ export async function readGitHubReleaseMetadata(context,{token,fetchImpl=fetch,p
   const [currentBranch,currentEnvironment,currentPolicies]=await Promise.all([get('/branches/main'),get(`/environments/${RELEASE_ENVIRONMENT}`),
     get(`/environments/${RELEASE_ENVIRONMENT}/deployment-branch-policies?per_page=100`)]);
   validateDispatchContext({...c,branch:currentBranch});validateEnvironment(currentEnvironment,currentPolicies);
-  const currentProtection=await get('/branches/main/protection');
+  const currentProtection=await protectedGet('/branches/main/protection');
   if(JSON.stringify(currentProtection)!==JSON.stringify(classicProtection))fail('MAIN_PROTECTION_CHANGED');
   validateMainProtection({...c,branch:currentBranch,classicProtection:currentProtection});
   return {...c,branch:currentBranch,environment:currentEnvironment,deploymentPolicies:currentPolicies,
-    classicProtection,ownerApproval,ownerRunApproval,checkRuns:checks.check_runs,ciRuns};
+    classicProtection,ownerApproval,ownerRunApproval,checkRuns,ciRuns};
+}
+
+// Read-only CI capability probe, NOT release approval. Uses the same Checks
+// reader as the final gate, on the current independent-validation run's SHA.
+export async function verifyGitHubCIReadAccess({sha,runId,event},{ciToken,fetchImpl=fetch}={}){
+  if(!SHA.test(sha||'')||!/^\d+$/.test(runId||'')||!['pull_request','workflow_dispatch'].includes(event))fail('CI_PROBE_CONTEXT_REQUIRED');
+  const get=githubReader(ciToken,fetchImpl);
+  const [checks,run]=await Promise.all([readChecks(get,sha),get(`/actions/runs/${runId}`)]);
+  const check=latestCheck(checks,sha);
+  if(run?.head_sha!==sha||run.path!==VALIDATION_WORKFLOW||run.repository?.full_name!==RELEASE_REPOSITORY||
+    String(run.id)!==runId||run.event!==event||check.details_url!==`https://github.com/${RELEASE_REPOSITORY}/actions/runs/${runId}/job/${check.id}`)
+    fail('CI_PROBE_PROVENANCE_REQUIRED');
+  return true; // Current run may still be in progress; final release requires success.
 }
 
 async function main(){
@@ -142,7 +168,7 @@ async function main(){
     event:process.env.GITHUB_EVENT_NAME,ref:process.env.GITHUB_REF,runId:process.env.GITHUB_RUN_ID,
     attempt:process.env.GITHUB_RUN_ATTEMPT,actorId:process.env.GITHUB_ACTOR_ID,triggeringActor:process.env.GITHUB_TRIGGERING_ACTOR,
     workflowRef:process.env.GITHUB_WORKFLOW_REF};
-  const c=await readGitHubReleaseMetadata(context,{preflight,token:preflight?process.env.GH_TOKEN:(process.env.RELEASE_GITHUB_READ_TOKEN||process.env.GH_TOKEN)});
+  const c=await readGitHubReleaseMetadata(context,{preflight,ciToken:process.env.GH_TOKEN,metadataToken:process.env.RELEASE_GITHUB_READ_TOKEN});
   if(!preflight)validateReleaseApproval(c);
   console.log(preflight?'PUBLIC_ONLY_PREFLIGHT=PASS; NOT_RELEASE_APPROVAL':'PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS');
 }
