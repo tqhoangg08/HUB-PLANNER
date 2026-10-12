@@ -3,6 +3,8 @@ import type {
   EvidenceGenerationRequest,
   EvidenceGenerationResult,
 } from './ai-advisor-providers.ts';
+import { conductTableEvidencePriority, isConductTableQuestion } from './ai-advisor-table-evidence.ts';
+import {selectEvidenceWindow} from './ai-advisor-source-sections.ts';
 
 export const DEFAULT_WORKERS_AI_EVIDENCE_MODEL = '@cf/zai-org/glm-4.7-flash';
 export const WORKERS_AI_EVIDENCE_TOOL = 'submit_grounded_answer';
@@ -65,7 +67,10 @@ const normalizeSources = (request: EvidenceGenerationRequest) => {
   for (const source of request.evidence) {
     const sourceId = bounded(source.sourceId, 8);
     if (!/^S[1-3]$/.test(sourceId) || seen.has(sourceId) || result.length >= MAX_WORKERS_AI_EVIDENCE_CHUNKS || remaining <= 0) continue;
-    const snippet = bounded(source.snippet, Math.min(1_600, remaining));
+    // A physical table page may be longer than 1,600 characters. Preserve its
+    // trailing point column within the existing global 6,000-character budget.
+    const sourceLimit = isConductTableQuestion(request.question) && conductTableEvidencePriority(source.snippet) ? 2_200 : 1_600;
+    const snippet = selectEvidenceWindow(source.snippet,request.question,Math.min(sourceLimit, remaining)).trim();
     if (!snippet) continue;
     result.push({ sourceId, snippet });
     seen.add(sourceId);
@@ -119,31 +124,36 @@ const systemInstruction = [
   'If supported=true, answer and source_ids must be non-empty. For every cited source, include a short exact quote from its supplied text in support_spans.',
 ].join(' ');
 
-const normalizeToolCall = (response: WorkersAiRunResponse, evidence: readonly { sourceId: string; snippet: string }[]): EvidenceGenerationResult => {
+export type GroundingRejectionSubtype = 'MALFORMED_TOOL_RESULT'|'UNKNOWN_SOURCE_ID'|'MISSING_SUPPORT_SPAN'|'EMPTY_SUPPORT_SPAN'|'SUPPORT_SPAN_TOO_LONG'|'SUPPORT_QUOTE_NOT_FOUND'|'CITED_SOURCE_WITHOUT_SUPPORT';
+const normalizeToolCall = (response: WorkersAiRunResponse, evidence: readonly { sourceId: string; snippet: string }[],onFailure?:(reason:GroundingRejectionSubtype)=>void): EvidenceGenerationResult => {
+  const reject=(reason:GroundingRejectionSubtype)=>{try{onFailure?.(reason)}catch{/* diagnostics cannot change validation */}return abstain(true)};
+  const malformed=()=>{try{onFailure?.('MALFORMED_TOOL_RESULT')}catch{/* diagnostics only */}return abstain()};
   const calls = response.choices?.[0]?.message?.tool_calls;
-  if (!Array.isArray(calls) || calls.length !== 1 || !isRecord(calls[0])) return abstain();
+  if (!Array.isArray(calls) || calls.length !== 1 || !isRecord(calls[0])) return malformed();
   const call = calls[0] as WorkersAiToolCall;
-  if (call.type !== 'function' || call.function?.name !== WORKERS_AI_EVIDENCE_TOOL || typeof call.function.arguments !== 'string') return abstain();
+  if (call.type !== 'function' || call.function?.name !== WORKERS_AI_EVIDENCE_TOOL || typeof call.function.arguments !== 'string') return malformed();
   let argumentsValue: unknown;
-  try { argumentsValue = JSON.parse(call.function.arguments); } catch { return abstain(); }
-  if (!isRecord(argumentsValue) || typeof argumentsValue.supported !== 'boolean' || typeof argumentsValue.answer !== 'string' || !Array.isArray(argumentsValue.source_ids) || !Array.isArray(argumentsValue.support_spans)) return abstain(isRecord(argumentsValue) && argumentsValue.supported === true);
+  try { argumentsValue = JSON.parse(call.function.arguments); } catch { return malformed(); }
+  if (!isRecord(argumentsValue) || typeof argumentsValue.supported !== 'boolean' || typeof argumentsValue.answer !== 'string' || !Array.isArray(argumentsValue.source_ids) || !Array.isArray(argumentsValue.support_spans)) return isRecord(argumentsValue)&&argumentsValue.supported===true?reject('MALFORMED_TOOL_RESULT'):abstain();
   const allowedEvidence = new Map(evidence.map((source) => [source.sourceId, normalizedSupportText(source.snippet)]));
   const sourceIds = argumentsValue.source_ids;
   const spans = argumentsValue.support_spans;
-  if (sourceIds.length > MAX_WORKERS_AI_EVIDENCE_CHUNKS || sourceIds.some((id) => typeof id !== 'string' || !allowedEvidence.has(id)) || new Set(sourceIds).size !== sourceIds.length) return abstain(argumentsValue.supported);
+  if (sourceIds.length > MAX_WORKERS_AI_EVIDENCE_CHUNKS || sourceIds.some((id) => typeof id !== 'string' || !allowedEvidence.has(id)) || new Set(sourceIds).size !== sourceIds.length) return argumentsValue.supported?reject('UNKNOWN_SOURCE_ID'):abstain();
   if (!argumentsValue.supported) return abstain();
   const answer = bounded(argumentsValue.answer, MAX_WORKERS_AI_EVIDENCE_ANSWER_CHARS);
-  if (!answer || !sourceIds.length || !spans.length || spans.length > MAX_WORKERS_AI_EVIDENCE_CHUNKS) return abstain(true);
+  if (!answer || !sourceIds.length || spans.length > MAX_WORKERS_AI_EVIDENCE_CHUNKS) return reject('MALFORMED_TOOL_RESULT');
+  if(!spans.length)return reject('MISSING_SUPPORT_SPAN');
   const supportedSources = new Set<string>();
   for (const span of spans) {
-    if (!isRecord(span) || typeof span.source_id !== 'string' || typeof span.quote !== 'string') return abstain(true);
-    if (!sourceIds.includes(span.source_id)) return abstain(true);
+    if (!isRecord(span) || typeof span.source_id !== 'string' || typeof span.quote !== 'string') return reject('MALFORMED_TOOL_RESULT');
+    if (!sourceIds.includes(span.source_id)) return reject('UNKNOWN_SOURCE_ID');
     const quote = normalizedSupportText(span.quote);
-    if (!quote || span.quote.length > MAX_WORKERS_AI_SUPPORT_SPAN_CHARS || quote.length > MAX_WORKERS_AI_SUPPORT_SPAN_CHARS) return abstain(true);
-    if (!allowedEvidence.get(span.source_id)?.includes(quote)) return abstain(true);
+    if (!quote) return reject('EMPTY_SUPPORT_SPAN');
+    if(span.quote.length > MAX_WORKERS_AI_SUPPORT_SPAN_CHARS || quote.length > MAX_WORKERS_AI_SUPPORT_SPAN_CHARS)return reject('SUPPORT_SPAN_TOO_LONG');
+    if (!allowedEvidence.get(span.source_id)?.includes(quote)) return reject('SUPPORT_QUOTE_NOT_FOUND');
     supportedSources.add(span.source_id);
   }
-  if (sourceIds.some((sourceId) => !supportedSources.has(sourceId))) return abstain(true);
+  if (sourceIds.some((sourceId) => !supportedSources.has(sourceId))) return reject('CITED_SOURCE_WITHOUT_SUPPORT');
   return { supported: true, answer, sourceIds: sourceIds as string[] };
 };
 
@@ -162,7 +172,7 @@ const withDeadline = async <T>(operation: Promise<T>, timeoutMs: number) => {
 /** Server-side, one-call evidence generator. Malformed or unsupported output abstains. */
 export const createWorkersAiEvidenceGenerator = (
   env: WorkersAiEvidenceGeneratorEnv,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; onValidationFailure?:(reason:GroundingRejectionSubtype)=>void } = {},
 ): EvidenceGenerationProvider => {
   const model = bounded(env.AI_ADVISOR_V2_GENERATOR_MODEL, 128) || DEFAULT_WORKERS_AI_EVIDENCE_MODEL;
   const timeoutMs = Math.max(1, Math.min(WORKERS_AI_EVIDENCE_TIMEOUT_MS, Math.trunc(Number(options.timeoutMs) || WORKERS_AI_EVIDENCE_TIMEOUT_MS)));
@@ -190,7 +200,7 @@ export const createWorkersAiEvidenceGenerator = (
         n: 1,
         chat_template_kwargs: { enable_thinking: false },
       }), timeoutMs);
-      return normalizeToolCall(response, evidence);
+      return normalizeToolCall(response, evidence,options.onValidationFailure);
     },
   };
 };

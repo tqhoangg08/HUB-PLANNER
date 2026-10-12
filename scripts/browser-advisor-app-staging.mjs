@@ -1,0 +1,156 @@
+// Real browser acceptance runner. Fresh disposable browser, no production session.
+import {chromium} from 'playwright-core';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {CONDUCT_ACCEPTANCE_QUESTIONS} from './verify-advisor-conduct-providers.mjs';
+import {normalizeAcceptanceText} from '../shared/ai-advisor-acceptance-text.ts';
+const emit=v=>console.log(JSON.stringify(v));
+let phase='start';
+async function main(){
+  const word=process.argv.includes('--word-first'),stageName=word?'hub-advisor-pr88-word-staging':'hub-advisor-pr88-app-staging';
+  const stageDir=word?'.cache/advisor-word-staging':'.cache/advisor-app-staging';
+  const state=JSON.parse(readFileSync(`${stageDir}/private-state.json`,'utf8'));
+  if(state.name!==stageName||!new RegExp(`^https://${stageName}\\.[a-z0-9-]+\\.workers\\.dev$`).test(state.origin))throw Error('ISOLATION_FAILED');
+    const dir=resolve(stageDir,'browser-results');mkdirSync(dir,{recursive:true});
+    const sourceCommit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+  const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+  try{
+    const context=await browser.newContext({viewport:{width:1365,height:900}}),page=await context.newPage();
+    const errors=[];page.on('pageerror',e=>errors.push(e.name));
+    const health=await(await context.request.get(`${state.origin}/health`)).json();
+    if(process.argv.includes('--require-final-commit')&&(health.sourceCommit!==sourceCommit||execFileSync('git',['status','--porcelain','--untracked-files=no'],{encoding:'utf8'}).trim()))throw Error('FINAL_SOURCE_MISMATCH');
+    await page.goto(state.origin);await page.getByLabel('Email kiểm thử').fill(state.email);await page.getByLabel('Mật khẩu kiểm thử').fill(state.password);
+    await page.getByRole('button',{name:'Đăng nhập staging',exact:true}).click();
+    await page.getByRole('heading',{name:'Kho tài liệu AI'}).waitFor({timeout:30000});
+    emit({phase:'browser_login',result:'PASS',realBetterAuthCookie:true,productionSessionUsed:false});
+    const captureMobile=async()=>{
+      await page.setViewportSize({width:390,height:844});
+      const drawer=page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true});
+      if(await drawer.isVisible()){
+        await page.getByTitle('Lịch sử trò chuyện',{exact:true}).click();
+        await page.waitForFunction(()=>{
+          const button=[...document.querySelectorAll('button')].find(b=>b.textContent?.includes('Cuộc trò chuyện mới'));
+          return (button?.parentElement?.parentElement?.getBoundingClientRect().right??Infinity)<=20;
+        },undefined,{timeout:5000});
+      }
+      await page.screenshot({path:resolve(dir,'multi-pdf-mobile.png')});
+      emit({phase:'multi_pdf_ui_layout',desktop:true,mobile390:true,horizontalOverflow:await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),pageErrors:errors.length});
+    };
+    if(process.argv.includes('--layout-only')){
+      // Read an existing staging conversation. No new question/provider call.
+      phase='layout_open';
+      await page.locator('button.fixed.bottom-6').click();
+      const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
+      phase='layout_history';
+      await page.locator('button').filter({has:page.locator('svg.lucide-message-circle')}).first().click();
+      phase='layout_message';
+      await page.locator('.ai-message-markdown').first().waitFor({timeout:15000});
+      phase='layout_mobile';
+      await captureMobile();return;
+    }
+    if(process.argv.includes('--upload')){
+      const arg=process.argv.indexOf(word?'--docx':'--pdf');if(arg<0)throw Error('PDF_REQUIRED');
+      const listed=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents`)).json();
+      const titleArg=process.argv.indexOf('--title'),categoryArg=process.argv.indexOf('--category');
+      const title=titleArg>=0?process.argv[titleArg+1]:'Quy chế đánh giá kết quả rèn luyện sinh viên';
+      if((listed.documents||listed.data||[]).some(d=>d.title===title))throw Error('STAGING_ALREADY_UPLOADED');
+      await page.getByRole('button',{name:/Tải tài liệu/}).click();
+      phase='choose_pdf';
+      await page.locator('input[type=file]').setInputFiles(process.argv[arg+1]);
+      phase='set_title';
+      await page.getByLabel('Tiêu đề',{exact:true}).fill(title);
+      phase='set_category';
+      if(categoryArg>=0)await page.locator('select').filter({has:page.locator('option[value="tuition"]')}).selectOption(process.argv[categoryArg+1]);
+      const upload=page.waitForResponse(r=>r.url()===`${state.origin}/api/admin/v1/ai-documents`&&r.request().method()==='POST',{timeout:600000});
+      phase='upload_ocr';
+      const t=Date.now();await page.getByRole('button',{name:'Tải và lập chỉ mục',exact:true}).click();
+      // Real UX warns about unreadable OCR cells; explicitly acknowledge the
+      // staging-only test artifact, never silently suppress this warning.
+      const confirm=page.getByRole('button',{name:'Xác nhận',exact:true});
+      if(!word)await Promise.race([upload,confirm.waitFor({timeout:600000}).then(async()=>{emit({phase:'browser_ocr_warning',acknowledged:true,legalIdentityNotAssumed:true});await confirm.click();})]);
+      const response=await upload,data=await response.json();
+      writeFileSync(resolve(dir,`upload-${data.document?.id||'failed'}-local.json`),JSON.stringify(data));
+      emit({phase:word?'browser_upload_native_word':'browser_upload_ocr',httpStatus:response.status(),durationMs:Date.now()-t,ocrPages:data.document?.ocr_page_count,ocrUsed:data.document?.ocr_used,uncertainTokens:data.document?.ocr_uncertain_tokens,aiSearchStatus:data.document?.ai_search_status,geminiStatus:data.document?.gemini_indexing_status,pageErrors:errors.length});
+      return;
+    }
+    if(!process.argv.includes('--benchmark'))throw Error('ACTION_REQUIRED');
+    const list=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents`)).json();
+    const docs=list.data||list.documents||[];
+    if(!docs.length)throw Error('INDEX_NOT_READY');
+    const manifestArg=process.argv.indexOf('--manifest');
+    if(manifestArg>=0){
+      let cases=JSON.parse(readFileSync(process.argv[manifestArg+1],'utf8'));
+      if(!Array.isArray(cases)||cases.length>16)throw Error('BENCHMARK_LIMIT');
+      const caseArg=process.argv.indexOf('--cases');
+      if(caseArg>=0){const selected=process.argv[caseArg+1].split(',').map(Number);cases=cases.filter((_c,i)=>selected.includes(i+1));}
+      for(const c of cases){
+        const doc=docs.find(d=>d.content_hash===c.sourceHash);
+        if(!doc)throw Error('DOCUMENT_NOT_UPLOADED');
+        const probe=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents?id=${encodeURIComponent(doc.id)}`)).json();
+        if(probe.document?.ai_search_status!=='completed')throw Error('INDEX_NOT_READY');
+      }
+      await page.locator('button.fixed.bottom-6').click();
+      const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
+      const normalize=s=>String(s).normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/\s+/g,' ');
+      for(const [i,c]of cases.entries()){
+        if(i)await page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true}).click();
+        const doc=docs.find(d=>d.content_hash===c.sourceHash),t=Date.now();
+        const next=page.waitForResponse(r=>r.url()===`${state.origin}/api/private/v1/ai-advisor`&&r.request().method()==='POST',{timeout:90000});
+        const input=page.getByPlaceholder('Nhập câu hỏi tại đây...');await input.fill(c.question);await input.press('Enter');
+        const r=await next,payload=await r.json();writeFileSync(resolve(dir,`topic-${i+1}-local.json`),JSON.stringify(payload));
+        const citations=payload.documentSources||[],content=normalize(payload.reply),matching=citations.filter(s=>s.documentId===doc.id);
+        const pageNumbers=matching.flatMap(s=>s.pageNumbers||[s.pageNumber]);
+        const facts=(c.contains||[]).every(s=>normalizeAcceptanceText(payload.reply).includes(normalizeAcceptanceText(s))),location=(c.pages||[]).every(n=>pageNumbers.includes(n))&&(!word||pageNumbers.every(n=>n==null))&&
+          (c.locators||[]).every(l=>matching.some(s=>(s.locators||[]).some(v=>normalize(v).includes(normalize(l)))));
+        // A response arrives before React finishes rendering. Compare rendered
+        // prose, not raw Markdown table delimiters/comments, and wait for UI.
+        const anchor=normalize(String(payload.reply||'').replace(/<!--[\s\S]*?-->/g,'').replace(/[|*#_`>]/g,'')).trim().slice(0,40);
+        const visible=Boolean(anchor)&&await page.waitForFunction(value=>{
+          const text=document.body.innerText.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim();
+          return text.includes(value);
+        },anchor,{timeout:5000}).then(()=>true,()=>false);
+        emit({phase:'multi_pdf_ui',case:i+1,topic:c.topic,sourceCommit,deployedCommit:health.sourceCommit,httpStatus:r.status(),durationMs:Date.now()-t,
+          visibleResponse:visible,correctDocument:matching.length>0,expectedFactsPresent:facts,expectedPagesPresent:location,pageErrors:errors.length,
+          acceptance:r.status()===200&&visible&&facts&&location&&matching.length>0?'PASS':'FAIL',metrics:payload.stagingMetrics});
+        await page.screenshot({path:resolve(dir,`topic-${i+1}-desktop.png`)});
+      }
+      await captureMobile();
+      return;
+    }
+    const document=await(await context.request.get(`${state.origin}/api/admin/v1/ai-documents?id=${encodeURIComponent(docs[0].id)}`)).json();
+    writeFileSync(resolve(dir,'index-status-local.json'),JSON.stringify(document));
+    const ready=document.data?.[0]||document.documents?.[0]||document.document||document;
+    if(ready.ai_search_status!=='completed')throw Error('INDEX_NOT_READY');
+    await page.locator('button.fixed.bottom-6').click();
+    const consent=page.getByRole('button',{name:'Tôi đồng ý',exact:true});if(await consent.count())await consent.click();
+    for(const [index,question]of CONDUCT_ACCEPTANCE_QUESTIONS.entries()){
+      const caseArg=process.argv.indexOf('--case');if(caseArg>=0&&Number(process.argv[caseArg+1])!==index+1)continue;
+      if(index>0)await page.getByRole('button',{name:'Cuộc trò chuyện mới',exact:true}).click();
+      const t=Date.now();const response=page.waitForResponse(r=>r.url()===`${state.origin}/api/private/v1/ai-advisor`&&r.request().method()==='POST',{timeout:90000});
+      const input=page.getByPlaceholder('Nhập câu hỏi tại đây...');await input.fill(question);await input.press('Enter');
+      const r=await response,payload=await r.json();writeFileSync(resolve(dir,`case-${index+1}-local.json`),JSON.stringify(payload));
+      const content=String(payload.reply||'');const durationMs=Date.now()-t;
+      // Markdown tables/lists split text into DOM nodes; compare normalized
+      // visible text rather than demanding one exact raw-Markdown node.
+      const marker=content.replace(/<!--[\s\S]*?-->/g,'').replace(/[|*#_`>]/g,'').replace(/\s+/g,' ').trim().slice(0,50);
+      const rendered=marker?await page.locator('body').innerText().then(text=>text.replace(/\s+/g,' ').includes(marker)):false;
+      const citations=payload.documentSources||[];
+      const pages=citations.flatMap(s=>s.pageNumbers||[s.pageNumber||null]);
+      const normalized=content.normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[đĐ]/g,'d').toLowerCase();
+      const pointMaxima=[...content.matchAll(/tối đa\s+(\d+)\s+điểm/gu)].map(m=>Number(m[1]));
+      let acceptance='NOT_VERIFIED';
+      if([0,2,3].includes(index))acceptance=JSON.stringify(pointMaxima)===JSON.stringify([25,20,20,15,20])&&pages.includes(2)&&pages.includes(3)?'PASS_COMPLETE_TABLE':'FAIL_TABLE';
+      if(index===4)acceptance=/mini game.*khong duoc tinh diem ren luyen/s.test(normalized)&&pages.includes(14)?'PASS_SOURCED_EXCLUSION':'FAIL_EXCLUSION';
+      if(index===5)acceptance=['hoat dong ngoai truong','minh chung','xac nhan','chu ky','dau tron'].every(s=>normalized.includes(s))&&pages.includes(14)?'PASS_SOURCED_REQUIREMENTS':'FAIL_REQUIREMENTS';
+      if(index===6)acceptance=/khong.*(?:truy cap|co du lieu)|chua.*(?:du lieu|xac minh)/s.test(normalized)&&!citations.length?'PASS_PERSONAL_UNAVAILABLE':'FAIL_PERSONAL_SAFETY';
+      // Identity/currentness require independently verified legal metadata.
+      // No script promotes these to PASS merely because a response/citation exists.
+      emit({phase:'browser_acceptance',sourceCommit,case:index+1,httpStatus:r.status(),durationMs,visibleResponse:rendered,citations:citations.length,pages:citations.map(s=>s.pageNumbers||[s.pageNumber||null]),unavailable:payload.documentSearchUnavailable===true,pageErrors:errors.length,acceptance,metrics:payload.stagingMetrics});
+      await page.waitForTimeout(700);
+      await page.screenshot({path:resolve(dir,`case-${index+1}-desktop.png`)});
+    }
+    await page.screenshot({path:resolve(dir,'advisor-desktop.png')});
+  }finally{await browser.close();}
+}
+main().catch(e=>{emit({phase:'browser_staging',step:phase,result:'BLOCKED',safeError:['ISOLATION_FAILED','PDF_REQUIRED','STAGING_ALREADY_UPLOADED','INDEX_NOT_READY','ACTION_REQUIRED','FINAL_SOURCE_MISMATCH','BENCHMARK_LIMIT','DOCUMENT_NOT_UPLOADED'].includes(e.message)?e.message:e.name});process.exitCode=1;});

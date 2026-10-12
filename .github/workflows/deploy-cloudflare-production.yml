@@ -1,10 +1,17 @@
-name: Deploy Cloudflare production
+name: Approved Public-only production release
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      approve_public_release:
+        description: Explicit Public-only release request (not Auth, migration or backfill)
+        type: boolean
+        required: true
+        default: false
+      approved_sha:
+        description: Full 40-character main HEAD SHA approved separately
+        type: string
+        required: true
 
 concurrency:
   group: cloudflare-production
@@ -12,28 +19,39 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read # Read protected environment metadata; no deployment/admin write grant.
 
 jobs:
-  test-build-deploy:
-    name: Test, build, and deploy
+  validate:
+    if: github.ref == 'refs/heads/main' && inputs.approve_public_release == true
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    timeout-minutes: 35
 
     steps:
       - name: Check out main
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4; verified by independent CI
+        with:
+          persist-credentials: false
+          fetch-depth: 2
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4; verified by independent CI
         with:
           node-version: 22
           cache: npm
 
-      - name: Install locked dependencies
-        run: npm ci
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Verify owner dispatch, current main SHA and protected environment (not final approval)
+        env:
+          APPROVED_SHA: ${{ inputs.approved_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-public-release-approval.mjs --preflight
+
+      - run: npm run test:advisor
+      - run: npm run typecheck
+      - run: npm run cf:typecheck
 
       - name: Run full test suite
         run: |
@@ -43,13 +61,43 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
-      # Additive D1 schema changes are applied before the compatible Worker
-      # version that uses them; deploy itself does not apply D1 migrations.
-      - name: Apply pending Public D1 migrations
-        run: npx wrangler d1 migrations apply hub-planner-public-dev --remote --config cloudflare/wrangler.jsonc
+      - run: git diff --check HEAD^ HEAD
 
-      - name: Deploy Auth Worker
-        run: npx wrangler deploy --config cloudflare/wrangler.auth-production.jsonc --keep-vars
+  release-public:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: public-production
+    permissions:
+      contents: read
+      actions: read
+      checks: read # Short-lived GITHUB_TOKEN only; PAT does not need Checks.
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4; verified by independent CI
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4; verified by independent CI
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - name: Verify live settings and schema without applying migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/check-public-release-state.mjs
+
+      # Final mandatory guard immediately before deploy; there is no bypass input.
+      - name: Verify solo owner approval, live protections and exact-SHA CI
+        env:
+          APPROVED_SHA: ${{ inputs.approved_sha }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_GITHUB_READ_TOKEN: ${{ secrets.PUBLIC_RELEASE_GITHUB_READ_TOKEN }}
+        run: node scripts/check-public-release-approval.mjs
 
       - name: Deploy Public Worker and frontend assets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy --config cloudflare/wrangler.jsonc --keep-vars

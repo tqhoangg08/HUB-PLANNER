@@ -16,18 +16,28 @@ test('student-facing sources deduplicate one document across multiple cited page
   assert.equal(sources.length, 3);
   assert.deepEqual(sources.map((item) => item.documentId || item.title), ['a', 'b', 'Sổ tay sinh viên']);
   assert.deepEqual(sources[0]?.locators, ['Điều 21, khoản 2, điểm a', 'Điều 21, khoản 2, điểm b']);
+  assert.deepEqual(sources[0]?.pageNumbers, [18, 19]);
 });
 
-test('student sources are read-only labels and never render page numbers or download actions', () => {
+test('student sources show provided pages only and never offer private download actions', () => {
   const component = source('components/AIDocumentSources.tsx');
   assert.doesNotMatch(component, /privateApiRequest|window\.open|ExternalLink|Loader2|<button/);
-  assert.doesNotMatch(component, /pageNumber|trang \$\{/);
+  assert.match(component, /source\.pageNumbers\.join/);
   assert.match(component, /Nguồn tham khảo/);
   assert.match(component, /<section/);
   assert.match(component, /source\.locators/);
   assert.match(component, /formatLocator/);
   assert.match(component, /source\.publicUrl/);
   assert.match(component, /<Link/);
+});
+
+test('table source card retains both actual pages and discards invalid page labels', () => {
+  const sources = deduplicateAiDocumentSources([
+    { documentId: 'table', title: 'Quy chế', pageNumber: 2, pageNumbers: [2, 3, 0, -1, NaN, 2.5] },
+    { documentId: 'table', title: 'Quy chế', pageNumber: 3 },
+  ]);
+  assert.equal(sources.length, 1);
+  assert.deepEqual(sources[0]?.pageNumbers, [2, 3]);
 });
 
 test('source cards become links only with server-provided current public-view metadata', () => {
@@ -43,7 +53,7 @@ test('source cards become links only with server-provided current public-view me
   assert.doesNotMatch(component, /api\/private\/v1\/ai-document/);
 });
 
-test('student-facing source UI preserves grounded applicability without exposing pages or downloads', () => {
+test('student-facing source UI preserves grounded applicability without private downloads', () => {
   const sources = deduplicateAiDocumentSources([
     {
       documentId: 'a', title: 'Quy chế đào tạo',
@@ -61,7 +71,7 @@ test('student-facing source UI preserves grounded applicability without exposing
   const component = source('components/AIDocumentSources.tsx');
   assert.match(component, /Áp dụng:/);
   assert.match(component, /source\.applicability/);
-  assert.doesNotMatch(component, /pageNumber|window\.open|<button/);
+  assert.doesNotMatch(component, /window\.open|<button/);
 });
 
 test('desktop and mobile advisor share safe GFM Markdown rendering', () => {

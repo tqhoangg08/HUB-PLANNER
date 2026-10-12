@@ -22,8 +22,8 @@ export const AIDocumentSources: React.FC<{
       {unavailable && (
         <div className="flex items-start gap-1.5 text-[11px] text-amber-700">
           <AlertCircle size={13} className="mt-0.5 shrink-0" />
-          Kho tài liệu đang tạm thời không khả dụng. Câu trả lời này chưa được đối chiếu
-          với tài liệu.
+          Chưa xác minh được câu trả lời từ nguồn tài liệu hợp lệ. Nguồn có thể chưa có,
+          đang lập chỉ mục hoặc tạm thời không truy xuất được.
         </div>
       )}
       {visibleSources.length > 0 && (
@@ -39,12 +39,15 @@ export const AIDocumentSources: React.FC<{
               const content = <>
                 <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
                 <div className="min-w-0">
-                  <p className="truncate text-[10px] font-semibold">{source.title || source.fileName || 'Tài liệu chính thức'}</p>
+                  <p className="break-words text-[10px] font-semibold">{source.title || source.fileName || 'Tài liệu chính thức'}</p>
                   {source.locators?.slice(0, 3).map((locator, locatorIndex) => (
                     <p key={`${locator}-${locatorIndex}`} className="mt-0.5 text-[10px] font-normal text-slate-500">
                       {formatLocator(locator)}
                     </p>
                   ))}
+                  {!!source.pageNumbers?.length && (
+                    <p className="mt-0.5 text-[10px] font-normal text-slate-500">Trang {source.pageNumbers.join(', ')}</p>
+                  )}
                   {source.applicability?.slice(0, 3).map((scope, scopeIndex) => (
                     <p key={`${scope.rawLabel}-${scopeIndex}`} className="mt-0.5 text-[10px] font-normal text-slate-500">
                       Áp dụng: {scope.rawLabel}

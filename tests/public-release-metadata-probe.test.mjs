@@ -192,5 +192,17 @@ test('bootstrap emits exact required check without environment secrets or produc
   assert.match(ci,/pull_request:\s+branches: \[main\]/);
   assert.doesNotMatch(ci,/pull_request_target:|secrets\.|environment:|wrangler|cf:deploy|migrations apply|write\s*$/m);
   for(const name of ['typecheck','cf:typecheck','build','test'])assert.match(ci,new RegExp(`npm (?:run )?${name.replace(':','\\:')}(?:\\s|$)`));
-  assert.doesNotMatch(ci,/test:advisor|staging\/advisor/,'do not copy scripts absent from main');
+  // PR #88 adds these real scripts; retain the bootstrap's security checks
+  // alongside the fuller validation rather than dropping either suite.
+  const pkg=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8'));
+  assert.equal(typeof pkg.scripts['test:advisor'],'string');
+  assert.match(ci,/npm run test:advisor/);
+  assert.match(ci,/node --test tests\/public-release-metadata-probe\.test\.mjs/);
+  assert.match(ci,/npm ci --ignore-scripts/);
+  assert.match(ci,/actions\/checkout@11d5960a326750d5838078e36cf38b85af677262/);
+  assert.match(ci,/actions\/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020/);
+  assert.match(ci,/persist-credentials: false/);
+  assert.match(ci,/npx vite build --config staging\/advisor\/vite.config\.mjs/);
+  assert.match(ci,/node scripts\/check-github-ci-read-access\.mjs/);
+  assert.match(ci,/actions: read/);assert.match(ci,/checks: read/);
 });

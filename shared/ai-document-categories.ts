@@ -9,6 +9,7 @@ export const AI_DOCUMENT_CATEGORY_VALUES = [
   'scholarship',
   'student_handbook',
   'discipline',
+  'student_conduct',
 ] as const;
 
 export type AiDocumentCategory = typeof AI_DOCUMENT_CATEGORY_VALUES[number];
@@ -23,6 +24,7 @@ export const AI_DOCUMENT_CATEGORY_OPTIONS: ReadonlyArray<{ value: AiDocumentCate
   { value: 'scholarship', label: 'Học bổng' },
   { value: 'student_handbook', label: 'Sổ tay sinh viên' },
   { value: 'discipline', label: 'Kỷ luật / vi phạm' },
+  { value: 'student_conduct', label: 'Đánh giá rèn luyện / ĐRL' },
   { value: 'general', label: 'Khác' },
 ];
 
@@ -44,6 +46,7 @@ export const normalizeAiDocumentCategory = (value: unknown): AiDocumentCategory 
   if (canonicalCategories.has(raw)) return raw as AiDocumentCategory;
   const text = searchableCategoryText(value);
   if (!text) return 'general';
+  if (text.includes('ren luyen') || text === 'drl') return 'student_conduct';
   if (['grading', 'diem', 'quy doi diem', 'thang diem'].includes(text)
     || text.includes('quy doi diem') || text.includes('thang diem')) return 'grading';
   if (['quy che', 'quy dinh', 'regulation'].includes(text)

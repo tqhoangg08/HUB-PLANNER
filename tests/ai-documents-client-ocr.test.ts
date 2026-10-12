@@ -48,7 +48,7 @@ test('OCR migration and upload route retain original PDF while Gemini indexes a 
   assert.match(handler, /mimeType: sourceKind === 'ocr_text' \? 'text\/plain'/);
   assert.match(handler, /document\.ocr_text_path \|\| document\.storage_path/);
   assert.match(handler, /const derivativeHash = await sha256AiDocumentBlob\(derivative\)/);
-  assert.match(handler, /aiDocumentIndexingFailurePatch\(Boolean\(ocr\), ocrDerivativeStored\)/);
+  assert.match(handler, /aiDocumentIndexingFailurePatch\(Boolean\(ocr \|\| prepared\), ocrDerivativeStored\)/);
   assert.match(handler, /document\.storage_path/);
   assert.doesNotMatch(config, /AI_DOCUMENT_INGEST_QUEUE|hub-planner-ai-document-ingest/);
   assert.match(config, /hub-planner-push-events/);

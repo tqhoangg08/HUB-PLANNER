@@ -4,6 +4,7 @@ export type AIDocumentSource = {
   title: string;
   fileName?: string;
   pageNumber?: number | null;
+  pageNumbers?: number[];
   locators?: string[];
   applicability?: Array<{
     cohortYear?: number;
@@ -33,6 +34,9 @@ export const deduplicateAiDocumentSources = (sources: AIDocumentSource[]) => {
     const id = String(source.id || source.documentId || '').trim();
     const title = String(source.title || source.fileName || 'Tài liệu chính thức').trim();
     const key = id ? `id:${id}` : `title:${normalizedTitle(title) || index}`;
+    const pageNumbers = [...new Set([source.pageNumber, ...(source.pageNumbers || [])]
+      .filter((page): page is number => typeof page === 'number' && Number.isSafeInteger(page) && page > 0))]
+      .sort((a, b) => a - b);
     const locators = [...new Set((Array.isArray(source.locators) ? source.locators : [])
       .map((locator) => String(locator || '').trim()).filter(Boolean))].slice(0, 3);
     const applicability = (Array.isArray(source.applicability) ? source.applicability : [])
@@ -44,11 +48,13 @@ export const deduplicateAiDocumentSources = (sources: AIDocumentSource[]) => {
     if (!existing) {
       byKey.set(key, {
         ...source,
+        pageNumbers,
         ...(locators.length ? { locators } : {}),
         ...(applicability.length ? { applicability } : {}),
       });
       continue;
     }
+    existing.pageNumbers = [...new Set([...(existing.pageNumbers || []), ...pageNumbers])].sort((a, b) => a - b);
     const merged = [...new Set([...(existing.locators || []), ...locators])].slice(0, 3);
     if (merged.length) existing.locators = merged;
     const mergedApplicability = [...(existing.applicability || []), ...applicability]

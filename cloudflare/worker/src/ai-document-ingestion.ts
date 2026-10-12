@@ -5,6 +5,7 @@ import {
   type AiDocumentIndexIdentity,
   type DerivedIndexSourceKind,
 } from './ai-document-index-identity.ts';
+import { assessDocumentPageText, normalizeDocumentText } from '../../../shared/ai-document-text-quality.ts';
 
 /**
  * Local-only production contract for pre-search document ingestion.
@@ -31,6 +32,11 @@ export type DerivedPage = {
   /** Text is native or OCR output selected for this individual page. */
   text: string;
   sourceKind: Exclude<DerivedIndexSourceKind, 'legacy'>;
+  confidence?: number;
+  uncertainTokens?: number;
+  layout?: 'lines' | 'columns';
+  /** DOCX units have no verified physical pagination. Never label them pages. */
+  sourceFormat?: 'docx';
 };
 
 export type AuthoritativeDerivedMetadata = {
@@ -67,40 +73,14 @@ const sha256 = async (value: string) => {
 };
 
 /** Canonical, non-semantic cleanup. It never strips accents or repairs words. */
-export const normalizeDerivedText = (value: string) => value
-  .normalize('NFC')
-  .replace(/\r\n?/g, '\n')
-  .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
-  .split('\n')
-  .map((line) => line.replace(/[\t \f]+/g, ' ').trimEnd())
-  .join('\n')
-  .replace(/\n{3,}/g, '\n\n')
-  .trim();
+export const normalizeDerivedText = normalizeDocumentText;
 
 /**
  * Conservative corruption detector. A page with damaged glyph mappings is
  * escalated; ordinary short/English pages are not rewritten or guessed.
  */
 export const assessNativePageText = (value: string): NativeTextQuality => {
-  const normalized = normalizeDerivedText(value);
-  const codePoints = Array.from(normalized);
-  const replacementCharacterCount = codePoints.filter((character) => character === '\uFFFD').length;
-  const privateUseCharacterCount = codePoints.filter((character) => {
-    const point = character.codePointAt(0) || 0;
-    return (point >= 0xE000 && point <= 0xF8FF) || (point >= 0xF0000 && point <= 0xFFFFD) || (point >= 0x100000 && point <= 0x10FFFD);
-  }).length;
-  const visibleCharacterCount = codePoints.filter((character) => /[\p{L}\p{N}]/u.test(character)).length;
-  const reasons: string[] = [];
-  if (replacementCharacterCount > 0) reasons.push('replacement_character');
-  if (privateUseCharacterCount > 0) reasons.push('private_use_glyph');
-  if (normalized.length > 40 && visibleCharacterCount < 8) reasons.push('unusable_text_density');
-  return {
-    classification: reasons.length ? 'OCR_REQUIRED' : 'NATIVE_GOOD',
-    reasons,
-    replacementCharacterCount,
-    privateUseCharacterCount,
-    visibleCharacterCount,
-  };
+  return assessDocumentPageText(value);
 };
 
 export const planMixedPdfExtraction = (nativePages: readonly { pageNumber: number; text: string }[]) => nativePages
@@ -119,7 +99,10 @@ const assertPageNumbers = (pages: readonly DerivedPage[]) => {
 
 export const renderDerivedPage = (page: DerivedPage) => {
   if (!Number.isInteger(page.pageNumber) || page.pageNumber < 1) throw new Error('Invalid page number.');
-  return `<!-- page: ${page.pageNumber} -->\n\n${normalizeDerivedText(page.text)}\n`;
+  const details = `\n<!-- extraction: ${page.sourceKind}${page.confidence === undefined ? '' : `; confidence: ${page.confidence.toFixed(1)}`}; uncertain_tokens: ${page.uncertainTokens || 0} -->\n## ${page.sourceFormat==='docx'?'Đoạn Word':'Trang'} ${page.pageNumber}\n`;
+  // Code blocks preserve spatial column gaps; do not infer merged cells.
+  const text = page.layout === 'columns' ? `\`\`\`text\n${page.text.normalize('NFC').trim().replace(/\r\n?/g, '\n')}\n\`\`\`` : normalizeDerivedText(page.text);
+  return `<!-- ${page.sourceFormat==='docx'?'word_unit':'page'}: ${page.pageNumber} -->\n${details}\n${text}\n`;
 };
 
 /** Page order is explicit and canonical; no raw byte splitting is allowed. */
@@ -209,7 +192,9 @@ export const verifyPreparedDerivedArtifact = async (
   if (!artifact.extractionPipelineVersion.trim() || !SHA_256_PATTERN.test(artifact.declaredDerivedContentHash)) {
     throw new Error('Invalid derived artifact identity.');
   }
-  const markdown = normalizeDerivedText(artifact.markdown);
+  // Page/layout serialization is already canonical. Collapsing spaces here
+  // would erase table column gaps and invalidate the browser's exact hash.
+  const markdown = artifact.markdown.normalize('NFC').replace(/\r\n?/g, '\n').trim();
   const actualHash = await sha256(markdown);
   if (actualHash !== artifact.declaredDerivedContentHash.toLowerCase()) {
     throw new Error('Derived artifact hash does not match supplied content.');
@@ -256,3 +241,77 @@ export const isAuthorizedCurrentDerivedDocument = (record: DerivedRevisionRecord
 
 export const NATIVE_DERIVED_TEXT_PIPELINE = NATIVE_TEXT_EXTRACTION_PIPELINE_VERSION;
 export const OCR_DERIVED_TEXT_PIPELINE = OCR_PAGE_MARKDOWN_PIPELINE_VERSION;
+
+/** No client metadata/storage key is accepted. Admin-produced text is bound
+ * to the original file hash and a supported, versioned page contract. */
+export const parsePreparedPdfPages = async (raw: unknown, originalHash: string) => {
+  if (typeof raw !== 'string' || encoder.encode(raw).length > 2_000_000) throw new Error('Invalid prepared PDF payload.');
+  const value: unknown = JSON.parse(raw);
+  if (!value || typeof value !== 'object') throw new Error('Invalid prepared PDF payload.');
+  const input = value as Record<string, unknown>;
+  if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > 40) throw new Error('Invalid prepared PDF page count.');
+  const pages: DerivedPage[] = input.pages.map((entry: unknown, index: number) => {
+    if (!entry || typeof entry !== 'object') throw new Error('Invalid prepared PDF page.');
+    const p = entry as Record<string, unknown>;
+    if (p.pageNumber !== index+1 || typeof p.text !== 'string' || !p.text.trim() || encoder.encode(p.text).length > 100_000
+      || !['native_text','ocr'].includes(String(p.sourceKind)) || !['lines','columns',undefined].includes(p.layout as string | undefined)
+      || (p.confidence !== undefined && (typeof p.confidence !== 'number' || !Number.isFinite(p.confidence) || p.confidence < 0 || p.confidence > 100))
+      || (p.uncertainTokens !== undefined && (!Number.isSafeInteger(p.uncertainTokens) || Number(p.uncertainTokens) < 0 || Number(p.uncertainTokens)>100_000))) throw new Error('Invalid prepared PDF page.');
+    return { pageNumber:index+1,text:p.text,sourceKind:p.sourceKind as DerivedPage['sourceKind'],
+      ...(p.confidence !== undefined ? {confidence:p.confidence as number}:{}),
+      ...(p.uncertainTokens !== undefined ? {uncertainTokens:p.uncertainTokens as number}:{}),
+      ...(p.layout !== undefined ? {layout:p.layout as DerivedPage['layout']}:{}), };
+  });
+  const ocrUsed = pages.some((p)=>p.sourceKind==='ocr');
+  const pipeline = ocrUsed ? OCR_DERIVED_TEXT_PIPELINE : NATIVE_DERIVED_TEXT_PIPELINE;
+  if (input.pipelineVersion !== pipeline) throw new Error('Unsupported PDF extraction pipeline.');
+  const markdown = assemblePageAwareMarkdown(pages).trim();
+  if (encoder.encode(markdown).length > 1024*1024) throw new Error('Prepared PDF text limit exceeded.');
+  const verified = await verifyPreparedDerivedArtifact({ declaredSourceContentHash:String(input.sourceContentHash || ''),
+    declaredDerivedContentHash:String(input.derivedContentHash || ''),markdown,sourceKind:ocrUsed?'ocr':'native_text',extractionPipelineVersion:pipeline },originalHash);
+  return {...verified,pages,ocrUsed,pipelineVersion:pipeline,uncertainTokens:pages.reduce((sum,p)=>sum+(p.uncertainTokens || 0),0)};
+};
+
+/** Unlike older multi-page parts, these objects contain exactly one page. */
+export const buildDerivedPageObjectKey = (documentId:string,revision:string,pageNumber:number) =>
+  buildDerivedObjectKey(documentId,revision,pageNumber).replace(/\/part-(\d+)\.md$/,'/page-$1.md');
+
+export type DerivedStorageBucket = {
+  put(key:string,body:string,options:{httpMetadata:{contentType:string};customMetadata:Record<string,string>}):Promise<unknown>;
+  head(key:string):Promise<{size:number;customMetadata?:Record<string,string>} | null>;
+  delete(keys:string[]):Promise<void>;
+};
+export const storeDerivedPdfPages = async (bucket: DerivedStorageBucket, document: {id:string;content_hash:string;version?:number;category:string;visibility:'public'|'program'|'admin'},
+  prepared: Awaited<ReturnType<typeof parsePreparedPdfPages>>) => {
+  const revision = await buildEffectiveIndexRevision({documentId:document.id,sourceVersion:document.version || 1,
+    sourceContentHash:document.content_hash,indexSourceKind:'ocr_text',derivedSourceKind:prepared.ocrUsed?'ocr':'native_text',
+    extractionPipelineVersion:prepared.pipelineVersion,derivedContentHash:prepared.derivedContentHash,indexingStatus:'completed'});
+  const metadata = buildServerDerivedMetadata({documentId:document.id,category:document.category,visibility:document.visibility,revision,active:true});
+  const keys: string[]=[];
+  try {
+    for (const page of prepared.pages) {
+      const key = buildDerivedPageObjectKey(document.id,revision,page.pageNumber);
+      const body = renderDerivedPage(page);
+      await bucket.put(key,body,{httpMetadata:{contentType:'text/markdown;charset=utf-8'},customMetadata:metadata});
+      keys.push(key);
+      const head=await bucket.head(key);
+      if (!head || head.size!==encoder.encode(body).length || head.customMetadata?.revision!==revision) throw new Error('Derived PDF storage verification failed.');
+    }
+  } catch (error) {
+    // Newly allocated document/revision only; never a production corpus sweep.
+    if (keys.length) await bucket.delete(keys);
+    throw error;
+  }
+  return {revision,keys};
+};
+
+/** Readiness means every page of this server-selected revision, not a
+ * provider-wide completed count or another document's ready item. */
+export const isCompleteDerivedRevision = (document:{id:string;revision:string;pages:number;visibility:string},
+  items:readonly {key:string;status?:string;metadata?:Record<string,unknown>}[]) => {
+  if(!Number.isInteger(document.pages)||document.pages<1||document.pages>40)return false;
+  const ready=new Set(items.filter((item)=>item.status==='completed'&&item.metadata?.document_id===document.id
+    &&item.metadata?.revision===document.revision&&item.metadata?.visibility===document.visibility
+    &&(item.metadata?.active===true||item.metadata?.active==='true')).map((item)=>item.key));
+  return Array.from({length:document.pages},(_,i)=>buildDerivedPageObjectKey(document.id,document.revision,i+1)).every((key)=>ready.has(key));
+};

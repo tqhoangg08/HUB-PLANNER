@@ -15,7 +15,7 @@ export type AiAdvisorTurn = {
   bot_reply?: string;
   created_at: string;
   is_helpful: boolean | null;
-  document_sources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; locators?: string[]; applicability?: AiDocumentApplicability[] }>;
+  document_sources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; pageNumbers?: number[]; locators?: string[]; applicability?: AiDocumentApplicability[] }>;
   document_search_unavailable?: boolean;
 };
 
@@ -46,7 +46,7 @@ export const sendAiAdvisorMessage = async (input: { question: string; history: A
     reply: string;
     logId?: number | null;
     conversationId: string;
-    documentSources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; locators?: string[]; applicability?: AiDocumentApplicability[] }>;
+    documentSources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; pageNumbers?: number[]; locators?: string[]; applicability?: AiDocumentApplicability[] }>;
     answerSources?: Array<{ type: string; id?: string | number; title: string; url?: string; date?: string }>;
     documentSearchUnavailable?: boolean;
   }>;

@@ -8,6 +8,12 @@ export type AuthorizedEvidenceSource = {
   documentId: string;
   revision: string;
   snippet: string;
+  pageNumber?: number;
+  /** Server-authorized source format; a Word storage ordinal is NOT a page. */
+  locatorKind?: 'word_unit' | 'page';
+  /** Server-owned storage ordinal, never exposed as a physical Word page. */
+  unitNumber?: number;
+  documentTitle?: string;
 };
 
 export type GroundedGenerationRequest = {

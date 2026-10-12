@@ -160,6 +160,8 @@ export type GeneralGenerationRequest = {
 export type GeneralGenerationResult = {
   reply: string | null;
   lastStatus: number;
+  aiCallCount?: number;
+  timedOut?: boolean;
 };
 
 /**
@@ -209,8 +211,10 @@ export const groqLegacyGenerationProvider: GenerationProvider<GeneralGenerationR
   isConfigured: (env) => groqKeys(env as GroqLegacyProviderEnv).length > 0,
   async generate({ env, messages }) {
     let lastStatus = 502;
+    let aiCallCount=0,timedOut=false;
     for (const key of groqKeys(env).slice(0, 3)) {
       try {
+        aiCallCount++;
         const response = await fetch(GROQ_URL, {
           method: 'POST',
           headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -226,12 +230,13 @@ export const groqLegacyGenerationProvider: GenerationProvider<GeneralGenerationR
         const payload = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
         if (!response.ok) continue;
         const reply = String(payload.choices?.[0]?.message?.content || '').trim();
-        if (reply) return { reply, lastStatus };
-      } catch {
+        if (reply) return { reply, lastStatus, aiCallCount, timedOut };
+      } catch (error) {
+        if(error instanceof Error&&['TimeoutError','AbortError'].includes(error.name))timedOut=true;
         lastStatus = 502;
       }
     }
-    return { reply: null, lastStatus };
+    return { reply: null, lastStatus, aiCallCount, timedOut };
   },
 };
 
