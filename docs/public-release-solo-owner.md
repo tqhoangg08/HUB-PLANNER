@@ -1,6 +1,6 @@
 # Public-only release: SOLO OWNER approval
 
-Status: implementation for PR #88, **production NO-GO; PR remains Draft**.
+Status: PR #88 is merged; the separate V2 100% rollout proposal is **production NO-GO**.
 This document supersedes the independent-reviewer requirement in earlier PR
 readiness reports. It does not approve a merge, deployment, migration or cutover.
 
@@ -61,6 +61,11 @@ and tests. Its PASS is explicitly **NOT release approval**. The protected
 release-public job always runs the complete guard without the preflight argument.
 It does not deploy Auth, apply migrations, backfill, upload documents or index them.
 Existing live-state checks still reject missing 0054 or canary/observability drift.
+The separate [V2 100% rollout](ai-advisor-v2-100-release.md) has a fixed
+`canary/7` predeploy state and a `canary/100` postdeploy state. It does not
+reuse the old main SHA's CI or owner approval. The three document-policy flags
+remain OFF/OFF/0. Releasing again from an already-100 state fails closed and
+requires a separately reviewed release plan; no permissive either-state gate exists.
 
 ## Verified GitHub state on 2026-10-11 (READ ONLY)
 

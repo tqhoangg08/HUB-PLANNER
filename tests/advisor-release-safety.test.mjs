@@ -5,6 +5,9 @@ import {DatabaseSync} from 'node:sqlite';
 import ts from 'typescript';
 import {validatePublicReleaseState} from '../scripts/check-public-release-state.mjs';
 import {assertRehearsalTarget,canonicalRehearsalRows} from '../scripts/rehearse-advisor-d1-staging.mjs';
+// Included by test:advisor and independent CI, without changing unrelated scripts.
+import './public-release-v2-rollout.test.mjs';
+import './wrangler-keep-vars.test.mjs';
 
 test('PR CI uses no owner/Cloudflare secrets and remains read-only validation, never a production deployment',()=>{
   const ci=readFileSync('.github/workflows/ai-advisor-pr-validation.yml','utf8');
@@ -69,8 +72,8 @@ test('additional-topic staging has the existing empty course schema before conte
   }finally{db.close();}
 });
 test('Public live-state preflight rejects canary drift and missing 0054 without writing anything',()=>{
-  const config={name:'hub-planner-public-dev-api',main:'worker/src/index.ts',vars:{AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'7',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0'},assets:{binding:'ASSETS'},ai:{binding:'AI'},observability:{enabled:true}};
-  const settings={bindings:[{name:'ASSETS',type:'assets'},{name:'AI',type:'ai'},...Object.entries(config.vars).map(([name,text])=>({name,type:'plain_text',text}))],observability:config.observability};
+  const config={name:'hub-planner-public-dev-api',main:'worker/src/index.ts',vars:{AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'100',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0'},assets:{binding:'ASSETS'},ai:{binding:'AI'},observability:{enabled:true}};
+  const settings={bindings:[{name:'ASSETS',type:'assets'},{name:'AI',type:'ai'},...Object.entries(config.vars).map(([name,text])=>({name,type:'plain_text',text:name==='AI_ADVISOR_V2_CANARY_PERCENT'?'7':text}))],observability:config.observability};
   const schema=['ai_search_status','ai_search_revision','ocr_uncertain_tokens','gemini_indexing_status'].map(name=>({name}));
   assert.equal(validatePublicReleaseState(config,settings,schema),true);
   assert.throws(()=>validatePublicReleaseState(config,settings,[]),/0054/);
@@ -83,14 +86,14 @@ test('Public live-state preflight rejects canary drift and missing 0054 without 
   }
 });
 
-test('initial release configuration leaves completeness off and canary at seven percent',()=>{
+test('full V2 rollout configuration leaves both document opt-ins off and preserves canary fallback mode',()=>{
   const parsed=ts.parseConfigFileTextToJson('cloudflare/wrangler.jsonc',readFileSync('cloudflare/wrangler.jsonc','utf8'));
   assert.equal(parsed.error,undefined);
   assert.equal(parsed.config.vars.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,'false');
   assert.equal(parsed.config.vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,'false');
   assert.equal(parsed.config.vars.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT,'0');
   assert.equal(parsed.config.vars.AI_ADVISOR_V2_MODE,'canary');
-  assert.equal(String(parsed.config.vars.AI_ADVISOR_V2_CANARY_PERCENT),'7');
+  assert.equal(String(parsed.config.vars.AI_ADVISOR_V2_CANARY_PERCENT),'100');
   assert.ok(!String(parsed.config.main).includes('staging'));
 });
 

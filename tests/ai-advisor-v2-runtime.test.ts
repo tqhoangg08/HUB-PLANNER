@@ -57,6 +57,18 @@ test('canary bucketing is stable, privacy-safe, and zero percent never selects a
   assert.equal(await shouldUseAiAdvisorV2({ mode: 'canary', canaryPercent: 100 }, 'user-authoritative-id'), true);
 });
 
+test('100 percent selects every synthetic bucket; rollback to seven preserves the previous boundary',async()=>{
+  const seen=new Set<number>();
+  for(let n=0;n<2000&&seen.size<100;n++){
+    const user=`synthetic-rollout-${n}`,bucket=await aiAdvisorV2CanaryBucket(user);
+    seen.add(bucket);
+    assert.equal(await shouldUseAiAdvisorV2({mode:'canary',canaryPercent:100},user),true);
+    assert.equal(await shouldUseAiAdvisorV2({mode:'canary',canaryPercent:7},user),bucket<7);
+    assert.equal(await shouldUseAiAdvisorV2({mode:'off',canaryPercent:100},user),false);
+  }
+  assert.equal(seen.size,100);
+});
+
 test('no authorized documents and SURVIVAL quota make zero search and generator calls', async () => {
   const { client, calls } = fakeClient([authorizedChunk()]);
   const noDocuments = await executeAiAdvisorV2Document('Quy chế?', [], dependencies(client));

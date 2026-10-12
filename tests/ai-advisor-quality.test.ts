@@ -553,6 +553,49 @@ test('selected 7% canary exposes authorized DRL source cards; invalid facts fall
   }
 });
 
+test('full rollout serves both old selected/nonselected buckets with completeness OFF and preserves grounded fallback',async()=>{
+  let oldUnselected=USER;
+  for(let n=0;await aiAdvisorV2CanaryBucket(oldUnselected)<7;n++)oldUnselected=`33333333-3333-4333-8333-${String(n).padStart(12,'0')}`;
+  const target=JSON.parse(readFileSync('cloudflare/wrangler.jsonc','utf8')).vars;
+  assert.equal(target.AI_ADVISOR_V2_CANARY_PERCENT,'100');
+  for(const userId of [await selectedFixtureUser(),oldUnselected])for(const failV2 of [false,true]){
+    const db=makeDb();let searches=0,generations=0,legacy=0;
+    try{
+      db.insert();
+      const result=await send({...envFor(db.DB),
+        AI_ADVISOR_V2_MODE:target.AI_ADVISOR_V2_MODE,AI_ADVISOR_V2_CANARY_PERCENT:target.AI_ADVISOR_V2_CANARY_PERCENT,
+        AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:target.AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED,
+        AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:target.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED,
+        AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:target.AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT,
+        AUTH_SERVICE:{async fetch(){return Response.json({userId,role:'user',email:'fixture@example.test'});}} as Fetcher,
+        advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},
+        advisorV2AiSearchClient:{async search(){searches++;return{chunks:[{id:'fixture',score:.9,text:PASSAGE,item:{key:'fixture.md',metadata:{document_id:DOC,active:true}}}]};}},
+        advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,async generate(){generations++;if(failV2)throw Error('fixture-timeout');return{supported:true,answer:PASSAGE,sourceIds:['S1']};}},
+        fileSearchAnswer:async()=>{legacy++;return providerResult();},
+      });
+      assert.equal(result.reply,PASSAGE);assert.equal(result.documentSources[0].documentId,DOC);
+      assert.equal(searches,1);assert.equal(generations,1);assert.equal(legacy,failV2?1:0);
+    }finally{db.sql.close();}
+  }
+});
+
+test('full rollout cannot manufacture Word evidence when no indexed document or providers fail',async()=>{
+  for(const indexed of [false,true]){
+    const db=makeDb();let generations=0,legacy=0;
+    try{
+      db.insert(DOC,indexed?'completed':'processing');
+      const result=await send({...envFor(db.DB),AI_ADVISOR_V2_CANARY_PERCENT:'100',
+        AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0',
+        advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorV2AiSearchClient:{async search(){throw Error('fixture-search-timeout');}},
+        advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,async generate(){generations++;throw Error('No evidence must not generate');}},
+        fileSearchAnswer:async()=>{legacy++;throw new GeminiFileSearchError('GEMINI_REQUEST_TIMEOUT',{});},
+      });
+      assert.deepEqual(result.documentSources,[]);assert.doesNotMatch(result.reply,/3529|thang điểm 10|Thứ Hai/);
+      assert.equal(generations,0);assert.equal(legacy,indexed?1:0);
+    }finally{db.sql.close();}
+  }
+});
+
 test('generation cannot expose a source made private after retrieval', async () => {
   const db = makeDb();
   try {
