@@ -12,7 +12,7 @@ permissions:
   checks: read # Verify real Checks API access with this job's GITHUB_TOKEN.
 
 concurrency:
-  group: advisor-pr-validation-${{ github.event.pull_request.number }}
+  group: independent-validation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,16 +21,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           fetch-depth: 2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
-      - name: Install locked dependencies
-        run: npm ci
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+      - name: Metadata probe security regressions (offline, no secrets)
+        run: node --test tests/public-release-metadata-probe.test.mjs
       - name: Focused Advisor and release safety regressions
         run: npm run test:advisor
       - name: Frontend typecheck
