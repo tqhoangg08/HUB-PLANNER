@@ -25,6 +25,22 @@ test('main merge cannot deploy Auth or apply pending migrations; Public release 
   assert.match(workflow,/check-public-release-state/);
   assert.match(workflow,/wrangler deploy --config cloudflare\/wrangler.jsonc --keep-vars/);
 });
+
+for(const job of ['validate','release-public'])test(`Public release ${job} uses CI-verified action SHAs and disables install lifecycle scripts`,()=>{
+  const workflow=readFileSync('.github/workflows/deploy-cloudflare-production.yml','utf8');
+  const ci=readFileSync('.github/workflows/ai-advisor-pr-validation.yml','utf8');
+  const block=workflow.split(`  ${job}:`)[1].split(/^  [a-z][a-z-]*:/m)[0];
+  const pins={checkout:'11d5960a326750d5838078e36cf38b85af677262',
+    'setup-node':'49933ea5288caeca8642d1e84afbd3f7d6820020'};
+  for(const [action,sha]of Object.entries(pins)){
+    assert.ok(ci.includes(`actions/${action}@${sha}`),'pin must match independently validated workflow');
+    assert.deepEqual([...block.matchAll(new RegExp(`uses: actions/${action}@([^\\s]+)`,'g'))].map(m=>m[1]),[sha]);
+  }
+  assert.match(block,/persist-credentials: false/);
+  assert.deepEqual([...block.matchAll(/run: (npm ci[^\r\n]*)/g)].map(m=>m[1]),['npm ci --ignore-scripts']);
+  assert.doesNotMatch(block,/npm (?:rebuild|install)|--ignore-scripts=false/);
+  assert.match(block,/npm run build/); // Explicit build still runs; dependency install hooks do not.
+});
 test('rehearsal never restores production or the original app staging DB',()=>{
   assert.equal(assertRehearsalTarget('isolated','hub-pr88-0054-rehearsal-aaaa','app'),undefined);
   for(const [id,name]of [['88d702e1-60d3-490a-8514-38ef881cf133','hub-pr88-0054-rehearsal-aaaa'],['app','hub-pr88-0054-rehearsal-aaaa'],['isolated','hub-planner-public-dev']])assert.throws(()=>assertRehearsalTarget(id,name,'app'));
