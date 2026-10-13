@@ -5,7 +5,14 @@ import {
   formatScoreValue,
   mapScholarshipErrorCode,
   ScholarshipApiError,
+  fetchAllPublicCampaigns,
+  searchCampaignRecipients,
+  fetchMyScholarships,
+  type Campaign,
+  type OwnAward,
 } from '../utils/scholarshipApi.ts';
+import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipLoginReturn } from '../utils/scholarshipListModel.ts';
+import { refreshedOwnAward } from '../utils/scholarshipCelebrationModel.ts';
 
 test('ScoreBadges faithfully formats scores without coercing null to zero or assuming /4.0 scale', () => {
   // Null or undefined should be dash '—', NEVER 0
@@ -53,27 +60,28 @@ test('Scholarship routes are registered in AppRoutes.tsx with /scholarships as d
   assert.ok(scholarshipPos > 0 && catchAllPos > 0 && scholarshipPos < catchAllPos, 'Scholarships must precede catch-all route');
 });
 
-test('Unified ScholarshipList page follows the exact 8-part sequential information architecture and in-table search', () => {
+test('Canva list has merged accurate names, approved score columns and no decorative row badges', () => {
   const listPage = readFileSync('features/scholarships/ScholarshipList.tsx', 'utf8');
 
   // 1 & 2: Title & One-sentence description
-  assert.match(listPage, /Danh sách học bổng/);
-  assert.match(listPage, /Tra cứu kết quả học bổng khuyến khích học tập/);
+  assert.match(listPage, /Danh sách sinh viên nhận học bổng/);
+  assert.match(listPage, /Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ/);
 
   // 3: Search input
-  assert.match(listPage, /placeholder="Tìm theo họ tên hoặc mã sinh viên\.\.\."/);
+  assert.match(listPage, /placeholder="Nhập mã sinh viên hoặc họ tên\.\.\."/);
   assert.match(listPage, /searchCampaignRecipients/);
 
   // Search input debounce and cancellation
   assert.match(listPage, /setTimeout/);
-  assert.match(listPage, /abortCtrl/);
+  assert.match(listPage, /controller\.abort/);
 
   // Minimum 2-character requirement guard (does not dispatch 1-char queries to search API)
-  assert.match(listPage, /debouncedQuery\.length === 1/);
+  assert.match(listPage, /query\.length === 1/);
 
   // 4: Filters
-  assert.match(listPage, /campaignSelectId/);
-  assert.match(listPage, /categorySelectId/);
+  assert.match(listPage, /Học kỳ \/ Năm học/);
+  assert.match(listPage, /Họ và tên/);
+  assert.doesNotMatch(listPage, /ScholarshipBadge|ScoreBadges|ConfettiOverlay/);
 
   // 5: Result count
   assert.match(listPage, /total\.toLocaleString\('vi-VN'\)/);
@@ -123,11 +131,66 @@ test('CelebrationStudio enforces 1080x1920 Story and 1080x1350 Feed resolutions 
 test('ScholarshipMe verifies identity through server API and locks personal recognition to server records', () => {
   const me = readFileSync('features/scholarships/ScholarshipMe.tsx', 'utf8');
 
-  assert.match(me, /fetchMyScholarships\(\)/);
+  assert.match(me, /fetchMyScholarships\(controller.signal\)/);
   assert.match(me, /verified === false/);
   assert.match(me, /verified === true && awards\.length === 0/);
   assert.match(me, /verified === true && awards\.length > 0/);
 
   // Does not accept client-provided fake MSSV or overrides
   assert.doesNotMatch(me, /studentCodeOverride|customAward/);
+});
+
+test('URL model preserves unrelated deep-link params, resets page and bounds invalid pagination', () => {
+  const params = updateScholarshipParams(new URLSearchParams('q=old&page=3&campaign=hk1&ref=canva'), { q: 'Nguyễn', page: '' });
+  assert.equal(params.get('ref'), 'canva'); assert.equal(params.get('campaign'), 'hk1');
+  assert.equal(params.get('q'), 'Nguyễn'); assert.equal(params.has('page'), false);
+  for (const value of ['0', '-1', '1e2', '10001', '', null]) assert.equal(scholarshipPage(value), 1);
+  assert.equal(scholarshipPage('9999'), 9999);
+});
+
+test('score fields require individual explicit approval even if metadata contains a stale private column', () => {
+  const campaign = { approvedFields: ['scores.gpa'], scoreColumns: [{ key: 'gpa', label: 'Điểm' }, { key: 'private', label: 'Private' }] } as Campaign;
+  assert.deepEqual(approvedScoreColumns(campaign), [{ key: 'gpa', label: 'Điểm' }]);
+});
+
+test('login return only permits scholarship paths; rejects external and protocol-relative redirects', () => {
+  assert.equal(scholarshipLoginReturn('/scholarships/celebrate?awardId=1'), '/scholarships/celebrate?awardId=1');
+  for (const path of ['https://evil.test/scholarships', '//evil.test/scholarships', '/admin', '/scholarships/../admin', '/\\evil.test', null]) assert.equal(scholarshipLoginReturn(path), '/dashboard');
+});
+
+test('celebration uses refreshed approved record and denies unverified, removed or changed ownership', () => {
+  const selected = { id: 1, campaignSlug: 'hk1', studentCode: '000000000001', scores: { gpa: 9 } } as OwnAward;
+  const fresh = { ...selected, scores: {} };
+  assert.equal(refreshedOwnAward({ verified: true, awards: [fresh] }, selected), fresh);
+  assert.equal(refreshedOwnAward({ verified: false, awards: [fresh] }, selected), null);
+  assert.equal(refreshedOwnAward({ verified: true, awards: [] }, selected), null);
+  assert.equal(refreshedOwnAward({ verified: true, awards: [{ ...fresh, studentCode: '000000000002' }] }, selected), null);
+});
+
+test('campaign client paginates beyond 50 and fails incomplete pagination rather than silently truncating', async () => {
+  const originalFetch = globalThis.fetch; const calls: string[] = [];
+  globalThis.fetch = (async input => {
+    calls.push(String(input));
+    return Response.json({ campaigns: Array.from({ length: calls.length === 1 ? 50 : 1 }, (_, i) => ({ slug: String(i) })), total: 51, page: calls.length, limit: 50 });
+  }) as typeof fetch;
+  try {
+    assert.equal((await fetchAllPublicCampaigns()).length, 51);
+    assert.match(calls[1], /page=2/);
+    globalThis.fetch = (async () => Response.json({ campaigns: [], total: 51, page: 1, limit: 50 })) as typeof fetch;
+    await assert.rejects(fetchAllPublicCampaigns(), /Incomplete/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('search sends filters to backend and personal API sends cookies without client identity selectors', async () => {
+  const originalFetch = globalThis.fetch; const calls: { url: string; init: RequestInit }[] = [];
+  const controller = new AbortController();
+  globalThis.fetch = (async (input, init) => { calls.push({ url: String(input), init: init || {} }); return Response.json({}); }) as typeof fetch;
+  try {
+    await searchCampaignRecipients('hk1', { q: 'Nguyễn', page: 2, limit: 20, awardType: 'Giỏi' }, controller.signal);
+    const url = new URL(calls[0].url, 'https://test.invalid');
+    assert.equal(url.searchParams.get('q'), 'Nguyễn'); assert.equal(url.searchParams.get('awardType'), 'Giỏi');
+    assert.equal(url.searchParams.get('page'), '2'); assert.equal(calls[0].init.signal, controller.signal);
+    await fetchMyScholarships(controller.signal);
+    assert.equal(calls[1].url, '/api/me/scholarships'); assert.equal(calls[1].init.credentials, 'include');
+  } finally { globalThis.fetch = originalFetch; }
 });

@@ -11,6 +11,7 @@ export function isScholarshipApiPath(pathname: string): boolean {
 
 export function isCloudflareApiPath(pathname: string): boolean {
   return /^\/api\/(?:auth|private|admin)(?:\/|$)/.test(pathname) ||
+    /^\/api\/user\/v1(?:\/|$)/.test(pathname) ||
     /^\/api\/public\/v1\/scholarships(?:\/|$)/.test(pathname) ||
     /^\/api\/me\/scholarships(?:\/|$)/.test(pathname) ||
     /^\/api\/events\/[^/]+\/view$/.test(pathname)
@@ -36,6 +37,8 @@ export function devBackendOrigin(value: string | undefined): string {
 
 export function devScholarshipBackendOrigin(value: string | undefined): string {
   const candidate = value || DEFAULT_DEV_SCHOLARSHIP_BACKEND_ORIGIN
+  const url = new URL(candidate)
+  if (!isSafeDevLoopbackOrigin(url)) throw new Error('Scholarship development backend must be local loopback HTTP')
   return devBackendOrigin(candidate)
 }
 

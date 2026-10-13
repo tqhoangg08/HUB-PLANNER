@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
@@ -53,6 +53,7 @@ import {
   type PrivateSnapshotRow,
   type AuditEvent,
   type ImportPreviewResponse,
+  type PaginatedImportRows,
   ScholarshipApiError,
 } from '../../utils/scholarshipApi';
 import { playClick } from '../../utils/audio';
@@ -64,6 +65,9 @@ export const AdminScholarships: React.FC = () => {
   const [campaigns, setCampaigns] = useState<AdminCampaign[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [activeCampaign, setActiveCampaign] = useState<AdminCampaign | null>(null);
+  const selectedRef = useRef(selectedSlug);
+  selectedRef.current = selectedSlug;
+  const [candidate, setCandidate] = useState<PaginatedImportRows | null>(null);
   const [loadingList, setLoadingList] = useState<boolean>(true);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -120,10 +124,18 @@ export const AdminScholarships: React.FC = () => {
     setLoadingList(true);
     setListError(null);
     try {
-      const data = await fetchAdminCampaigns({ limit: 50 });
-      setCampaigns(data.campaigns);
-      if (data.campaigns.length > 0 && !selectedSlug) {
-        setSelectedSlug(data.campaigns[0].slug);
+      const all: AdminCampaign[] = [];
+      let page = 1;
+      while (true) {
+        const data = await fetchAdminCampaigns({ page, limit: 50 });
+        all.push(...data.campaigns);
+        if (page * data.limit >= data.total) break;
+        if (!data.campaigns.length || page >= 10000) throw new Error('Incomplete pagination');
+        page++;
+      }
+      setCampaigns(all);
+      if (all.length > 0 && !selectedRef.current) {
+        setSelectedSlug(all[0].slug);
       }
     } catch (err) {
       setListError(err instanceof ScholarshipApiError ? err.message : 'Không thể tải danh sách chiến dịch.');
@@ -142,16 +154,21 @@ export const AdminScholarships: React.FC = () => {
   const loadSelectedCampaign = async (slug: string) => {
     try {
       const data = await fetchAdminCampaign(slug);
+      if (selectedRef.current !== slug) return;
       setActiveCampaign(data.campaign);
       setEditTitle(data.campaign.title);
       setEditSchoolYear(data.campaign.schoolYear);
       setEditSemester(data.campaign.semester);
     } catch (err) {
-      console.error('Failed to load campaign detail:', err);
+      if (selectedRef.current === slug) setActionError(err instanceof Error ? err.message : 'Không thể tải đợt học bổng.');
     }
   };
 
   useEffect(() => {
+    setActiveCampaign(null); setCandidate(null); setPreviewResult(null); setImportRows([]);
+    setJsonFileContent(null); setJsonFileName(''); setActionError(null); setActionConfirm(null);
+    setApprovalTitle(''); setApprovalRef(''); setApprovalUrl(''); setRepublicationConfirmed(false);
+    setApprovedFields(new Set(['fullName', 'studentCode', 'awardType']));
     if (selectedSlug) {
       void loadSelectedCampaign(selectedSlug);
     } else {
@@ -159,38 +176,59 @@ export const AdminScholarships: React.FC = () => {
     }
   }, [selectedSlug]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    setCandidate(null);
+    setApprovedFields(new Set(['fullName', 'studentCode', 'awardType']));
+    setRepublicationConfirmed(false);
+    if (activeCampaign?.candidateBatchId) {
+      fetchAdminImportRows(activeCampaign.slug, activeCampaign.candidateBatchId, { limit: 1 }, controller.signal)
+        .then(result => { if (!controller.signal.aborted) setCandidate(result); })
+        .catch(err => { if (!controller.signal.aborted) setActionError(err instanceof Error ? err.message : 'Không thể tải mapping nguồn.'); });
+    }
+    return () => controller.abort();
+  }, [activeCampaign?.slug, activeCampaign?.candidateBatchId]);
+
   // Load history & rows when activeTab changes
   useEffect(() => {
+    const controller = new AbortController();
+    setImportsHistory([]); setAuditEvents([]);
     if (!selectedSlug) return;
 
     if (activeTab === 'history') {
       setLoadingHistory(true);
       Promise.all([
-        fetchAdminImports(selectedSlug, { limit: 20 }),
-        fetchAdminAudit(selectedSlug, { limit: 30 }),
+        fetchAdminImports(selectedSlug, { limit: 20 }, controller.signal),
+        fetchAdminAudit(selectedSlug, { limit: 30 }, controller.signal),
       ])
         .then(([imp, aud]) => {
+          if (controller.signal.aborted) return;
           setImportsHistory(imp.imports);
           setAuditEvents(aud.audit);
         })
-        .catch(console.error)
-        .finally(() => setLoadingHistory(false));
+        .catch(err => { if (!controller.signal.aborted) setActionError(err instanceof Error ? err.message : 'Không thể tải lịch sử.'); })
+        .finally(() => { if (!controller.signal.aborted) setLoadingHistory(false); });
     }
+    return () => controller.abort();
   }, [selectedSlug, activeTab]);
 
   // Handle JSON file selection (from offline prepare script)
   const handleJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 1024 * 1024) { setActionError('Tệp JSON tối đa 1 MiB.'); e.target.value = ''; return; }
 
     setJsonFileName(file.name);
+    const uploadSlug = selectedSlug;
     const reader = new FileReader();
     reader.onload = (event) => {
+      if (selectedRef.current !== uploadSlug) return;
       const content = event.target?.result as string;
       setJsonFileContent(content);
       setPreviewResult(null);
       setImportRows([]);
     };
+    reader.onerror = () => { if (selectedRef.current === uploadSlug) setActionError('Không thể đọc tệp JSON.'); };
     reader.readAsText(file);
   };
 
@@ -203,12 +241,14 @@ export const AdminScholarships: React.FC = () => {
     try {
       const parsed = JSON.parse(jsonFileContent);
       const res = await previewAdminImport(selectedSlug, parsed);
+      if (selectedRef.current !== selectedSlug) return;
       setPreviewResult(res);
 
       // If valid, also load rows for inspection
       if (res.valid && res.receipt?.batchId) {
         setLoadingRows(true);
         const rowData = await fetchAdminImportRows(selectedSlug, res.receipt.batchId, { limit: 20 });
+        if (selectedRef.current !== selectedSlug) return;
         setImportRows(rowData.rows);
         setLoadingRows(false);
       }
@@ -216,6 +256,7 @@ export const AdminScholarships: React.FC = () => {
       setActionError(err instanceof ScholarshipApiError ? err.message : 'Dữ liệu JSON không hợp lệ.');
     } finally {
       setPreviewLoading(false);
+      setLoadingRows(false);
     }
   };
 
@@ -262,13 +303,8 @@ export const AdminScholarships: React.FC = () => {
     setActionError(null);
 
     try {
-      // Find sourceSha256 from batch history or preview
-      let sourceSha = previewResult?.receipt?.sourceSha256 || '';
-      if (!sourceSha) {
-        const imp = await fetchAdminImports(activeCampaign.slug, { limit: 10 });
-        const match = imp.imports.find((i) => i.batchId === batchId);
-        sourceSha = match?.sourceSha256 || '';
-      }
+      if (!candidate || candidate.receipt.batchId !== batchId) throw new Error('Chưa tải được dữ liệu nguồn của đợt đang phê duyệt.');
+      const sourceSha = candidate.receipt.sourceSha256;
 
       const res = await approveAdminCampaign(activeCampaign.slug, {
         expectedRevision: activeCampaign.revision,
@@ -373,7 +409,7 @@ export const AdminScholarships: React.FC = () => {
             setShowCreateModal(true);
             playClick();
           }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm"
         >
           <Plus size={16} />
           <span>Tạo chiến dịch mới</span>
@@ -383,7 +419,7 @@ export const AdminScholarships: React.FC = () => {
       {/* Loading list */}
       {loadingList && (
         <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
-          <Loader2 className="animate-spin text-purple-600" size={32} />
+          <Loader2 className="animate-spin text-blue-600" size={32} />
           <p className="text-xs font-semibold text-slate-600">Đang tải danh sách chiến dịch...</p>
         </div>
       )}
@@ -428,13 +464,14 @@ export const AdminScholarships: React.FC = () => {
                       <button
                         key={c.slug}
                         type="button"
+                        disabled={actionLoading || previewLoading}
                         onClick={() => {
                           setSelectedSlug(c.slug);
                           playClick();
                         }}
                         className={`w-full text-left p-3.5 rounded-2xl border transition-all ${
                           isSelected
-                            ? 'border-purple-600 bg-purple-50/40 shadow-xs ring-1 ring-purple-600/20'
+                            ? 'border-blue-600 bg-blue-50/40 shadow-xs ring-1 ring-blue-600/20'
                             : 'border-slate-200 bg-white hover:bg-slate-50'
                         }`}
                       >
@@ -476,7 +513,7 @@ export const AdminScholarships: React.FC = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-purple-700 px-2 py-0.5 rounded-md bg-purple-50">
+                        <span className="text-xs font-mono font-bold text-blue-700 px-2 py-0.5 rounded-md bg-blue-50">
                           {activeCampaign.slug}
                         </span>
                         <span className="text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
@@ -567,7 +604,7 @@ export const AdminScholarships: React.FC = () => {
                       onClick={() => setActiveTab('details')}
                       className={`pb-2.5 transition-colors border-b-2 ${
                         activeTab === 'details'
-                          ? 'border-purple-600 text-purple-700'
+                          ? 'border-blue-600 text-blue-700'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
@@ -578,7 +615,7 @@ export const AdminScholarships: React.FC = () => {
                       onClick={() => setActiveTab('ingestion')}
                       className={`pb-2.5 transition-colors border-b-2 ${
                         activeTab === 'ingestion'
-                          ? 'border-purple-600 text-purple-700'
+                          ? 'border-blue-600 text-blue-700'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
@@ -589,7 +626,7 @@ export const AdminScholarships: React.FC = () => {
                       onClick={() => setActiveTab('approval')}
                       className={`pb-2.5 transition-colors border-b-2 ${
                         activeTab === 'approval'
-                          ? 'border-purple-600 text-purple-700'
+                          ? 'border-blue-600 text-blue-700'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
@@ -600,7 +637,7 @@ export const AdminScholarships: React.FC = () => {
                       onClick={() => setActiveTab('history')}
                       className={`pb-2.5 transition-colors border-b-2 ${
                         activeTab === 'history'
-                          ? 'border-purple-600 text-purple-700'
+                          ? 'border-blue-600 text-blue-700'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
@@ -614,7 +651,7 @@ export const AdminScholarships: React.FC = () => {
                   <div className="space-y-4">
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4 text-xs">
                       <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <Database size={16} className="text-purple-600" />
+                        <Database size={16} className="text-blue-600" />
                         <span>Trạng thái đợt dữ liệu (Batches)</span>
                       </h3>
 
@@ -657,7 +694,7 @@ export const AdminScholarships: React.FC = () => {
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
                       <div>
                         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                          <FileSpreadsheet size={16} className="text-purple-600" />
+                          <FileSpreadsheet size={16} className="text-blue-600" />
                           <span>Nạp tệp JSON đã chuẩn bị offline</span>
                         </h3>
                         <p className="text-xs text-slate-500 mt-1">
@@ -671,7 +708,7 @@ export const AdminScholarships: React.FC = () => {
                           type="file"
                           accept=".json,application/json"
                           onChange={handleJsonUpload}
-                          className="text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+                          className="text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                         />
                         {jsonFileName && (
                           <div className="text-xs font-semibold text-slate-700">
@@ -685,7 +722,7 @@ export const AdminScholarships: React.FC = () => {
                           type="button"
                           onClick={handleRunPreview}
                           disabled={!jsonFileContent || previewLoading}
-                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-2xs"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-2xs"
                         >
                           {previewLoading ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
                           <span>Kiểm tra & Xem trước (Preview)</span>
@@ -776,7 +813,7 @@ export const AdminScholarships: React.FC = () => {
                                       <td className="p-2 font-bold text-slate-900">{r.fullName}</td>
                                       <td className="p-2 text-slate-700">{r.awardType}</td>
                                       <td className="p-2 text-slate-500">{r.className || '—'}</td>
-                                      <td className="p-2 font-mono text-purple-700 text-[11px]">
+                                      <td className="p-2 font-mono text-blue-700 text-[11px]">
                                         {JSON.stringify(r.scores)}
                                       </td>
                                     </tr>
@@ -796,7 +833,7 @@ export const AdminScholarships: React.FC = () => {
                   <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-6">
                     <div>
                       <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <FileCheck size={16} className="text-purple-600" />
+                        <FileCheck size={16} className="text-blue-600" />
                         <span>Phê duyệt thông tin & Quyết định chính thức</span>
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
@@ -810,10 +847,11 @@ export const AdminScholarships: React.FC = () => {
                         <label className="font-bold text-slate-700">Tên quyết định / Nguồn ban hành:</label>
                         <input
                           type="text"
+                          aria-label="Tên quyết định"
                           value={approvalTitle}
                           onChange={(e) => setApprovalTitle(e.target.value)}
                           placeholder="VD: Quyết định trao học bổng KKHT HK1 2025-2026"
-                          className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold outline-none focus:border-purple-600"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold outline-none focus:border-blue-600"
                         />
                       </div>
 
@@ -821,10 +859,11 @@ export const AdminScholarships: React.FC = () => {
                         <label className="font-bold text-slate-700">Số hiệu văn bản (Reference):</label>
                         <input
                           type="text"
+                          aria-label="Số hiệu văn bản"
                           value={approvalRef}
                           onChange={(e) => setApprovalRef(e.target.value)}
                           placeholder="VD: QĐ 1234/QĐ-ĐHNH ngày 15/10/2026"
-                          className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold outline-none focus:border-purple-600"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold outline-none focus:border-blue-600"
                         />
                       </div>
 
@@ -832,10 +871,11 @@ export const AdminScholarships: React.FC = () => {
                         <label className="font-bold text-slate-700">Đường dẫn HTTPS văn bản gốc (Tùy chọn):</label>
                         <input
                           type="url"
+                          aria-label="Đường dẫn HTTPS văn bản gốc"
                           value={approvalUrl}
                           onChange={(e) => setApprovalUrl(e.target.value)}
                           placeholder="https://hub.edu.vn/van-ban/qd-hoc-bong..."
-                          className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold outline-none focus:border-purple-600"
+                          className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold outline-none focus:border-blue-600"
                         />
                       </div>
                     </div>
@@ -846,20 +886,24 @@ export const AdminScholarships: React.FC = () => {
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 opacity-80 cursor-not-allowed">
-                          <input type="checkbox" checked disabled className="accent-purple-600" />
+                          <input type="checkbox" checked disabled className="accent-blue-600" />
                           <span className="font-semibold text-slate-700">fullName (Bắt buộc)</span>
                         </label>
                         <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 opacity-80 cursor-not-allowed">
-                          <input type="checkbox" checked disabled className="accent-purple-600" />
+                          <input type="checkbox" checked disabled className="accent-blue-600" />
                           <span className="font-semibold text-slate-700">studentCode (Bắt buộc)</span>
                         </label>
                         <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 opacity-80 cursor-not-allowed">
-                          <input type="checkbox" checked disabled className="accent-purple-600" />
+                          <input type="checkbox" checked disabled className="accent-blue-600" />
                           <span className="font-semibold text-slate-700">awardType (Bắt buộc)</span>
                         </label>
 
                         {/* Optional fields */}
-                        {['className', 'major', 'scores.gpa', 'scores.trainingScore', 'scores.selectionScore'].map((field) => (
+                        {[
+                          ...(candidate?.mapping.className ? ['className'] : []),
+                          ...(candidate?.mapping.major ? ['major'] : []),
+                          ...(candidate?.mapping.scores.map(score => `scores.${score.key}`) || []),
+                        ].map((field) => (
                           <label
                             key={field}
                             className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 cursor-pointer"
@@ -873,7 +917,7 @@ export const AdminScholarships: React.FC = () => {
                                 else next.delete(field);
                                 setApprovedFields(next);
                               }}
-                              className="accent-purple-600"
+                              className="accent-blue-600"
                             />
                             <span className="font-semibold text-slate-800">{field}</span>
                           </label>
@@ -888,7 +932,7 @@ export const AdminScholarships: React.FC = () => {
                           type="checkbox"
                           checked={republicationConfirmed}
                           onChange={(e) => setRepublicationConfirmed(e.target.checked)}
-                          className="accent-purple-600 mt-0.5"
+                          className="accent-blue-600 mt-0.5"
                         />
                         <span>
                           Tôi xác nhận đã kiểm tra văn bản gốc và nhà trường cho phép tái công bố các trường dữ liệu trên (republicationConfirmed: true).
@@ -900,8 +944,8 @@ export const AdminScholarships: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleSubmitApproval}
-                        disabled={actionLoading || !republicationConfirmed}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm"
+                        disabled={actionLoading || !republicationConfirmed || !candidate || activeCampaign.status !== 'validated'}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                       >
                         {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
                         <span>Lưu phê duyệt</span>
@@ -916,7 +960,7 @@ export const AdminScholarships: React.FC = () => {
                     {/* Batches Import History */}
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
                       <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <History size={16} className="text-purple-600" />
+                        <History size={16} className="text-blue-600" />
                         <span>Lịch sử các đợt nạp (Batches)</span>
                       </h4>
 
@@ -935,7 +979,7 @@ export const AdminScholarships: React.FC = () => {
                                 <span className="font-mono font-bold text-slate-800">
                                   Batch: {imp.batchId.slice(0, 16)}...
                                 </span>
-                                <span className="font-bold uppercase text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800">
+                                <span className="font-bold uppercase text-[10px] px-2 py-0.5 rounded-md bg-blue-100 text-blue-800">
                                   {imp.status}
                                 </span>
                               </div>
@@ -973,7 +1017,7 @@ export const AdminScholarships: React.FC = () => {
                     {/* Audit Trail Events */}
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
                       <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <Clock size={16} className="text-purple-600" />
+                        <Clock size={16} className="text-blue-600" />
                         <span>Nhật ký kiểm toán (Audit Trail)</span>
                       </h4>
 
@@ -1030,6 +1074,7 @@ export const AdminScholarships: React.FC = () => {
                 <label className="font-bold text-slate-700 block mb-1">Mã định danh (slug):</label>
                 <input
                   type="text"
+                  aria-label="Mã định danh chiến dịch"
                   value={createSlug}
                   onChange={(e) => setCreateSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                   placeholder="VD: hk1-2025-2026"
@@ -1041,6 +1086,7 @@ export const AdminScholarships: React.FC = () => {
                 <label className="font-bold text-slate-700 block mb-1">Tiêu đề chiến dịch:</label>
                 <input
                   type="text"
+                  aria-label="Tiêu đề chiến dịch"
                   value={createTitle}
                   onChange={(e) => setCreateTitle(e.target.value)}
                   placeholder="VD: Học bổng Khuyến khích học tập HK1 2025-2026"
@@ -1053,6 +1099,7 @@ export const AdminScholarships: React.FC = () => {
                   <label className="font-bold text-slate-700 block mb-1">Năm học:</label>
                   <input
                     type="text"
+                    aria-label="Năm học chiến dịch"
                     value={createSchoolYear}
                     onChange={(e) => setCreateSchoolYear(e.target.value)}
                     placeholder="2025-2026"
@@ -1063,6 +1110,7 @@ export const AdminScholarships: React.FC = () => {
                   <label className="font-bold text-slate-700 block mb-1">Học kỳ:</label>
                   <input
                     type="text"
+                    aria-label="Học kỳ chiến dịch"
                     value={createSemester}
                     onChange={(e) => setCreateSemester(e.target.value)}
                     placeholder="HK1"
@@ -1100,7 +1148,7 @@ export const AdminScholarships: React.FC = () => {
                     alert(err instanceof ScholarshipApiError ? err.message : 'Tạo thất bại.');
                   }
                 }}
-                className="px-5 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 shadow-sm"
+                className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-sm"
               >
                 Tạo chiến dịch
               </button>
@@ -1143,7 +1191,7 @@ export const AdminScholarships: React.FC = () => {
                 type="button"
                 onClick={handleExecuteStateAction}
                 disabled={actionLoading}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50 shadow-sm"
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
               >
                 {actionLoading && <Loader2 size={14} className="animate-spin" />}
                 <span>Xác nhận thực hiện</span>

@@ -315,6 +315,12 @@ Handle loading, empty campaign, no-match, duplicate name, null/private scores, e
 Use `/api/me/scholarships` for personal selection only; no student-code override, public “claim this award”, or portrait server upload.
 Do not modify Workers/migrations or initiate deployment. Refresh verified awards before celebration; unpublish can remove eligibility.
 
+Canva frontend integration notes (2026-10-13; no contract version change):
+- Combined list/search uses `/scholarships`; old list/search routes preserve query parameters on redirect.
+- Display a merged `Họ và tên` from `fullName`; do not invent split-name fields. Render only individual approved `scoreColumns`.
+- Recipients/search support `q` and exact `awardType`, **not** `major` or `className`. Disabled frontend controls explicitly explain this limitation. Global major/class filters and approved filter options require a separate backend contract change; never simulate them over one page.
+- Safe local Worker/D1 setup, reference screenshots, actual frontend test ledger and remaining portrait QA: `docs/hub-scholarship-canva-handoff.md`.
+
 ## ANTIGRAVITY_READY
 
 See `docs/hub-scholarship-backend-handoff.md` for the final test ledger and readiness verdict.

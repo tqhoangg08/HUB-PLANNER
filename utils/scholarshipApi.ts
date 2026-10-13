@@ -140,7 +140,7 @@ export interface OfficialSource {
 
 export interface ImportMetadata extends Receipt {
   sourceFilename: string;
-  mapping: any;
+  mapping: ImportMapping;
   approvedFields: string[] | null;
   officialSource: OfficialSource | null;
   actorUserId: string;
@@ -171,11 +171,17 @@ export interface PrivateSnapshotRow {
 
 export interface PaginatedImportRows {
   receipt: Receipt;
-  mapping: any;
+  mapping: ImportMapping;
   rows: PrivateSnapshotRow[];
   total: number;
   page: number;
   limit: number;
+}
+
+export interface ImportMapping {
+  studentCode: string; fullName: string; awardType: string;
+  className?: string; major?: string; sourceIdentifier?: string;
+  scores: { key: string; column: string; label: string }[];
 }
 
 export interface AuditEvent {
@@ -296,6 +302,18 @@ export const fetchPublicCampaigns = async (
 
   if (!response.ok) throw await parseErrorResponse(response);
   return response.json();
+};
+
+export const fetchAllPublicCampaigns = async (signal?: AbortSignal): Promise<Campaign[]> => {
+  const campaigns: Campaign[] = [];
+  let page = 1;
+  while (true) {
+    const result = await fetchPublicCampaigns({ page, limit: 50 }, signal);
+    campaigns.push(...result.campaigns);
+    if (page * result.limit >= result.total) return campaigns;
+    if (!result.campaigns.length || page >= 10000) throw new Error('Incomplete campaign pagination');
+    page++;
+  }
 };
 
 export const fetchCampaignSummary = async (

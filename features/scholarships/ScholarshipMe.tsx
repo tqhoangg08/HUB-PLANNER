@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { ScholarshipShell } from './ScholarshipShell';
 import { ScholarshipBadge } from './ScholarshipBadge';
-import { ConfettiOverlay } from './ConfettiOverlay';
 import { useUserRole } from '../../hooks/useUserRole';
 import {
   fetchMyScholarships,
@@ -27,15 +26,19 @@ import { playClick } from '../../utils/audio';
 
 export const ScholarshipMe: React.FC = () => {
   const location = useLocation();
-  const { session, loading: authLoading } = useUserRole();
+  const { session, loading: authLoading, bootstrapUnavailable } = useUserRole();
 
   const [verified, setVerified] = useState<boolean | null>(null);
   const [awards, setAwards] = useState<OwnAward[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [showConfetti, setShowConfetti] = useState<boolean>(false);
+  const requestRef = useRef<AbortController | null>(null);
 
   const loadMyAwards = async () => {
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setAwards([]); setVerified(null);
     if (!session) {
       setLoading(false);
       return;
@@ -45,13 +48,12 @@ export const ScholarshipMe: React.FC = () => {
     setError(null);
 
     try {
-      const data = await fetchMyScholarships();
+      const data = await fetchMyScholarships(controller.signal);
+      if (controller.signal.aborted) return;
       setVerified(data.verified);
       setAwards(data.awards);
-      if (data.verified && data.awards.length > 0) {
-        setShowConfetti(true);
-      }
     } catch (err) {
+      if (controller.signal.aborted) return;
       if (err instanceof ScholarshipApiError) {
         if (err.status === 401) {
           setError('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.');
@@ -62,7 +64,7 @@ export const ScholarshipMe: React.FC = () => {
         setError('Không thể kết nối đến hệ thống xác thực học bổng.');
       }
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   };
 
@@ -70,6 +72,7 @@ export const ScholarshipMe: React.FC = () => {
     if (!authLoading) {
       void loadMyAwards();
     }
+    return () => requestRef.current?.abort();
   }, [session, authLoading]);
 
   return (
@@ -77,11 +80,11 @@ export const ScholarshipMe: React.FC = () => {
       title="Học bổng của tôi"
       subtitle="Thành tích học bổng chính thức gắn với tài khoản sinh viên HUB đã xác thực."
     >
-      {showConfetti && <ConfettiOverlay onClose={() => setShowConfetti(false)} />}
+      {bootstrapUnavailable && <p role="alert" className="scholarship-status">Chưa thể kết nối hệ thống xác thực. Vui lòng thử lại sau.</p>}
 
       <div className="max-w-3xl mx-auto space-y-6">
         {/* State 1: Chưa đăng nhập */}
-        {!authLoading && !session && (
+        {!authLoading && !bootstrapUnavailable && !session && (
           <div className="bg-white border border-gray-200 rounded-lg p-6 sm:p-8 text-center space-y-4 shadow-xs">
             <div className="w-12 h-12 rounded-full bg-blue-50 text-[#0052cc] mx-auto flex items-center justify-center">
               <Lock size={22} />
@@ -96,7 +99,7 @@ export const ScholarshipMe: React.FC = () => {
 
             <div className="pt-2">
               <Link
-                to={`/login?returnTo=${encodeURIComponent(location.pathname)}`}
+                to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`}
                 onClick={playClick}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md bg-[#0052cc] text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-xs"
               >

@@ -16,6 +16,7 @@ test('local modules win; Cloudflare-owned paths proxy; unknown APIs remain local
   assert.equal(selectDevApiRoute('/api/events', '/repo/api/events.js'), 'local')
   assert.equal(selectDevApiRoute('/api/auth/get-session', null), 'cloudflare')
   assert.equal(selectDevApiRoute('/api/private/v1/me', null), 'cloudflare')
+  assert.equal(selectDevApiRoute('/api/user/v1/profile', null), 'cloudflare')
   assert.equal(selectDevApiRoute('/api/admin/v1/events', null), 'cloudflare')
   assert.equal(selectDevApiRoute('/api/events/378/view', null), 'cloudflare')
   assert.equal(selectDevApiRoute('/api/unknown', null), 'not_found')
@@ -49,6 +50,8 @@ test('backend origin supports HTTPS and safe local loopback HTTP, rejecting exte
   // Scholarship routes route to local dev backend by default, not undeployed production
   assert.equal(resolveDevBackendOrigin('/api/public/v1/scholarships/campaigns', {}), 'http://127.0.0.1:8787')
   assert.equal(resolveDevBackendOrigin('/api/me/scholarships', {}), 'http://127.0.0.1:8787')
+  assert.throws(() => resolveDevBackendOrigin('/api/me/scholarships', { DEV_SCHOLARSHIP_BACKEND_ORIGIN: 'https://hotrosinhvienhub.id.vn' }))
+  assert.equal(resolveDevBackendOrigin('/api/me/scholarships', { DEV_BACKEND_ORIGIN: 'https://hotrosinhvienhub.id.vn' }), 'http://127.0.0.1:8787')
   assert.equal(resolveDevBackendOrigin('/api/auth/get-session', {}), 'https://hotrosinhvienhub.id.vn')
   assert.equal(
     resolveDevBackendOrigin('/api/public/v1/scholarships/campaigns', { DEV_SCHOLARSHIP_BACKEND_ORIGIN: 'http://localhost:9999' }),

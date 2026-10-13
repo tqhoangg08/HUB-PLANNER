@@ -34,6 +34,7 @@ import {
   ScholarshipApiError,
 } from '../../utils/scholarshipApi';
 import { playClick } from '../../utils/audio';
+import { refreshedOwnAward } from '../../utils/scholarshipCelebrationModel';
 
 // Template styles
 export type TemplateStyle = 'academic-gold' | 'hub-minimal' | 'scholarship-flex' | 'soft-achievement';
@@ -79,14 +80,22 @@ export const CelebrationStudio: React.FC = () => {
   const [exportSuccessMessage, setExportSuccessMessage] = useState<string | null>(null);
   const [showVictoryReveal, setShowVictoryReveal] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const imageGeneration = useRef(0);
+  const awardRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => { imageGeneration.current++; }, []);
 
   // 1. Load user's verified awards directly from server
   const loadVerifiedAwards = async () => {
+    awardRequest.current?.abort();
+    const controller = new AbortController();
+    awardRequest.current = controller;
+    setAwards([]);
     setLoadingAwards(true);
     setAwardError(null);
 
     try {
-      const data = await fetchMyScholarships();
+      const data = await fetchMyScholarships(controller.signal);
+      if (controller.signal.aborted) return;
       if (!data.verified || data.awards.length === 0) {
         setAwardError('Bạn chưa có học bổng đã xác minh để tạo ảnh vinh danh.');
         setAwards([]);
@@ -106,13 +115,14 @@ export const CelebrationStudio: React.FC = () => {
         setSelectedAwardId(data.awards[0].id);
       }
     } catch (err) {
+      if (controller.signal.aborted) return;
       if (err instanceof ScholarshipApiError && err.status === 401) {
         setAwardError('Vui lòng đăng nhập để truy cập Studio Vinh danh.');
       } else {
         setAwardError('Không thể tải dữ liệu xác minh học bổng.');
       }
     } finally {
-      setLoadingAwards(false);
+      if (!controller.signal.aborted) setLoadingAwards(false);
     }
   };
 
@@ -120,8 +130,11 @@ export const CelebrationStudio: React.FC = () => {
     if (!authLoading && session) {
       void loadVerifiedAwards();
     } else if (!authLoading && !session) {
+      setAwards([]);
+      setAwardError('Vui lòng đăng nhập để truy cập Studio Vinh danh.');
       setLoadingAwards(false);
     }
+    return () => awardRequest.current?.abort();
   }, [session, authLoading]);
 
   // Clean up object URLs on unmount
@@ -154,20 +167,21 @@ export const CelebrationStudio: React.FC = () => {
       return;
     }
 
-    if (imageSrc && imageSrc.startsWith('blob:')) {
-      URL.revokeObjectURL(imageSrc);
-    }
-
+    const generation = ++imageGeneration.current;
     const objectUrl = URL.createObjectURL(file);
     setImageSrc(objectUrl);
+    setImageElement(null);
+    e.target.value = '';
 
     const img = new Image();
     img.onload = () => {
+      if (generation !== imageGeneration.current) return;
       setImageElement(img);
       setZoom(1.0);
       setPanX(0);
       setPanY(0);
     };
+    img.onerror = () => { if (generation === imageGeneration.current) { setImageSrc(null); alert('Không thể đọc ảnh đã chọn.'); } };
     img.src = objectUrl;
   };
 
@@ -206,9 +220,9 @@ export const CelebrationStudio: React.FC = () => {
 
   // RENDER CANVAS LOGIC (Pure client-side Canvas rendering at exact resolution: 1080x1920 or 1080x1350)
   const drawCelebrationCard = useCallback(
-    (canvas: HTMLCanvasElement, targetWidth: number, targetHeight: number) => {
+    (canvas: HTMLCanvasElement, targetWidth: number, targetHeight: number, verifiedAward = currentAward) => {
       const ctx = canvas.getContext('2d');
-      if (!ctx || !currentAward) return;
+      if (!ctx || !verifiedAward) return;
 
       canvas.width = targetWidth;
       canvas.height = targetHeight;
@@ -322,7 +336,7 @@ export const CelebrationStudio: React.FC = () => {
       ctx.font = '500 24px sans-serif';
       ctx.fillStyle = isDark ? '#CBD5E1' : '#64748B';
       ctx.letterSpacing = '1px';
-      const semesterText = `${currentAward.campaignTitle} • ${currentAward.semester} (${currentAward.schoolYear})`;
+      const semesterText = `${verifiedAward.campaignTitle} • ${verifiedAward.semester} (${verifiedAward.schoolYear})`;
       ctx.fillText(semesterText, targetWidth / 2, 200);
 
       // 3. User Portrait Frame & Image
@@ -426,7 +440,7 @@ export const CelebrationStudio: React.FC = () => {
 
       // 4. Award Badge Pill (centered right below portrait)
       const badgeY = isStory ? portraitY + portraitH / 2 + 70 : portraitY + portraitH / 2 + 55;
-      const awardTypeUpper = currentAward.awardType.toUpperCase();
+      const awardTypeUpper = verifiedAward.awardType.toUpperCase();
 
       ctx.save();
       ctx.textAlign = 'center';
@@ -459,7 +473,7 @@ export const CelebrationStudio: React.FC = () => {
       ctx.font = '900 58px sans-serif';
       ctx.fillStyle = isDark ? '#FFFFFF' : '#0A2540';
       ctx.letterSpacing = '1px';
-      ctx.fillText(currentAward.fullName.toUpperCase(), targetWidth / 2, nameY);
+      ctx.fillText(verifiedAward.fullName.toUpperCase(), targetWidth / 2, nameY);
 
       // 6. Student Code & Class / Major
       let metaY = nameY + 50;
@@ -467,9 +481,9 @@ export const CelebrationStudio: React.FC = () => {
       ctx.fillStyle = isDark ? '#94A3B8' : '#475569';
 
       const metaParts: string[] = [];
-      if (showStudentCode) metaParts.push(`MSSV: ${currentAward.studentCode}`);
-      if (showClassMajor && currentAward.className) metaParts.push(`Lớp: ${currentAward.className}`);
-      if (showClassMajor && currentAward.major) metaParts.push(`${currentAward.major}`);
+      if (showStudentCode) metaParts.push(`MSSV: ${verifiedAward.studentCode}`);
+      if (showClassMajor && verifiedAward.className) metaParts.push(`Lớp: ${verifiedAward.className}`);
+      if (showClassMajor && verifiedAward.major) metaParts.push(`${verifiedAward.major}`);
 
       if (metaParts.length > 0) {
         ctx.fillText(metaParts.join('  •  '), targetWidth / 2, metaY);
@@ -477,8 +491,8 @@ export const CelebrationStudio: React.FC = () => {
       }
 
       // 7. Approved Scores (if enabled and scores exist)
-      if (showScores && currentAward.scores && Object.keys(currentAward.scores).length > 0) {
-        const scoreParts = Object.entries(currentAward.scores)
+      if (showScores && verifiedAward.scores && Object.keys(verifiedAward.scores).length > 0) {
+        const scoreParts = Object.entries(verifiedAward.scores)
           .filter(([, v]) => v !== null && v !== undefined)
           .map(([k, v]) => `${k.toUpperCase()}: ${v}`);
 
@@ -508,7 +522,7 @@ export const CelebrationStudio: React.FC = () => {
       ctx.font = '600 20px sans-serif';
       ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)';
       ctx.fillText(
-        `Xác thực theo quyết định: ${currentAward.campaignTitle} • hubplanner.edu.vn`,
+        `Xác thực theo quyết định: ${verifiedAward.campaignTitle} • HUB Planner`,
         targetWidth / 2,
         footerY,
       );
@@ -550,7 +564,9 @@ export const CelebrationStudio: React.FC = () => {
     try {
       // Re-verify scholarship records before generating export
       const recheck = await fetchMyScholarships();
-      if (!recheck.verified || !recheck.awards.some((a) => a.id === currentAward.id)) {
+      const freshAward = refreshedOwnAward(recheck, currentAward);
+      if (!freshAward) {
+        setAwards([]); setAwardError('Học bổng không còn được công bố hoặc phiên xác minh đã thay đổi.');
         alert('Không thể xác minh học bổng hoặc phiên làm việc đã thay đổi. Vui lòng kiểm tra lại từ trang Học bổng của tôi.');
         setIsExporting(false);
         return;
@@ -560,7 +576,7 @@ export const CelebrationStudio: React.FC = () => {
       const targetW = 1080;
       const targetH = exportRatio === 'story' ? 1920 : 1350;
 
-      drawCelebrationCard(exportCanvas, targetW, targetH);
+      drawCelebrationCard(exportCanvas, targetW, targetH, freshAward);
 
       exportCanvas.toBlob((blob) => {
         if (!blob) {
@@ -598,7 +614,9 @@ export const CelebrationStudio: React.FC = () => {
     try {
       // Re-verify scholarship records before sharing
       const recheck = await fetchMyScholarships();
-      if (!recheck.verified || !recheck.awards.some((a) => a.id === currentAward.id)) {
+      const freshAward = refreshedOwnAward(recheck, currentAward);
+      if (!freshAward) {
+        setAwards([]); setAwardError('Học bổng không còn được công bố hoặc phiên xác minh đã thay đổi.');
         alert('Không thể xác minh học bổng hoặc phiên làm việc đã thay đổi. Vui lòng kiểm tra lại từ trang Học bổng của tôi.');
         setIsExporting(false);
         return;
@@ -608,7 +626,7 @@ export const CelebrationStudio: React.FC = () => {
       const targetW = 1080;
       const targetH = exportRatio === 'story' ? 1920 : 1350;
 
-      drawCelebrationCard(exportCanvas, targetW, targetH);
+      drawCelebrationCard(exportCanvas, targetW, targetH, freshAward);
 
       exportCanvas.toBlob(async (blob) => {
         if (!blob) {
@@ -662,7 +680,7 @@ export const CelebrationStudio: React.FC = () => {
           <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-800 mx-auto flex items-center justify-center">
             <Lock size={30} />
           </div>
-          <h2 className="text-xl font-bold text-[#003375]">Chưa đủ điều kiện vinh danh</h2>
+          <h2 className="text-xl font-bold text-[#003375]">Xác minh học bổng cá nhân</h2>
           <p className="text-xs text-slate-600 leading-relaxed">{awardError}</p>
           <div className="pt-2">
             <Link
@@ -690,6 +708,7 @@ export const CelebrationStudio: React.FC = () => {
                   <span>Chọn giải thưởng vinh danh:</span>
                 </label>
                 <select
+                  aria-label="Chọn giải thưởng vinh danh"
                   value={selectedAwardId || ''}
                   onChange={(e) => setSelectedAwardId(Number(e.target.value))}
                   className="w-full bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-[#0052CC]"
@@ -745,6 +764,7 @@ export const CelebrationStudio: React.FC = () => {
               {/* Upload Dropzone */}
               <input
                 ref={fileInputRef}
+                aria-label="Ảnh chân dung cá nhân"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 onChange={handleFileChange}
@@ -782,6 +802,7 @@ export const CelebrationStudio: React.FC = () => {
                     <ZoomOut size={16} className="text-slate-400" />
                     <input
                       type="range"
+                      aria-label="Thu phóng ảnh chân dung"
                       min={0.5}
                       max={3.0}
                       step={0.05}
@@ -949,6 +970,7 @@ export const CelebrationStudio: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  aria-label="Châm ngôn hoặc lời tri ân cá nhân"
                   maxLength={60}
                   value={customQuote}
                   onChange={(e) => setCustomQuote(e.target.value)}
@@ -1004,7 +1026,7 @@ export const CelebrationStudio: React.FC = () => {
                   type="button"
                   onClick={handleExportPNG}
                   disabled={isExporting}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 font-extrabold text-xs hover:brightness-105 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#2563eb] text-white font-extrabold text-xs hover:brightness-105 active:scale-95 transition-all shadow-md disabled:opacity-50"
                 >
                   <Download size={16} />
                   <span>{isExporting ? 'Đang tạo ảnh...' : 'Tải ảnh PNG (HD)'}</span>
