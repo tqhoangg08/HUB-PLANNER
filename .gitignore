@@ -63,6 +63,7 @@ cloudflare/.dev.vars
 .cache/cloudflare/
 .cache/schedule-reconcile/
 .cache/
+.scholarship-private/
 
 # Local Cloudflare candidate bundles and browser session profiles
 .candidate-dry-run/
