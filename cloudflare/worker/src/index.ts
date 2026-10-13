@@ -1,4 +1,5 @@
 import { handleCourses, syncCourseSchedules } from './courses.ts';
+import { handlePublicScholarships, handleMyScholarships, scholarshipErrorStatus, type ScholarshipEnv } from './scholarships.ts';
 export { AnnouncementCrawlerWorkflow, HK1CourseScraperProbeWorkflow, HK1CourseScraperWorkflow } from './workflow-binding-parity.ts';
 import {
   CourseAuthorityError,
@@ -231,7 +232,7 @@ import {
   type PublicDirectoryEnv,
 } from './public-directory.ts';
 
-type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
+type WorkerEnv = ScholarshipEnv & Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AdminStudentsEnv & AdminInternalAccountsEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   EVENT_CANDIDATE_EXTENSION_ORIGINS?: string;
@@ -1967,6 +1968,32 @@ const worker = {
         });
       } catch (error) {
         return adminErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname.startsWith('/api/public/v1/scholarships/')) {
+      try {
+        return json(await handlePublicScholarships(request, requestUrl, env), 200, {
+          ...cors, 'Cache-Control': 'public, max-age=30'
+        });
+      } catch (error) {
+        const status = scholarshipErrorStatus(error);
+        return json({ error: status === 404 ? 'Không tìm thấy đợt học bổng đã công bố.'
+          : status < 500 && error instanceof Error ? error.message : 'Dịch vụ học bổng chưa sẵn sàng.' },
+          status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/me/scholarships') {
+      try {
+        return json(await handleMyScholarships(request, env), 200, {
+          ...cors, 'Cache-Control': 'private, no-store'
+        });
+      } catch (error) {
+        const status = scholarshipErrorStatus(error);
+        return json({ error: status === 401 ? 'Vui lòng đăng nhập.'
+          : status < 500 && error instanceof Error ? error.message : 'Dịch vụ học bổng chưa sẵn sàng.' },
+          status, { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 
