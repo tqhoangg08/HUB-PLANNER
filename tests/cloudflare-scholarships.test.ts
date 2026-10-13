@@ -254,6 +254,21 @@ test('failed preview transaction never leaves a partial snapshot or receipt', as
   assert.equal(c.sqlite.prepare('SELECT COUNT(*) AS n FROM scholarship_import_batches').get()?.n, 0);
   assert.equal(c.sqlite.prepare('SELECT COUNT(*) AS n FROM scholarship_audit_events').get()?.n, 1);
 });
+test('publish and rollback audit failures atomically preserve the prior state and live pointer', async t => {
+  const c = await setup(t); await c.create(); const old = await c.applied(); await c.approved(old);
+  c.sqlite.exec("CREATE TRIGGER fail_publish BEFORE INSERT ON scholarship_audit_events WHEN NEW.action='published' BEGIN SELECT RAISE(ABORT,'synthetic publish failure'); END;");
+  const approved = { ...c.current() };
+  await assert.rejects(c.transition('publish', { batchId: old }), { status: 503 });
+  assert.deepEqual({ ...c.current() }, approved); await assert.rejects(c.publicApi(slug + '/recipients'), { status: 404 });
+  c.sqlite.exec('DROP TRIGGER fail_publish'); await c.transition('publish', { batchId: old });
+  const next = (await c.preview(input({ sourceSha256: 'b'.repeat(64), rows: [input().rows[2]] }))).receipt.batchId;
+  await c.transition('unpublish'); await c.transition('imports/apply', { batchId: next }); await c.approved(next); await c.transition('publish', { batchId: next });
+  c.sqlite.exec("CREATE TRIGGER fail_rollback BEFORE INSERT ON scholarship_audit_events WHEN NEW.action='rollback' BEGIN SELECT RAISE(ABORT,'synthetic rollback failure'); END;");
+  const live = { ...c.current() };
+  await assert.rejects(c.transition('rollback', { batchId: old }), { status: 503 });
+  assert.deepEqual({ ...c.current() }, live); assert.equal((await c.publicApi(slug + '/recipients')).total, 1);
+  assert.equal(c.sqlite.prepare("SELECT COUNT(*) AS n FROM scholarship_audit_events WHERE action='rollback'").get()?.n, 0);
+});
 test('rate limit and missing/failing D1 return actionable status without leaking database diagnostics', async t => {
   const c = await setup(t); await c.published();
   const request = c.req('/api/public/v1/scholarships/' + slug + '/search?q=dat', 'GET', undefined, { 'CF-Connecting-IP': '192.0.2.1' });
