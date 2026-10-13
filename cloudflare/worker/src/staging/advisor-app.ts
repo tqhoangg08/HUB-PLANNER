@@ -10,6 +10,7 @@ import {readAdvisorProviderUsage,type AdvisorReleaseEvent,type AdvisorProviderUs
 import {rehearseStagingReprocess} from './advisor-reprocess.ts';
 import {handleStagingOcrReview} from './advisor-ocr-review.ts';
 import type {GroundingRejectionSubtype} from '../ai-advisor-workers-ai.ts';
+import {AI_DOCUMENT_MAX_SEGMENTS} from '../../../../shared/ai-document-limits.ts';
 type StageEnv = {
   DB:D1Database; AUTH_DB:D1Database; AI_DOCUMENTS_BUCKET:R2Bucket; ASSETS:Fetcher; AI:Ai;
   STAGING_AI_SEARCH:AiSearchInstance; STAGING_ORIGIN:string; STAGING_SYNTHETIC_EMAIL:string;
@@ -19,6 +20,16 @@ type StageEnv = {
 };
 const stageInstance=(origin:string)=>new URL(origin).hostname.split('.')[0];
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
+export async function indexStagingDerivedDocument(d:Record<string,unknown>,bucket:Pick<R2Bucket,'get'>,instance:Pick<AiSearchInstance,'items'>){
+  if(!d.ai_search_revision)return;
+  const pages=Number(d.ocr_page_count);
+  if(!Number.isInteger(pages)||pages<1||pages>AI_DOCUMENT_MAX_SEGMENTS)throw Error('STAGING_PAGE_COUNT_INVALID');
+  for(let page=1;page<=pages;page++){
+    const key=buildDerivedPageObjectKey(String(d.id),String(d.ai_search_revision),page),object=await bucket.get(key);
+    if(!object)throw Error('STAGING_PAGE_MISSING');
+    await instance.items.upload(key,await object.text(),{metadata:buildServerDerivedMetadata({documentId:String(d.id),category:String(d.category),visibility:d.visibility as 'public'|'program'|'admin',revision:String(d.ai_search_revision),active:true})});
+  }
+}
 export default {
   async fetch(request:Request,env:StageEnv,ctx:ExecutionContext){
     const url=new URL(request.url);
@@ -51,13 +62,7 @@ export default {
           const d=result.document as Record<string,unknown>;
           // The backend has verified PDF hash/page contract and written this
           // new D1/R2 revision. Stage indexes only those server-owned objects.
-          if(d.ai_search_revision&&Number(d.ocr_page_count)<=40){
-            for(let page=1;page<=Number(d.ocr_page_count);page++){
-              const key=buildDerivedPageObjectKey(String(d.id),String(d.ai_search_revision),page),object=await env.AI_DOCUMENTS_BUCKET.get(key);
-              if(!object)throw Error('STAGING_PAGE_MISSING');
-              await instance.items.upload(key,await object.text(),{metadata:buildServerDerivedMetadata({documentId:String(d.id),category:String(d.category),visibility:d.visibility as 'public'|'program'|'admin',revision:String(d.ai_search_revision),active:true})});
-            }
-          }
+          await indexStagingDerivedDocument(d,env.AI_DOCUMENTS_BUCKET,instance);
         }
         return json(result);
       }

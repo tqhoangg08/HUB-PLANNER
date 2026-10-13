@@ -8,6 +8,39 @@ import {detectRuledTable,serializeTableCells,findCellInkBounds} from '../shared/
 import {refreshAiSearchDocument,refreshOperation} from '../cloudflare/worker/src/ai-documents.ts';
 import {hasFullPageScan,hasUsablePdfText,isPdfDocument} from '../utils/aiDocumentOcr.ts';
 import {assemblePageAwareMarkdown,parsePreparedPdfPages,storeDerivedPdfPages,OCR_DERIVED_TEXT_PIPELINE,isCompleteDerivedRevision,buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-ingestion.ts';
+import {indexStagingDerivedDocument} from '../cloudflare/worker/src/staging/advisor-app.ts';
+
+test('staging adapter indexes all 52 Word units under the exact server revision',async()=>{
+  const d={id:'11111111-1111-4111-8111-111111111111',ai_search_revision:'a'.repeat(64),ocr_page_count:52,category:'training_regulation',visibility:'admin'};
+  const reads:string[]=[],uploads:Array<{key:string;text:string;metadata:Record<string,unknown>}>=[];
+  const bucket={get:async(key:string)=>{reads.push(key);return {text:async()=>`unit ${reads.length}`};}};
+  const instance={items:{upload:async(key:string,text:string,options:{metadata:Record<string,unknown>})=>{uploads.push({key,text,metadata:options.metadata});}}};
+  await indexStagingDerivedDocument(d,bucket as unknown as Pick<R2Bucket,'get'>,instance as unknown as Pick<AiSearchInstance,'items'>);
+  const keys=Array.from({length:52},(_,i)=>buildDerivedPageObjectKey(d.id,d.ai_search_revision,i+1));
+  assert.deepEqual(reads,keys);assert.deepEqual(uploads.map(u=>u.key),keys);
+  assert.equal(new Set(uploads.map(u=>u.key)).size,52);
+  for(const [i,u]of uploads.entries()){
+    assert.equal(u.text,`unit ${i+1}`);assert.equal(u.metadata.revision,d.ai_search_revision);
+    assert.equal(u.metadata.document_id,d.id);assert.equal(u.metadata.visibility,'admin');assert.equal(u.metadata.active,'true');
+  }
+});
+test('staging adapter rejects invalid counts before reading or indexing any unit',async()=>{
+  let calls=0;
+  const bucket={get:async()=>{calls++;throw Error('unexpected read');}};
+  const instance={items:{upload:async()=>{calls++;}}};
+  for(const count of [129,0,-1,1.5,NaN,Infinity,undefined])await assert.rejects(()=>indexStagingDerivedDocument(
+    {ai_search_revision:'a'.repeat(64),ocr_page_count:count},bucket as unknown as Pick<R2Bucket,'get'>,instance as unknown as Pick<AiSearchInstance,'items'>),/STAGING_PAGE_COUNT_INVALID/);
+  assert.equal(calls,0);
+});
+test('staging adapter cannot substitute a missing unit from another revision',async()=>{
+  const d={id:'11111111-1111-4111-8111-111111111111',ai_search_revision:'a'.repeat(64),ocr_page_count:52,category:'training_regulation',visibility:'admin'};
+  const requested:string[]=[],uploaded:string[]=[];
+  const bucket={get:async(key:string)=>{requested.push(key);return requested.length===52?null:{text:async()=>`exact source unit`};}};
+  const instance={items:{upload:async(key:string)=>{uploaded.push(key);}}};
+  await assert.rejects(()=>indexStagingDerivedDocument(d,bucket as unknown as Pick<R2Bucket,'get'>,instance as unknown as Pick<AiSearchInstance,'items'>),/STAGING_PAGE_MISSING/);
+  assert.equal(requested.length,52);assert.equal(uploaded.length,51);
+  assert.ok(requested.every(k=>k.includes(d.ai_search_revision)));
+});
 
 const sha=async(v:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(v))),(b)=>b.toString(16).padStart(2,'0')).join('');
 const page={pageNumber:1,text:'Điểm rèn luyện được đánh giá bằng thang điểm 100.',sourceKind:'ocr' as const,confidence:96,uncertainTokens:0,layout:'lines' as const};
