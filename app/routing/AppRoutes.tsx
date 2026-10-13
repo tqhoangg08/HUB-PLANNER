@@ -18,6 +18,12 @@ import {
     RegistrationPasswordScreen,
     StaffPasswordActivationScreen,
     TermsOfUse,
+    ScholarshipLanding,
+    ScholarshipList,
+    ScholarshipSearch,
+    ScholarshipMe,
+    CelebrationStudio,
+    AdminScholarships,
 } from './lazyScreens';
 
 interface AppRoutesProps {
@@ -90,6 +96,12 @@ export const AppRoutes = ({
                 <Route path="/events/edit/:eventId" element={<AuthMaintenanceScreen />} />
                 <Route path="/rankings" element={<PublicRankings />} />
                 <Route path="/tai-lieu/:documentId" element={<PublicAIDocumentViewer />} />
+                <Route path="/scholarships" element={<ScholarshipLanding />} />
+                <Route path="/scholarships/list" element={<ScholarshipList />} />
+                <Route path="/scholarships/search" element={<ScholarshipSearch />} />
+                <Route path="/scholarships/me" element={<AuthMaintenanceScreen />} />
+                <Route path="/scholarships/celebrate" element={<AuthMaintenanceScreen />} />
+                <Route path="/admin/scholarships" element={<AuthMaintenanceScreen />} />
                 <Route path="/support/*" element={<AuthMaintenanceScreen />} />
                 <Route path="/handbook/*" element={<AuthMaintenanceScreen />} />
                 <Route path="/profile/*" element={<AuthMaintenanceScreen />} />
@@ -134,6 +146,12 @@ export const AppRoutes = ({
                 />
                 <Route path="/account" element={<RecoveryAccountScreen />} />
                 <Route path="/tai-lieu/:documentId" element={<PublicAIDocumentViewer />} />
+                <Route path="/scholarships" element={<ScholarshipLanding />} />
+                <Route path="/scholarships/list" element={<ScholarshipList />} />
+                <Route path="/scholarships/search" element={<ScholarshipSearch />} />
+                <Route path="/scholarships/me" element={<ScholarshipMe />} />
+                <Route path="/scholarships/celebrate" element={<CelebrationStudio />} />
+                <Route path="/admin/scholarships" element={<AdminScholarships />} />
                 <Route
                     path="/onboarding"
                     element={isLoaded ? (

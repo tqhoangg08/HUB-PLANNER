@@ -96,3 +96,21 @@ export const MobileHandbook = lazy(() =>
 );
 export const ProfilePage = lazy(() => import('../../pages/ProfilePage'));
 export const ProfileSearchPage = lazy(() => import('../../pages/ProfileSearchPage'));
+export const ScholarshipLanding = lazy(() =>
+    import('../../features/scholarships/ScholarshipLanding').then(module => ({ default: module.ScholarshipLanding }))
+);
+export const ScholarshipList = lazy(() =>
+    import('../../features/scholarships/ScholarshipList').then(module => ({ default: module.ScholarshipList }))
+);
+export const ScholarshipSearch = lazy(() =>
+    import('../../features/scholarships/ScholarshipSearch').then(module => ({ default: module.ScholarshipSearch }))
+);
+export const ScholarshipMe = lazy(() =>
+    import('../../features/scholarships/ScholarshipMe').then(module => ({ default: module.ScholarshipMe }))
+);
+export const CelebrationStudio = lazy(() =>
+    import('../../features/scholarships/CelebrationStudio').then(module => ({ default: module.CelebrationStudio }))
+);
+export const AdminScholarships = lazy(() =>
+    import('../../features/scholarships/AdminScholarships').then(module => ({ default: module.AdminScholarships }))
+);

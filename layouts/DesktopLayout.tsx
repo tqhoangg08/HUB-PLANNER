@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles, PanelLeftClose, PanelLeftOpen, Megaphone } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -609,6 +609,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <Search size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Tìm đồ thất lạc</span>
                   </NavLink>
+                  <NavLink to="/scholarships" onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive || location.pathname.startsWith('/scholarships') ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <Award size={20} className="sm:hidden" />
+                      <span className="hidden sm:inline-flex items-center gap-1">Học bổng</span>
+                  </NavLink>
                   <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={handbookMenuRef} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
                       <button ref={(el) => { navRefs.current[4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || location.pathname.includes('/support') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                           <Book size={20} className="sm:hidden" />
@@ -625,6 +629,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       </Link>
                                       <Link to="/handbook/clubs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#990000] rounded-lg transition-colors group">
                                           <div className="bg-[#990000]/10 p-1.5 rounded-lg text-[#990000] group-hover:bg-[#990000] group-hover:text-white transition-colors"><Users size={16} /></div> CLB - Đội - Nhóm
+                                      </Link>
+                                      <Link to="/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-amber-600 rounded-lg transition-colors group">
+                                          <div className="bg-amber-100 p-1.5 rounded-lg text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-colors"><Sparkles size={16} /></div> Mùa Vinh danh Học bổng
                                       </Link>
                                       <Link to="/handbook/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-green-600 rounded-lg transition-colors group">
                                           <div className="bg-green-100 p-1.5 rounded-lg text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors"><Award size={16} /></div> Học bổng & Quy chế

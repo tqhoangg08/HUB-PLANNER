@@ -15,6 +15,7 @@ import {
     Package,
     Search,
     Shield,
+    Trophy,
     Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -277,6 +278,26 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         )}
                     </section>
                 )}
+
+                <Link
+                    to="/scholarships"
+                    onClick={playClick}
+                    className="mx-6 mb-3 flex items-center justify-between gap-3 rounded-[20px] border border-amber-200/80 bg-gradient-to-r from-amber-500/10 via-amber-400/15 to-yellow-500/10 p-3.5 shadow-[0_2px_14px_rgba(217,119,6,0.08)] active:scale-[0.98]"
+                >
+                    <div className="flex items-center gap-3">
+                        <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[15px] bg-gradient-to-br from-amber-400 to-yellow-500 text-amber-950 shadow-xs">
+                            <Trophy size={20} strokeWidth={2.3} />
+                        </span>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">Mùa Học Bổng HUB</span>
+                                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-amber-200 text-amber-900">Mới</span>
+                            </div>
+                            <div className="mt-0.5 text-[10.5px] font-semibold text-[#7B8AB0]">Tra cứu & Vinh danh sinh viên xuất sắc</div>
+                        </div>
+                    </div>
+                    <ChevronRight size={18} className="text-amber-800 shrink-0" />
+                </Link>
 
                 <h2 className="mb-3 mt-5 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Chức năng nổi bật</h2>
                 <section className="grid grid-cols-4 gap-x-2 gap-y-4 px-6">
