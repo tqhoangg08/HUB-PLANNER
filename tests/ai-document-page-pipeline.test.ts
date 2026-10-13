@@ -5,7 +5,7 @@ import {Miniflare} from 'miniflare';
 import {DatabaseSync} from 'node:sqlite';
 import {assessDocumentPageText,serializeOcrLines,confirmedNumericConfidence} from '../shared/ai-document-text-quality.ts';
 import {detectRuledTable,serializeTableCells,findCellInkBounds} from '../shared/ai-document-table-layout.ts';
-import {refreshAiSearchDocument} from '../cloudflare/worker/src/ai-documents.ts';
+import {refreshAiSearchDocument,refreshOperation} from '../cloudflare/worker/src/ai-documents.ts';
 import {hasFullPageScan,hasUsablePdfText,isPdfDocument} from '../utils/aiDocumentOcr.ts';
 import {assemblePageAwareMarkdown,parsePreparedPdfPages,storeDerivedPdfPages,OCR_DERIVED_TEXT_PIPELINE,isCompleteDerivedRevision,buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-ingestion.ts';
 
@@ -122,6 +122,73 @@ test('AI Search completion requires every page, current revision, active visibil
   for(const patch of [{active:false},{revision:'old'},{visibility:'admin'},{document_id:'other'}])
     assert.equal(isCompleteDerivedRevision(doc,[items[0],{...items[1],metadata:{...items[1].metadata,...patch}}]),false);
   assert.equal(isCompleteDerivedRevision(doc,[items[0],{...items[1],status:'running'}]),false);
+});
+
+test('79-page handbook has contiguous authenticated pages; one missing or pending receipt cannot become completed',async()=>{
+  const pages=Array.from({length:79},(_,i)=>({...page,pageNumber:i+1,text:`Trang nguồn ${i+1}. Nội dung xác thực.`,sourceKind:'native_text' as const}));
+  const markdown=assemblePageAwareMarkdown(pages).trim();
+  const prepared=await parsePreparedPdfPages(JSON.stringify({pages,sourceContentHash:'a'.repeat(64),derivedContentHash:await sha(markdown),pipelineVersion:'native-page-text-v2-layout'}),'a'.repeat(64));
+  assert.equal(prepared.pages.length,79);assert.match(prepared.markdown,/page: 79/);
+  const doc={id:'11111111-1111-4111-8111-111111111111',revision:'v1-long',pages:79,visibility:'public'};
+  const receipts=pages.map(p=>({key:buildDerivedPageObjectKey(doc.id,doc.revision,p.pageNumber),status:'completed',metadata:{document_id:doc.id,revision:doc.revision,visibility:'public',active:true}}));
+  assert.equal(isCompleteDerivedRevision(doc,receipts.slice(0,50)),false);
+  assert.equal(isCompleteDerivedRevision(doc,receipts),true);
+  assert.equal(isCompleteDerivedRevision(doc,[...receipts.slice(0,78),{...receipts[78],status:'running'}]),false);
+  await assert.rejects(()=>parsePreparedPdfPages(JSON.stringify({pages:pages.filter(p=>p.pageNumber!==42)}),'a'.repeat(64)),/Invalid prepared/);
+});
+
+test('long-revision readiness paginates with fixed cap, preserves state on partial/error/repeated receipts',async()=>{
+  for(const scenario of ['complete','pending','missing','repeated','error']){
+    const db=new DatabaseSync(':memory:');const id='11111111-1111-4111-8111-111111111111';
+    try{
+      db.exec('CREATE TABLE ai_documents(id TEXT PRIMARY KEY,visibility TEXT,indexing_status TEXT,updated_at TEXT,deleted_at TEXT,ocr_page_count INTEGER)');
+      db.exec(readFileSync('cloudflare/migrations/0054_ai_document_search_ingestion_state.sql','utf8'));
+      db.prepare("INSERT INTO ai_documents(id,visibility,indexing_status,ocr_page_count,ai_search_status,ai_search_revision) VALUES(?,'public','processing',79,'derived_ready','v1-long')").run(id);
+      const row=db.prepare('SELECT * FROM ai_documents').get() as Parameters<typeof refreshAiSearchDocument>[1];
+      const receipts=Array.from({length:79},(_,i)=>({key:buildDerivedPageObjectKey(id,'v1-long',i+1),status:scenario==='pending'&&i===78?'running':'completed',metadata:{document_id:id,revision:'v1-long',visibility:'public',active:true}}));
+      if(scenario==='missing')receipts.pop();
+      let calls=0;
+      const storage={prepare:(sql:string)=>({bind:(...args:unknown[])=>({first:async()=>db.prepare(sql).get(...args as never[]),run:async()=>db.prepare(sql).run(...args as never[])})})};
+      const env={DB:storage,AI_DOCUMENTS_BUCKET:{},AI_ADVISOR_SEARCH:{get:()=>({items:{list:async(params:{page:number;per_page:number;metadata_filter:string})=>{
+        calls++;assert.equal(params.per_page,50);assert.match(params.metadata_filter,/v1-long/);
+        if(scenario==='error'&&params.page===2)throw Error('provider unavailable');
+        const offset=scenario==='repeated'?0:(params.page-1)*50;
+        return {result:receipts.slice(offset,offset+50),result_info:{page:params.page,per_page:50,total_count:receipts.length}};
+      }}})}};
+      const result=await refreshAiSearchDocument(env as never,row);
+      assert.equal(result.ai_search_status,scenario==='complete'?'completed':'derived_ready',scenario);
+      assert.ok(calls<=3);assert.ok(calls>=2);
+    }finally{db.close();}
+  }
+});
+
+test('PDF79 / Word52 can hydrate last unit with authorization and the unchanged three-read budget',async()=>{
+  const {buildCompletenessDependencies}=await import('../cloudflare/worker/src/ai-advisor-completeness-config.ts');
+  let reads=0;const id='11111111-1111-4111-8111-111111111111';
+  const env:any={AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'true',DB:{prepare:()=>({bind:()=>({first:async()=>({ai_search_revision:'rev'})})})},AI_DOCUMENTS_BUCKET:{get:async()=>{reads++;return {body:new ReadableStream(),size:30,text:async()=>'Nội dung nguồn cuối cùng'};}}};
+  const deps=buildCompletenessDependencies(env,{search:async()=>({})},{text:'local',ocr:'local'});
+  for(const n of [52,79,128])assert.ok(await deps.pageContent!({documentId:id,itemKey:buildDerivedPageObjectKey(id,'rev',n)}));
+  assert.equal(await deps.pageContent!({documentId:id,itemKey:buildDerivedPageObjectKey(id,'rev',79)}),null);assert.equal(reads,3);
+});
+
+test('Gemini receipt cannot mark partially indexed derived source ready or downgrade concurrent AI Search completion',async()=>{
+  for(const concurrent of [false,true]){
+    const db=new DatabaseSync(':memory:');
+    try{
+      db.exec('CREATE TABLE ai_documents(id TEXT PRIMARY KEY,visibility TEXT,indexing_status TEXT,updated_at TEXT,deleted_at TEXT,content_hash TEXT,gemini_operation_name TEXT,gemini_document_name TEXT,indexing_error TEXT)');
+      db.exec(readFileSync('cloudflare/migrations/0054_ai_document_search_ingestion_state.sql','utf8'));
+      db.exec("INSERT INTO ai_documents(id,visibility,indexing_status,content_hash,gemini_operation_name,gemini_indexing_status,ai_search_revision,ai_search_status) VALUES('doc','public','processing','hash','op','processing','v1-long','derived_ready')");
+      const row=db.prepare('SELECT * FROM ai_documents').get() as Parameters<typeof refreshOperation>[1];
+      const storage={prepare:(sql:string)=>({bind:(...args:unknown[])=>({first:async()=>db.prepare(sql).get(...args as never[]),run:async()=>db.prepare(sql).run(...args as never[])})})};
+      const env={DB:storage,AI_DOCUMENTS_BUCKET:{},GEMINI_FILE_SEARCH_STORE:'store'};
+      const result=await refreshOperation(env as never,row,async()=>{
+        if(concurrent)db.exec("UPDATE ai_documents SET ai_search_status='completed',indexing_status='completed'");
+        return {done:true,response:{documentName:'store/documents/receipt'}};
+      });
+      assert.equal(result.indexing_status,concurrent?'completed':'processing');
+      assert.equal(result.ai_search_status,concurrent?'completed':'derived_ready');
+    }finally{db.close();}
+  }
 });
 test('additive migration and local D1 readiness persist independent AI Search completion after Gemini failure',async()=>{
   const db=new DatabaseSync(':memory:');

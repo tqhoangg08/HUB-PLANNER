@@ -46,7 +46,8 @@ test('page locators come only from exact authorized one-page object keys, not ar
     [`ai-search/text/${DOC_A}/v1-test/part-014.md`,undefined],
     ['other-page-014.md',undefined],
     [`${DOC_B}-page-002.md`,undefined],
-    [`${DOC_A}-page-099.md`,undefined],
+    [`${DOC_A}-page-079.md`,79],
+    [`${DOC_A}-page-129.md`,undefined],
   ] as const;
   for(const [key,expected]of cases){
     const client=fakeClient(()=>({chunks:[chunk('page',DOC_A,0.9,key)]}));

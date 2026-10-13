@@ -1,6 +1,7 @@
 import {buildDerivedPageObjectKey} from './ai-document-ingestion.ts';
 import type {AiAdvisorV2Dependencies} from './ai-advisor-v2-runtime.ts';
 import type {AiSearchClient,AiSearchInstanceNames} from './ai-search-retrieval.ts';
+import {AI_DOCUMENT_MAX_SEGMENTS} from '../../../shared/ai-document-limits.ts';
 
 export type CompletenessEnv = {
   AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED?:unknown;
@@ -41,7 +42,7 @@ export const buildCompletenessDependencies = (env:CompletenessEnv,client:AiSearc
       // Word units use the same bounded storage ordinal, not physical pages.
       // Parse only after D1 authorization, then require exact canonical key.
       const ordinal=Number(source.itemKey.match(/\/page-(\d{3})\.md$/)?.[1]);
-      if(!Number.isInteger(ordinal)||ordinal<1||ordinal>40)return null;
+      if(!Number.isInteger(ordinal)||ordinal<1||ordinal>AI_DOCUMENT_MAX_SEGMENTS)return null;
       const key=buildDerivedPageObjectKey(source.documentId,row.ai_search_revision,ordinal);
       if(source.itemKey!==key)return null;
       reads++;

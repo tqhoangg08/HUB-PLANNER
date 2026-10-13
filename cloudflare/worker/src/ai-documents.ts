@@ -8,6 +8,7 @@ import {
 import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { parsePreparedPdfPages, storeDerivedPdfPages, buildDerivedPageObjectKey, isCompleteDerivedRevision } from './ai-document-ingestion.ts';
 import {prepareNativeDocx,DOCX_MIME,DocxExtractionError} from './ai-document-docx.ts';
+import {AI_DOCUMENT_MAX_SEGMENTS,AI_DOCUMENT_MAX_TEXT_BYTES,AI_DOCUMENT_RECEIPTS_PER_PAGE} from '../../../shared/ai-document-limits.ts';
 
 export interface AiDocumentsEnv extends BetterAuthIdentityEnv {
   DB?: D1Database;
@@ -54,7 +55,9 @@ type AiDocumentRow = Record<string, unknown> & {
 };
 
 const MAX_BYTES = 20 * 1024 * 1024;
-const MAX_OCR_TEXT_BYTES = 1024 * 1024;
+const MAX_OCR_TEXT_BYTES = AI_DOCUMENT_MAX_TEXT_BYTES;
+// Legacy flat ocrText has no per-page integrity/receipts; retain its old cap.
+// Only the page-aware preparedPages contract supports extended revisions.
 const MAX_OCR_PAGES = 40;
 const MIME_BY_EXTENSION = new Map([
   ['pdf', 'application/pdf'],
@@ -209,10 +212,11 @@ export const refreshOperation = async (env: AiDocumentsEnv, document: AiDocument
     if(!operation.error&&(!receipt||!receipt.startsWith(`${env.GEMINI_FILE_SEARCH_STORE}/documents/`)))return document;
     const {db}=requireStorage(env);
     await db.prepare(`UPDATE ai_documents SET indexing_status=?, gemini_indexing_status=?, indexing_error=?, gemini_document_name=?, updated_at=?
-      WHERE id=? AND deleted_at IS NULL AND content_hash=? AND gemini_operation_name=? AND COALESCE(ai_search_revision,'')=?`)
-      .bind(operation.error?(document.ai_search_status==='completed'?'completed':'failed'):'completed',operation.error?'failed':'completed',
+      WHERE id=? AND deleted_at IS NULL AND content_hash=? AND gemini_operation_name=? AND COALESCE(ai_search_revision,'')=?
+        AND COALESCE(ai_search_status,'not_prepared')=? AND indexing_status NOT IN ('deleting','deleted')`)
+      .bind(document.ai_search_status==='derived_ready'?'processing':operation.error?(document.ai_search_status==='completed'?'completed':'failed'):'completed',operation.error?'failed':'completed',
         operation.error?'Gemini không thể lập chỉ mục tài liệu.':null,operation.error?document.gemini_document_name:receipt,new Date().toISOString(),
-        document.id,document.content_hash,document.gemini_operation_name,document.ai_search_revision||'').run();
+        document.id,document.content_hash,document.gemini_operation_name,document.ai_search_revision||'',document.ai_search_status||'not_prepared').run();
     return await findAiDocument(env,String(document.id))||document;
   } catch {
     // A timeout/status-check outage is not evidence of indexing failure.
@@ -226,12 +230,23 @@ export const refreshOperation = async (env: AiDocumentsEnv, document: AiDocument
 export const refreshAiSearchDocument = async (env:AiDocumentsEnv, document:AiDocumentRow) => {
   if(document.ai_search_status!=='derived_ready'||!document.ai_search_revision||!env.AI_ADVISOR_SEARCH)return document;
   const pages=Number(document.ocr_page_count);
-  if(!Number.isInteger(pages)||pages<1||pages>40)return document;
+  if(!Number.isInteger(pages)||pages<1||pages>AI_DOCUMENT_MAX_SEGMENTS)return document;
   try{
     const items=env.AI_ADVISOR_SEARCH.get('hub-ai-text-production').items;
     if(!items)return document;
-    const response=await items.list({per_page:50,metadata_filter:JSON.stringify({document_id:document.id,revision:document.ai_search_revision})});
-    if(!isCompleteDerivedRevision({id:document.id,revision:String(document.ai_search_revision),pages,visibility:document.visibility},response.result))return document;
+    // No partial first-page receipt may promote a long revision. Up to three
+    // pages of receipts, never an unbounded scan of the index.
+    const receipts:Parameters<typeof isCompleteDerivedRevision>[1][number][]=[];
+    for(let page=1;page<=Math.ceil(AI_DOCUMENT_MAX_SEGMENTS/AI_DOCUMENT_RECEIPTS_PER_PAGE);page++){
+      const response=await items.list({page,per_page:AI_DOCUMENT_RECEIPTS_PER_PAGE,metadata_filter:JSON.stringify({document_id:document.id,revision:document.ai_search_revision})});
+      if(!Array.isArray(response.result)||response.result.length>AI_DOCUMENT_RECEIPTS_PER_PAGE)return document;
+      const info=response.result_info;
+      if(info&&(info.page!==page||info.per_page!==AI_DOCUMENT_RECEIPTS_PER_PAGE||!Number.isInteger(info.total_count)))return document;
+      receipts.push(...response.result);
+      if(isCompleteDerivedRevision({id:document.id,revision:String(document.ai_search_revision),pages,visibility:document.visibility},receipts))break;
+      if(response.result.length<AI_DOCUMENT_RECEIPTS_PER_PAGE||info&&page*AI_DOCUMENT_RECEIPTS_PER_PAGE>=info.total_count)return document;
+    }
+    if(!isCompleteDerivedRevision({id:document.id,revision:String(document.ai_search_revision),pages,visibility:document.visibility},receipts))return document;
     // Provider readiness is for this exact snapshot only. A concurrent delete,
     // visibility edit or revision promotion must not be overwritten by it.
     await requireStorage(env).db.prepare(`UPDATE ai_documents
@@ -313,7 +328,7 @@ export const indexAiDocumentBlob = async (env: AiDocumentsEnv, document: AiDocum
     gemini_store_name: store,
     gemini_operation_name: operation.name || null,
     gemini_document_name: operation.response?.documentName || null,
-    indexing_status: document.ai_search_status === 'completed' ? 'completed' : operation.done ? (operation.error ? 'failed' : 'completed') : 'processing',
+    indexing_status: document.ai_search_status === 'completed' ? 'completed' : document.ai_search_status === 'derived_ready' ? 'processing' : operation.done ? (operation.error ? 'failed' : 'completed') : 'processing',
     indexing_error: operation.error ? 'Gemini không thể lập chỉ mục tài liệu.' : null,
     gemini_indexing_status: operation.done ? (operation.error ? 'failed':'completed'):'processing',
   });
@@ -460,7 +475,7 @@ const deleteDocument = async (url: URL, env: AiDocumentsEnv) => {
   } catch { /* D1 tombstone and R2 deletion remain authoritative. */ }
   await removeStorage(env, document.storage_path);
   if (document.ocr_text_path) await removeStorage(env, String(document.ocr_text_path));
-  if(document.ai_search_revision && Number(document.ocr_page_count)>0 && Number(document.ocr_page_count)<=40){
+  if(document.ai_search_revision && Number(document.ocr_page_count)>0 && Number(document.ocr_page_count)<=AI_DOCUMENT_MAX_SEGMENTS){
     const {bucket}=requireStorage(env);
     await bucket.delete(Array.from({length:Number(document.ocr_page_count)},(_,i)=>buildDerivedPageObjectKey(document.id,String(document.ai_search_revision),i+1)));
   }

@@ -2,9 +2,10 @@ import { assessDocumentPageText } from '../shared/ai-document-text-quality.ts';
 import { recognizeDocumentPage } from './aiDocumentPageRecognition.ts';
 import { assemblePageAwareMarkdown, type DerivedPage } from '../cloudflare/worker/src/ai-document-ingestion.ts';
 import { OCR_PAGE_MARKDOWN_PIPELINE_VERSION, NATIVE_TEXT_EXTRACTION_PIPELINE_VERSION } from '../cloudflare/worker/src/ai-document-index-identity.ts';
+import {AI_DOCUMENT_MAX_SEGMENTS,AI_DOCUMENT_MAX_TEXT_BYTES,AI_DOCUMENT_OCR_BATCH_PAGES,AI_DOCUMENT_OCR_PAGE_TIMEOUT_MS,AI_DOCUMENT_OCR_INIT_TIMEOUT_MS} from '../shared/ai-document-limits.ts';
 
-export const AI_DOCUMENT_OCR_MAX_PAGES = 40;
-export const AI_DOCUMENT_OCR_MAX_TEXT_BYTES = 1024 * 1024;
+export const AI_DOCUMENT_OCR_MAX_PAGES = AI_DOCUMENT_MAX_SEGMENTS;
+export const AI_DOCUMENT_OCR_MAX_TEXT_BYTES = AI_DOCUMENT_MAX_TEXT_BYTES;
 const MAX_RENDER_DIMENSION = 3200;
 export class AiDocumentOcrError extends Error {}
 export const isPdfDocument = (file:Pick<File,'name'|'type'>) => file.type==='application/pdf'||/\.pdf$/i.test(file.name);
@@ -17,9 +18,21 @@ export const hasUsablePdfText = (samples: string[]) => samples.length > 0
   && samples.every((text) => assessDocumentPageText(text).classification === 'NATIVE_GOOD');
 export const assertPdfOcrPageLimit = (pageCount: number, requiresOcr: boolean) => {
   if (!Number.isInteger(pageCount) || pageCount < 1) throw new AiDocumentOcrError('PDF không có trang hợp lệ.');
-  if (requiresOcr && pageCount > AI_DOCUMENT_OCR_MAX_PAGES) throw new AiDocumentOcrError(`Bộ đọc PDF phân trang hỗ trợ tối đa ${AI_DOCUMENT_OCR_MAX_PAGES} trang.`);
+  if (pageCount > AI_DOCUMENT_OCR_MAX_PAGES) throw new AiDocumentOcrError(`Bộ đọc PDF phân trang hỗ trợ tối đa ${AI_DOCUMENT_OCR_MAX_PAGES} trang (giới hạn một revision).`);
 };
 const assertActive = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOMException('OCR cancelled', 'AbortError'); };
+/** Handles slow asset initialization as well as recognition: late workers are
+ * terminated, never attached to a cancelled/timed-out document revision. */
+export const initializeOcrWorker = async <T extends {terminate():Promise<unknown>}>(create:()=>Promise<T>,signal?:AbortSignal,timeoutMs=AI_DOCUMENT_OCR_INIT_TIMEOUT_MS):Promise<T>=>{
+  assertActive(signal);let finished=false,timer:ReturnType<typeof setTimeout>|undefined;
+  let abort:()=>void=()=>{};
+  const pending=create().then(async worker=>{if(finished||signal?.aborted){await worker.terminate();throw new DOMException('OCR cancelled','AbortError');}return worker;});
+  try{return await Promise.race([pending,new Promise<never>((_,reject)=>{
+    abort=()=>reject(new DOMException('OCR cancelled','AbortError'));
+    signal?.addEventListener('abort',abort,{once:true});
+    timer=setTimeout(()=>reject(new AiDocumentOcrError('Không tải được bộ OCR trong thời gian cho phép. Chưa tải tài liệu.')),timeoutMs);
+  })]);}finally{finished=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);}
+};
 const loadPdf = async (file: File) => {
   const [{ getDocument, GlobalWorkerOptions, OPS }, worker] = await Promise.all([
     import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
@@ -71,7 +84,7 @@ export const inspectPdfTextLayer = async (file: File, signal?: AbortSignal) => {
       page.cleanup();
     }
     assertPdfOcrPageLimit(pdf.numPages, pages.some((page) => page.requiresOcr));
-    return { pageCount:pdf.numPages, hasUsableText:pages.every((page) => !page.requiresOcr), pages };
+    return { pageCount:pdf.numPages, sourceContentHash:await hash(await file.arrayBuffer()), hasUsableText:pages.every((page) => !page.requiresOcr), pages };
   } finally { await pdf.destroy(); }
 };
 const hash = async (bytes: ArrayBuffer) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (b) => b.toString(16).padStart(2,'0')).join('');
@@ -84,17 +97,18 @@ export const runPdfOcrInBrowser = async (file: File, onProgress: (current: numbe
   const cancel = () => { void worker?.terminate().catch(() => {}); };
   try {
     assertPdfOcrPageLimit(pdf.numPages, true);
+    if(plan.pageCount!==pdf.numPages||plan.pages.length!==pdf.numPages||plan.pages.some((p,i)=>p.pageNumber!==i+1)
+      ||plan.sourceContentHash!==await hash(await file.arrayBuffer()))throw new AiDocumentOcrError('Kế hoạch phân trang không khớp PDF gốc.');
     const pages: DerivedPage[] = [];
-    if (plan.pages.some((p) => p.requiresOcr)) {
-      const tesseract = await import('tesseract.js');
-      worker = await tesseract.createWorker('vie+eng');
-      signal?.addEventListener('abort',cancel,{once:true});
-      assertActive(signal);
-    }
+    let ocrInBatch=0,textBytes=0;
+    signal?.addEventListener('abort',cancel,{once:true});
     for (const planned of plan.pages) {
       assertActive(signal);
       if (!planned.requiresOcr) pages.push({ pageNumber:planned.pageNumber, text:planned.text, sourceKind:'native_text', layout:'columns' });
       else {
+        // Sequential OCR, one canvas, worker recycled every eight OCR pages.
+        // A stalled page cancels the worker and rejects the whole revision.
+        if(!worker){const tesseract=await import('tesseract.js');worker=await initializeOcrWorker(()=>tesseract.createWorker('vie+eng'),signal);assertActive(signal);}
         const page = await pdf.getPage(planned.pageNumber);
         const original = page.getViewport({ scale:1 });
         const viewport = page.getViewport({ scale:Math.min(3, MAX_RENDER_DIMENSION/Math.max(original.width,original.height)) });
@@ -104,16 +118,24 @@ export const runPdfOcrInBrowser = async (file: File, onProgress: (current: numbe
         if (!context) throw new AiDocumentOcrError('Trình duyệt không hỗ trợ canvas OCR.');
         try {
           await page.render({ canvasContext:context, viewport }).promise;
-          const serialized = await recognizeDocumentPage(worker!,canvas,canvas,(bounds,scale=1)=>{
+          const recognizing = recognizeDocumentPage(worker!,canvas,canvas,(bounds,scale=1)=>{
             const crop=document.createElement('canvas');crop.width=Math.ceil(bounds.width*scale);crop.height=Math.ceil(bounds.height*scale);
             const ctx=crop.getContext('2d',{alpha:false});if(!ctx)throw new AiDocumentOcrError('Không thể đọc ô bảng.');
             ctx.drawImage(canvas,bounds.left,bounds.top,bounds.width,bounds.height,0,0,crop.width,crop.height);return crop;
           });
+          let timer:ReturnType<typeof setTimeout>|undefined;
+          const serialized=await Promise.race([recognizing,new Promise<never>((_,reject)=>{timer=setTimeout(()=>{
+            cancel();reject(new AiDocumentOcrError(`Trang ${planned.pageNumber} vượt thời gian OCR; chưa tải tài liệu. Cần kiểm tra lại.`));
+          },AI_DOCUMENT_OCR_PAGE_TIMEOUT_MS);})]).finally(()=>clearTimeout(timer));
           assertActive(signal);
           if (!serialized.text.trim()) throw new AiDocumentOcrError(`Không đọc được trang ${planned.pageNumber}. Cần kiểm tra bản gốc.`);
           pages.push({ pageNumber:planned.pageNumber, text:serialized.text, sourceKind:'ocr', layout:serialized.tableCells ? 'lines':'columns', confidence:serialized.confidence, uncertainTokens:serialized.uncertainTokens });
         } finally { canvas.width=1; canvas.height=1; page.cleanup(); }
+        if(++ocrInBatch===AI_DOCUMENT_OCR_BATCH_PAGES){await worker.terminate();worker=undefined;ocrInBatch=0;}
       }
+      textBytes+=new TextEncoder().encode(pages.at(-1)!.text).length;
+      if(textBytes>AI_DOCUMENT_OCR_MAX_TEXT_BYTES)throw new AiDocumentOcrError('Văn bản phân trang vượt giới hạn 1 MB; chưa tải tài liệu.');
+      await new Promise<void>(resolve=>setTimeout(resolve,0)); // yield for cancellation/UI between pages
       onProgress(planned.pageNumber, pdf.numPages, Math.round(planned.pageNumber/pdf.numPages*100));
     }
     const text = assemblePageAwareMarkdown(pages).trim();

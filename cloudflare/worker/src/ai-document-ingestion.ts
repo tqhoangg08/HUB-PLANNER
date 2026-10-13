@@ -6,6 +6,7 @@ import {
   type DerivedIndexSourceKind,
 } from './ai-document-index-identity.ts';
 import { assessDocumentPageText, normalizeDocumentText } from '../../../shared/ai-document-text-quality.ts';
+import {AI_DOCUMENT_MAX_SEGMENTS,AI_DOCUMENT_MAX_TEXT_BYTES} from '../../../shared/ai-document-limits.ts';
 
 /**
  * Local-only production contract for pre-search document ingestion.
@@ -249,7 +250,7 @@ export const parsePreparedPdfPages = async (raw: unknown, originalHash: string) 
   const value: unknown = JSON.parse(raw);
   if (!value || typeof value !== 'object') throw new Error('Invalid prepared PDF payload.');
   const input = value as Record<string, unknown>;
-  if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > 40) throw new Error('Invalid prepared PDF page count.');
+  if (!Array.isArray(input.pages) || input.pages.length < 1 || input.pages.length > AI_DOCUMENT_MAX_SEGMENTS) throw new Error('Invalid prepared PDF page count.');
   const pages: DerivedPage[] = input.pages.map((entry: unknown, index: number) => {
     if (!entry || typeof entry !== 'object') throw new Error('Invalid prepared PDF page.');
     const p = entry as Record<string, unknown>;
@@ -266,7 +267,7 @@ export const parsePreparedPdfPages = async (raw: unknown, originalHash: string) 
   const pipeline = ocrUsed ? OCR_DERIVED_TEXT_PIPELINE : NATIVE_DERIVED_TEXT_PIPELINE;
   if (input.pipelineVersion !== pipeline) throw new Error('Unsupported PDF extraction pipeline.');
   const markdown = assemblePageAwareMarkdown(pages).trim();
-  if (encoder.encode(markdown).length > 1024*1024) throw new Error('Prepared PDF text limit exceeded.');
+  if (encoder.encode(markdown).length > AI_DOCUMENT_MAX_TEXT_BYTES) throw new Error('Prepared PDF text limit exceeded.');
   const verified = await verifyPreparedDerivedArtifact({ declaredSourceContentHash:String(input.sourceContentHash || ''),
     declaredDerivedContentHash:String(input.derivedContentHash || ''),markdown,sourceKind:ocrUsed?'ocr':'native_text',extractionPipelineVersion:pipeline },originalHash);
   return {...verified,pages,ocrUsed,pipelineVersion:pipeline,uncertainTokens:pages.reduce((sum,p)=>sum+(p.uncertainTokens || 0),0)};
@@ -309,7 +310,7 @@ export const storeDerivedPdfPages = async (bucket: DerivedStorageBucket, documen
  * provider-wide completed count or another document's ready item. */
 export const isCompleteDerivedRevision = (document:{id:string;revision:string;pages:number;visibility:string},
   items:readonly {key:string;status?:string;metadata?:Record<string,unknown>}[]) => {
-  if(!Number.isInteger(document.pages)||document.pages<1||document.pages>40)return false;
+  if(!Number.isInteger(document.pages)||document.pages<1||document.pages>AI_DOCUMENT_MAX_SEGMENTS)return false;
   const ready=new Set(items.filter((item)=>item.status==='completed'&&item.metadata?.document_id===document.id
     &&item.metadata?.revision===document.revision&&item.metadata?.visibility===document.visibility
     &&(item.metadata?.active===true||item.metadata?.active==='true')).map((item)=>item.key));
