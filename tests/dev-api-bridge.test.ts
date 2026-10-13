@@ -4,7 +4,10 @@ import { once } from 'node:events'
 import { test } from 'node:test'
 import {
   devBackendOrigin,
+  isCloudflareApiPath,
+  isScholarshipApiPath,
   proxyCloudflareApi,
+  resolveDevBackendOrigin,
   rewriteDevSetCookie,
   selectDevApiRoute,
 } from '../dev/devApiBridge.ts'
@@ -19,9 +22,39 @@ test('local modules win; Cloudflare-owned paths proxy; unknown APIs remain local
   assert.equal(selectDevApiRoute('/api/auth/get-session', '/repo/api/auth/get-session.ts'), 'local')
 })
 
-test('backend origin is HTTPS-only and cookie rewrite is scoped to dev bridge', () => {
+test('scholarship APIs are precisely classified as Cloudflare paths and dev routes', () => {
+  assert.equal(isScholarshipApiPath('/api/public/v1/scholarships/campaigns'), true)
+  assert.equal(isScholarshipApiPath('/api/public/v1/scholarships/synth-slug/recipients'), true)
+  assert.equal(isScholarshipApiPath('/api/public/v1/scholarships/synth-slug/search'), true)
+  assert.equal(isScholarshipApiPath('/api/me/scholarships'), true)
+  assert.equal(isScholarshipApiPath('/api/admin/v1/scholarships/campaigns'), true)
+  assert.equal(isScholarshipApiPath('/api/public/unrelated'), false)
+
+  assert.equal(isCloudflareApiPath('/api/public/v1/scholarships/campaigns'), true)
+  assert.equal(isCloudflareApiPath('/api/me/scholarships'), true)
+  assert.equal(isCloudflareApiPath('/api/public/v1/other'), false)
+
+  assert.equal(selectDevApiRoute('/api/public/v1/scholarships/campaigns', null), 'cloudflare')
+  assert.equal(selectDevApiRoute('/api/me/scholarships', null), 'cloudflare')
+  assert.equal(selectDevApiRoute('/api/public/v1/other', null), 'not_found')
+})
+
+test('backend origin supports HTTPS and safe local loopback HTTP, rejecting external HTTP', () => {
   assert.equal(devBackendOrigin(undefined), 'https://hotrosinhvienhub.id.vn')
+  assert.equal(devBackendOrigin('http://127.0.0.1:8787'), 'http://127.0.0.1:8787')
+  assert.equal(devBackendOrigin('http://localhost:8787'), 'http://localhost:8787')
   assert.throws(() => devBackendOrigin('http://example.test'))
+  assert.throws(() => devBackendOrigin('ftp://127.0.0.1:8787'))
+
+  // Scholarship routes route to local dev backend by default, not undeployed production
+  assert.equal(resolveDevBackendOrigin('/api/public/v1/scholarships/campaigns', {}), 'http://127.0.0.1:8787')
+  assert.equal(resolveDevBackendOrigin('/api/me/scholarships', {}), 'http://127.0.0.1:8787')
+  assert.equal(resolveDevBackendOrigin('/api/auth/get-session', {}), 'https://hotrosinhvienhub.id.vn')
+  assert.equal(
+    resolveDevBackendOrigin('/api/public/v1/scholarships/campaigns', { DEV_SCHOLARSHIP_BACKEND_ORIGIN: 'http://localhost:9999' }),
+    'http://localhost:9999',
+  )
+
   assert.equal(
     rewriteDevSetCookie('hubplanner_auth.session_token=opaque; Domain=hotrosinhvienhub.id.vn; Path=/; Secure; HttpOnly; SameSite=Lax'),
     'hubplanner_auth.session_token=opaque; Path=/; HttpOnly; SameSite=Lax',

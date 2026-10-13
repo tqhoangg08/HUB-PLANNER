@@ -343,16 +343,16 @@ export const AdminScholarships: React.FC = () => {
   // Check Admin permission
   if (!authLoading && !isAdmin) {
     return (
-      <ScholarshipShell activeTab="admin">
-        <div className="max-w-md mx-auto my-16 p-8 rounded-3xl bg-white border border-red-200 text-center space-y-4 shadow-sm">
+      <ScholarshipShell>
+        <div className="max-w-md mx-auto my-16 p-8 rounded-2xl bg-white border border-red-200 text-center space-y-4 shadow-xs">
           <ShieldAlert size={36} className="text-red-600 mx-auto" />
           <h2 className="text-lg font-bold text-red-950">Quyền truy cập bị từ chối</h2>
-          <p className="text-xs text-slate-600 leading-relaxed">
+          <p className="text-xs text-gray-600 leading-relaxed">
             Khu vực này yêu cầu tài khoản quản trị viên (Admin) được ủy quyền chính thức.
           </p>
           <Link
             to="/scholarships"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-xs font-bold hover:bg-gray-200"
           >
             <ArrowLeft size={14} />
             <span>Về trang học bổng</span>
@@ -364,7 +364,6 @@ export const AdminScholarships: React.FC = () => {
 
   return (
     <ScholarshipShell
-      activeTab="admin"
       title="Quản trị chiến dịch học bổng"
       subtitle="Bảng điều khiển quản lý quy trình nạp dữ liệu, phê duyệt từng trường thông tin và điều phối công bố học bổng."
       headerActions={

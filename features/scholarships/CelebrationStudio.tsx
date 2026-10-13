@@ -548,6 +548,14 @@ export const CelebrationStudio: React.FC = () => {
     playClick();
 
     try {
+      // Re-verify scholarship records before generating export
+      const recheck = await fetchMyScholarships();
+      if (!recheck.verified || !recheck.awards.some((a) => a.id === currentAward.id)) {
+        alert('Không thể xác minh học bổng hoặc phiên làm việc đã thay đổi. Vui lòng kiểm tra lại từ trang Học bổng của tôi.');
+        setIsExporting(false);
+        return;
+      }
+
       const exportCanvas = document.createElement('canvas');
       const targetW = 1080;
       const targetH = exportRatio === 'story' ? 1920 : 1350;
@@ -588,6 +596,14 @@ export const CelebrationStudio: React.FC = () => {
     setIsExporting(true);
 
     try {
+      // Re-verify scholarship records before sharing
+      const recheck = await fetchMyScholarships();
+      if (!recheck.verified || !recheck.awards.some((a) => a.id === currentAward.id)) {
+        alert('Không thể xác minh học bổng hoặc phiên làm việc đã thay đổi. Vui lòng kiểm tra lại từ trang Học bổng của tôi.');
+        setIsExporting(false);
+        return;
+      }
+
       const exportCanvas = document.createElement('canvas');
       const targetW = 1080;
       const targetH = exportRatio === 'story' ? 1920 : 1350;
@@ -627,9 +643,8 @@ export const CelebrationStudio: React.FC = () => {
 
   return (
     <ScholarshipShell
-      activeTab="celebrate"
-      title="Studio Vinh danh — HUB Celebration"
-      subtitle="Tải ảnh chân dung, tùy biến phong cách kỷ niệm và xuất thiệp vinh danh độ phân giải cao chia sẻ thành tích."
+      title="Studio Vinh danh"
+      subtitle="Thiết kế và tải ảnh vinh danh học bổng cá nhân độ phân giải cao."
     >
       {showVictoryReveal && <ConfettiOverlay onClose={() => setShowVictoryReveal(false)} />}
 

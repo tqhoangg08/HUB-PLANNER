@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Medal, Sparkles, Star } from 'lucide-react';
+import { Award, Medal, Star } from 'lucide-react';
 
 interface ScholarshipBadgeProps {
   awardType: string;
@@ -19,23 +19,23 @@ export const ScholarshipBadge: React.FC<ScholarshipBadgeProps> = ({
   const isFair = norm.includes('khá') || norm.includes('kha');
 
   const sizeClasses = {
-    sm: 'px-2 py-0.5 text-[11px] gap-1',
-    md: 'px-3 py-1 text-xs gap-1.5',
-    lg: 'px-4 py-1.5 text-sm gap-2',
+    sm: 'px-2 py-0.5 text-xs gap-1',
+    md: 'px-2.5 py-1 text-xs gap-1.5',
+    lg: 'px-3 py-1.5 text-sm gap-2',
   }[size];
 
   const iconSize = {
     sm: 12,
-    md: 14,
-    lg: 16,
+    md: 13,
+    lg: 15,
   }[size];
 
   if (isExcellence) {
     return (
       <span
-        className={`inline-flex items-center font-extrabold rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-500 text-amber-950 shadow-sm border border-amber-300/60 ${sizeClasses} ${className}`}
+        className={`inline-flex items-center font-medium rounded-md bg-amber-50 text-amber-800 border border-amber-200 ${sizeClasses} ${className}`}
       >
-        <Sparkles size={iconSize} className="text-amber-800 animate-pulse" />
+        <Star size={iconSize} className="text-amber-600 fill-amber-600/20" />
         <span>{awardType}</span>
       </span>
     );
@@ -44,9 +44,9 @@ export const ScholarshipBadge: React.FC<ScholarshipBadgeProps> = ({
   if (isGood) {
     return (
       <span
-        className={`inline-flex items-center font-bold rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 text-[#0052CC] border border-blue-200/80 shadow-sm ${sizeClasses} ${className}`}
+        className={`inline-flex items-center font-medium rounded-md bg-blue-50 text-blue-800 border border-blue-200 ${sizeClasses} ${className}`}
       >
-        <Medal size={iconSize} className="text-[#0052CC]" />
+        <Medal size={iconSize} className="text-blue-600" />
         <span>{awardType}</span>
       </span>
     );
@@ -55,9 +55,9 @@ export const ScholarshipBadge: React.FC<ScholarshipBadgeProps> = ({
   if (isFair) {
     return (
       <span
-        className={`inline-flex items-center font-semibold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm ${sizeClasses} ${className}`}
+        className={`inline-flex items-center font-medium rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 ${sizeClasses} ${className}`}
       >
-        <Award size={iconSize} className="text-emerald-700" />
+        <Award size={iconSize} className="text-emerald-600" />
         <span>{awardType}</span>
       </span>
     );
@@ -65,9 +65,9 @@ export const ScholarshipBadge: React.FC<ScholarshipBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center font-semibold rounded-full bg-slate-100 text-slate-800 border border-slate-200 shadow-sm ${sizeClasses} ${className}`}
+      className={`inline-flex items-center font-medium rounded-md bg-gray-50 text-gray-700 border border-gray-200 ${sizeClasses} ${className}`}
     >
-      <Star size={iconSize} className="text-slate-600" />
+      <Award size={iconSize} className="text-gray-500" />
       <span>{awardType}</span>
     </span>
   );

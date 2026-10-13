@@ -30,13 +30,19 @@ test('ScholarshipApiError accurately maps standard contract error codes to clear
   assert.match(mapScholarshipErrorCode('RATE_LIMIT', 429), /giới hạn tra cứu/);
 });
 
-test('Scholarship routes are registered in AppRoutes.tsx before catch-all routes', () => {
+test('Scholarship routes are registered in AppRoutes.tsx with /scholarships as default and list/search redirected', () => {
   const routes = readFileSync('app/routing/AppRoutes.tsx', 'utf8');
 
-  // Public and protected scholarship routes present
-  assert.match(routes, /path="\/scholarships" element=\{<ScholarshipLanding \/>\}/);
-  assert.match(routes, /path="\/scholarships\/list" element=\{<ScholarshipList \/>\}/);
-  assert.match(routes, /path="\/scholarships\/search" element=\{<ScholarshipSearch \/>\}/);
+  // Default /scholarships page mounts ScholarshipList
+  assert.match(routes, /path="\/scholarships" element=\{<ScholarshipList \/>\}/);
+
+  // Deep-links /scholarships/list and /scholarships/search redirect to /scholarships preserving query
+  assert.match(routes, /path="\/scholarships\/list" element=\{<ScholarshipRedirect \/>\}/);
+  assert.match(routes, /path="\/scholarships\/search" element=\{<ScholarshipRedirect \/>\}/);
+  assert.match(routes, /ScholarshipRedirect/);
+  assert.match(routes, /location\.search/);
+
+  // Protected & admin routes
   assert.match(routes, /path="\/scholarships\/me"/);
   assert.match(routes, /path="\/scholarships\/celebrate"/);
   assert.match(routes, /path="\/admin\/scholarships"/);
@@ -47,7 +53,45 @@ test('Scholarship routes are registered in AppRoutes.tsx before catch-all routes
   assert.ok(scholarshipPos > 0 && catchAllPos > 0 && scholarshipPos < catchAllPos, 'Scholarships must precede catch-all route');
 });
 
-test('CelebrationStudio enforces 1080x1920 Story and 1080x1350 Feed resolutions and client-side only processing', () => {
+test('Unified ScholarshipList page follows the exact 8-part sequential information architecture and in-table search', () => {
+  const listPage = readFileSync('features/scholarships/ScholarshipList.tsx', 'utf8');
+
+  // 1 & 2: Title & One-sentence description
+  assert.match(listPage, /Danh sách học bổng/);
+  assert.match(listPage, /Tra cứu kết quả học bổng khuyến khích học tập/);
+
+  // 3: Search input
+  assert.match(listPage, /placeholder="Tìm theo họ tên hoặc mã sinh viên\.\.\."/);
+  assert.match(listPage, /searchCampaignRecipients/);
+
+  // Search input debounce and cancellation
+  assert.match(listPage, /setTimeout/);
+  assert.match(listPage, /abortCtrl/);
+
+  // Minimum 2-character requirement guard (does not dispatch 1-char queries to search API)
+  assert.match(listPage, /debouncedQuery\.length === 1/);
+
+  // 4: Filters
+  assert.match(listPage, /campaignSelectId/);
+  assert.match(listPage, /categorySelectId/);
+
+  // 5: Result count
+  assert.match(listPage, /total\.toLocaleString\('vi-VN'\)/);
+
+  // 6: Table & Mobile view with dynamic scoreColumns
+  assert.match(listPage, /scoreColumns/);
+  assert.match(listPage, /formatScoreValue/);
+
+  // 7: Pagination
+  assert.match(listPage, /totalPages/);
+
+  // 8: Official provenance
+  assert.match(listPage, /Nguồn văn bản quyết định/);
+  assert.match(listPage, /sourceDocument/);
+  assert.match(listPage, /sourceUrl/);
+});
+
+test('CelebrationStudio enforces 1080x1920 Story and 1080x1350 Feed resolutions and client-side only processing with server re-verification', () => {
   const studio = readFileSync('features/scholarships/CelebrationStudio.tsx', 'utf8');
 
   // Resolution constants
@@ -71,6 +115,9 @@ test('CelebrationStudio enforces 1080x1920 Story and 1080x1350 Feed resolutions 
   assert.doesNotMatch(studio, /\/api\/upload|\/api\/r2|s3\.amazonaws/i);
   assert.match(studio, /URL\.createObjectURL/);
   assert.match(studio, /URL\.revokeObjectURL/);
+
+  // Re-verifies scholarship before export/share
+  assert.match(studio, /recheck = await fetchMyScholarships\(\)/);
 });
 
 test('ScholarshipMe verifies identity through server API and locks personal recognition to server records', () => {
@@ -83,12 +130,4 @@ test('ScholarshipMe verifies identity through server API and locks personal reco
 
   // Does not accept client-provided fake MSSV or overrides
   assert.doesNotMatch(me, /studentCodeOverride|customAward/);
-});
-
-test('Public search explicitly warns that public queries are not proof of award ownership', () => {
-  const search = readFileSync('features/scholarships/ScholarshipSearch.tsx', 'utf8');
-
-  assert.match(search, /KHÔNG.*được sử dụng làm bằng chứng pháp lý/);
-  assert.match(search, /searchCampaignRecipients/);
-  assert.match(search, /isRateLimited/);
 });

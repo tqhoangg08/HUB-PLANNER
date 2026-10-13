@@ -1,9 +1,18 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 export const DEFAULT_DEV_BACKEND_ORIGIN = 'https://hotrosinhvienhub.id.vn'
+export const DEFAULT_DEV_SCHOLARSHIP_BACKEND_ORIGIN = 'http://127.0.0.1:8787'
+
+export function isScholarshipApiPath(pathname: string): boolean {
+  return /^\/api\/public\/v1\/scholarships(?:\/|$)/.test(pathname) ||
+    /^\/api\/me\/scholarships(?:\/|$)/.test(pathname) ||
+    /^\/api\/admin\/v1\/scholarships(?:\/|$)/.test(pathname)
+}
 
 export function isCloudflareApiPath(pathname: string): boolean {
   return /^\/api\/(?:auth|private|admin)(?:\/|$)/.test(pathname) ||
+    /^\/api\/public\/v1\/scholarships(?:\/|$)/.test(pathname) ||
+    /^\/api\/me\/scholarships(?:\/|$)/.test(pathname) ||
     /^\/api\/events\/[^/]+\/view$/.test(pathname)
 }
 
@@ -12,12 +21,45 @@ export function selectDevApiRoute(pathname: string, localModule: string | null):
   return isCloudflareApiPath(pathname) ? 'cloudflare' : 'not_found'
 }
 
+export function isSafeDevLoopbackOrigin(url: URL): boolean {
+  return url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+}
+
 export function devBackendOrigin(value: string | undefined): string {
   const url = new URL(value || DEFAULT_DEV_BACKEND_ORIGIN)
-  if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error('DEV_BACKEND_ORIGIN must be an HTTPS origin')
+  const isLoopback = isSafeDevLoopbackOrigin(url)
+  if ((url.protocol !== 'https:' && !isLoopback) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('DEV_BACKEND_ORIGIN must be an HTTPS origin or local loopback HTTP origin')
   }
   return url.origin
+}
+
+export function devScholarshipBackendOrigin(value: string | undefined): string {
+  const candidate = value || DEFAULT_DEV_SCHOLARSHIP_BACKEND_ORIGIN
+  return devBackendOrigin(candidate)
+}
+
+export function resolveDevBackendOrigin(
+  pathname: string,
+  env: { DEV_BACKEND_ORIGIN?: string; DEV_SCHOLARSHIP_BACKEND_ORIGIN?: string } = process.env,
+): string {
+  if (isScholarshipApiPath(pathname)) {
+    if (env.DEV_SCHOLARSHIP_BACKEND_ORIGIN) {
+      return devScholarshipBackendOrigin(env.DEV_SCHOLARSHIP_BACKEND_ORIGIN)
+    }
+    if (env.DEV_BACKEND_ORIGIN) {
+      try {
+        const customUrl = new URL(env.DEV_BACKEND_ORIGIN)
+        if (isSafeDevLoopbackOrigin(customUrl)) {
+          return devBackendOrigin(env.DEV_BACKEND_ORIGIN)
+        }
+      } catch {
+        // Fall back to default scholarship backend origin
+      }
+    }
+    return devScholarshipBackendOrigin(undefined)
+  }
+  return devBackendOrigin(env.DEV_BACKEND_ORIGIN)
 }
 
 export function rewriteDevSetCookie(cookie: string): string {

@@ -2,31 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
-  Award,
-  ChevronRight,
+  ArrowRight,
   ExternalLink,
-  GraduationCap,
   HelpCircle,
   Lock,
   LogIn,
   MailCheck,
   RefreshCw,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
-  Trophy,
   UserCheck,
-  XCircle,
 } from 'lucide-react';
 import { ScholarshipShell } from './ScholarshipShell';
 import { ScholarshipBadge } from './ScholarshipBadge';
 import { ConfettiOverlay } from './ConfettiOverlay';
-import { ScoreBadges } from './ScoreBadges';
 import { useUserRole } from '../../hooks/useUserRole';
 import {
   fetchMyScholarships,
   type OwnAward,
   ScholarshipApiError,
+  formatScoreValue,
 } from '../../utils/scholarshipApi';
 import { playClick } from '../../utils/audio';
 
@@ -79,256 +74,251 @@ export const ScholarshipMe: React.FC = () => {
 
   return (
     <ScholarshipShell
-      activeTab="me"
       title="Học bổng của tôi"
-      subtitle="Thành tích học bổng đã được hệ thống xác thực chính chủ gắn liền với tài khoản sinh viên HUB."
+      subtitle="Thành tích học bổng chính thức gắn với tài khoản sinh viên HUB đã xác thực."
     >
       {showConfetti && <ConfettiOverlay onClose={() => setShowConfetti(false)} />}
 
-      {/* State 1: Not Logged In */}
-      {!authLoading && !session && (
-        <div className="max-w-md mx-auto my-12 p-8 rounded-3xl bg-white border border-slate-200 shadow-md text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#0052CC] mx-auto flex items-center justify-center">
-            <Lock size={30} />
-          </div>
-
-          <h2 className="text-xl font-black text-[#003375]">Yêu cầu đăng nhập</h2>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Để đảm bảo tính bảo mật và xác thực danh tính, bạn cần đăng nhập bằng tài khoản sinh viên trường (@st.buh.edu.vn) để kiểm tra quyền nhận học bổng.
-          </p>
-
-          <div className="pt-2">
-            <Link
-              to={`/login?returnTo=${encodeURIComponent(location.pathname)}`}
-              onClick={playClick}
-              className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#0052CC] text-white text-xs font-bold hover:bg-[#0040a8] transition-colors shadow-sm"
-            >
-              <LogIn size={15} />
-              <span>Đăng nhập với email HUB</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Loading state */}
-      {(authLoading || loading) && session && (
-        <div className="py-24 text-center flex flex-col items-center justify-center gap-3">
-          <div className="relative">
-            <div className="w-12 h-12 rounded-full border-4 border-blue-100 border-t-[#0052CC] animate-spin" />
-            <Trophy size={18} className="absolute inset-0 m-auto text-[#0052CC]" />
-          </div>
-          <p className="text-xs font-semibold text-slate-600">Đang kiểm tra và đối chiếu hồ sơ học bổng...</p>
-        </div>
-      )}
-
-      {/* Error State */}
-      {!loading && error && (
-        <div className="max-w-md mx-auto my-12 p-6 rounded-2xl bg-red-50 border border-red-200 text-center space-y-3">
-          <AlertCircle size={32} className="mx-auto text-red-600" />
-          <p className="text-sm font-bold text-red-900">{error}</p>
-          <button
-            type="button"
-            onClick={() => void loadMyAwards()}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-colors"
-          >
-            <RefreshCw size={14} />
-            <span>Thử lại</span>
-          </button>
-        </div>
-      )}
-
-      {/* State 2: Authenticated but Unverified (verified === false) */}
-      {!loading && !error && session && verified === false && (
-        <div className="max-w-xl mx-auto my-8 p-8 rounded-3xl bg-white border border-amber-200 shadow-sm text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-800 mx-auto flex items-center justify-center">
-            <MailCheck size={32} />
-          </div>
-
-          <h2 className="text-xl font-bold text-amber-950">Chưa xác minh email sinh viên</h2>
-          <p className="text-xs text-slate-600 leading-relaxed max-w-md mx-auto">
-            Tài khoản hiện tại của bạn chưa được liên kết hoặc chưa xác minh email sinh viên chính thức của Trường Đại học Ngân hàng TP.HCM (dạng <strong>[12_chữ_số_MSSV]@st.buh.edu.vn</strong>).
-          </p>
-
-          <div className="p-4 rounded-xl bg-amber-50 text-left text-xs text-amber-900 space-y-2 border border-amber-100">
-            <div className="font-bold flex items-center gap-1.5 text-amber-950">
-              <HelpCircle size={15} />
-              <span>Cách giải quyết:</span>
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* State 1: Chưa đăng nhập */}
+        {!authLoading && !session && (
+          <div className="bg-white border border-gray-200 rounded-lg p-6 sm:p-8 text-center space-y-4 shadow-xs">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-[#0052cc] mx-auto flex items-center justify-center">
+              <Lock size={22} />
             </div>
-            <ul className="list-disc list-inside space-y-1 text-amber-900/90 pl-1">
-              <li>Đăng xuất và đăng nhập lại bằng tùy chọn <strong>Google (Email @st.buh.edu.vn)</strong>.</li>
-              <li>Hoặc liên kết email trường và hoàn tất xác thực OTP tại trang Cài đặt tài khoản.</li>
-            </ul>
-          </div>
 
-          <div className="pt-2 flex justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => void loadMyAwards()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
-            >
-              <RefreshCw size={14} />
-              <span>Kiểm tra lại</span>
-            </button>
-            <Link
-              to="/account"
-              onClick={playClick}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0052CC] text-white text-xs font-bold hover:bg-[#0040a8] transition-colors"
-            >
-              <span>Cài đặt tài khoản</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* State 3: Verified but No Awards (verified === true, awards.length === 0) */}
-      {!loading && !error && session && verified === true && awards.length === 0 && (
-        <div className="max-w-xl mx-auto my-8 p-8 rounded-3xl bg-white border border-slate-200 shadow-sm text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#0052CC] mx-auto flex items-center justify-center">
-            <Trophy size={32} className="text-slate-400" />
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-            <ShieldCheck size={14} />
-            <span>Email sinh viên đã xác minh ({session.user.email})</span>
-          </div>
-
-          <h2 className="text-xl font-bold text-slate-800">Chưa có học bổng trong danh sách công bố</h2>
-          <p className="text-xs text-slate-600 leading-relaxed max-w-md mx-auto">
-            Hệ thống không tìm thấy tên của bạn trong các đợt học bổng đã được công bố chính thức.
-            Nếu bạn vừa đạt giải ở đợt khen thưởng mới nhất, vui lòng đợi đợt dữ liệu được ban giám hiệu phê duyệt và cập nhật.
-          </p>
-
-          <div className="pt-4 flex flex-wrap justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => void loadMyAwards()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
-            >
-              <RefreshCw size={14} />
-              <span>Làm mới dữ liệu</span>
-            </button>
-            <Link
-              to="/scholarships/search"
-              onClick={playClick}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0052CC] text-white text-xs font-bold hover:bg-[#0040a8] transition-colors"
-            >
-              <span>Tra cứu danh sách công khai</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* State 4: Verified with Awards! */}
-      {!loading && !error && session && verified === true && awards.length > 0 && (
-        <div className="space-y-6 max-w-4xl mx-auto animate-fadeIn">
-          {/* Celebratory Banner */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-300 to-yellow-500 text-amber-950 border border-amber-300 shadow-lg shadow-amber-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-900/10 text-amber-950 font-extrabold text-xs">
-                <Sparkles size={14} />
-                <span>CHÚC MỪNG THÀNH TÍCH XUẤT SẮC!</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-                Xin chúc mừng, {awards[0]?.fullName || session.user.user_metadata?.full_name}!
-              </h2>
-              <p className="text-xs sm:text-sm font-semibold text-amber-900/90 max-w-xl">
-                Bạn đã được xác thực nhận <strong>{awards.length}</strong> giải thưởng học bổng chính thức tại Trường Đại học Ngân hàng TP.HCM.
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-gray-900">Yêu cầu đăng nhập tài khoản sinh viên</h2>
+              <p className="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
+                Để bảo vệ quyền riêng tư và xác thực chính xác người nhận học bổng, vui lòng đăng nhập bằng email sinh viên trường HUB.
               </p>
             </div>
 
-            <div className="shrink-0 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  void loadMyAwards();
-                  playClick();
-                }}
-                className="p-3 rounded-2xl bg-white/80 hover:bg-white text-amber-950 font-bold transition-all shadow-xs"
-                title="Làm mới xác minh"
-              >
-                <RefreshCw size={18} />
-              </button>
+            <div className="pt-2">
               <Link
-                to={`/scholarships/celebrate?awardId=${awards[0].id}`}
+                to={`/login?returnTo=${encodeURIComponent(location.pathname)}`}
                 onClick={playClick}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#003375] hover:bg-[#00224f] text-white text-xs font-black shadow-md transition-all active:scale-95"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md bg-[#0052cc] text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-xs"
               >
-                <Sparkles size={16} className="text-amber-300" />
-                <span>Mở Studio Vinh danh</span>
+                <LogIn size={16} />
+                <span>Đăng nhập với email HUB</span>
               </Link>
             </div>
           </div>
+        )}
 
-          {/* List of Verified Awards */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-1 text-xs text-slate-500">
-              <span className="font-bold uppercase tracking-wider text-slate-700">
-                Danh sách học bổng đã xác minh ({awards.length})
-              </span>
-              <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                <ShieldCheck size={14} />
-                <span>Đã xác thực chính chủ</span>
-              </span>
+        {/* Loading State */}
+        {(authLoading || loading) && session && (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-8 h-8 mx-auto border-2 border-gray-200 border-t-[#0052cc] rounded-full animate-spin" />
+            <p className="text-sm text-gray-500">Đang đối chiếu dữ liệu học bổng của bạn...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {!loading && error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} className="text-red-600 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadMyAwards()}
+              className="inline-flex items-center gap-1 text-xs font-medium text-red-900 bg-red-100 hover:bg-red-200 px-3 py-1.5 rounded-md transition-colors"
+            >
+              <RefreshCw size={13} />
+              <span>Thử lại</span>
+            </button>
+          </div>
+        )}
+
+        {/* State 2: Authenticated but email unverified (verified === false) */}
+        {!loading && !error && session && verified === false && (
+          <div className="bg-white border border-amber-200 rounded-lg p-6 sm:p-8 space-y-4 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-700 shrink-0 flex items-center justify-center mt-0.5">
+                <MailCheck size={20} />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-lg font-bold text-gray-900">Email sinh viên chưa được xác minh</h2>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Tài khoản của bạn chưa được liên kết hoặc chưa xác minh địa chỉ email sinh viên chính thức (dạng <strong>[MSSV]@st.buh.edu.vn</strong>).
+                </p>
+              </div>
             </div>
 
-            {awards.map((award) => (
-              <div
-                key={award.id}
-                className="p-6 rounded-3xl bg-white border border-slate-200/90 shadow-xs hover:border-amber-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+            <div className="p-3.5 rounded-md bg-gray-50 border border-gray-200 text-xs text-gray-700 space-y-1.5">
+              <div className="font-semibold text-gray-800 flex items-center gap-1.5">
+                <HelpCircle size={14} className="text-[#0052cc]" />
+                <span>Hướng dẫn kích hoạt:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-gray-600 pl-1">
+                <li>Đăng xuất và đăng nhập lại bằng tùy chọn <strong>Google (Email @st.buh.edu.vn)</strong>.</li>
+                <li>Hoặc liên kết email trường và hoàn tất xác thực OTP tại trang Cài đặt tài khoản.</li>
+              </ul>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => void loadMyAwards()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-100 text-gray-700 text-xs font-medium hover:bg-gray-200 transition-colors"
               >
-                <div className="space-y-2 min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <ScholarshipBadge awardType={award.awardType} size="md" />
-                    <span className="text-xs font-mono font-bold text-slate-500">
-                      #{award.studentCode}
-                    </span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
-                      {award.semester} ({award.schoolYear})
-                    </span>
+                <RefreshCw size={14} />
+                <span>Kiểm tra lại</span>
+              </button>
+              <Link
+                to="/account"
+                onClick={playClick}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#0052cc] text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+              >
+                <span>Cài đặt tài khoản</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* State 3: Verified email but no awards (verified === true, awards.length === 0) */}
+        {!loading && !error && session && verified === true && awards.length === 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg p-6 sm:p-8 text-center space-y-4 shadow-xs">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-200">
+              <ShieldCheck size={14} />
+              <span>Email sinh viên đã xác thực ({session.user.email})</span>
+            </div>
+
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-gray-900">Không tìm thấy hồ sơ học bổng</h2>
+              <p className="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
+                Hệ thống chưa tìm thấy hồ sơ học bổng nào thuộc mã sinh viên của bạn trong các đợt đã công bố chính thức.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => void loadMyAwards()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-100 text-gray-700 text-xs font-medium hover:bg-gray-200 transition-colors"
+              >
+                <RefreshCw size={14} />
+                <span>Làm mới dữ liệu</span>
+              </button>
+              <Link
+                to="/scholarships"
+                onClick={playClick}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#0052cc] text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+              >
+                <span>Tra cứu danh sách chung</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* State 4: Verified with Awards! */}
+        {!loading && !error && session && verified === true && awards.length > 0 && (
+          <div className="space-y-4">
+            {/* Header notification card */}
+            <div className="bg-white border border-gray-200 border-l-4 border-l-[#0052cc] rounded-lg p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-200">
+                    <ShieldCheck size={13} />
+                    <span>Đã xác thực chính chủ</span>
+                  </span>
+                  <span className="text-xs text-gray-500 font-mono">
+                    {session.user.email}
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {awards[0]?.fullName || session.user.user_metadata?.full_name}
+                </h2>
+                <p className="text-xs text-gray-600">
+                  Bạn có <strong>{awards.length}</strong> kết quả học bổng trong các đợt đã công bố.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void loadMyAwards();
+                    playClick();
+                  }}
+                  className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-md border border-gray-200 transition-colors"
+                  title="Làm mới xác minh"
+                  aria-label="Làm mới xác minh"
+                >
+                  <RefreshCw size={16} />
+                </button>
+                <Link
+                  to={`/scholarships/celebrate?awardId=${awards[0].id}`}
+                  onClick={playClick}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#0052cc] text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs"
+                >
+                  <Sparkles size={14} />
+                  <span>Mở Studio Vinh danh</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* List of Awards */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 px-1">
+                Chi tiết học bổng ({awards.length})
+              </h3>
+
+              {awards.map((award) => (
+                <div
+                  key={award.id}
+                  className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shadow-xs space-y-3"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ScholarshipBadge awardType={award.awardType} size="sm" />
+                        <span className="text-xs font-mono text-gray-600">MSSV: {award.studentCode}</span>
+                        <span className="text-xs text-gray-500">
+                          Học kỳ {award.semester} • {award.schoolYear}
+                        </span>
+                      </div>
+                      <h4 className="text-base font-semibold text-gray-900 pt-0.5">
+                        {award.campaignTitle}
+                      </h4>
+                      <div className="text-xs text-gray-600 flex flex-wrap gap-x-3 gap-y-0.5">
+                        {award.className && <span>Lớp: <strong>{award.className}</strong></span>}
+                        {award.major && <span>Ngành: <strong>{award.major}</strong></span>}
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`/scholarships/celebrate?awardId=${award.id}`}
+                      onClick={playClick}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#0052cc] hover:underline shrink-0"
+                    >
+                      <span>Tạo ảnh vinh danh</span>
+                      <ArrowRight size={13} />
+                    </Link>
                   </div>
 
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">
-                    {award.campaignTitle}
-                  </h3>
-
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
-                    <span>Họ tên: <strong className="text-slate-900">{award.fullName}</strong></span>
-                    {award.className && <span>Lớp: <strong className="text-slate-900">{award.className}</strong></span>}
-                    {award.major && <span>Ngành: <strong className="text-slate-900">{award.major}</strong></span>}
-                  </div>
-
-                  {/* Render any approved scores */}
+                  {/* Approved scores */}
                   {award.scores && Object.keys(award.scores).length > 0 && (
-                    <div className="pt-2 flex flex-wrap gap-2 text-xs">
-                      {Object.entries(award.scores).map(([key, val]) => (
+                    <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-2 text-xs">
+                      {Object.entries(award.scores).map(([k, val]) => (
                         <span
-                          key={key}
-                          className="px-2.5 py-1 rounded-lg bg-blue-50 text-[#003375] font-semibold text-[11px]"
+                          key={k}
+                          className="px-2 py-0.5 rounded bg-gray-50 border border-gray-200 text-gray-700 text-[11px]"
                         >
-                          {key}: <strong>{val !== null ? String(val) : '—'}</strong>
+                          {k}: <strong>{formatScoreValue(val)}</strong>
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
-
-                {/* Celebrate CTA button for this specific award */}
-                <div className="shrink-0 sm:border-l sm:border-slate-100 sm:pl-6 flex flex-col justify-center">
-                  <Link
-                    to={`/scholarships/celebrate?awardId=${award.id}`}
-                    onClick={playClick}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-950 font-extrabold text-xs hover:brightness-105 transition-all shadow-2xs active:scale-95 whitespace-nowrap"
-                  >
-                    <Sparkles size={15} />
-                    <span>Tạo ảnh vinh danh</span>
-                    <ChevronRight size={14} />
-                  </Link>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </ScholarshipShell>
   );
 };

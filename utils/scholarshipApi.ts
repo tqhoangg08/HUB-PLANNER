@@ -203,12 +203,14 @@ export interface PaginatedAuditEvents {
 export class ScholarshipApiError extends Error {
   readonly status: number;
   readonly code?: string;
+  readonly retryAfter?: number;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, retryAfter?: number) {
     super(message);
     this.name = 'ScholarshipApiError';
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -239,7 +241,10 @@ const parseErrorResponse = async (response: Response): Promise<ScholarshipApiErr
     }
   }
 
-  return new ScholarshipApiError(response.status, message, code);
+  const retryHeader = response.headers.get('retry-after');
+  const retryAfter = retryHeader ? parseInt(retryHeader, 10) : undefined;
+
+  return new ScholarshipApiError(response.status, message, code, retryAfter);
 };
 
 export const mapScholarshipErrorCode = (code: string, status: number): string => {
