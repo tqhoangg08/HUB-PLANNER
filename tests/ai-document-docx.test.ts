@@ -46,6 +46,73 @@ test('native Word keeps table cell associations and explicitly declared vertical
   assert.match(result.markdown,/\| Tài chính – Ngân hàng \| 747\.000 \|/);
   assert.equal(result.counts.tableRows,3);assert.match(result.markdown,/Bảng 1 \(thứ tự bảng trong DOCX\)/);
 });
+
+test('standard/TABP plan repeated continuation text is accepted only when exactly equal to merge origin',()=>{
+  const rows='<w:tr>'+cell('Chương trình','<w:vMerge w:val="restart"/>')+cell('01/09/2026')+'</w:tr><w:tr>'+cell('Chương trình','<w:vMerge/>')+cell('02/09/2026')+'</w:tr>';
+  const result=extractNativeDocx(archive(table(rows)));
+  assert.equal(result.counts.tableRows,2);assert.match(result.markdown,/02\/09\/2026/);
+  assert.throws(()=>extractNativeDocx(archive(table(rows.replace('Chương trình</w:t></w:r></w:p></w:tc><w:tc><w:tcPr></w:tcPr><w:p><w:r><w:t>02','Chương trình khác</w:t></w:r></w:p></w:tc><w:tc><w:tcPr></w:tcPr><w:p><w:r><w:t>02')))),/MERGE_CONFLICT/);
+});
+
+const numberXml=(format='bullet',label='●',start='1')=>`<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:abstractNum w:abstractNumId="7"><w:lvl w:ilvl="0"><w:start w:val="${start}"/><w:numFmt w:val="${format}"/><w:lvlText w:val="${label}"/></w:lvl></w:abstractNum><w:num w:numId="2"><w:abstractNumId w:val="7"/></w:num></w:numbering>`;
+const numbered=(text:string)=>`<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr></w:pPr><w:r><w:t>${text}</w:t></w:r></w:p>`;
+test('TABP/tuition OOXML bullets and decimal start labels use actual numbering, missing definitions still reject',()=>{
+  const body=numbered('Ngày 01/09/2026')+numbered('747.000 đồng');
+  assert.match(extractNativeDocx(archive(body,{'word/numbering.xml':strToU8(numberXml())})).markdown,/● Ngày/);
+  const decimal=extractNativeDocx(archive(body,{'word/numbering.xml':strToU8(numberXml('decimal','%1.','4'))})).markdown;
+  assert.match(decimal,/4\. Ngày/);assert.match(decimal,/5\. 747\.000/);
+  assert.throws(()=>extractNativeDocx(archive(body)),/NUMBERING_MISSING/);
+  assert.throws(()=>extractNativeDocx(archive(body,{'word/numbering.xml':strToU8(numberXml('decimal','%2.'))})),/NUMBERING_UNSUPPORTED/);
+});
+
+test('numbering honors OOXML overrides and style inheritance, not guessed sequences',()=>{
+  const definition=numberXml('decimal','%1.','1').replace('<w:abstractNumId w:val="7"/></w:num>','<w:abstractNumId w:val="7"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="8"/></w:lvlOverride></w:num>');
+  const styles='<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:styleId="base"><w:pPr><w:numPr><w:numId w:val="2"/></w:numPr></w:pPr></w:style><w:style w:styleId="child"><w:basedOn w:val="base"/></w:style></w:styles>';
+  const body='<w:p><w:pPr><w:pStyle w:val="child"/></w:pPr><w:r><w:t>Nội dung theo nguồn</w:t></w:r></w:p>';
+  const result=extractNativeDocx(archive(body,{'word/numbering.xml':strToU8(definition),'word/styles.xml':strToU8(styles)}));
+  assert.match(result.markdown,/8\. Nội dung theo nguồn/);
+  assert.throws(()=>extractNativeDocx(archive(body,{'word/styles.xml':strToU8(styles.replace('w:val="base"','w:val="child"'))})),/STYLE_UNSUPPORTED/);
+});
+
+test('known VML horizontal rule is decoration; actual images/textbox and spoofed namespace are never silently omitted',()=>{
+  const rule='<w:p><w:r><w:pict><v:rect style="width:0.0pt;height:1.5pt" o:hr="t" o:hrstd="t"/></w:pict></w:r></w:p>';
+  const doc=(r:string)=>zipSync({'word/document.xml':strToU8(wrap(p('Table source')+r).replace('<w:document ','<w:document xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" '))});
+  assert.match(extractNativeDocx(doc(rule)).markdown,/Table source/);
+  assert.throws(()=>extractNativeDocx(doc(rule.replace('/></w:pict>','><v:imagedata/></v:rect></w:pict>'))),/NON_TEXT/);
+  assert.throws(()=>extractNativeDocx(doc(rule.replace('v:rect','v:shape'))),/NON_TEXT/);
+  assert.throws(()=>extractNativeDocx(archive(p('source')+'<w:p><w:r><w:drawing/></w:r></w:p>')),/NON_TEXT/);
+  const spoof=zipSync({'word/document.xml':strToU8(wrap(p('source')+rule).replace('<w:document ','<w:document xmlns:v="urn:attacker" xmlns:o="urn:schemas-microsoft-com:office:office" '))});
+  assert.throws(()=>extractNativeDocx(spoof),/NON_TEXT/);
+});
+
+test('header/footer image or substantive text requires review; cached PAGE decoration alone is safe',()=>{
+  const footer=(content:string)=>strToU8(`<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${content}</w:ftr>`);
+  const pageField='<w:p><w:r><w:instrText> PAGE </w:instrText></w:r><w:r><w:t>1</w:t></w:r></w:p>';
+  assert.doesNotThrow(()=>extractNativeDocx(archive(p('Source'),{'word/footer1.xml':footer(pageField)})));
+  assert.throws(()=>extractNativeDocx(archive(p('Source'),{'word/footer1.xml':footer(p('Phí bổ sung: 10.000 đồng'))})),/HEADER_FOOTER/);
+  assert.throws(()=>extractNativeDocx(archive(p('Source'),{'word/footer1.xml':footer('<w:p><w:r><w:drawing/></w:r></w:p>')})),/HEADER_FOOTER/);
+});
+
+test('invalid grid offsets and conflicting spans cannot cause an unbounded loop or column drift',()=>{
+  assert.throws(()=>extractNativeDocx(archive(table('<w:tr><w:trPr><w:gridBefore w:val="99999999"/></w:trPr>'+cell('Value')+'</w:tr>'))),/SPAN_INVALID/);
+  assert.throws(()=>extractNativeDocx(archive(table('<w:tr>'+cell('A','<w:gridSpan w:val="2"/><w:vMerge w:val="restart"/>')+'</w:tr><w:tr>'+cell('A','<w:vMerge/>')+cell('B')+'</w:tr>'))),/MERGE_CONFLICT/);
+});
+
+test('examination regulations retain all 52 semantic Word units and reject over-budget documents',()=>{
+  const body=Array.from({length:52},(_,i)=>p(`Điều ${i+1}. Nội dung gốc ${i+1}`)).join('');
+  const result=extractNativeDocx(archive(body));assert.equal(result.pages.length,52);
+  assert.match(result.markdown,/Điều 52\./);assert.doesNotMatch(result.markdown,/## Trang/);
+  assert.throws(()=>extractNativeDocx(archive(Array.from({length:129},(_,i)=>p(`Điều ${i+1}. Source`)).join(''))),/UNIT_LIMIT/);
+});
+
+test('tuition shaped 27-table/446-row fixture retains every row and numerical association',()=>{
+  let index=0;
+  const body=Array.from({length:27},(_,i)=>table(Array.from({length:i===26?30:16},()=>{
+    const id=++index;return '<w:tr>'+cell(`Chương trình ${id}`)+cell(`${id}.000 đồng`)+'</w:tr>';
+  }).join(''))).join('');
+  const result=extractNativeDocx(archive(body));assert.equal(result.counts.tables,27);assert.equal(result.counts.tableRows,446);
+  for(let id=1;id<=446;id++)assert.match(result.markdown,new RegExp(`\\| Chương trình ${id} \\| ${id}\\.000 đồng \\|`));
+});
 test('native Word cannot guess conflicting merged cells, tracked changes, auto numbering or embedded objects',()=>{
   for(const body of ['<w:ins>'+p('new')+'</w:ins>','<w:p><w:pPr><w:numPr/></w:pPr></w:p>','<w:altChunk/>',table('<w:tr>'+cell('not empty','<w:vMerge/>')+cell('x')+'</w:tr>')])
     assert.throws(()=>extractNativeDocx(archive(body)),/DOCX_/);

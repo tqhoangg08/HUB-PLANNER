@@ -1,5 +1,6 @@
 import type { RetrievalCache } from './ai-advisor-cache.ts';
 import type { RetrievalProvider } from './ai-advisor-providers.ts';
+import {AI_DOCUMENT_MAX_SEGMENTS} from '../../../shared/ai-document-limits.ts';
 
 export type AiSearchBackend = 'TEXT' | 'OCR';
 
@@ -184,7 +185,7 @@ const normalizeResults = (
     ? itemKey.match(/\/page-(\d{3})\.md$/) : itemKey.match(new RegExp(`^${documentId}-page-(\\d{3})\\.md$`));
   const pageNumber = pageMatch ? Number(pageMatch[1]) : 0;
   return [{ sourceId: '', documentId, snippet, score, backend, chunkId, itemKey,
-    ...(pageNumber>=1&&pageNumber<=40 && documents.find(d=>d.id===documentId)?.locatorKind!=='word_unit' ? {pageNumber}: {}) }];
+    ...(pageNumber>=1&&pageNumber<=AI_DOCUMENT_MAX_SEGMENTS && documents.find(d=>d.id===documentId)?.locatorKind!=='word_unit' ? {pageNumber}: {}) }];
 });
 
 /** Staging experiments reuse the runtime's post-authorization and locator contract. */

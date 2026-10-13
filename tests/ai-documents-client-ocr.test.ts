@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { AiDocumentOcrError, assertPdfOcrPageLimit, hasUsablePdfText, AI_DOCUMENT_OCR_MAX_PAGES } from '../utils/aiDocumentOcr.ts';
+import { AiDocumentOcrError, assertPdfOcrPageLimit, hasUsablePdfText, AI_DOCUMENT_OCR_MAX_PAGES,initializeOcrWorker } from '../utils/aiDocumentOcr.ts';
 import { sha256AiDocumentBlob } from '../cloudflare/worker/src/ai-documents.ts';
 
 const source = (path: string) => readFileSync(path, 'utf8');
@@ -9,13 +9,29 @@ const source = (path: string) => readFileSync(path, 'utf8');
 test('searchable PDFs skip OCR while image-only PDFs take the client OCR path', () => {
   assert.equal(hasUsablePdfText(['Đây là lớp văn bản có thể tìm kiếm. '.repeat(8)]), true);
   assert.equal(hasUsablePdfText(['  ', 'x']), false);
-  assert.equal(AI_DOCUMENT_OCR_MAX_PAGES, 40);
+  assert.equal(AI_DOCUMENT_OCR_MAX_PAGES, 128);
 });
 
 test('page limit applies only after a PDF needs OCR', () => {
   assert.doesNotThrow(() => assertPdfOcrPageLimit(80, false));
-  assert.throws(() => assertPdfOcrPageLimit(80, true), AiDocumentOcrError);
+  assert.doesNotThrow(() => assertPdfOcrPageLimit(79, true));
+  assert.throws(() => assertPdfOcrPageLimit(129, true), AiDocumentOcrError);
+  assert.throws(() => assertPdfOcrPageLimit(129, false), AiDocumentOcrError);
   assert.doesNotThrow(() => assertPdfOcrPageLimit(40, true));
+});
+
+test('OCR initialization handles success, failure, deadline and cancellation without leaking a late worker',async()=>{
+  let terminated=0;const worker={terminate:async()=>{terminated++;}};
+  assert.equal(await initializeOcrWorker(async()=>worker,undefined,100),worker);
+  await assert.rejects(()=>initializeOcrWorker(async()=>{throw Error('load failed');}),/load failed/);
+  let resolve!:(w:typeof worker)=>void;
+  const pending=new Promise<typeof worker>(r=>{resolve=r;});
+  await assert.rejects(()=>initializeOcrWorker(()=>pending,undefined,5),AiDocumentOcrError);
+  resolve(worker);await new Promise(r=>setTimeout(r,0));assert.equal(terminated,1);
+  const abort=new AbortController();let release!:(w:typeof worker)=>void;
+  const cancelled=initializeOcrWorker(()=>new Promise(r=>{release=r;}),abort.signal,100);
+  abort.abort();await assert.rejects(()=>cancelled,{name:'AbortError'});
+  release(worker);await new Promise(r=>setTimeout(r,0));assert.equal(terminated,2);
 });
 
 test('OCR derivative hash belongs to extracted text, not the original PDF', async () => {

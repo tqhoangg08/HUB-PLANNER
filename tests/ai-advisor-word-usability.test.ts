@@ -187,7 +187,9 @@ test('Gemini reconciliation distinguishes poll outage, absent/wrong receipt, ver
     await refreshOperation(env,row,async()=>result);assert.equal(writes,0);
   }
   await refreshOperation(env,row,async()=>({done:true,response:{documentName:'fileSearchStores/stage/documents/x'}}));
-  assert.equal(writes,1);assert.equal(bindings[1],'completed');assert.equal(bindings.at(-1),'r');
+  assert.equal(writes,1);assert.equal(bindings[1],'completed');assert.equal(bindings.at(-2),'r');assert.equal(bindings.at(-1),'completed');
+  // Search readiness now participates in CAS too: Gemini cannot downgrade
+  // concurrent all-page completion or make a partial revision serveable.
   await refreshOperation(env,row,async()=>({done:true,error:{code:500}}));assert.equal(writes,2);assert.equal(bindings[1],'failed');
   await refreshOperation(env,{...row,gemini_operation_name:null},async()=>{throw Error('must not call');});assert.equal(writes,2);
   await refreshOperation(env,{...row,deleted_at:'deleted'},async()=>{throw Error('must not call');});assert.equal(writes,2);

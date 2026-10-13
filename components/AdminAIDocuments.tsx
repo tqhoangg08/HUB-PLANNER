@@ -142,6 +142,8 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
       if (isPdfDocument(file)) {
         setOcrProgress({ current: 0, total: 0, percent: 0, stage: 'analyzing' });
         const inspection = await inspectPdfTextLayer(file, ocrAbort.signal);
+        const ocrPages=inspection.pages.filter(p=>p.requiresOcr).length;
+        if(ocrPages>40&&!(await showConfirm(`Có ${ocrPages} trang cần OCR. Xử lý tuần tự theo lô nhỏ, có thể mất nhiều phút; đóng tab sẽ hủy. Không lập chỉ mục bản thiếu trang. Tiếp tục?`)))return;
         setOcrProgress({ current: 0, total: inspection.pageCount, percent: 0, stage: 'ocr' });
         ocr = await runPdfOcrInBrowser(file, (current, total, percent) => {
             setOcrProgress({ current, total, percent, stage: 'ocr' });
