@@ -143,6 +143,7 @@ import {
   handleAiAdvisor,
   type AiAdvisorEnv,
 } from './ai-advisor.ts';
+import {handleAdminAiTextDocuments} from './ai-text-documents.ts';
 import {
   aiDocumentsErrorStatus,
   AiDocumentsError,
@@ -1335,9 +1336,11 @@ const worker = {
       }
     }
 
-    if (requestUrl.pathname === '/api/admin/v1/ai-documents') {
+    if (requestUrl.pathname === '/api/admin/v1/ai-documents' || requestUrl.pathname === '/api/admin/v1/ai-text-documents') {
       try {
-        const payload = await handleAdminAiDocuments(request, requestUrl, env);
+        const payload = requestUrl.pathname === '/api/admin/v1/ai-text-documents'
+          ? await handleAdminAiTextDocuments(request, requestUrl, env)
+          : await handleAdminAiDocuments(request, requestUrl, env);
         return json(payload, request.method === 'POST' ? 202 : 200, {
           ...cors,
           'Cache-Control': 'private, no-store',

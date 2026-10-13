@@ -1,6 +1,7 @@
 /** Isolated acceptance app. This entrypoint is never referenced by production Wrangler. */
 import {createAuthForProfile,handleInternalSession,allowsIntegrationSyntheticCredentialRequest,type AuthRuntimeProfile,type AuthRuntimeEnv} from '../../../auth-production-worker/src/auth-production.ts';
 import {handleAdminAiDocuments,handleAiDocumentFile,handleAiDocumentSource, type AiDocumentsEnv} from '../ai-documents.ts';
+import {handleAdminAiTextDocuments} from '../ai-text-documents.ts';
 import {handleAiAdvisor,aiAdvisorErrorStatus,type AiAdvisorEnv} from '../ai-advisor.ts';
 import {requireBetterAuthSession,requireBetterAuthStaff} from '../better-auth-identity.ts';
 import {readRoutingProbeProfile,routingProbeConfig,injectedGeminiFailure} from './advisor-routing-probe.ts';
@@ -45,6 +46,7 @@ export default {
       if(url.pathname==='/api/staging/ocr-review')return handleStagingOcrReview(request,{...shared,DB:env.DB,AI_DOCUMENTS_BUCKET:env.AI_DOCUMENTS_BUCKET,STAGING_ORIGIN:env.STAGING_ORIGIN,STAGING_OCR_PROMOTION_ENABLED:env.STAGING_OCR_PROMOTION_ENABLED},instance);
       if(url.pathname==='/api/staging/reprocess'&&request.method==='POST')return rehearseStagingReprocess(request,{...shared,DB:env.DB,AI_DOCUMENTS_BUCKET:env.AI_DOCUMENTS_BUCKET},instance);
       if(url.pathname==='/api/user/v1/policy-consents')return json(await handlePrivatePolicyConsent(request,shared));
+      if(url.pathname==='/api/admin/v1/ai-text-documents')return json(await handleAdminAiTextDocuments(request,url,shared));
       if(url.pathname==='/api/admin/v1/ai-documents'){
         const result=await handleAdminAiDocuments(request,url,shared);
         if(request.method==='POST'&&'document' in result&&result.document){

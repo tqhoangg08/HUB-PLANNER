@@ -8,13 +8,14 @@ import {
 import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { parsePreparedPdfPages, storeDerivedPdfPages, buildDerivedPageObjectKey, isCompleteDerivedRevision } from './ai-document-ingestion.ts';
 import {prepareNativeDocx,DOCX_MIME,DocxExtractionError} from './ai-document-docx.ts';
+import {TEXT_FIRST_PIPELINE} from '../../../shared/ai-document-text.ts';
 
 export interface AiDocumentsEnv extends BetterAuthIdentityEnv {
   DB?: D1Database;
   AI_DOCUMENTS_BUCKET?: R2Bucket;
   GEMINI_FILE_SEARCH_API_KEY?: string;
   GEMINI_FILE_SEARCH_STORE?: string;
-  AI_ADVISOR_SEARCH?: { get(name:string): {search(request:unknown):Promise<{chunks?:unknown[]}>;items?:Pick<AiSearchItems,'list'>} };
+  AI_ADVISOR_SEARCH?: { get(name:string): {search(request:unknown):Promise<{chunks?:unknown[]}>;items?:Pick<AiSearchItems,'list'> & Partial<Pick<AiSearchItems,'upload'>>} };
 }
 
 export class AiDocumentsError extends Error {
@@ -196,6 +197,7 @@ export const updateAiDocument = async (env: AiDocumentsEnv, id: string, patch: R
 
 export const refreshOperation = async (env: AiDocumentsEnv, document: AiDocumentRow,
   readOperation?: (name:string)=>Promise<{done?:boolean;error?:unknown;response?:{documentName?:string}}>) => {
+  if(document.extraction_pipeline_version===TEXT_FIRST_PIPELINE)return document;
   if (document.deleted_at || !document.gemini_operation_name || !['uploading', 'processing', 'failed'].includes(String(document.gemini_indexing_status || document.indexing_status))) return document;
   try {
     const persistedOperation = new UploadToFileSearchStoreOperation();
@@ -224,6 +226,8 @@ export const refreshOperation = async (env: AiDocumentsEnv, document: AiDocument
 /** Read-only index check. A stored object / Gemini completion is not proof
  * that AI Search has indexed every page of the current revision. */
 export const refreshAiSearchDocument = async (env:AiDocumentsEnv, document:AiDocumentRow) => {
+  // Text-first requires explicit publication; old GET/retry cannot promote its draft.
+  if(document.extraction_pipeline_version===TEXT_FIRST_PIPELINE)return document;
   if(document.ai_search_status!=='derived_ready'||!document.ai_search_revision||!env.AI_ADVISOR_SEARCH)return document;
   const pages=Number(document.ocr_page_count);
   if(!Number.isInteger(pages)||pages<1||pages>40)return document;
@@ -430,6 +434,7 @@ const retryDocument = async (body: { id?: unknown }, env: AiDocumentsEnv) => {
   const id = String(body.id || '');
   const document = await findAiDocument(env, id);
   if (!document || document.indexing_status !== 'failed') throw new AiDocumentsError(409, 'Chỉ có thể thử lại tài liệu đang lỗi.');
+  if(document.extraction_pipeline_version===TEXT_FIRST_PIPELINE)throw new AiDocumentsError(409,'Hãy quản lý revision văn bản trong trình soạn thảo.');
   const sourcePath = document.ocr_text_path || document.storage_path;
   const object = await downloadAiDocumentStorage(env, String(sourcePath));
   return indexAiDocumentBlob(env, document, new Blob([await object.arrayBuffer()], {
@@ -442,6 +447,7 @@ const updatePublicViewPolicy = async (body: { id?: unknown; publicViewPolicy?: u
   const document = await findAiDocument(env, id);
   if (!document) throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
   const settings = parseAiDocumentPublicViewSettings(body.publicViewPolicy, body.officialSourceUrl);
+  if(document.extraction_pipeline_version===TEXT_FIRST_PIPELINE)throw new AiDocumentsError(409,'Revision văn bản chỉ được công bố qua trình soạn thảo.');
   const updated = await updateAiDocument(env, id, {
     public_view_policy: settings.publicViewPolicy,
     official_source_url: settings.officialSourceUrl,
@@ -454,6 +460,7 @@ const deleteDocument = async (url: URL, env: AiDocumentsEnv) => {
   const id = String(url.searchParams.get('id') || '');
   const document = await findAiDocument(env, id);
   if (!document) throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
+  if(document.extraction_pipeline_version===TEXT_FIRST_PIPELINE)throw new AiDocumentsError(409,'MVP giữ nguyên lịch sử văn bản; không xóa qua luồng file.');
   await updateAiDocument(env, id, { indexing_status: 'deleting' });
   try {
     if (document.gemini_document_name) await aiClient(env).ai.fileSearchStores.documents.delete({ name: String(document.gemini_document_name), config: { force: true } });

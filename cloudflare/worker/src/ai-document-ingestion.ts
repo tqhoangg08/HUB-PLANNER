@@ -6,6 +6,7 @@ import {
   type DerivedIndexSourceKind,
 } from './ai-document-index-identity.ts';
 import { assessDocumentPageText, normalizeDocumentText } from '../../../shared/ai-document-text-quality.ts';
+import {AI_DOCUMENT_MAX_SEGMENTS,AI_DOCUMENT_RECEIPTS_PER_PAGE} from '../../../shared/ai-document-limits.ts';
 
 /**
  * Local-only production contract for pre-search document ingestion.
@@ -309,9 +310,28 @@ export const storeDerivedPdfPages = async (bucket: DerivedStorageBucket, documen
  * provider-wide completed count or another document's ready item. */
 export const isCompleteDerivedRevision = (document:{id:string;revision:string;pages:number;visibility:string},
   items:readonly {key:string;status?:string;metadata?:Record<string,unknown>}[]) => {
-  if(!Number.isInteger(document.pages)||document.pages<1||document.pages>40)return false;
+  if(!Number.isInteger(document.pages)||document.pages<1||document.pages>AI_DOCUMENT_MAX_SEGMENTS)return false;
   const ready=new Set(items.filter((item)=>item.status==='completed'&&item.metadata?.document_id===document.id
     &&item.metadata?.revision===document.revision&&item.metadata?.visibility===document.visibility
     &&(item.metadata?.active===true||item.metadata?.active==='true')).map((item)=>item.key));
   return Array.from({length:document.pages},(_,i)=>buildDerivedPageObjectKey(document.id,document.revision,i+1)).every((key)=>ready.has(key));
 };
+
+/** Bounded exact-revision receipts; never promote a partial first page. */
+export type DerivedReceiptLister={list(params:{page:number;per_page:number;metadata_filter:string}):Promise<{
+  result:Array<{key:string;status?:string;metadata?:Record<string,unknown>}>;
+  result_info?:{page:number;per_page:number;total_count:number};
+}>};
+export async function listDerivedRevisionReceipts(items:DerivedReceiptLister,document:{id:string;revision:string;pages:number;visibility:string}) {
+  if(!Number.isInteger(document.pages)||document.pages<1||document.pages>AI_DOCUMENT_MAX_SEGMENTS)throw Error('SEGMENT_COUNT_INVALID');
+  const receipts:Parameters<typeof isCompleteDerivedRevision>[1][number][]=[];
+  for(let page=1;page<=Math.ceil(AI_DOCUMENT_MAX_SEGMENTS/AI_DOCUMENT_RECEIPTS_PER_PAGE);page++){
+    const response=await items.list({page,per_page:AI_DOCUMENT_RECEIPTS_PER_PAGE,metadata_filter:JSON.stringify({document_id:document.id,revision:document.revision})});
+    if(!Array.isArray(response.result)||response.result.length>AI_DOCUMENT_RECEIPTS_PER_PAGE)throw Error('RECEIPT_METADATA_INVALID');
+    const info=response.result_info;
+    if(info&&(info.page!==page||info.per_page!==AI_DOCUMENT_RECEIPTS_PER_PAGE||!Number.isInteger(info.total_count)||info.total_count<0))throw Error('RECEIPT_PAGINATION_INVALID');
+    receipts.push(...response.result);
+    if(isCompleteDerivedRevision(document,receipts)||response.result.length<AI_DOCUMENT_RECEIPTS_PER_PAGE||info&&page*AI_DOCUMENT_RECEIPTS_PER_PAGE>=info.total_count)break;
+  }
+  return receipts;
+}
