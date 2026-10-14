@@ -120,6 +120,7 @@ export const ScholarshipList: React.FC = () => {
   const message = campaignError || error || (slugParam && !selected && !loadingCampaigns
     ? 'Đợt học bổng đã chọn chưa được công bố hoặc không còn khả dụng.' : '');
   const busy = loadingCampaigns || loading || pendingInput;
+  const renderSearchInput = (compact = false) => <input id={`${id}-${compact ? 'compact-query' : 'query'}`} aria-label={compact ? 'Họ tên / MSSV' : undefined} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} />;
   const renderFilter = (key: ScholarshipFilterKey, label: string, emptyLabel: string) => {
     const supported = facets?.supportedFilters.includes(key);
     const values = facets?.facets[key].options || [];
@@ -145,7 +146,10 @@ export const ScholarshipList: React.FC = () => {
       <section aria-label="Tra cứu sinh viên nhận học bổng">
         <div className={`scholarship-surface scholarship-filters${filtersCollapsed ? ' is-collapsed' : ''}`}>
           <div className="scholarship-filter-heading">
-            <p>Bộ lọc</p>
+            <div className="scholarship-filter-heading-main">
+              <p>Bộ lọc</p>
+              {filtersCollapsed && <div className="scholarship-compact-search">{renderSearchInput(true)}</div>}
+            </div>
             <div className="scholarship-filter-actions">
               <button type="button" className="scholarship-filter-reset scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
               <button type="button" className="scholarship-filter-toggle scholarship-button" aria-expanded={!filtersCollapsed} aria-controls={`${id}-filters`} aria-label={filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn bộ lọc'} onClick={() => setFiltersCollapsed(collapsed => !collapsed)}>{filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn'}</button>
@@ -155,7 +159,7 @@ export const ScholarshipList: React.FC = () => {
             <div className="scholarship-filter-controls">
               <div className="scholarship-filter-grid">
                 <div className="scholarship-field"><label htmlFor={`${id}-query`}>Họ tên / MSSV</label>
-                  <input id={`${id}-query`} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} />
+                  {renderSearchInput()}
                 </div>
                 {renderFilter('major', 'Ngành học', 'Tất cả ngành')}
                 {renderFilter('className', 'Lớp', 'Tất cả lớp')}

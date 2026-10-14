@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ArrowLeft, Award, BookOpen, ChevronLeft, ChevronRight, GraduationCap, ListFilter, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Award, BookOpen, ChevronLeft, ChevronRight, GraduationCap, ListFilter, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { useUserRole } from '../../hooks/useUserRole';
 import './scholarship.css';
 
@@ -45,7 +45,6 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
         <button className="scholarship-menu scholarship-button" type="button" aria-expanded={menuOpen} aria-controls="scholarship-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
         <nav id="scholarship-navigation" aria-label="Điều hướng học bổng" className={menuOpen ? 'is-open' : ''}>
           {navigation.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/scholarships'} aria-label={label} title={label} onClick={() => setMenuOpen(false)} className={({ isActive }) => `scholarship-nav-link${isActive ? ' is-active' : ''}`}><Icon size={16} aria-hidden="true" /><span className="scholarship-nav-label">{label}</span></NavLink>)}
-          <Link to="/dashboard" className="scholarship-back" aria-label="Quay lại HUB Planner" title="Quay lại HUB Planner" onClick={() => setMenuOpen(false)}><ArrowLeft size={16} aria-hidden="true" /><span className="scholarship-nav-label">Quay lại HUB Planner</span></Link>
         </nav>
         <button type="button" className="scholarship-collapse scholarship-button" aria-expanded={!collapsed} aria-controls="scholarship-navigation" aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'} title={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'} onClick={() => setCollapsed(value => !value)}>{collapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronLeft size={16} aria-hidden="true" />}<span className="scholarship-nav-label">Thu gọn</span></button>
       </aside>
