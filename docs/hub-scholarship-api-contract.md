@@ -219,7 +219,7 @@ Input (trusted offline XLSX/CSV preparation output):
 }
 ```
 
-Mapping values are **source header names**, max 120 characters. Columns cannot be mapped ambiguously to multiple fields.
+Mapping values are **source header names**, max 120 characters. Columns cannot be mapped ambiguously to multiple independent fields. For v1.1 source compatibility, the mandatory legacy awardType mapping may explicitly reuse either the scholarshipType or scholarshipRank source column; the two independent fields must still use distinct columns. This is an explicit source mapping, not an inferred fallback.
 Scores: required array (may be empty), max 16; unique keys `^[a-z][a-zA-Z0-9_]{0,31}$`; labels max 120.
 Rows: 1..2000 per complete snapshot; sourceRowNumber unique positive integer <= 1,000,000; values max 40 columns;
 all mapped columns must exist; scalar cells only, text <= 500, finite numbers.
@@ -359,7 +359,7 @@ Response:
 
 supportedFilters requires both source mapping and approval. Options are DISTINCT nonempty approved values, sorted by SQLite BINARY, paginated independently per facet with a common page/limit request. There is no hard-coded catalog or silent truncation. Each facet ignores only its **own** selected filter and applies q plus every other condition. Thus class options depend on selected major/cohort/type/rank. totalRecipients uses **all** selected filters, exactly like recipients/search. Null values are excluded from options but retained as null in recipients.
 
-Maximum source snapshot remains 2000 rows; options therefore have at most 2000 distinct values per field. Metadata returns strings only, not recipient rows. At most eleven bounded SQL statements per supported facets call (one count plus two per facet); unapproved facets execute no option query. Snapshot-first indexes bound scans; cohort/major/class has a composite index. q substring scans stay bounded to the active snapshot. Filter/facets requests share the existing 60/minute/IP binding; 429 preserves Retry-After. No raw filters/PII are logged.
+Maximum source snapshot remains 2000 rows; options therefore have at most 2000 distinct values per field. Metadata returns strings only, not recipient rows. At most eleven bounded result/option SQL statements per supported facets call (one count plus two per facet), plus one publication lookup; unapproved facets execute no option query. Snapshot-first indexes bound scans; cohort/major/class has a composite index. q substring scans stay bounded to the active snapshot. Filter/facets requests share the existing 60/minute/IP binding; 429 preserves Retry-After. No raw filters/PII are logged.
 
 Frontend should fetch all metadata pages if needed, cancel stale requests, disable controls until metadata is loaded, preserve selected values if the new conjunction has no results, and show zero results rather than clear another condition silently. Reset recipient page on filter changes; preserve unrelated URL parameters. Fetch recipients page-by-page, never load the whole recipient dataset for filtering.
 

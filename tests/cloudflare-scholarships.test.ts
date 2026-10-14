@@ -357,3 +357,10 @@ test('additive 0057 preserves a v1.0 preview checksum and permits later apply', 
   const result=await handleAdminScholarships(req,new URL(req.url),{DB:sqliteD1(sqlite),AUTH_SERVICE:{fetch:async()=>Response.json(owner)}} as never);
   assert.equal(result.campaign.status,'validated');
 });
+
+test('explicit legacy label may reuse one source type or rank column but independent fields cannot share', async () => {
+  const base={...input(),mapping:{...mapping,scholarshipType:'Program',scholarshipRank:'Loại'},rows:input().rows.map(row=>({...row,values:{...row.values,Program:'KKHT'}}))};
+  const result=await validateScholarshipImport(base);assert.equal(result.errors.length,0);assert.equal(result.rows[0].scholarshipType,'KKHT');assert.equal(result.rows[0].scholarshipRank,'Giỏi');
+  await assert.rejects(validateScholarshipImport({...base,mapping:{...base.mapping,scholarshipType:'Loại'}}),/AMBIGUOUS_COLUMN_MAPPING/);
+  await assert.rejects(validateScholarshipImport({...base,mapping:{...base.mapping,cohort:'Loại'}}),/AMBIGUOUS_COLUMN_MAPPING/);
+});
