@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {tuitionPaymentCondition,retrieveTuitionConditionEvidence,resolveTuitionConditionAnswer} from '../cloudflare/worker/src/ai-advisor-tuition-condition.ts';
 import {executeAiAdvisorV2Document,type AiAdvisorV2Candidate} from '../cloudflare/worker/src/ai-advisor-v2-runtime.ts';
-import {buildTuitionConditionDependencies,createAuthorizedSegmentReader,areDocumentEvidenceRevisionsCurrent,type CompletenessEnv} from '../cloudflare/worker/src/ai-advisor-completeness-config.ts';
+import {buildTuitionConditionDependencies,createAuthorizedSegmentReader,createAuthorizedTextSourceReader,areDocumentEvidenceRevisionsCurrent,type CompletenessEnv} from '../cloudflare/worker/src/ai-advisor-completeness-config.ts';
 import {buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-ingestion.ts';
 import {evaluateAdvisorQuota} from '../cloudflare/worker/src/ai-advisor-quota.ts';
 import {extractOfficialDocumentLocators} from '../cloudflare/worker/src/gemini-file-search.ts';
@@ -133,13 +133,64 @@ test('actual publication-to-Advisor path with SQLite and real ingestion contract
     const env:AiAdvisorEnv={...f.env,AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'100',
       AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',
       advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorReleaseTelemetry:{record:e=>emitted.push(e)},
-      advisorV2AiSearchClient:{async search(){calls++;const unit=calls===1?7:10;return {chunks:[{id:`c-${calls}`,score:0.9,text:unit===10?body:'Thông tin học phí khác',
+      advisorV2AiSearchClient:{async search(){calls++;const unit=calls===1?7:3;return {chunks:[{id:`c-${calls}`,score:0.9,text:'Thông tin học phí khác',
         item:{key:buildDerivedPageObjectKey(id,String(row.ai_search_revision),unit),metadata:{document_id:id,revision:row.ai_search_revision,visibility:'public',active:true}}}]};}}};
     const request=new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor',{method:'POST',headers:{Cookie:'fixture=opaque','Content-Type':'application/json'},body:JSON.stringify({question:q})});
     const result=await handleAiAdvisor(request,new URL(request.url),env) as {reply:string;documentSources:Array<{documentId:string;title:string;pageNumber:number|null;locators?:string[]}>};
     assert.match(result.reply,/Giảm 5%/);assert.equal(result.documentSources.length,1);
     assert.equal(result.documentSources[0].documentId,id);assert.equal(result.documentSources[0].title,'Quy định học phí fixture');
     assert.equal(result.documentSources[0].pageNumber,null);assert.ok(result.documentSources[0].locators?.includes('Bảng 4'));
-    assert.equal(calls,3);assert.ok(emitted[0].r2_reads!<=3);
+    assert.equal(calls,3);assert.equal(emitted[0].r2_reads,1);
+  }finally{f.sql.close();}
+});
+
+test('verified original bypasses vector omission and provider faults without inventing sources',async()=>{
+  for(const fault of [false,true]){
+    let searches=0,originalReads=0;
+    const result=await executeAiAdvisorV2Document(q,[document],{quota:evaluateAdvisorQuota(undefined),aiSearchInstances:{text:'fixture',ocr:'fixture'},
+      aiSearchClient:{async search(){searches++;if(fault)throw new Error('provider unavailable');return {chunks:[chunk(7),chunk(7),chunk(3)]};}},
+      tuitionConditionContent:async()=>{assert.fail('no vector R2 reads when verified original is available');},
+      tuitionConditionOriginal:async s=>{assert.equal(s.documentId,ID);assert.equal(s.revision,revision);originalReads++;return Array.from({length:10},(_,i)=>({number:i+1,text:i===9?body:`Điều ${i+1}. Nội dung khác` }));}});
+    assert.equal(result.kind,'ANSWER');assert.equal(searches,fault?1:3);assert.equal(originalReads,1);
+    if(result.kind==='ANSWER'){assert.match(result.answer.reply,/Giảm 5%/);assert.equal(result.answer.evidence[0].unitNumber,10);assert.equal(result.answer.evidence[0].revision,revision);}
+  }
+});
+test('original matching is not ordinal/rate-specific; absent and conflicting conditions abstain',async()=>{
+  for(const [text,expected]of [['Bảng 9. Chính sách\nĐóng học phí 4 kỳ trở lên — Giảm 7%',true],
+    ['Đóng học phí 3 kỳ trở lên — Giảm 5%',false],['Đóng học phí 4 kỳ trở lên — Giảm 7%\nĐóng học phí 4 kỳ trở lên — Giảm 9%',false],
+    ['Đóng học phí 4 kỳ trở lên — Giảm 7% nếu đủ điều kiện bổ sung',false]] as const){
+    const question='Đóng học phí 4 kỳ trở lên được giảm bao nhiêu?';
+    const retrieved=await retrieveTuitionConditionEvidence(question,[document],async()=>({chunks:[]}),async()=>null,async()=>[{number:6,text}]);
+    const answer=resolveTuitionConditionAnswer(question,retrieved.sources.map(s=>({...s,revision})));
+    assert.equal(Boolean(answer),expected);if(answer)assert.match(answer.reply,/Giảm 7%/);
+  }
+});
+test('source reader checks actual SQLite publication, immutable bytes/hash/revision and concurrent revocation',async()=>{
+  const f=textFixture();try{
+    const saved=await f.save(body,{title:'Học phí',category:'tuition',visibility:'public'}) as {revision:{id:string}};const id=saved.revision.id;
+    await f.ready(id);const r=f.sql.prepare('SELECT ai_search_revision FROM ai_documents WHERE id=?').get(id)!;
+    const read=createAuthorizedTextSourceReader(f.env),s={documentId:id,revision:String(r.ai_search_revision)};
+    assert.equal(await read(s),null); // ready draft is NOT published
+    await f.call({action:'publish',revisionId:id,confirmation:'PUBLISH_REVIEWED_TEXT',expectedLiveDocumentId:null});
+    assert.equal((await read(s))?.[0].text,body);
+    const raw=f.sql.prepare('SELECT storage_path FROM ai_documents WHERE id=?').get(id)!,key=String(raw.storage_path),o=f.objects.get(key)!;
+    const good=o.bytes;o.bytes=new TextEncoder().encode(body.replace('5%','9%'));assert.equal(await read(s),null);o.bytes=good;
+    assert.equal(await createAuthorizedTextSourceReader(f.env)({documentId:id,revision:'v1-stale'}),null);
+    const bucket=f.env.AI_DOCUMENTS_BUCKET!;
+    const changed={...f.env,AI_DOCUMENTS_BUCKET:{async get(k:string){const result=await bucket.get(k);f.sql.prepare("UPDATE ai_documents SET visibility='admin' WHERE id=?").run(id);return result;}}} as CompletenessEnv;
+    assert.equal(await createAuthorizedTextSourceReader(changed)(s),null);
+  }finally{f.sql.close();}
+});
+test('original and segment readers share R2 budget; oversized originals and noncanonical paths fail before R2',async()=>{
+  const f=textFixture();try{
+    const saved=await f.save(body,{title:'Học phí',category:'tuition',visibility:'public'}) as {revision:{id:string}};const id=saved.revision.id;
+    await f.ready(id);await f.call({action:'publish',revisionId:id,confirmation:'PUBLISH_REVIEWED_TEXT',expectedLiveDocumentId:null});
+    const r=f.sql.prepare('SELECT ai_search_revision FROM ai_documents WHERE id=?').get(id)!,s={documentId:id,revision:String(r.ai_search_revision)};
+    const deps=buildTuitionConditionDependencies(f.env,q);
+    assert.ok(await deps.tuitionConditionOriginal!(s));assert.ok(await deps.tuitionConditionContent!({documentId:id,itemKey:buildDerivedPageObjectKey(id,s.revision,1)}));
+    assert.ok(await deps.tuitionConditionOriginal!(s));assert.equal(await deps.tuitionConditionOriginal!(s),null);
+    let reads=0;const original=f.env.AI_DOCUMENTS_BUCKET!;
+    const env={...f.env,AI_DOCUMENTS_BUCKET:{async get(k:string){reads++;return original.get(k);}}} as CompletenessEnv;
+    f.sql.prepare('UPDATE ai_documents SET file_size=1048577 WHERE id=?').run(id);assert.equal(await createAuthorizedTextSourceReader(env)(s),null);assert.equal(reads,0);
   }finally{f.sql.close();}
 });

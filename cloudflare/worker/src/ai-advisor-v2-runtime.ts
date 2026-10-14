@@ -57,6 +57,7 @@ export type AiAdvisorV2Dependencies = {
   completenessSearch?: (request: CompletenessSearchRequest) => Promise<{chunks?: import('./ai-search-retrieval.ts').AiSearchRawChunk[]}>;
   pageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
   tuitionConditionContent?: (source:{documentId:string;itemKey:string})=>Promise<string|null>;
+  tuitionConditionOriginal?: (source:{documentId:string;revision:string})=>Promise<readonly {number:number;text:string}[]|null>;
   aiSearchClient?: AiSearchClient;
   aiSearchInstances?: AiSearchInstanceNames;
   onRetrievalError?: AiSearchRetrievalErrorReporter;
@@ -168,7 +169,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: conditionPath?'tuition-condition-vector-v1':dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: conditionPath?'tuition-condition-source-v2':dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -180,13 +181,15 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: conditionPath?'tuition-condition-vector-v1':dependencies.completenessSearch?'completeness-word-native-v5':'ai-search-word-native-topk3-threshold04-v4',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: conditionPath?'tuition-condition-source-v2':dependencies.completenessSearch?'completeness-word-native-v5':'ai-search-word-native-topk3-threshold04-v4',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
     const selectedProvider=conditionPath?{retrieve:()=>retrieveTuitionConditionEvidence(question,conditionDocuments,
       r=>conditionDeadline!.run(()=>dependencies.aiSearchClient!.search(dependencies.aiSearchInstances!.text,r)),
-      s=>conditionDeadline!.run(()=>dependencies.tuitionConditionContent!(s)))}
+      s=>conditionDeadline!.run(()=>dependencies.tuitionConditionContent!(s)),
+      conditionDocuments.length===1&&conditionDocuments[0].extractionPipelineVersion==='admin-text-structured-v1'&&dependencies.tuitionConditionOriginal
+        ?s=>conditionDeadline!.run(()=>dependencies.tuitionConditionOriginal!(s)):undefined)}
       :dependencies.completenessSearch?{retrieve:()=>retrieveAiSearchCompleteEvidence(question,allowed,dependencies.completenessSearch!,dependencies.pageContent)}:provider;
     retrieved = await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, selectedProvider, {
       question,

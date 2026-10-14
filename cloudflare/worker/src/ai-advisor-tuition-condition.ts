@@ -28,7 +28,8 @@ const conditionMatches=(question:string,line:string)=>{
  * known segment numbers or index configuration changes are injected. */
 export async function retrieveTuitionConditionEvidence(question:string,documents:readonly AiSearchAuthorizedDocument[],
   search:(r:CompletenessSearchRequest)=>Promise<{chunks?:AiSearchRawChunk[]}>,
-  read:(source:{documentId:string;itemKey:string})=>Promise<string|null>):Promise<AiSearchRetrievalResult>{
+  read:(source:{documentId:string;itemKey:string})=>Promise<string|null>,
+  original?:(source:{documentId:string;revision:string})=>Promise<readonly {number:number;text:string}[]|null>):Promise<AiSearchRetrievalResult>{
   const start=Date.now(),condition=tuitionPaymentCondition(question);
   const scoped=documents.filter(d=>d.active!==false&&d.visibility==='public'&&d.category==='tuition'&&typeof d.revision==='string');
   // No legal/version precedence is inferred between competing fee sources.
@@ -36,11 +37,23 @@ export async function retrieveTuitionConditionEvidence(question:string,documents
   if(!condition||!filters)return {sources:[],rawChunkCount:0,searchCallCount:0,backends:[],latencyMs:0};
   const byId=new Map(scoped.map(d=>[d.id,d])),chunks:AiSearchRawChunk[]=[];
   let searchCalls=0;
-  for(const [index,query]of [question.slice(0,2000),...condition.queries].entries()){
+  try{for(const [index,query]of [question.slice(0,2000),...condition.queries].entries()){
     searchCalls++;
     const response=await search({query,ai_search_options:{retrieval:{retrieval_type:'vector',match_threshold:0.4,max_num_results:index===0?3:5,filters}}});
     if(response.chunks&&!Array.isArray(response.chunks))throw new TypeError('Invalid AI Search chunks response.');
     chunks.push(...(response.chunks||[]).slice(0,index===0?3:5));
+  }}catch(error){if(!original)throw error;} // A verified source is independent of vector/provider availability.
+  if(original){
+    // Text-first original is immutable, hash/revision/publication verified by
+    // the server reader. Scan lossless segments, not guessed keys or topK.
+    // Include every matching condition to detect contradictory rows; never
+    // truncate multiple matches into one apparently certain answer.
+    const d=scoped[0],segments=await original({documentId:d.id,revision:String(d.revision)});
+    const matches=segments?.filter(s=>s.text.split(/\r?\n/).some(l=>conditionMatches(question,l)))||[];
+    if(matches.length>3)return {sources:[],rawChunkCount:chunks.length,searchCallCount:searchCalls,backends:['TEXT'],latencyMs:Date.now()-start};
+    const sources=matches.map((s,i)=>({sourceId:`S${i+1}`,documentId:d.id,snippet:s.text,score:null,backend:'TEXT' as const,
+      chunkId:`source-unit-${s.number}`,itemKey:buildDerivedPageObjectKey(d.id,String(d.revision),s.number)}));
+    return {sources,rawChunkCount:chunks.length,searchCallCount:searchCalls,backends:['TEXT'],latencyMs:Date.now()-start};
   }
   const authorized=chunks.filter(c=>{const m=c.item?.metadata,d=byId.get(String(m?.document_id)),ordinal=Number(String(c.item?.key).match(/\/page-(\d{3})\.md$/)?.[1]);
     return d&&m?.visibility==='public'&&(m.active===true||m.active==='true')&&m.revision===d.revision
