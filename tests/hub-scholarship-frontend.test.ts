@@ -9,10 +9,11 @@ import {
   fetchCampaignRecipients,
   searchCampaignRecipients,
   fetchMyScholarships,
+  fetchCampaignFacets,
   type Campaign,
   type OwnAward,
 } from '../utils/scholarshipApi.ts';
-import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipLoginReturn } from '../utils/scholarshipListModel.ts';
+import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipLoginReturn, resetScholarshipFilters } from '../utils/scholarshipListModel.ts';
 import { refreshedOwnAward } from '../utils/scholarshipCelebrationModel.ts';
 
 test('ScoreBadges faithfully formats scores without coercing null to zero or assuming /4.0 scale', () => {
@@ -205,4 +206,33 @@ test('search sends filters to backend and personal API sends cookies without cli
     await fetchMyScholarships(controller.signal);
     assert.equal(calls[1].url, '/api/me/scholarships'); assert.equal(calls[1].init.credentials, 'include');
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test('combined filters reset pagination and clearing preserves campaign and unrelated URL state', () => {
+  const before=new URLSearchParams('campaign=hk1&q=An&scholarshipType=KKHT&scholarshipRank=Giỏi&major=Kế+toán&className=C1&cohort=K24&page=4&limit=30&ref=share');
+  const changed=updateScholarshipParams(before,{cohort:'K23',page:''});assert.equal(changed.get('major'),'Kế toán');assert.equal(changed.has('page'),false);
+  const cleared=resetScholarshipFilters(changed);assert.equal(cleared.get('campaign'),'hk1');assert.equal(cleared.get('ref'),'share');assert.equal(cleared.get('limit'),'30');assert.equal(cleared.has('q'),false);assert.equal(cleared.has('scholarshipType'),false);assert.equal(cleared.has('cohort'),false);
+});
+
+test('recipient/search clients send every independent AND filter without legacy alias inference', async () => {
+  const original=globalThis.fetch;const calls:string[]=[];globalThis.fetch=(async input=>{calls.push(String(input));return Response.json({});}) as typeof fetch;
+  try { const filters={q:'Đặng',scholarshipType:'KKHT',scholarshipRank:'Giỏi',major:'Kế toán',className:'C1',cohort:'K24',page:2,limit:20};
+    await fetchCampaignRecipients('hk1',filters);await searchCampaignRecipients('hk1',filters);
+    for(const path of calls){ const params=new URL(path,'https://test.invalid').searchParams;for(const [key,value] of Object.entries(filters))assert.equal(params.get(key),String(value));assert.equal(params.has('awardType'),false); }
+  }finally{globalThis.fetch=original;}
+});
+
+test('facet adapter paginates metadata and rejects incompatible contracts rather than invent options', async () => {
+  const original=globalThis.fetch;const calls:string[]=[];
+  globalThis.fetch=(async input=>{calls.push(String(input));const page=calls.length;return Response.json({apiVersion:'1.1.0',campaign:{slug:'hk1'},supportedFilters:['className'],totalRecipients:201,facets:{...Object.fromEntries(['scholarshipType','scholarshipRank','major','cohort'].map(key=>[key,{options:[],total:0,page,limit:200}])),className:{options:page===1?Array.from({length:200},(_,i)=>'C'+i):['C200'],total:201,page,limit:200}}});}) as typeof fetch;
+  try { const result=await fetchCampaignFacets('hk1',{major:'Kế toán',cohort:'K24'});assert.equal(result.facets.className.options.length,201);assert.match(calls[1],/facetPage=2/);assert.equal(new URL(calls[0],'https://test.invalid').searchParams.get('major'),'Kế toán');
+    globalThis.fetch=async()=>Response.json({apiVersion:'1.0.0'});await assert.rejects(fetchCampaignFacets('hk1'),/chưa sẵn sàng/);
+    globalThis.fetch=async()=>Response.json({apiVersion:'1.1.0',supportedFilters:[],facets:{}});await assert.rejects(fetchCampaignFacets('hk1'),/không hợp lệ/);
+  }finally{globalThis.fetch=original;}
+});
+
+test('Better Auth display avatar/name survives role reconciliation without trusting a client role', async () => {
+  const {fetchBetterAuthSession}=await import('../utils/privateApi.ts');const original=globalThis.fetch;
+  globalThis.fetch=async path=>Response.json(String(path)==='/api/auth/get-session'?{session:{id:'synthetic'},user:{id:'owner',email:'student@st.buh.edu.vn',name:'Tên từ Better Auth',image:'https://example.test/avatar.png',role:'admin'}}:{userId:'owner',email:'student@st.buh.edu.vn',role:'user'});
+  try { const result=await fetchBetterAuthSession();assert.equal(result?.user.user_metadata.name,'Tên từ Better Auth');assert.equal(result?.user.user_metadata.avatar_url,'https://example.test/avatar.png');assert.equal(result?.role,'user'); } finally {globalThis.fetch=original;}
 });

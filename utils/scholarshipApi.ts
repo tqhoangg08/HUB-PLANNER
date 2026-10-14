@@ -40,6 +40,9 @@ export interface Recipient {
   awardType: string;
   className: string | null;
   major: string | null;
+  scholarshipType: string | null;
+  scholarshipRank: string | null;
+  cohort: string | null;
   scores: Record<string, number | string | null>;
   gpa: number | string | null;
   trainingScore: number | string | null;
@@ -181,6 +184,7 @@ export interface PaginatedImportRows {
 export interface ImportMapping {
   studentCode: string; fullName: string; awardType: string;
   className?: string; major?: string; sourceIdentifier?: string;
+  scholarshipType?: string; scholarshipRank?: string; cohort?: string;
   scores: { key: string; column: string; label: string }[];
 }
 
@@ -331,16 +335,53 @@ export const fetchCampaignSummary = async (
   return response.json();
 };
 
+export type ScholarshipFilterKey = 'scholarshipType' | 'scholarshipRank' | 'major' | 'className' | 'cohort';
+export type ScholarshipFilters = Partial<Record<ScholarshipFilterKey | 'q' | 'awardType', string>>;
+export interface CampaignFacets {
+  apiVersion: '1.1.0'; campaign: Campaign; supportedFilters: ScholarshipFilterKey[]; totalRecipients: number;
+  facets: Record<ScholarshipFilterKey, { options: string[]; total: number; page: number; limit: number }>;
+}
+const appendScholarshipFilters = (params: URLSearchParams, filters: ScholarshipFilters) => {
+  for (const key of ['q', 'awardType', 'scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort'] as const)
+    if (filters[key]) params.set(key, filters[key]);
+};
+export const fetchCampaignFacets = async (slug: string, filters: ScholarshipFilters = {}, signal?: AbortSignal): Promise<CampaignFacets> => {
+  let combined: CampaignFacets | undefined;
+  for (let page = 1; page <= 10; page++) {
+    const params = new URLSearchParams({ facetPage: String(page), facetLimit: '200' });
+    appendScholarshipFilters(params, filters);
+    const response = await fetch('/api/public/v1/scholarships/' + encodeURIComponent(slug) + '/facets?' + params, { headers: { Accept: 'application/json' }, signal });
+    if (!response.ok) throw await parseErrorResponse(response);
+    const result: CampaignFacets = await response.json();
+    if (result.apiVersion !== '1.1.0') throw new ScholarshipApiError(503, 'Bộ lọc học bổng chưa sẵn sàng.');
+    const keys: ScholarshipFilterKey[] = ['scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort'];
+    if (!Array.isArray(result.supportedFilters) || result.supportedFilters.some(key => !keys.includes(key)) || !result.facets ||
+      keys.some(key => !result.facets[key])) throw new ScholarshipApiError(503, 'Danh mục bộ lọc không hợp lệ.');
+    if (Object.values(result.facets).some(f => !Number.isSafeInteger(f.total) || f.limit !== 200 || f.page !== page || f.total > 2000 || f.total < 0 ||
+      !Array.isArray(f.options) || f.options.some(value => typeof value !== 'string') || new Set(f.options).size !== f.options.length || f.options.length !== Math.min(200, Math.max(0, f.total - (page - 1) * 200))))
+      throw new ScholarshipApiError(503, 'Không thể tải đầy đủ danh mục bộ lọc.');
+    if (!combined) combined = result;
+    else {
+      if (JSON.stringify(combined.campaign) !== JSON.stringify(result.campaign)) throw new ScholarshipApiError(409, 'Đợt công bố đã thay đổi. Vui lòng thử lại.');
+      for (const key of Object.keys(result.facets) as ScholarshipFilterKey[]) {
+        if (combined.facets[key].total !== result.facets[key].total) throw new ScholarshipApiError(409, 'Danh mục bộ lọc đã thay đổi. Vui lòng thử lại.');
+        combined.facets[key].options.push(...result.facets[key].options);
+      }
+    }
+    if (Object.values(result.facets).every(f => page * f.limit >= f.total)) return combined;
+  }
+  throw new ScholarshipApiError(503, 'Không thể tải đầy đủ danh mục bộ lọc.');
+};
+
 export const fetchCampaignRecipients = async (
   slug: string,
-  options?: { page?: number; limit?: number; awardType?: string; q?: string },
+  options?: ScholarshipFilters & { page?: number; limit?: number },
   signal?: AbortSignal,
 ): Promise<PaginatedRecipients> => {
   const params = new URLSearchParams();
   if (options?.page) params.set('page', String(options.page));
   if (options?.limit) params.set('limit', String(options.limit));
-  if (options?.awardType) params.set('awardType', options.awardType);
-  if (options?.q) params.set('q', options.q);
+  appendScholarshipFilters(params, options || {});
 
   const query = params.toString() ? `?${params.toString()}` : '';
   const response = await fetch(`/api/public/v1/scholarships/${encodeURIComponent(slug)}/recipients${query}`, {
@@ -355,14 +396,14 @@ export const fetchCampaignRecipients = async (
 
 export const searchCampaignRecipients = async (
   slug: string,
-  options: { q: string; page?: number; limit?: number; awardType?: string },
+  options: ScholarshipFilters & { q: string; page?: number; limit?: number },
   signal?: AbortSignal,
 ): Promise<PaginatedRecipients> => {
   const params = new URLSearchParams();
   params.set('q', options.q);
   if (options.page) params.set('page', String(options.page));
   if (options.limit) params.set('limit', String(options.limit));
-  if (options.awardType) params.set('awardType', options.awardType);
+  appendScholarshipFilters(params, options);
 
   const response = await fetch(`/api/public/v1/scholarships/${encodeURIComponent(slug)}/search?${params.toString()}`, {
     method: 'GET',

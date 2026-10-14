@@ -17,6 +17,11 @@ export function updateScholarshipParams(previous: URLSearchParams, changes: Reco
   return next;
 }
 
+export const scholarshipFilterKeys = ['scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort'] as const;
+export function resetScholarshipFilters(previous: URLSearchParams): URLSearchParams {
+  return updateScholarshipParams(previous, Object.fromEntries(['q', 'category', 'awardType', 'page', ...scholarshipFilterKeys].map(key => [key, ''])));
+}
+
 export function scholarshipLoginReturn(value: string | null): string {
   if (!value || /[\\\u0000-\u001f]/.test(value)) return '/dashboard';
   try {

@@ -2,10 +2,10 @@ import React, { useEffect, useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ScholarshipShell } from './ScholarshipShell';
 import {
-  fetchAllPublicCampaigns, fetchCampaignRecipients, fetchCampaignSummary, searchCampaignRecipients,
-  formatScoreValue, ScholarshipApiError, type Campaign, type PaginatedRecipients,
+  fetchAllPublicCampaigns, fetchCampaignRecipients, fetchCampaignFacets, searchCampaignRecipients,
+  formatScoreValue, ScholarshipApiError, type Campaign, type PaginatedRecipients, type CampaignFacets, type ScholarshipFilterKey,
 } from '../../utils/scholarshipApi';
-import { approvedScoreColumns, scholarshipPage, updateScholarshipParams } from '../../utils/scholarshipListModel';
+import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipFilterKeys, resetScholarshipFilters } from '../../utils/scholarshipListModel';
 
 const errorText = (error: unknown) => error instanceof ScholarshipApiError
   ? error.message : 'Không thể kết nối đến hệ thống học bổng. Vui lòng thử lại.';
@@ -14,7 +14,9 @@ export const ScholarshipList: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const query = (params.get('q') || '').trim().normalize('NFC');
   const slugParam = params.get('campaign') || '';
-  const category = params.get('category') || '';
+  const category = params.get('awardType') || params.get('category') || '';
+  const filterKey = JSON.stringify(Object.fromEntries(scholarshipFilterKeys.map(key => [key, params.get(key) || ''])));
+  const filters: Partial<Record<ScholarshipFilterKey, string>> = JSON.parse(filterKey);
   const page = scholarshipPage(params.get('page'));
   const limit = [20, 30, 50].includes(Number(params.get('limit'))) ? Number(params.get('limit')) : 20;
   const [input, setInput] = useState(query);
@@ -25,19 +27,23 @@ export const ScholarshipList: React.FC = () => {
   const [dataKey, setDataKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [categories, setCategories] = useState<string[]>([]);
-  const [summaryError, setSummaryError] = useState(false);
+  const [facets, setFacets] = useState<CampaignFacets | null>(null);
+  const [loadingFacets, setLoadingFacets] = useState(false);
+  const [facetError, setFacetError] = useState('');
   const [retry, setRetry] = useState(0);
   const [retryAt, setRetryAt] = useState(0);
   const [now, setNow] = useState(Date.now());
   const id = useId();
   const selected = slugParam ? campaigns.find(c => c.slug === slugParam) : campaigns[0];
   const slug = selected?.slug || '';
-  const requestKey = JSON.stringify([slug, query, category, page, limit]);
+  const requestKey = JSON.stringify([slug, query, category, filterKey, page, limit]);
   const pendingInput = input.trim().normalize('NFC') !== query;
   const shortQuery = query.length === 1;
   const visibleData = !pendingInput && !shortQuery && dataKey === requestKey ? data : null;
   const scoreColumns = visibleData ? approvedScoreColumns(visibleData.campaign) : [];
+  const detailColumns = (['scholarshipType', 'cohort'] as const).filter(key => visibleData?.campaign.approvedFields.includes(key));
+  const hasRank = visibleData?.campaign.approvedFields.includes('scholarshipRank');
+  const detailLabels = { scholarshipType: 'Loại học bổng', cohort: 'Khóa' };
   const total = visibleData?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const cooldown = Math.max(0, Math.ceil((retryAt - now) / 1000));
@@ -67,19 +73,22 @@ export const ScholarshipList: React.FC = () => {
 
   useEffect(() => {
     const controller = new AbortController();
-    setCategories([]); setSummaryError(false);
-    if (slug) fetchCampaignSummary(slug, controller.signal).then(result => {
-      if (!controller.signal.aborted) setCategories(result.awards.map(a => a.awardType));
-    }).catch(() => { if (!controller.signal.aborted) setSummaryError(true); });
+    setFacets(null); setFacetError(''); setLoadingFacets(false);
+    if (!slug || pendingInput || shortQuery || loadingCampaigns) return () => controller.abort();
+    setLoadingFacets(true);
+    fetchCampaignFacets(slug, { ...JSON.parse(filterKey), q: query || undefined, awardType: category || undefined }, controller.signal).then(result => {
+      if (!controller.signal.aborted) setFacets(result);
+    }).catch(err => { if (!controller.signal.aborted) setFacetError(errorText(err)); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingFacets(false); });
     return () => controller.abort();
-  }, [slug, retry]);
+  }, [slug, filterKey, query, category, pendingInput, shortQuery, loadingCampaigns, retry]);
 
   useEffect(() => {
     const controller = new AbortController();
     setData(null); setError(''); setLoading(false);
     if (!slug || shortQuery || pendingInput || loadingCampaigns) return () => controller.abort();
     setLoading(true);
-    const options = { page, limit, awardType: category || undefined };
+    const options = { ...JSON.parse(filterKey), page, limit, awardType: category || undefined };
     const promise = query ? searchCampaignRecipients(slug, { ...options, q: query }, controller.signal)
       : fetchCampaignRecipients(slug, options, controller.signal);
     promise.then(result => {
@@ -98,7 +107,7 @@ export const ScholarshipList: React.FC = () => {
       }
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [slug, query, category, page, limit, shortQuery, pendingInput, loadingCampaigns, retry, requestKey, setParams]);
+  }, [slug, query, category, filterKey, page, limit, shortQuery, pendingInput, loadingCampaigns, retry, requestKey, setParams]);
 
   useEffect(() => {
     if (retryAt <= Date.now()) return;
@@ -110,10 +119,22 @@ export const ScholarshipList: React.FC = () => {
   const message = campaignError || error || (slugParam && !selected && !loadingCampaigns
     ? 'Đợt học bổng đã chọn chưa được công bố hoặc không còn khả dụng.' : '');
   const busy = loadingCampaigns || loading || pendingInput;
+  const renderFilter = (key: ScholarshipFilterKey, label: string) => {
+    const supported = facets?.supportedFilters.includes(key);
+    const values = facets?.facets[key].options || [];
+    const value = filters[key] || '';
+    return <div className="scholarship-field" key={key}><label htmlFor={`${id}-${key}`}>{label}</label>
+      <select id={`${id}-${key}`} className="scholarship-input" value={value} disabled={disabled || loadingFacets || !supported} onChange={e => update({ [key]: e.target.value, page: '' })}>
+        <option value="">{loadingFacets || pendingInput || loadingCampaigns ? 'Đang tải...' : facetError ? 'Không tải được danh mục' : supported ? 'Tất cả' : 'Chưa có dữ liệu công bố'}</option>
+        {value && !values.includes(value) && <option value={value}>{value}</option>}
+        {values.map(option => <option key={option}>{option}</option>)}
+      </select>
+    </div>;
+  };
   return (
     <ScholarshipShell title="Danh sách sinh viên nhận học bổng" subtitle="Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ." headerActions={
       <div className="scholarship-field scholarship-term"><label htmlFor={`${id}-term`}>Học kỳ / Năm học</label>
-        <select id={`${id}-term`} className="scholarship-input" value={slugParam || slug} disabled={loadingCampaigns || !campaigns.length} onChange={e => update({ campaign: e.target.value, category: '', page: '' })}>
+        <select id={`${id}-term`} className="scholarship-input" value={slugParam || slug} disabled={loadingCampaigns || !campaigns.length} onChange={e => { const campaign = e.target.value; setInput(''); setParams(previous => { const next = resetScholarshipFilters(previous); next.set('campaign', campaign); return next; }); }}>
           {!campaigns.length && <option value="">{loadingCampaigns ? 'Đang tải học kỳ...' : campaignError ? 'Không tải được học kỳ' : 'Chưa có đợt công bố'}</option>}
           {slugParam && !selected && <option value={slugParam}>Đợt không khả dụng</option>}
           {campaigns.map(c => <option value={c.slug} key={c.slug}>{c.semester} / {c.schoolYear} — {c.title}</option>)}
@@ -123,36 +144,41 @@ export const ScholarshipList: React.FC = () => {
       <section aria-label="Tra cứu sinh viên nhận học bổng">
         <div className="scholarship-surface scholarship-filters">
           <div className="scholarship-filter-grid">
-            <div className="scholarship-field"><label htmlFor={`${id}-query`}>Tra cứu sinh viên</label>
+            <div className="scholarship-field"><label htmlFor={`${id}-query`}>Tra cứu MSSV hoặc họ tên</label>
               <input id={`${id}-query`} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} />
             </div>
-            <div className="scholarship-field"><label htmlFor={`${id}-award`}>Xếp loại học bổng</label>
-              <select id={`${id}-award`} className="scholarship-input" value={category} disabled={disabled || summaryError} onChange={e => update({ category: e.target.value, page: '' })}>
-                <option value="">Tất cả xếp loại</option>
-                {[...new Set([...categories, ...(category ? [category] : [])])].map(value => <option key={value}>{value}</option>)}
-              </select>
-            </div>
+            {renderFilter('scholarshipType', 'Loại học bổng')}
+            {renderFilter('scholarshipRank', 'Xếp loại học bổng')}
           </div>
-          {summaryError && <p role="status" className="scholarship-note">Chưa tải được xếp loại học bổng. <button className="scholarship-button" onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
+          <div className="scholarship-filter-secondary">
+            {renderFilter('major', 'Ngành học')}
+            {renderFilter('className', 'Lớp')}
+            {renderFilter('cohort', 'Khóa')}
+            <button className="scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
+          </div>
+          {facetError && <p role="status" className="scholarship-note">Không tải được danh mục bộ lọc. <button className="scholarship-button" onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
         </div>
         <div className="scholarship-surface scholarship-table-surface" aria-busy={busy}>
           {message ? <div className="scholarship-status" role="alert"><p>{message}</p><button className="scholarship-button" disabled={cooldown > 0} onClick={() => setRetry(n => n + 1)}>{cooldown ? `Thử lại sau ${cooldown} giây` : 'Thử lại'}</button></div>
             : busy ? <div className="scholarship-skeleton" role="status"><span className="sr-only">Đang tải danh sách học bổng...</span><div aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <div className="scholarship-skeleton-row" key={i}>{Array.from({ length: 4 }, (_, j) => <span key={j} />)}</div>)}</div></div>
             : !campaigns.length ? <div className="scholarship-status" role="status">Chưa có danh sách học bổng được công bố.</div>
             : shortQuery ? <div className="scholarship-status" role="status">Nhập ít nhất 2 ký tự để tra cứu.</div>
-            : visibleData && !total ? <div className="scholarship-status" role="status">{query || category ? 'Không tìm thấy sinh viên phù hợp với bộ lọc.' : 'Đợt công bố này chưa có sinh viên nhận học bổng.'}</div>
+            : visibleData && !total ? <div className="scholarship-status" role="status">{query || category || Object.values(filters).some(Boolean) ? 'Không tìm thấy sinh viên phù hợp với bộ lọc.' : 'Đợt công bố này chưa có sinh viên nhận học bổng.'}</div>
             : visibleData && <>
               <div className="scholarship-table-scroll" tabIndex={0} role="region" aria-label="Bảng sinh viên nhận học bổng">
                 <table className="scholarship-table"><caption className="sr-only">Danh sách sinh viên nhận học bổng — {visibleData.campaign.title}</caption><thead><tr>
                   {['STT', 'MSSV', 'Họ và tên', 'Mã lớp SV', 'Ngành học'].map(label => <th scope="col" key={label}>{label}</th>)}
-                  {scoreColumns.map(c => <th scope="col" key={c.key} className="scholarship-number">{c.label}</th>)}<th scope="col">Xếp loại HB</th>
+                  {detailColumns.map(key => <th scope="col" key={key}>{detailLabels[key]}</th>)}
+                  {scoreColumns.map(c => <th scope="col" key={c.key} className="scholarship-number">{c.label}</th>)}<th scope="col">{hasRank ? 'Xếp loại HB' : 'Kết quả học bổng'}</th>
                 </tr></thead><tbody>{visibleData.recipients.map((r, i) => <tr key={r.id}>
                   <td className="scholarship-number">{(page - 1) * limit + i + 1}</td><td>{r.studentCode}</td><td>{r.fullName}</td><td>{r.className || '—'}</td><td>{r.major || '—'}</td>
-                  {scoreColumns.map(c => <td key={c.key} className="scholarship-number">{formatScoreValue(r.scores[c.key])}</td>)}<td>{r.awardType}</td>
+                  {detailColumns.map(key => <td key={key}>{r[key] || '—'}</td>)}
+                  {scoreColumns.map(c => <td key={c.key} className="scholarship-number">{formatScoreValue(r.scores[c.key])}</td>)}<td>{hasRank ? r.scholarshipRank || '—' : r.awardType}</td>
                 </tr>)}</tbody></table>
               </div>
-              <div className="scholarship-mobile-list">{visibleData.recipients.map((r, i) => <details key={r.id}><summary>{(page - 1) * limit + i + 1}. {r.fullName}<small>{r.studentCode} · {r.awardType}</small></summary><dl>
+              <div className="scholarship-mobile-list">{visibleData.recipients.map((r, i) => <details key={r.id}><summary>{(page - 1) * limit + i + 1}. {r.fullName}<small>{r.studentCode} · {hasRank ? r.scholarshipRank || '—' : r.awardType}</small></summary><dl>
                 <dt>Mã lớp SV</dt><dd>{r.className || '—'}</dd><dt>Ngành học</dt><dd>{r.major || '—'}</dd>
+                {detailColumns.map(key => <React.Fragment key={key}><dt>{detailLabels[key]}</dt><dd>{r[key] || '—'}</dd></React.Fragment>)}
                 {scoreColumns.map(c => <React.Fragment key={c.key}><dt>{c.label}</dt><dd>{formatScoreValue(r.scores[c.key])}</dd></React.Fragment>)}
               </dl></details>)}</div>
             </>}

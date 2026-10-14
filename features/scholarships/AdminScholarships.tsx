@@ -892,6 +892,7 @@ export const AdminScholarships: React.FC = () => {
                         {[
                           ...(candidate?.mapping.className ? ['className'] : []),
                           ...(candidate?.mapping.major ? ['major'] : []),
+                          ...(['scholarshipType', 'scholarshipRank', 'cohort'] as const).filter(key => candidate?.mapping[key]),
                           ...(candidate?.mapping.scores.map(score => `scores.${score.key}`) || []),
                         ].map((field) => (
                           <label

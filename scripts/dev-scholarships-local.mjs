@@ -31,7 +31,7 @@ const mf = new Miniflare({ modules: true, script: bundle.outputFiles[0].text,
   compatibilityDate: '2026-07-29', d1Databases: ['DB'], bindings: { ALLOWED_ORIGINS: 'http://localhost:3000,http://127.0.0.1:3000' },
   serviceBindings: { AUTH_SERVICE: auth }, outboundService: () => Response.json({ error: 'QA outbound disabled' }, { status: 503 }) });
 const db = await mf.getD1Database('DB');
-for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql']) {
+for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql']) {
   const sql = await readFile(new URL('../cloudflare/migrations/' + file, import.meta.url), 'utf8');
   const statements = sql.replace(/--[^\n]*/g, '').match(/CREATE TRIGGER[\s\S]*?END;|(?:CREATE|ALTER)[\s\S]*?;/g);
   await db.batch(statements.map(sql => db.prepare(sql)));
@@ -46,19 +46,22 @@ for (const [slug, semester, schoolYear] of [['synthetic-hk1', 'HK1', '2026-2027'
   await admin('', { slug, title: 'Đợt kiểm thử cục bộ', schoolYear, semester });
   const preview = await admin(`/${slug}/imports/preview`, { sourceSha256: 'a'.repeat(64), sourceFilename: 'synthetic.csv',
     mapping: { studentCode: 'Code', fullName: 'Name', awardType: 'Award', className: 'Class', major: 'Major',
+      scholarshipType: 'Program', scholarshipRank: 'ScholarshipRank', cohort: 'Cohort',
       scores: [{ key: 'gpa', column: 'GPA', label: 'Điểm TB HB' }, { key: 'academicRank', column: 'Academic', label: 'Xếp loại HT' },
         { key: 'trainingScore', column: 'RL', label: 'Điểm RL' }, { key: 'trainingRank', column: 'Rank', label: 'Xếp loại RL' },
         { key: 'credits', column: 'Credits', label: 'Số TC' }, { key: 'privateScore', column: 'Private', label: 'Điểm chưa phê duyệt' }] },
-    rows: Array.from({ length: 32 }, (_, index) => ({ sourceRowNumber: index + 2, values: {
+    rows: Array.from({ length: 96 }, (_, index) => ({ sourceRowNumber: index + 2, values: {
       Code: String(index + 1).padStart(12, '0'), Name: `Sinh viên kiểm thử ${String(index + 1).padStart(2, '0')}`,
-      Award: index % 3 ? 'Giỏi' : 'Xuất sắc', Class: 'TEST01', Major: 'Ngành kiểm thử', GPA: index % 2 ? '9,7' : 9.5,
+      Award: 'Kết quả kiểm thử', Class: ['TEST-A1', 'TEST-A2', 'TEST-A3', 'TEST-B1'][index % 4],
+      Major: index % 4 === 3 ? 'Kinh tế' : 'Kế toán', Cohort: index % 4 === 3 ? 'K23' : 'K24',
+      Program: index % 4 === 2 ? 'Tiếp sức' : 'Khuyến khích học tập', ScholarshipRank: index % 4 === 1 ? 'Khá' : 'Giỏi', GPA: index % 2 ? '9,7' : 9.5,
       Academic: 'Giỏi', RL: 90, Rank: 'Xuất sắc', Credits: 18, Private: 999,
     } })) });
   const batchId = preview.receipt.batchId;
   await admin(`/${slug}/imports/apply`, { expectedRevision: 0, batchId });
   await admin(`/${slug}/approve`, { expectedRevision: 1, batchId, sourceSha256: 'a'.repeat(64),
     officialSource: { title: 'DỮ LIỆU KIỂM THỬ CỤC BỘ', reference: 'SYNTHETIC-LOCAL-ONLY', url: null },
-    approvedFields: ['fullName', 'studentCode', 'awardType', 'className', 'major', 'scores.gpa', 'scores.academicRank', 'scores.trainingScore', 'scores.trainingRank', 'scores.credits'], republicationConfirmed: true });
+    approvedFields: ['fullName', 'studentCode', 'awardType', 'className', 'major', 'scholarshipType', 'scholarshipRank', 'cohort', 'scores.gpa', 'scores.academicRank', 'scores.trainingScore', 'scores.trainingRank', 'scores.credits'], republicationConfirmed: true });
   await admin(`/${slug}/publish`, { expectedRevision: 2, batchId });
 }
 const server = createServer(async (req, res) => {
@@ -77,7 +80,7 @@ const server = createServer(async (req, res) => {
       if (current.identity === 'failure') { res.statusCode = 503; res.end(JSON.stringify({ error: 'Local QA failure' })); return; }
       if (current.identity !== 'anonymous') res.setHeader('Set-Cookie', 'scholarship_qa=synthetic; Path=/; HttpOnly; SameSite=Lax');
       else res.setHeader('Set-Cookie', 'scholarship_qa=; Max-Age=0; Path=/');
-      res.end(JSON.stringify(current.identity === 'anonymous' ? null : { session: { id: 'synthetic-local' }, user: { id: userId, email: identity(current.identity).email } })); return;
+      res.end(JSON.stringify(current.identity === 'anonymous' ? null : { session: { id: 'synthetic-local' }, user: { id: userId, email: identity(current.identity).email, name: 'Sinh viên kiểm thử', image: '/logoapp.png' } })); return;
     }
     if (url.pathname.startsWith('/api/public/v1/scholarships') && current.data === 'failure') {
       res.statusCode = 503; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ error: 'Dữ liệu học bổng chưa sẵn sàng.' })); return;
