@@ -7,6 +7,9 @@ import {buildDerivedPageObjectKey} from '../cloudflare/worker/src/ai-document-in
 import {evaluateAdvisorQuota} from '../cloudflare/worker/src/ai-advisor-quota.ts';
 import {extractOfficialDocumentLocators} from '../cloudflare/worker/src/gemini-file-search.ts';
 import {createDocumentPolicyDeadline} from '../cloudflare/worker/src/ai-advisor-document-policy.ts';
+import {textFixture} from './fixtures/ai-text-documents.ts';
+import {handleAiAdvisor,type AiAdvisorEnv} from '../cloudflare/worker/src/ai-advisor.ts';
+import {readFileSync} from 'node:fs';
 const ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',OTHER='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',revision='v1-fixture';
 const q='Theo tài liệu quy định học phí, mức thu đối với trường hợp đóng học phí từ 3 kỳ trở lên là bao nhiêu? Hãy trích dẫn nguồn.';
 const document:AiAdvisorV2Candidate={id:ID,title:'Quy định học phí',category:'tuition',visibility:'public',active:true,revision,
@@ -116,4 +119,27 @@ test('condition retrieval honors the existing shared document deadline, not a fr
   const r=await executeAiAdvisorV2Document(q,[document],{quota:evaluateAdvisorQuota(undefined),documentDeadline:deadline,
     aiSearchInstances:{text:'staging',ocr:'staging'},aiSearchClient:{async search(){calls++;return {chunks:[]};}},tuitionConditionContent:async()=>body});
   assert.equal(calls,0);assert.equal(r.kind,'ABSTAIN');if(r.kind==='ABSTAIN')assert.equal(r.reason,'AI_SEARCH_TIMEOUT');
+});
+test('actual publication-to-Advisor path with SQLite and real ingestion contracts preserves current title/revision/table citation',async()=>{
+  const f=textFixture();try{
+    f.sql.exec(readFileSync('cloudflare/migrations/0043_ai_chat_conversations.sql','utf8'));
+    const text=Array.from({length:9},(_,i)=>`Điều ${i+1}. Quy định kiểm thử\nThông tin không liên quan.\n`).join('\n')+'\n'+body;
+    const saved=await f.save(text,{title:'Quy định học phí fixture',category:'tuition'}) as {revision:{id:string;segments:number}};
+    assert.equal(saved.revision.segments,10);
+    const id=saved.revision.id;await f.ready(id);
+    await f.call({action:'publish',revisionId:id,confirmation:'PUBLISH_REVIEWED_TEXT',expectedLiveDocumentId:null});
+    const row=f.sql.prepare('SELECT ai_search_revision FROM ai_documents WHERE id=?').get(id)!;
+    let calls=0;const emitted:Array<{r2_reads?:number}>=[];
+    const env:AiAdvisorEnv={...f.env,AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'100',
+      AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',
+      advisorV2AiSearchInstances:{text:'fixture',ocr:'fixture'},advisorReleaseTelemetry:{record:e=>emitted.push(e)},
+      advisorV2AiSearchClient:{async search(){calls++;const unit=calls===1?7:10;return {chunks:[{id:`c-${calls}`,score:0.9,text:unit===10?body:'Thông tin học phí khác',
+        item:{key:buildDerivedPageObjectKey(id,String(row.ai_search_revision),unit),metadata:{document_id:id,revision:row.ai_search_revision,visibility:'public',active:true}}}]};}}};
+    const request=new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor',{method:'POST',headers:{Cookie:'fixture=opaque','Content-Type':'application/json'},body:JSON.stringify({question:q})});
+    const result=await handleAiAdvisor(request,new URL(request.url),env) as {reply:string;documentSources:Array<{documentId:string;title:string;pageNumber:number|null;locators?:string[]}>};
+    assert.match(result.reply,/Giảm 5%/);assert.equal(result.documentSources.length,1);
+    assert.equal(result.documentSources[0].documentId,id);assert.equal(result.documentSources[0].title,'Quy định học phí fixture');
+    assert.equal(result.documentSources[0].pageNumber,null);assert.ok(result.documentSources[0].locators?.includes('Bảng 4'));
+    assert.equal(calls,3);assert.ok(emitted[0].r2_reads!<=3);
+  }finally{f.sql.close();}
 });
