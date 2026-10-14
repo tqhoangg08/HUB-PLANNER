@@ -59,7 +59,9 @@ export const validateScholarshipImport = async (raw: unknown) => {
   }
   const columns = [mapping.studentCode, mapping.fullName, mapping.awardType,
     ...[mapping.className, mapping.major, mapping.sourceIdentifier, mapping.scholarshipType, mapping.scholarshipRank, mapping.cohort].filter((v): v is string => Boolean(v)), ...mapping.scores.map(s => s.column)];
-  if (new Set(columns).size !== columns.length) return fail('AMBIGUOUS_COLUMN_MAPPING');
+  const independentColumns = mapping.awardType === mapping.scholarshipType || mapping.awardType === mapping.scholarshipRank
+    ? columns.filter((_, index) => index !== 2) : columns;
+  if (new Set(independentColumns).size !== independentColumns.length) return fail('AMBIGUOUS_COLUMN_MAPPING');
   if (!Array.isArray(raw.rows) || raw.rows.length < 1 || raw.rows.length > SCHOLARSHIP_MAX_ROWS) return fail('INVALID_ROW_COUNT');
   const errors: Array<{ sourceRowNumber: number; field: string; code: string }> = [];
   const rows: ScholarshipCanonicalRow[] = [];
