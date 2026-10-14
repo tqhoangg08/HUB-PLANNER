@@ -1,6 +1,6 @@
 # Compact scholarship UI and combined filters
 
-2026-10-14. Backend Draft PR #91 (`feature/hub-scholarship-foundation`), frontend Draft PR #94 (`feature/hub-scholarship-frontend`). Backend commit: `56e80042b9259c33b60e01aea376cc4ec38c6fd3`. API Contract **v1.1.0**.
+2026-10-14. Backend Draft PR #91 (`feature/hub-scholarship-foundation`), frontend Draft PR #94 (`feature/hub-scholarship-frontend`). Backend implementation commit: `270d0c8914e8269de9223b7c7c620bd2b4646943`; compact frontend feature commit: `ba19507792fa8aa60f07b8bdb49c69725abb6e03`. API Contract **v1.1.0**.
 
 ## Implemented integration
 
@@ -16,10 +16,10 @@ New source fields and Admin approval choices are separate `scholarshipType`, `sc
 
 ## Actual validation
 
-- Backend scholarship/importer/Miniflare tests: **31/31 PASS**. AND combinations, global pagination, Vietnamese search, private/null data, dependent facets/options pagination, abuse validation, rate limits, index query plan, migration compatibility and CSV/XLSX source mappings.
-- Frontend/dev bridge tests: **22/22 PASS**. Adds combined query forwarding/reset, metadata pagination/failure and Better Auth avatar/name without role elevation.
+- Backend scholarship/importer/Miniflare tests: **32/32 PASS**. AND combinations, global pagination, Vietnamese search, private/null data, dependent facets/options pagination, abuse validation, rate limits, index query plan, migration compatibility, explicit legacy mapping compatibility and CSV/XLSX source mappings.
+- Frontend/dev bridge tests: **23/23 PASS**. Combined query forwarding/reset, metadata pagination/failure, Better Auth avatar/name without role elevation and preservation of all score values when wrapping celebration text.
 - Focused auth UX/private frontend tests: **26/26 PASS**.
-- Full `npm test`: **877/877 PASS**, zero failures/skips. Counts: 31 scholarship, 436 advisor, 22 Word, 16 directory, 3 recovery, 6 event DRL, 337 unit, 25 authority, 1 isolated D1.
+- Full `npm test`: **878/878 PASS**, zero failures/skips. Counts: 32 scholarship, 436 advisor, 22 Word, 16 directory, 3 recovery, 6 event DRL, 337 unit, 25 authority, 1 isolated D1. After the separate Studio score-wrap fix, its focused frontend suite/typecheck/build were rerun and passed; the full unrelated suite was not repeated for that canvas-only change.
 - Frontend and Cloudflare typecheck, build: **PASS**. Existing large-chunk/Browserslist notices remain.
 - Wrangler 4.115.0 isolated worktree migration **local only**: PASS through migration 0057.
 
@@ -28,10 +28,11 @@ Browser QA used the actual scholarship Worker + ephemeral D1 with two synthetic 
 - Kế toán + K24 + Khuyến khích học tập + Giỏi returned **24** backend results, two pages. Class facet narrowed to TEST-A1; adding that class reset page 2 to page 1 without losing other conditions.
 - Clear restored all source options and removed URL conditions. MSSV 000000000096 (beyond the initial page) returned exactly one result. No-match returned total 0 in the table area. Slow-network typing showed the loading skeleton. Old category links remain legacy awardType conditions; no alias into either new field.
 - Anonymous public list works, Đăng nhập appears, Admin navigation is absent. Synthetic authenticated header uses the official-session name/image fields. Sidebar close/reopen and mobile menu exercised.
+- Studio local file chooser loaded the repository PNG logo as a non-personal portrait fixture. Zoom changed from 1 to 1.1; changing the mask and dragging altered rendered canvas pixels. Actual downloaded PNG headers verified Story 1080×1920 and Feed 1080×1350; both files visually inspected. Network trace confirmed `/api/me/scholarships` re-verification before export. Fixed discovered score-line overflow: all five approved source values now wrap inside the frame. No real portrait was uploaded and the picture remains browser-local.
 - True CSS viewport widths **1440, 1280, 390, 360** verified in computed browser state. In-app browser sizing required compensation for its 0.8 pixel scaling; reported dimensions are `innerWidth`, not guessed screenshot dimensions. No horizontal document overflow. Both type/rank controls have identical desktop Y coordinates; mobile stacks them. Header about 52px, desktop sidebar about 216px, global Inter verified.
 - Compared screenshots with the previously captured chosen Canva reference: table background, header, alternating rows and thin borders are retained. Required header/navigation/filter rows and additional explicitly approved source fields account for layout differences.
 
-Screenshots: [1440 desktop](screenshots/hub-scholarship/combined/desktop-1440.jpg), [1280 desktop](screenshots/hub-scholarship/combined/desktop-1280.jpg), [390 mobile](screenshots/hub-scholarship/combined/mobile-390.jpg), [360 mobile](screenshots/hub-scholarship/combined/mobile-360.jpg).
+Screenshots: [1440 desktop](screenshots/hub-scholarship/combined/desktop-1440.jpg), [1280 desktop](screenshots/hub-scholarship/combined/desktop-1280.jpg), [390 mobile](screenshots/hub-scholarship/combined/mobile-390.jpg), [360 mobile](screenshots/hub-scholarship/combined/mobile-360.jpg), [Studio](screenshots/hub-scholarship/combined/studio-portrait.jpg). Synthetic exports: [Story](screenshots/hub-scholarship/combined/studio-story.png), [Feed](screenshots/hub-scholarship/combined/studio-feed.png).
 
 ## Local startup and remaining acceptance
 
@@ -39,6 +40,6 @@ Terminal 1: `$env:SCHOLARSHIP_QA_PORT='8794'; npm run dev:scholarships:local`.
 
 Terminal 2: set both `DEV_BACKEND_ORIGIN` and `DEV_SCHOLARSHIP_BACKEND_ORIGIN` to `http://127.0.0.1:8794`, then `npm run dev -- --host 127.0.0.1 --port 3002 --strictPort`. Keep the local backend running while using localhost. Scholarship proxy has no production fallback. All sample records are explicitly local/synthetic; no real student file has been imported.
 
-Combined filtering v1.1 integration is ready. Overall `ANTIGRAVITY_READY = NO` for complete scholarship frontend acceptance until the previously outstanding portrait upload/crop QA is recorded. Live Google/email/OTP login and Web Share were not newly exercised. This task leaves those implementations intact and does not certify a production release.
+`ANTIGRAVITY_READY = YES` for v1.1 frontend/backend integration handoff and synthetic acceptance. The previously outstanding portrait upload/crop/export QA is now recorded above using the in-app browser. Live Google/email/OTP login and native Web Share were not newly exercised; real source-file mapping/field authorization still require the official file and approval. This handoff does not certify a production release.
 
 No main merge, deployment, remote D1 migration or Auth Worker modification. Backend branch was merged only into the stacked frontend branch. Pre-existing tracked edits were backed up/stashed, reapplied and kept outside the new frontend feature commit; untracked `docs/ai-advisor-v2/` remains untouched.

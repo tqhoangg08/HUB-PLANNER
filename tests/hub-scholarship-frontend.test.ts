@@ -14,7 +14,18 @@ import {
   type OwnAward,
 } from '../utils/scholarshipApi.ts';
 import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipLoginReturn, resetScholarshipFilters } from '../utils/scholarshipListModel.ts';
-import { refreshedOwnAward } from '../utils/scholarshipCelebrationModel.ts';
+import { celebrationScoreLines, refreshedOwnAward } from '../utils/scholarshipCelebrationModel.ts';
+
+test('celebration wraps all approved score values without dropping Vietnamese or long source text', () => {
+  const parts = ['GPA: 9.5', 'ACADEMICRANK: Giỏi', 'TRAININGSCORE: 90', 'TRAININGRANK: Xuất sắc', 'CREDITS: 18'];
+  const lines = celebrationScoreLines(parts, text => Array.from(text).length * 14, 920);
+  assert.ok(lines.length > 1);
+  assert.deepEqual(lines.join('  |  ').split('  |  '), parts);
+  assert.ok(lines.every(line => Array.from(line).length * 14 <= 920));
+  const longValue = 'Nguồn ghi nguyên văn '.repeat(20);
+  assert.deepEqual(celebrationScoreLines([longValue, 'Điểm: 0'], text => text.length * 14, 920), [longValue, 'Điểm: 0']);
+  assert.deepEqual(celebrationScoreLines([], text => text.length, 920), []);
+});
 
 test('ScoreBadges faithfully formats scores without coercing null to zero or assuming /4.0 scale', () => {
   // Null or undefined should be dash '—', NEVER 0

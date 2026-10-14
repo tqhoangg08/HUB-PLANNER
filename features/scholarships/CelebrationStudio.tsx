@@ -34,7 +34,7 @@ import {
   ScholarshipApiError,
 } from '../../utils/scholarshipApi';
 import { playClick } from '../../utils/audio';
-import { refreshedOwnAward } from '../../utils/scholarshipCelebrationModel';
+import { celebrationScoreLines, refreshedOwnAward } from '../../utils/scholarshipCelebrationModel';
 
 // Template styles
 export type TemplateStyle = 'academic-gold' | 'hub-minimal' | 'scholarship-flex' | 'soft-achievement';
@@ -500,9 +500,16 @@ export const CelebrationStudio: React.FC = () => {
           ctx.save();
           ctx.font = 'bold 24px monospace';
           ctx.fillStyle = isDark ? '#38BDF8' : '#0052CC';
-          ctx.fillText(`[ ${scoreParts.join('  |  ')} ]`, targetWidth / 2, metaY);
+          const maxWidth = targetWidth - 160;
+          const lines = celebrationScoreLines(scoreParts, text => ctx.measureText(text).width, maxWidth);
+          const lineHeight = Math.min(32, (targetHeight - 180 - metaY) / lines.length);
+          ctx.font = `bold ${Math.min(24, lineHeight * 0.75)}px monospace`;
+          lines.forEach(line => {
+            ctx.fillText(line, targetWidth / 2, metaY, maxWidth);
+            metaY += lineHeight;
+          });
           ctx.restore();
-          metaY += 55;
+          metaY += 24;
         }
       }
 
