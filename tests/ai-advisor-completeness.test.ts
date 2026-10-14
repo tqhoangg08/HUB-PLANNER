@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './ai-advisor-tuition-condition.test.ts';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import {retrieveCompletenessStaging} from '../cloudflare/worker/src/ai-search-completeness-staging.ts';

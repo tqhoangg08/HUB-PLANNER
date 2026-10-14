@@ -2,6 +2,7 @@ import {buildDerivedPageObjectKey} from './ai-document-ingestion.ts';
 import {AI_DOCUMENT_MAX_SEGMENTS} from '../../../shared/ai-document-limits.ts';
 import type {AiAdvisorV2Dependencies} from './ai-advisor-v2-runtime.ts';
 import type {AiSearchClient,AiSearchInstanceNames} from './ai-search-retrieval.ts';
+import {tuitionPaymentCondition} from './ai-advisor-tuition-condition.ts';
 
 export type CompletenessEnv = {
   AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED?:unknown;
@@ -28,15 +29,22 @@ export const areDocumentEvidenceRevisionsCurrent = async (env:CompletenessEnv,so
 };
 export const buildCompletenessDependencies = (env:CompletenessEnv,client:AiSearchClient|undefined,instances:AiSearchInstanceNames):Pick<AiAdvisorV2Dependencies,'completenessSearch'|'pageContent'> => {
   if(!completenessEnabled(env)||!client)return {};
+  return {completenessSearch:request=>client.search(instances.text,request),pageContent:createAuthorizedSegmentReader(env)};
+};
+/** The small native-text condition repair works with completeness OFF. It
+ * does not select V2 users, mutate flags, or change other document domains. */
+export const buildTuitionConditionDependencies=(env:CompletenessEnv,question:string):Pick<AiAdvisorV2Dependencies,'tuitionConditionContent'> =>
+  tuitionPaymentCondition(question)?{tuitionConditionContent:createAuthorizedSegmentReader(env,true)}:{};
+
+export const createAuthorizedSegmentReader=(env:CompletenessEnv,strictNative=false):NonNullable<AiAdvisorV2Dependencies['pageContent']>=>{
   let reads=0;
-  return {
-    completenessSearch:request=>client.search(instances.text,request),
-    pageContent:async source=>{
+  return async source=>{
       if(!env.DB||!env.AI_DOCUMENTS_BUCKET||reads>=3)return null;
       // Recheck D1 current authorization after search/cache, before R2. No
       // client URL, object key, scope, document ID or page hint is accepted.
       let row:{ai_search_revision:string}|null;
-      try{row=await env.DB.prepare("SELECT ai_search_revision FROM ai_documents WHERE id=? AND visibility='public' AND deleted_at IS NULL AND ai_search_status='completed'").bind(source.documentId).first<{ai_search_revision:string}>();}
+      try{row=await env.DB.prepare("SELECT ai_search_revision FROM ai_documents WHERE id=? AND visibility='public' AND deleted_at IS NULL AND ai_search_status='completed'"+
+        (strictNative?" AND indexing_status='completed' AND derived_source_kind='native_text' AND extraction_pipeline_version IN ('admin-text-structured-v1','docx-native-structured-v1')":"")).bind(source.documentId).first<{ai_search_revision:string}>();}
       catch{return null;} // Pre-0054 schema cannot hydrate derived evidence.
       if(!row?.ai_search_revision)return null;
       // Word units use the same bounded storage ordinal, not physical pages.
@@ -45,12 +53,16 @@ export const buildCompletenessDependencies = (env:CompletenessEnv,client:AiSearc
       if(!Number.isInteger(ordinal)||ordinal<1||ordinal>AI_DOCUMENT_MAX_SEGMENTS)return null;
       const key=buildDerivedPageObjectKey(source.documentId,row.ai_search_revision,ordinal);
       if(source.itemKey!==key)return null;
+      // Recheck after awaited D1 authorization as well: concurrent callers
+      // must not each consume a stale copy of the remaining read budget.
+      if(reads>=3)return null;
       reads++;
       env.advisorCompletenessTelemetry?.pageRead();
       const object=await env.AI_DOCUMENTS_BUCKET.get(key);
       if(!object||!('body' in object)||object.size>32000){if(object&&'body' in object)await object.body.cancel();return null;}
+      if(strictNative&&(object.customMetadata?.document_id!==source.documentId||object.customMetadata?.revision!==row.ai_search_revision
+        ||object.customMetadata?.visibility!=='public'||object.customMetadata?.active!=='true')){await object.body.cancel();return null;}
       const text=await object.text();
       return text.trim()&&text.length<=8000?text:null;
-    },
   };
 };

@@ -16,6 +16,9 @@ import {resolveConductExcerptAnswer} from './ai-advisor-policy-excerpts.ts';
 import {resolveAcademicMilestone,resolveTuitionTableRow,isTuitionContinuationEvidence,resolvePolicyArticleExcerpt} from './ai-advisor-source-sections.ts';
 import {splitPolicyEvidenceQuestions,tuitionTupleQuery} from './ai-advisor-retrieval-plan.ts';
 import {isAcademicPolicyQuestion,isAcademicRegistrationQuestion} from './ai-advisor-intents.ts';
+import {tuitionPaymentCondition,retrieveTuitionConditionEvidence,resolveTuitionConditionAnswer} from './ai-advisor-tuition-condition.ts';
+import {createDocumentPolicyDeadline} from './ai-advisor-document-policy.ts';
+import {isUnpaginatedNativePipeline} from '../../../shared/ai-document-text.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -49,9 +52,11 @@ export type AiAdvisorV2Candidate = AiSearchAuthorizedDocument & {
 };
 
 export type AiAdvisorV2Dependencies = {
+  documentDeadline?:ReturnType<typeof createDocumentPolicyDeadline>;
   /** Selected by trusted server flag; never client-controlled. */
   completenessSearch?: (request: CompletenessSearchRequest) => Promise<{chunks?: import('./ai-search-retrieval.ts').AiSearchRawChunk[]}>;
   pageContent?: (source:{documentId:string;itemKey:string;pageNumber?:number})=>Promise<string|null>;
+  tuitionConditionContent?: (source:{documentId:string;itemKey:string})=>Promise<string|null>;
   aiSearchClient?: AiSearchClient;
   aiSearchInstances?: AiSearchInstanceNames;
   onRetrievalError?: AiSearchRetrievalErrorReporter;
@@ -152,6 +157,10 @@ export const executeAiAdvisorV2Document = async (
   if (!dependencies.aiSearchClient || !dependencies.aiSearchInstances) {
     return { kind: 'UNAVAILABLE', reason: 'AI_SEARCH_UNAVAILABLE', retrievedChunkCount: 0, generatorCalled: false, quotaMode };
   }
+  const conditionDocuments=allowed.filter(d=>d.visibility==='public'&&d.category==='tuition'&&d.indexingStatus==='completed'
+    &&d.derivedSourceKind==='native_text'&&isUnpaginatedNativePipeline(d.extractionPipelineVersion));
+  const conditionPath=Boolean(tuitionPaymentCondition(question)&&conditionDocuments.length&&dependencies.tuitionConditionContent);
+  const conditionDeadline=conditionPath?(dependencies.documentDeadline||createDocumentPolicyDeadline()):null;
 
   const revisionFingerprint = await fingerprintDocumentRevisions(toRevisionRecords(allowed));
   const scope: AdvisorCacheScope = { kind: 'PUBLIC' };
@@ -159,7 +168,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
+      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: conditionPath?'tuition-condition-vector-v1':dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -171,11 +180,14 @@ export const executeAiAdvisorV2Document = async (
 
   const provider = new CloudflareAiSearchRetrievalProvider(dependencies.aiSearchClient, dependencies.aiSearchInstances, true, dependencies.onRetrievalError);
   const retrievalCacheKey = await buildRetrievalCacheKey({
-    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: dependencies.completenessSearch?'completeness-word-native-v5':'ai-search-word-native-topk3-threshold04-v4',
+    question, scope, allowedDocumentRevisionFingerprint: revisionFingerprint, retrievalConfigVersion: conditionPath?'tuition-condition-vector-v1':dependencies.completenessSearch?'completeness-word-native-v5':'ai-search-word-native-topk3-threshold04-v4',
   });
   let retrieved: Awaited<ReturnType<typeof retrieveAiSearchWithCache>>;
   try {
-    const selectedProvider=dependencies.completenessSearch?{retrieve:()=>retrieveAiSearchCompleteEvidence(question,allowed,dependencies.completenessSearch!,dependencies.pageContent)}:provider;
+    const selectedProvider=conditionPath?{retrieve:()=>retrieveTuitionConditionEvidence(question,conditionDocuments,
+      r=>conditionDeadline!.run(()=>dependencies.aiSearchClient!.search(dependencies.aiSearchInstances!.text,r)),
+      s=>conditionDeadline!.run(()=>dependencies.tuitionConditionContent!(s)))}
+      :dependencies.completenessSearch?{retrieve:()=>retrieveAiSearchCompleteEvidence(question,allowed,dependencies.completenessSearch!,dependencies.pageContent)}:provider;
     retrieved = await retrieveAiSearchWithCache(dependencies.retrievalCache, retrievalCacheKey, selectedProvider, {
       question,
       allowedDocuments: allowed,
@@ -190,7 +202,7 @@ export const executeAiAdvisorV2Document = async (
   }
   let generatorConfigured = false;
   try { generatorConfigured = Boolean(dependencies.evidenceGenerator?.isConfigured({})); } catch { generatorConfigured = false; }
-  if (!dependencies.evidenceGenerator || !generatorConfigured) {
+  if (!conditionPath&&(!dependencies.evidenceGenerator || !generatorConfigured)) {
     return abstain('GENERATOR_ERROR', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length);
   }
   const evidence: AuthorizedEvidenceSource[] = retrieved.sources
@@ -208,6 +220,18 @@ export const executeAiAdvisorV2Document = async (
       ? {locatorKind:'word_unit' as const,unitNumber:Number(source.itemKey.match(/page-(\d{3})\.md$/)?.[1])||undefined} : {}),
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
+  if(conditionPath){
+    const extracted=resolveTuitionConditionAnswer(question,evidence);
+    if(!extracted)return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
+    const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId)).map(s=>({...s,snippet:extracted.sourceExcerpts[s.sourceId]}))};
+    if(hasUnsupportedAnswerDetails(answer.reply,answer.evidence.map(s=>s.snippet))
+      ||validateEvidenceAbstention({question,evidence:answer.evidence},{text:answer.reply,citedSourceIds:extracted.sourceIds}).kind!=='ANSWER')
+      return abstain('INVALID_CITATIONS',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
+    // Deterministic exact source quotes use the same citation authorization at
+    // the caller; no model can invent a rate, rule, locator, or support span.
+    return {kind:'ANSWER',answer,searchCallCount:retrieved.searchCallCount,retrievalCacheHit:retrieved.cacheHit,answerCacheHit:false,
+      retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
+  }
   if(dependencies.completenessSearch){
     const parts=splitPolicyEvidenceQuestions(question);
     const answers=parts.map(part=>resolveConductTableAnswer(part,evidence)||resolveConductExcerptAnswer(part,evidence)
@@ -234,6 +258,7 @@ export const executeAiAdvisorV2Document = async (
     if(isAcademicPolicyQuestion(question)&&isAcademicRegistrationQuestion(question))return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
   }
   try {
+    if(!dependencies.evidenceGenerator)return abstain('GENERATOR_ERROR',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
     const generated = await dependencies.evidenceGenerator.generate({
       question: bounded(question, 2_000),
       evidence: evidence.map((source) => ({ ...source, score: retrieved.sources.find((item) => item.sourceId === source.sourceId)?.score ?? null })),
