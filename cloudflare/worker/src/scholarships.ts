@@ -57,17 +57,54 @@ const campaignView = (row: CampaignRow) => {
 };
 interface RecipientRow {
   id: number; fullName: string; studentCode: string; className: string | null; major: string | null;
-  awardType: string; scoresJson: string;
+  awardType: string; scholarshipType: string | null; scholarshipRank: string | null; cohort: string | null; scoresJson: string;
 }
 const recipientSelect = `r.id, r.full_name AS fullName, r.student_code AS studentCode,
-  r.class_name AS className, r.major, r.award_type AS awardType, r.scores_json AS scoresJson`;
+  r.class_name AS className, r.major, r.award_type AS awardType,
+  r.scholarship_type AS scholarshipType, r.scholarship_rank AS scholarshipRank, r.cohort, r.scores_json AS scoresJson`;
 const recipientView = (row: RecipientRow, campaign: CampaignRow) => {
   const fields: string[] = JSON.parse(campaign.approvedFieldsJson);
   const rawScores = JSON.parse(row.scoresJson);
   const scores = Object.fromEntries(Object.entries(rawScores).filter(([key]) => fields.includes('scores.' + key)));
   return { id: row.id, fullName: row.fullName, studentCode: row.studentCode, awardType: row.awardType,
     className: fields.includes('className') ? row.className : null, major: fields.includes('major') ? row.major : null,
+    scholarshipType: fields.includes('scholarshipType') ? row.scholarshipType : null,
+    scholarshipRank: fields.includes('scholarshipRank') ? row.scholarshipRank : null,
+    cohort: fields.includes('cohort') ? row.cohort : null,
     scores, gpa: scores.gpa ?? null, trainingScore: scores.trainingScore ?? null, selectionScore: scores.selectionScore ?? null };
+};
+const filterColumns = { scholarshipType: 'scholarship_type', scholarshipRank: 'scholarship_rank',
+  major: 'major', className: 'class_name', cohort: 'cohort' } as const;
+type FilterKey = keyof typeof filterColumns;
+const readFilters = (params: URLSearchParams) => {
+  const filters: Partial<Record<FilterKey | 'awardType', string>> = {};
+  for (const key of [...Object.keys(filterColumns), 'awardType'] as Array<FilterKey | 'awardType'>) {
+    const raw = params.get(key);
+    if (raw === null) continue;
+    if (key === 'awardType' && !raw.trim()) continue;
+    if (!raw.trim() || raw.length > (key === 'awardType' ? 120 : 160) || /[\u0000-\u001f\u007f]/.test(raw))
+      throw new ScholarshipError(400, 'Bộ lọc không hợp lệ.');
+    filters[key] = raw.trim().normalize('NFC');
+  }
+  return filters;
+};
+const rowQuery = (slug: string, campaign: CampaignRow, q: string,
+  filters: ReturnType<typeof readFilters>, omit?: FilterKey) => {
+  const where = ['r.batch_id=?'], args: (string | number)[] = [slug, campaign.activeBatchId];
+  const fields: string[] = JSON.parse(campaign.approvedFieldsJson);
+  const mapping = JSON.parse(campaign.mappingJson);
+  for (const key of Object.keys(filters) as Array<FilterKey | 'awardType'>) {
+    if (key === omit) continue;
+    if (key !== 'awardType' && (!fields.includes(key) || !mapping[key])) where.push('0=1');
+    else { where.push(`r.${key === 'awardType' ? 'award_type' : filterColumns[key]}=?`); args.push(filters[key]!); }
+  }
+  if (q) {
+    if (/^\d{2,12}$/.test(q)) { where.push('r.student_code LIKE ?'); args.push(q + '%'); }
+    else { where.push("r.full_name_search LIKE ? ESCAPE '\\'"); args.push('%' + normalizeScholarshipName(q).replace(/[\\%_]/g, '\\$&') + '%'); }
+  }
+  where.push("c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=?");
+  args.push(campaign.revision);
+  return { from: `FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE ${where.join(' AND ')}`, args };
 };
 export const handlePublicScholarships = async (request: Request, url: URL, env: ScholarshipEnv) => {
   if (request.method !== 'GET') throw new ScholarshipError(405, 'Chỉ hỗ trợ GET.');
@@ -90,18 +127,18 @@ export const handlePublicScholarships = async (request: Request, url: URL, env: 
       .bind(...args, limit, (page - 1) * limit).all<CampaignRow>();
     return { campaigns: result.results.map(campaignView), total: count?.total || 0, page, limit };
   }
-  const match = /^\/([^/]+)\/(summary|recipients|search)$/.exec(suffix);
+  const match = /^\/([^/]+)\/(summary|recipients|search|facets)$/.exec(suffix);
   if (!match) throw new ScholarshipError(404, 'Không tìm thấy endpoint.');
   const slug = readScholarshipSlug(match[1]);
   const params = url.searchParams;
-  checkParams(params, match[2] === 'summary' ? [] : ['q', 'page', 'limit', 'awardType']);
+  checkParams(params, match[2] === 'summary' ? [] : ['q', 'awardType', ...Object.keys(filterColumns),
+    ...(match[2] === 'facets' ? ['facetPage', 'facetLimit'] : ['page', 'limit'])]);
   const q = (params.get('q') || '').trim().normalize('NFC');
-  if (q.length > 80 || /[\u0000-\u001f\u007f]/.test(q) || (match[2] === 'search' && q.length < 2))
+  if (q.length > 80 || q.length === 1 || /[\u0000-\u001f\u007f]/.test(q) || (match[2] === 'search' && q.length < 2))
     throw new ScholarshipError(400, 'Từ khóa cần từ 2 đến 80 ký tự.');
-  const award = (params.get('awardType') || '').trim();
-  if (award.length > 120 || /[\u0000-\u001f]/.test(award)) throw new ScholarshipError(400, 'Loại học bổng không hợp lệ.');
+  const filters = readFilters(params);
   const { limit, page } = scholarshipPagination(params);
-  if (q && env.SCHOLARSHIP_SEARCH_RATE_LIMIT) {
+  if ((q || Object.keys(filters).length || match[2] === 'facets') && env.SCHOLARSHIP_SEARCH_RATE_LIMIT) {
     const ip = request.headers.get('CF-Connecting-IP');
     if (ip && !(await env.SCHOLARSHIP_SEARCH_RATE_LIMIT.limit({ key: 'scholarships:' + ip })).success)
       throw new ScholarshipError(429, 'Quá nhiều yêu cầu. Vui lòng thử lại sau.');
@@ -118,23 +155,27 @@ export const handlePublicScholarships = async (request: Request, url: URL, env: 
       .bind(campaign.activeBatchId).all();
     return { campaign: campaignView(campaign), totalRecipients: stats?.totalRecipients || 0, totalStudents: stats?.totalStudents || 0, awards: awards.results };
   }
-  const where = ['r.batch_id=?'], args: (string | number)[] = [campaign.activeBatchId];
-  if (award) { where.push('r.award_type=?'); args.push(award); }
-  if (q) {
-    if (/^\d{2,12}$/.test(q)) { where.push('r.student_code LIKE ?'); args.push(q + '%'); }
-    else {
-      const normalized = normalizeScholarshipName(q).replace(/[\\%_]/g, '\\$&');
-      where.push("r.full_name_search LIKE ? ESCAPE '\\'"); args.push('%' + normalized + '%');
-    }
+  const query = rowQuery(slug, campaign, q, filters);
+  const count = await db.prepare(`SELECT COUNT(*) AS total ${query.from}`).bind(...query.args).first<{total: number}>();
+  if (match[2] === 'facets') {
+    const facetPage = boundedInteger(params.get('facetPage'), 1, 2000);
+    const facetLimit = boundedInteger(params.get('facetLimit'), 100, 200);
+    const fields: string[] = JSON.parse(campaign.approvedFieldsJson), mapping = JSON.parse(campaign.mappingJson);
+    const supportedFilters = (Object.keys(filterColumns) as FilterKey[]).filter(key => fields.includes(key) && mapping[key]);
+    const facets = Object.fromEntries(await Promise.all((Object.keys(filterColumns) as FilterKey[]).map(async key => {
+      if (!supportedFilters.includes(key)) return [key, { options: [], total: 0, page: facetPage, limit: facetLimit }];
+      const scoped = rowQuery(slug, campaign, q, filters, key), column = filterColumns[key];
+      const distinct = `SELECT DISTINCT r.${column} AS value ${scoped.from} AND r.${column} IS NOT NULL AND r.${column}<>''`;
+      const [total, values] = await Promise.all([
+        db.prepare(`SELECT COUNT(*) AS total FROM (${distinct})`).bind(...scoped.args).first<{total: number}>(),
+        db.prepare(`${distinct} ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?`).bind(...scoped.args, facetLimit, (facetPage - 1) * facetLimit).all<{value: string}>(),
+      ]);
+      return [key, { options: values.results.map(r => r.value), total: total?.total || 0, page: facetPage, limit: facetLimit }];
+    })));
+    return { apiVersion: '1.1.0', campaign: campaignView(campaign), supportedFilters, facets, totalRecipients: count?.total || 0 };
   }
-  // Fail closed if publication/approval changes between campaign and row reads.
-  where.push("c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=?");
-  args.push(campaign.revision);
-  const from = `FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE ${where.join(' AND ')}`;
-  const bound = [slug, ...args];
-  const count = await db.prepare(`SELECT COUNT(*) AS total ${from}`).bind(...bound).first<{total: number}>();
-  const results = await db.prepare(`SELECT ${recipientSelect} ${from} ORDER BY r.source_row_number, r.id LIMIT ? OFFSET ?`)
-    .bind(...bound, limit, (page - 1) * limit).all<RecipientRow>();
+  const results = await db.prepare(`SELECT ${recipientSelect} ${query.from} ORDER BY r.source_row_number, r.id LIMIT ? OFFSET ?`)
+    .bind(...query.args, limit, (page - 1) * limit).all<RecipientRow>();
   return { campaign: campaignView(campaign), recipients: results.results.map(row => recipientView(row, campaign)), total: count?.total || 0, page, limit };
 };
 export const handleMyScholarships = async (request: Request, env: ScholarshipEnv) => {

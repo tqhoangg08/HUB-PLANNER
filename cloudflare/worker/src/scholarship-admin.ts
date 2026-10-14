@@ -143,6 +143,7 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
       const batch = await readBatch(db, slug, action!.split('/')[1]);
       const rows = await db.prepare(`SELECT id,source_row_number AS sourceRowNumber,source_identifier AS sourceIdentifier,
         student_code AS studentCode,full_name AS fullName,class_name AS className,major,award_type AS awardType,
+        scholarship_type AS scholarshipType,scholarship_rank AS scholarshipRank,cohort,
         scores_json AS scoresJson,source_row_sha256 AS rowSha256 FROM scholarship_snapshot_rows WHERE batch_id=?
         ORDER BY source_row_number,id LIMIT ? OFFSET ?`).bind(batch.id, limit, (page - 1) * limit).all<{scoresJson: string}>();
       return { receipt: receipt(batch), mapping: JSON.parse(batch.mapping_json), rows: rows.results.map(row => {
@@ -194,10 +195,11 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
     // Small JSON chunks bound SQL variables and size while a single batch is atomic.
     for (let offset = 0; offset < dataset.rows.length; offset += 50) {
       statements.push(db.prepare(`INSERT INTO scholarship_snapshot_rows
-        (batch_id,source_row_number,source_identifier,student_code,full_name,full_name_search,class_name,major,award_type,scores_json,source_row_sha256)
+        (batch_id,source_row_number,source_identifier,student_code,full_name,full_name_search,class_name,major,award_type,scholarship_type,scholarship_rank,cohort,scores_json,source_row_sha256)
         SELECT ?,json_extract(value,'$.sourceRowNumber'),json_extract(value,'$.sourceIdentifier'),json_extract(value,'$.studentCode'),
           json_extract(value,'$.fullName'),json_extract(value,'$.fullNameSearch'),json_extract(value,'$.className'),json_extract(value,'$.major'),
-          json_extract(value,'$.awardType'),json_extract(value,'$.scores'),json_extract(value,'$.rowSha256') FROM json_each(?)`)
+          json_extract(value,'$.awardType'),json_extract(value,'$.scholarshipType'),json_extract(value,'$.scholarshipRank'),json_extract(value,'$.cohort'),
+          json_extract(value,'$.scores'),json_extract(value,'$.rowSha256') FROM json_each(?)`)
         .bind(id, JSON.stringify(dataset.rows.slice(offset, offset + 50))));
     }
     statements.push(audit(db, slug, id, 'previewed', identity.userId, dataset.sourceSha256,
@@ -232,13 +234,18 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
     if (batch.rejected_rows || count?.n !== batch.expected_rows || batch.accepted_rows !== batch.expected_rows) return error(409, 'CORRUPT_BATCH');
     const stored = await db.prepare(`SELECT source_row_number AS sourceRowNumber,source_identifier AS sourceIdentifier,
       student_code AS studentCode,full_name AS fullName,full_name_search AS fullNameSearch,class_name AS className,
-      major,award_type AS awardType,scores_json AS scoresJson,source_row_sha256 AS rowSha256
+      major,award_type AS awardType,scholarship_type AS scholarshipType,scholarship_rank AS scholarshipRank,cohort,
+      scores_json AS scoresJson,source_row_sha256 AS rowSha256
       FROM scholarship_snapshot_rows WHERE batch_id=? ORDER BY source_row_number`).bind(batch.id)
       .all<{ sourceRowNumber: number; sourceIdentifier: string | null; studentCode: string; fullName: string; fullNameSearch: string;
-        className: string | null; major: string | null; awardType: string; scoresJson: string; rowSha256: string }>();
+        className: string | null; major: string | null; awardType: string; scholarshipType?: string | null;
+        scholarshipRank?: string | null; cohort?: string | null; scoresJson: string; rowSha256: string }>();
+    const mapping: ScholarshipMapping = JSON.parse(batch.mapping_json);
     const canonical = [];
     for (const storedRow of stored.results) {
       const { scoresJson, rowSha256, ...row } = storedRow;
+      for (const key of ['scholarshipType', 'scholarshipRank', 'cohort'] as const)
+        if (!mapping[key]) delete row[key];
       const content = { ...row, scores: JSON.parse(scoresJson) };
       if (await scholarshipSha256(JSON.stringify(content)) !== rowSha256) return error(409, 'CORRUPT_BATCH');
       canonical.push({ ...content, rowSha256 });
@@ -257,7 +264,9 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
     const document = sourceDocument(body.officialSource);
     const mapping: ScholarshipMapping = JSON.parse(batch.mapping_json);
     const allowed = ['fullName', 'studentCode', 'awardType', ...(mapping.className ? ['className'] : []),
-      ...(mapping.major ? ['major'] : []), ...mapping.scores.map(s => 'scores.' + s.key)];
+      ...(mapping.major ? ['major'] : []),
+      ...(['scholarshipType', 'scholarshipRank', 'cohort'] as const).filter(key => mapping[key]),
+      ...mapping.scores.map(s => 'scores.' + s.key)];
     const approvedFields = body.approvedFields;
     if (!Array.isArray(approvedFields) || approvedFields.some(f => typeof f !== 'string' || !allowed.includes(f)) ||
       new Set(approvedFields).size !== approvedFields.length ||

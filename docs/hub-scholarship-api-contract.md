@@ -1,6 +1,6 @@
-# HUB Scholarship — API Contract v1.0.0
+# HUB Scholarship — API Contract v1.1.0
 
-Frozen backend contract for Antigravity, 2026-10-13. Branch: `feature/hub-scholarship-foundation`.
+Backward-compatible extension for Antigravity, 2026-10-14. Branch: `feature/hub-scholarship-foundation`.
 Backend implementation and test commit: `c78ab17c1115059b1c547e1e7ebad942901ede53`.
 Source of truth: `cloudflare/worker/src/scholarships.ts`, `scholarship-admin.ts`,
 `shared/scholarship-import.ts`, migrations `0055` and `0056`.
@@ -20,7 +20,7 @@ Awards are official source decisions; no GPA, ranking, directory record or forec
 All scholarship responses use `Cache-Control: no-store` (Admin and own use `private, no-store`).
 Recipient/search data is not cached, so unpublish takes effect on subsequent reads. A previously delivered response cannot be revoked from a user's device.
 Search requests with `q` use `SCHOLARSHIP_SEARCH_RATE_LIMIT`: 60 requests per 60 seconds per Cloudflare-provided IP,
-including `q` on recipients. The binding is configured in the Public Worker only. Cloudflare limits are approximate and per location;
+including `q` on recipients. Filtered reads and every facets request share this limiter. The binding is configured in the Public Worker only. Cloudflare limits are approximate and per location;
 this is a traffic safeguard, not an anti-enumeration guarantee. Local requests without a Cloudflare IP/binding are not throttled.
 The implementation never logs search text, row cells, names or student codes.
 
@@ -59,6 +59,7 @@ The implementation never logs search text, row cells, names or student codes.
 {
   id: number; fullName: string; studentCode: string; awardType: string;
   className: string | null; major: string | null;
+  scholarshipType: string | null; scholarshipRank: string | null; cohort: string | null;
   scores: Record<string, number | string | null>;
   gpa: number | string | null;
   trainingScore: number | string | null;
@@ -91,7 +92,7 @@ Counts only the active published snapshot. A student with two awards contributes
 
 ### `GET /api/public/v1/scholarships/:slug/recipients`
 
-Query: `page`, `limit`, optional exact `awardType` (max 120 characters), optional `q`.
+Query: `page`, `limit`, optional `q`, legacy exact `awardType` (max 120), and exact `scholarshipType`, `scholarshipRank`, `major`, `className`, `cohort` (max 160 each). All conditions combine with AND.
 Response: `{ campaign: Campaign, recipients: Recipient[], total: number, page: number, limit: number }`.
 Order: original source row number ascending, recipient ID ascending. No score/name sorting.
 
@@ -211,6 +212,7 @@ Input (trusted offline XLSX/CSV preparation output):
   mapping: {
     studentCode:string; fullName:string; awardType:string;
     className?:string; major?:string; sourceIdentifier?:string;
+    scholarshipType?:string; scholarshipRank?:string; cohort?:string;
     scores:{key:string,column:string,label:string}[];
   };
   rows:{sourceRowNumber:number,values:Record<string,string|number|null>}[];
@@ -264,7 +266,7 @@ Approval body:
 Official source title/reference: nonempty <=240 characters; url: explicit null or HTTPS <=1000, no embedded credentials.
 `sourceSha256` must exactly match the candidate receipt.
 `approvedFields` must explicitly include `fullName`, `studentCode`, `awardType`.
-Optional approved fields: mapped `className`, mapped `major`, and each mapped `scores.<key>` separately.
+Optional approved fields: individually mapped `className`, `major`, `cohort`, `scholarshipType`, `scholarshipRank`, and each mapped `scores.<key>` separately.
 No wildcard/all-scores approval, duplicate fields, unknown score or source identifier approval. `republicationConfirmed` must be literal true.
 Batch IDs are lowercase 64 hex and must belong to this campaign. Publish only the approved candidate.
 
@@ -324,9 +326,41 @@ Canva frontend integration notes (2026-10-13; no contract version change):
 ## ANTIGRAVITY_READY
 
 See `docs/hub-scholarship-backend-handoff.md` for the final test ledger and readiness verdict.
-Backend implementation and tests: `c78ab17c1115059b1c547e1e7ebad942901ede53`; contract: **v1.0.0**.
+Backend implementation and tests: `c78ab17c1115059b1c547e1e7ebad942901ede53`; v1.0 baseline; extended contract: **v1.1.0**.
 This handoff permits frontend integration with empty production data and synthetic local fixtures only.
 Production remains unverified; real source, field authorization and a separately approved release are outstanding.
 
 Implementation references: [D1 transactional batch](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch),
 [Cloudflare rate-limit binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
+
+## v1.1.0 combined filtering and source semantics
+
+Migration **0057** adds nullable scholarship_type, scholarship_rank and cohort columns plus snapshot indexes. No backfill or parsing of legacy values. Existing applied snapshots and old preview row/payload checksums remain unchanged. Optional importer mappings have separate source columns; ambiguous mapping is rejected. The offline CSV/XLSX preparer uses the same validator. When independent program/rank fields distinguish two source awards, duplicates are validated using those fields as well as legacy category and source identifier.
+
+`awardType` remains the mandatory v1.0 legacy source label. Its old filter/summary semantics are unchanged. It is **never** used to fill either new field. No cohort inference from MSSV/class name, and no classification from GPA. New imports may include the separate mappings only when the source explicitly contains them. Existing clients remain usable; new clients must not label the legacy field as both type and rank. No real official file was supplied or imported.
+
+Optional fields are public (including own awards) only if individually approved. Unmapped/unapproved fields serialize as null. Filtering an unapproved/unmapped field yields zero results, never a private-field match. Empty or repeated filter parameters, unknown keys, controls including DEL and oversized values give 400. Exact filters are NFC-trimmed and case/diacritic-sensitive; q retains Vietnamese-normalized substring/code-prefix semantics and is 2–80 characters when nonempty. No client-selectable campaign/batch IDs: campaignSlug comes solely from the route.
+
+### GET /api/public/v1/scholarships/:slug/facets
+
+Same publication/approval/revision gates as recipients. Queries: q, legacy awardType, scholarshipType, scholarshipRank, major, className, cohort, facetPage (1–2000, default 1), facetLimit (1–200, default 100). Recipient page/limit are not accepted here.
+
+Response:
+
+```ts
+{
+  apiVersion: '1.1.0'; campaign: Campaign; totalRecipients: number;
+  supportedFilters: ('scholarshipType'|'scholarshipRank'|'major'|'className'|'cohort')[];
+  facets: Record<'scholarshipType'|'scholarshipRank'|'major'|'className'|'cohort', {
+    options: string[]; total: number; page: number; limit: number;
+  }>;
+}
+```
+
+supportedFilters requires both source mapping and approval. Options are DISTINCT nonempty approved values, sorted by SQLite BINARY, paginated independently per facet with a common page/limit request. There is no hard-coded catalog or silent truncation. Each facet ignores only its **own** selected filter and applies q plus every other condition. Thus class options depend on selected major/cohort/type/rank. totalRecipients uses **all** selected filters, exactly like recipients/search. Null values are excluded from options but retained as null in recipients.
+
+Maximum source snapshot remains 2000 rows; options therefore have at most 2000 distinct values per field. Metadata returns strings only, not recipient rows. At most eleven bounded SQL statements per supported facets call (one count plus two per facet); unapproved facets execute no option query. Snapshot-first indexes bound scans; cohort/major/class has a composite index. q substring scans stay bounded to the active snapshot. Filter/facets requests share the existing 60/minute/IP binding; 429 preserves Retry-After. No raw filters/PII are logged.
+
+Frontend should fetch all metadata pages if needed, cancel stale requests, disable controls until metadata is loaded, preserve selected values if the new conjunction has no results, and show zero results rather than clear another condition silently. Reset recipient page on filter changes; preserve unrelated URL parameters. Fetch recipients page-by-page, never load the whole recipient dataset for filtering.
+
+Validation and readiness for this extension are recorded in docs/hub-scholarship-filter-extension.md. Production release remains unverified and requires separate approval.

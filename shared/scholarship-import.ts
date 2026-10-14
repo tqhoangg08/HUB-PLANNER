@@ -11,13 +11,15 @@ export const scholarshipSha256 = async (value: string | Uint8Array) => {
 export interface ScholarshipMapping {
   studentCode: string; fullName: string; awardType: string;
   className?: string; major?: string; sourceIdentifier?: string;
+  scholarshipType?: string; scholarshipRank?: string; cohort?: string;
   scores: Array<{ key: string; column: string; label: string }>;
 }
 export interface ScholarshipImportRow { sourceRowNumber: number; values: Record<string, string | number | null>; }
 export interface ScholarshipCanonicalRow {
   sourceRowNumber: number; sourceIdentifier: string | null; studentCode: string;
   fullName: string; fullNameSearch: string; className: string | null; major: string | null;
-  awardType: string; scores: Record<string, string | number | null>; rowSha256: string;
+  awardType: string; scholarshipType?: string | null; scholarshipRank?: string | null; cohort?: string | null;
+  scores: Record<string, string | number | null>; rowSha256: string;
 }
 export class ScholarshipValidationError extends Error { readonly status = 400; }
 export const scholarshipRecord = (value: unknown): value is Record<string, unknown> =>
@@ -40,12 +42,12 @@ export const validateScholarshipImport = async (raw: unknown) => {
   if (/[\\/]/.test(sourceFilename)) return fail('INVALID_FILENAME');
   const m = raw.mapping;
   if (!scholarshipRecord(m)) return fail('INVALID_MAPPING');
-  strictKeys(m, ['studentCode', 'fullName', 'awardType', 'className', 'major', 'sourceIdentifier', 'scores']);
+  strictKeys(m, ['studentCode', 'fullName', 'awardType', 'className', 'major', 'sourceIdentifier', 'scholarshipType', 'scholarshipRank', 'cohort', 'scores']);
   const mapping: ScholarshipMapping = {
     studentCode: scholarshipText(m.studentCode, 120), fullName: scholarshipText(m.fullName, 120),
     awardType: scholarshipText(m.awardType, 120), scores: [],
   };
-  for (const field of ['className', 'major', 'sourceIdentifier'] as const)
+  for (const field of ['className', 'major', 'sourceIdentifier', 'scholarshipType', 'scholarshipRank', 'cohort'] as const)
     if (m[field] !== undefined) mapping[field] = scholarshipText(m[field], 120);
   if (!Array.isArray(m.scores) || m.scores.length > 16) return fail('INVALID_SCORE_MAPPING');
   for (const score of m.scores) {
@@ -56,7 +58,7 @@ export const validateScholarshipImport = async (raw: unknown) => {
     mapping.scores.push({ key, column: scholarshipText(score.column, 120), label: scholarshipText(score.label, 120) });
   }
   const columns = [mapping.studentCode, mapping.fullName, mapping.awardType,
-    ...[mapping.className, mapping.major, mapping.sourceIdentifier].filter((v): v is string => Boolean(v)), ...mapping.scores.map(s => s.column)];
+    ...[mapping.className, mapping.major, mapping.sourceIdentifier, mapping.scholarshipType, mapping.scholarshipRank, mapping.cohort].filter((v): v is string => Boolean(v)), ...mapping.scores.map(s => s.column)];
   if (new Set(columns).size !== columns.length) return fail('AMBIGUOUS_COLUMN_MAPPING');
   if (!Array.isArray(raw.rows) || raw.rows.length < 1 || raw.rows.length > SCHOLARSHIP_MAX_ROWS) return fail('INVALID_ROW_COUNT');
   const errors: Array<{ sourceRowNumber: number; field: string; code: string }> = [];
@@ -85,7 +87,14 @@ export const validateScholarshipImport = async (raw: unknown) => {
       const fullNameSearch = normalizeScholarshipName(fullName);
       const awardType = scholarshipText(values[mapping.awardType], 120);
       const sourceIdentifier = mapping.sourceIdentifier ? scholarshipText(values[mapping.sourceIdentifier], 160) : null;
-      const duplicateKey = JSON.stringify([studentCode, normalizeScholarshipName(awardType), sourceIdentifier]);
+      const additional: Partial<Pick<ScholarshipCanonicalRow, 'scholarshipType' | 'scholarshipRank' | 'cohort'>> = {};
+      for (const key of ['scholarshipType', 'scholarshipRank', 'cohort'] as const) {
+        const column = mapping[key];
+        if (column) additional[key] = values[column] === null ? null : scholarshipText(values[column], 160, false) || null;
+      }
+      const duplicateKey = JSON.stringify([studentCode, normalizeScholarshipName(awardType), sourceIdentifier,
+        additional.scholarshipType ? normalizeScholarshipName(additional.scholarshipType) : null,
+        additional.scholarshipRank ? normalizeScholarshipName(additional.scholarshipRank) : null]);
       if (awards.has(duplicateKey) || (sourceIdentifier && identifiers.has(sourceIdentifier))) fail('AMBIGUOUS_DUPLICATE_AWARD');
       if (names.has(studentCode) && names.get(studentCode) !== fullNameSearch) fail('CONFLICTING_STUDENT_NAME');
       awards.add(duplicateKey); if (sourceIdentifier) identifiers.add(sourceIdentifier); names.set(studentCode, fullNameSearch);
@@ -97,7 +106,7 @@ export const validateScholarshipImport = async (raw: unknown) => {
       const optional = (key: 'className' | 'major') => mapping[key] && values[mapping[key]] !== null
         ? scholarshipText(values[mapping[key]], 160, false) || null : null;
       const row = { sourceRowNumber: n, sourceIdentifier, studentCode, fullName, fullNameSearch,
-        className: optional('className'), major: optional('major'), awardType, scores };
+        className: optional('className'), major: optional('major'), awardType, ...additional, scores };
       rows.push({ ...row, rowSha256: await scholarshipSha256(JSON.stringify(row)) });
     } catch (error) {
       if (!(error instanceof ScholarshipValidationError)) throw error;

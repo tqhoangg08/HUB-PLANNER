@@ -71,3 +71,12 @@ test('bounded parser rejects oversized source/row count, unsupported extension a
   damaged[central + 16] ^= 1;
   assert.throws(() => checkScholarshipZip(damaged), /CORRUPT_XLSX_MEMBER/);
 });
+
+test('offline CSV and XLSX retain separate program/rank/cohort source mappings', async t => {
+  const dir=await temporary(t), custom={...mapping,scholarshipType:'Program',scholarshipRank:'Rank',cohort:'Cohort'};
+  const columns=['MSSV','Name','Award','Score','Program','Rank','Cohort'];
+  const cells=['000000000001','Synthetic','Legacy',9.5,'Khuyến khích học tập','Giỏi','K24'];
+  const csv=path.join(dir,'extended.csv');await writeFile(csv,columns.join(',')+'\n'+cells.join(',')+'\n');
+  const wb=new ExcelJS.Workbook();const sheet=wb.addWorksheet('Awards');sheet.addRow(columns);sheet.addRow(cells);const xlsx=path.join(dir,'extended.xlsx');await wb.xlsx.writeFile(xlsx);
+  for(const file of [csv,xlsx]) { const result=await parseScholarshipFile(file,custom); assert.equal(result.validation.valid,true);assert.equal(result.payload.mapping.scholarshipType,'Program');assert.equal(result.payload.rows[0].values.Rank,'Giỏi');assert.equal(result.payload.rows[0].values.Cohort,'K24'); }
+});

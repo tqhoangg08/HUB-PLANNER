@@ -13,7 +13,7 @@ test('real Worker routing + D1 migrations/JSON chunks/CAS transactions run local
     d1Databases: ['DB'], bindings: { ALLOWED_ORIGINS: 'https://example.test' } });
   t.after(() => mf.dispose());
   const db = await mf.getD1Database('DB');
-  for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql']) {
+  for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql']) {
     const sql = await readFile(new URL('../cloudflare/migrations/' + file, import.meta.url), 'utf8');
     const statements = sql.replace(/--[^\n]*/g, '').match(/CREATE TRIGGER[\s\S]*?END;|(?:CREATE|ALTER)[\s\S]*?;/g);
     await db.batch(statements.filter(s => s.trim()).map(s => db.prepare(s)));
