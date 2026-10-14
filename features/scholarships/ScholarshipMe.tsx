@@ -86,12 +86,9 @@ export const ScholarshipMe: React.FC = () => {
         {/* State 1: Chưa đăng nhập */}
         {!authLoading && !bootstrapUnavailable && !session && (
           <div className="bg-white border border-gray-200 rounded-lg p-6 sm:p-8 text-center space-y-4 shadow-xs">
-            <div className="w-12 h-12 rounded-full bg-blue-50 text-[#0052cc] mx-auto flex items-center justify-center">
-              <Lock size={22} />
-            </div>
 
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-gray-900">Yêu cầu đăng nhập tài khoản sinh viên</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Yêu cầu đăng nhập tài khoản sinh viên</h2>
               <p className="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
                 Để bảo vệ quyền riêng tư và xác thực chính xác người nhận học bổng, vui lòng đăng nhập bằng email sinh viên trường HUB.
               </p>
@@ -103,7 +100,7 @@ export const ScholarshipMe: React.FC = () => {
                 onClick={playClick}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md bg-[#0052cc] text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-xs"
               >
-                <LogIn size={16} />
+
                 <span>Đăng nhập với email HUB</span>
               </Link>
             </div>
@@ -113,7 +110,6 @@ export const ScholarshipMe: React.FC = () => {
         {/* Loading State */}
         {(authLoading || loading) && session && (
           <div className="py-16 text-center space-y-3">
-            <div className="w-8 h-8 mx-auto border-2 border-gray-200 border-t-[#0052cc] rounded-full animate-spin" />
             <p className="text-sm text-gray-500">Đang đối chiếu dữ liệu học bổng của bạn...</p>
           </div>
         )}
@@ -140,11 +136,8 @@ export const ScholarshipMe: React.FC = () => {
         {!loading && !error && session && verified === false && (
           <div className="bg-white border border-amber-200 rounded-lg p-6 sm:p-8 space-y-4 shadow-xs">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-700 shrink-0 flex items-center justify-center mt-0.5">
-                <MailCheck size={20} />
-              </div>
               <div className="space-y-1">
-                <h2 className="text-lg font-bold text-gray-900">Email sinh viên chưa được xác minh</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Email sinh viên chưa được xác minh</h2>
                 <p className="text-sm text-gray-600 leading-relaxed">
                   Tài khoản của bạn chưa được liên kết hoặc chưa xác minh địa chỉ email sinh viên chính thức (dạng <strong>[MSSV]@st.buh.edu.vn</strong>).
                 </p>
@@ -191,7 +184,7 @@ export const ScholarshipMe: React.FC = () => {
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-gray-900">Không tìm thấy hồ sơ học bổng</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Không tìm thấy hồ sơ học bổng</h2>
               <p className="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
                 Hệ thống chưa tìm thấy hồ sơ học bổng nào thuộc mã sinh viên của bạn trong các đợt đã công bố chính thức.
               </p>
@@ -203,7 +196,7 @@ export const ScholarshipMe: React.FC = () => {
                 onClick={() => void loadMyAwards()}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-gray-100 text-gray-700 text-xs font-medium hover:bg-gray-200 transition-colors"
               >
-                <RefreshCw size={14} />
+
                 <span>Làm mới dữ liệu</span>
               </button>
               <Link
@@ -228,11 +221,11 @@ export const ScholarshipMe: React.FC = () => {
                     <ShieldCheck size={13} />
                     <span>Đã xác thực chính chủ</span>
                   </span>
-                  <span className="text-xs text-gray-500 font-mono">
+                  <span className="text-xs text-gray-500 ">
                     {session.user.email}
                   </span>
                 </div>
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900">
                   {awards[0]?.fullName || session.user.user_metadata?.full_name}
                 </h2>
                 <p className="text-xs text-gray-600">
@@ -266,7 +259,7 @@ export const ScholarshipMe: React.FC = () => {
 
             {/* List of Awards */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 px-1">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 px-1">
                 Chi tiết học bổng ({awards.length})
               </h3>
 
@@ -279,7 +272,7 @@ export const ScholarshipMe: React.FC = () => {
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <ScholarshipBadge awardType={award.awardType} size="sm" />
-                        <span className="text-xs font-mono text-gray-600">MSSV: {award.studentCode}</span>
+                        <span className="text-xs text-gray-600">MSSV: {award.studentCode}</span>
                         <span className="text-xs text-gray-500">
                           Học kỳ {award.semester} • {award.schoolYear}
                         </span>
@@ -309,7 +302,7 @@ export const ScholarshipMe: React.FC = () => {
                       {Object.entries(award.scores).map(([k, val]) => (
                         <span
                           key={k}
-                          className="px-2 py-0.5 rounded bg-gray-50 border border-gray-200 text-gray-700 text-[11px]"
+                          className="px-2 py-0.5 rounded bg-gray-50 border border-gray-200 text-gray-700 text-xs"
                         >
                           {k}: <strong>{formatScoreValue(val)}</strong>
                         </span>

@@ -381,14 +381,13 @@ export const AdminScholarships: React.FC = () => {
     return (
       <ScholarshipShell>
         <div className="max-w-md mx-auto my-16 p-8 rounded-2xl bg-white border border-red-200 text-center space-y-4 shadow-xs">
-          <ShieldAlert size={36} className="text-red-600 mx-auto" />
-          <h2 className="text-lg font-bold text-red-950">Quyền truy cập bị từ chối</h2>
+          <h2 className="text-lg font-semibold text-red-950">Quyền truy cập bị từ chối</h2>
           <p className="text-xs text-gray-600 leading-relaxed">
             Khu vực này yêu cầu tài khoản quản trị viên (Admin) được ủy quyền chính thức.
           </p>
           <Link
             to="/scholarships"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-xs font-bold hover:bg-gray-200"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200"
           >
             <ArrowLeft size={14} />
             <span>Về trang học bổng</span>
@@ -409,9 +408,8 @@ export const AdminScholarships: React.FC = () => {
             setShowCreateModal(true);
             playClick();
           }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-sm"
         >
-          <Plus size={16} />
           <span>Tạo chiến dịch mới</span>
         </button>
       }
@@ -419,7 +417,6 @@ export const AdminScholarships: React.FC = () => {
       {/* Loading list */}
       {loadingList && (
         <div className="py-20 text-center flex flex-col items-center justify-center gap-3">
-          <Loader2 className="animate-spin text-blue-600" size={32} />
           <p className="text-xs font-semibold text-slate-600">Đang tải danh sách chiến dịch...</p>
         </div>
       )}
@@ -431,7 +428,7 @@ export const AdminScholarships: React.FC = () => {
           <div className="lg:col-span-4 space-y-4">
             <div className="p-4 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-3">
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Chiến dịch ({campaigns.length})
                 </span>
                 <button
@@ -476,19 +473,19 @@ export const AdminScholarships: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border ${statusColors}`}>
+                          <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-md border ${statusColors}`}>
                             {c.status}
                           </span>
-                          <span className="text-[11px] font-mono text-slate-400">
+                          <span className="text-xs text-slate-400">
                             rev: {c.revision}
                           </span>
                         </div>
 
-                        <h4 className="mt-2 text-xs font-bold text-slate-900 line-clamp-1">
+                        <h4 className="mt-2 text-xs font-semibold text-slate-900 line-clamp-1">
                           {c.title}
                         </h4>
 
-                        <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                        <div className="mt-1 flex items-center justify-between text-xs text-slate-500 ">
                           <span>{c.schoolYear} ({c.semester})</span>
                           <span>slug: {c.slug}</span>
                         </div>
@@ -513,17 +510,17 @@ export const AdminScholarships: React.FC = () => {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-blue-700 px-2 py-0.5 rounded-md bg-blue-50">
+                        <span className="text-xs font-semibold text-blue-700 px-2 py-0.5 rounded-md bg-blue-50">
                           {activeCampaign.slug}
                         </span>
-                        <span className="text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
+                        <span className="text-xs font-semibold uppercase px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
                           Trạng thái: {activeCampaign.status}
                         </span>
-                        <span className="text-xs font-mono text-slate-500">
+                        <span className="text-xs text-slate-500">
                           Revision: {activeCampaign.revision}
                         </span>
                       </div>
-                      <h2 className="mt-2 text-xl font-black text-slate-900">
+                      <h2 className="mt-2 text-xl font-semibold text-slate-900">
                         {activeCampaign.title}
                       </h2>
                       <p className="text-xs text-slate-500 mt-0.5">
@@ -537,7 +534,7 @@ export const AdminScholarships: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setShowEditModal(true)}
-                          className="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50"
+                          className="px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50"
                         >
                           Sửa thông tin
                         </button>
@@ -553,7 +550,7 @@ export const AdminScholarships: React.FC = () => {
                               description: 'Thao tác này sẽ đưa đợt học bổng và danh sách sinh viên được duyệt ra giao diện công khai.',
                             });
                           }}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-xs"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 shadow-xs"
                         >
                           <Send size={14} />
                           <span>Publish (Công bố)</span>
@@ -570,7 +567,7 @@ export const AdminScholarships: React.FC = () => {
                               description: 'Thao tác này sẽ ẩn toàn bộ danh sách học bổng khỏi giao diện công khai ngay lập tức.',
                             });
                           }}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 shadow-xs"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 shadow-xs"
                         >
                           <RotateCcw size={14} />
                           <span>Unpublish (Ẩn)</span>
@@ -587,7 +584,7 @@ export const AdminScholarships: React.FC = () => {
                               description: 'Lưu trữ là trạng thái kết thúc vĩnh viễn, chiến dịch sẽ không thể rollback hay preview nữa.',
                             });
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-bold"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
                           title="Lưu trữ vĩnh viễn"
                         >
                           <Archive size={14} />
@@ -598,7 +595,7 @@ export const AdminScholarships: React.FC = () => {
                   </div>
 
                   {/* Navigation Tabs */}
-                  <div className="flex border-b border-slate-100 pt-2 gap-4 text-xs font-bold">
+                  <div className="flex border-b border-slate-100 pt-2 gap-4 text-xs font-semibold">
                     <button
                       type="button"
                       onClick={() => setActiveTab('details')}
@@ -650,33 +647,32 @@ export const AdminScholarships: React.FC = () => {
                 {activeTab === 'details' && (
                   <div className="space-y-4">
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4 text-xs">
-                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <Database size={16} className="text-blue-600" />
+                      <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                         <span>Trạng thái đợt dữ liệu (Batches)</span>
                       </h3>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
-                          <span className="text-[10px] font-bold uppercase text-slate-500">Active Batch (Đang công khai):</span>
-                          <div className="font-mono font-bold text-slate-900 break-all">
+                          <span className="text-xs font-semibold uppercase text-slate-500">Active Batch (Đang công khai):</span>
+                          <div className="font-semibold text-slate-900 break-all">
                             {activeCampaign.activeBatchId || '(Chưa có)'}
                           </div>
                         </div>
 
                         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
-                          <span className="text-[10px] font-bold uppercase text-slate-500">Candidate Batch (Chờ công bố):</span>
-                          <div className="font-mono font-bold text-slate-900 break-all">
+                          <span className="text-xs font-semibold uppercase text-slate-500">Candidate Batch (Chờ công bố):</span>
+                          <div className="font-semibold text-slate-900 break-all">
                             {activeCampaign.candidateBatchId || '(Chưa có)'}
                           </div>
                         </div>
                       </div>
 
                       <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/60 text-blue-900 space-y-1.5">
-                        <div className="font-bold flex items-center gap-1.5">
+                        <div className="font-semibold flex items-center gap-1.5">
                           <Info size={14} />
                           <span>Quy trình nạp và công bố:</span>
                         </div>
-                        <p className="text-[11px] leading-relaxed text-blue-800">
+                        <p className="text-xs leading-relaxed text-blue-800">
                           1. Chuẩn bị file Excel/CSV offline bằng lệnh <code>node scripts/prepare-scholarship-import.mjs</code>.<br />
                           2. Nạp file JSON vào tab <strong>Nạp dữ liệu JSON</strong> để kiểm tra lỗi và preview.<br />
                           3. Nhấn <strong>Apply</strong> để đưa dữ liệu thành candidate batch.<br />
@@ -693,8 +689,7 @@ export const AdminScholarships: React.FC = () => {
                   <div className="space-y-6">
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                          <FileSpreadsheet size={16} className="text-blue-600" />
+                        <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                           <span>Nạp tệp JSON đã chuẩn bị offline</span>
                         </h3>
                         <p className="text-xs text-slate-500 mt-1">
@@ -708,7 +703,7 @@ export const AdminScholarships: React.FC = () => {
                           type="file"
                           accept=".json,application/json"
                           onChange={handleJsonUpload}
-                          className="text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                          className="text-xs text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                         />
                         {jsonFileName && (
                           <div className="text-xs font-semibold text-slate-700">
@@ -722,7 +717,7 @@ export const AdminScholarships: React.FC = () => {
                           type="button"
                           onClick={handleRunPreview}
                           disabled={!jsonFileContent || previewLoading}
-                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-2xs"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-2xs"
                         >
                           {previewLoading ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
                           <span>Kiểm tra & Xem trước (Preview)</span>
@@ -734,12 +729,8 @@ export const AdminScholarships: React.FC = () => {
                     {previewResult && (
                       <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4 animate-fadeIn">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                            {previewResult.valid ? (
-                              <CheckCircle2 size={18} className="text-emerald-600" />
-                            ) : (
-                              <XCircle size={18} className="text-red-600" />
-                            )}
+                          <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+
                             <span>Kết quả kiểm tra tệp: {previewResult.valid ? 'HỢP LỆ' : 'CÓ LỖI'}</span>
                           </h4>
 
@@ -748,7 +739,7 @@ export const AdminScholarships: React.FC = () => {
                               type="button"
                               onClick={handleApplyBatch}
                               disabled={actionLoading}
-                              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs"
+                              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs"
                             >
                               {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                               <span>Apply Batch này</span>
@@ -759,15 +750,15 @@ export const AdminScholarships: React.FC = () => {
                         {/* Metrics Bar */}
                         <div className="grid grid-cols-3 gap-3 text-center text-xs">
                           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                            <span className="text-slate-400 block text-[10px] font-bold uppercase">Tổng dòng</span>
+                            <span className="text-slate-400 block text-xs font-semibold uppercase">Tổng dòng</span>
                             <strong className="text-slate-900 text-base">{previewResult.receipt.expectedRows}</strong>
                           </div>
                           <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                            <span className="text-emerald-600 block text-[10px] font-bold uppercase">Hợp lệ</span>
+                            <span className="text-emerald-600 block text-xs font-semibold uppercase">Hợp lệ</span>
                             <strong className="text-emerald-800 text-base">{previewResult.receipt.acceptedRows}</strong>
                           </div>
                           <div className="p-3 rounded-xl bg-red-50 border border-red-200">
-                            <span className="text-red-600 block text-[10px] font-bold uppercase">Từ chối / Lỗi</span>
+                            <span className="text-red-600 block text-xs font-semibold uppercase">Từ chối / Lỗi</span>
                             <strong className="text-red-800 text-base">{previewResult.receipt.rejectedRows}</strong>
                           </div>
                         </div>
@@ -775,8 +766,8 @@ export const AdminScholarships: React.FC = () => {
                         {/* Error List if invalid */}
                         {!previewResult.valid && 'errors' in previewResult && previewResult.errors.length > 0 && (
                           <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-2">
-                            <strong className="block text-red-950 font-bold">Danh sách lỗi dòng ({previewResult.errors.length}):</strong>
-                            <div className="max-h-48 overflow-y-auto space-y-1 font-mono text-[11px]">
+                            <strong className="block text-red-950 font-semibold">Danh sách lỗi dòng ({previewResult.errors.length}):</strong>
+                            <div className="max-h-48 overflow-y-auto space-y-1 text-xs">
                               {previewResult.errors.map((e, idx) => (
                                 <div key={idx} className="p-1.5 rounded-lg bg-white/70">
                                   Dòng #{e.sourceRowNumber}: {e.code} ({e.field})
@@ -790,12 +781,12 @@ export const AdminScholarships: React.FC = () => {
                         {importRows.length > 0 && (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between text-xs text-slate-500">
-                              <span className="font-bold">Xem trước 20 dòng đầu tiên đã map:</span>
-                              <span className="font-mono text-[10px]">Batch: {previewResult.receipt.batchId.slice(0, 16)}...</span>
+                              <span className="font-semibold">Xem trước 20 dòng đầu tiên đã map:</span>
+                              <span className="text-xs">Batch: {previewResult.receipt.batchId.slice(0, 16)}...</span>
                             </div>
                             <div className="overflow-x-auto border border-slate-200 rounded-xl">
                               <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600">
+                                <thead className="bg-slate-50 border-b border-slate-200 text-xs text-slate-600">
                                   <tr>
                                     <th className="p-2">Dòng gốc</th>
                                     <th className="p-2">MSSV</th>
@@ -808,12 +799,12 @@ export const AdminScholarships: React.FC = () => {
                                 <tbody className="divide-y divide-slate-100">
                                   {importRows.map((r) => (
                                     <tr key={r.id} className="hover:bg-slate-50">
-                                      <td className="p-2 font-mono text-slate-400">#{r.sourceRowNumber}</td>
-                                      <td className="p-2 font-mono font-bold text-slate-900">{r.studentCode}</td>
-                                      <td className="p-2 font-bold text-slate-900">{r.fullName}</td>
+                                      <td className="p-2 text-slate-400">#{r.sourceRowNumber}</td>
+                                      <td className="p-2 font-semibold text-slate-900">{r.studentCode}</td>
+                                      <td className="p-2 font-semibold text-slate-900">{r.fullName}</td>
                                       <td className="p-2 text-slate-700">{r.awardType}</td>
                                       <td className="p-2 text-slate-500">{r.className || '—'}</td>
-                                      <td className="p-2 font-mono text-blue-700 text-[11px]">
+                                      <td className="p-2 text-blue-700 text-xs">
                                         {JSON.stringify(r.scores)}
                                       </td>
                                     </tr>
@@ -832,8 +823,7 @@ export const AdminScholarships: React.FC = () => {
                 {activeTab === 'approval' && (
                   <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-6">
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <FileCheck size={16} className="text-blue-600" />
+                      <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                         <span>Phê duyệt thông tin & Quyết định chính thức</span>
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
@@ -844,7 +834,7 @@ export const AdminScholarships: React.FC = () => {
                     {/* Official Document Inputs */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                       <div className="space-y-1">
-                        <label className="font-bold text-slate-700">Tên quyết định / Nguồn ban hành:</label>
+                        <label className="font-semibold text-slate-700">Tên quyết định / Nguồn ban hành:</label>
                         <input
                           type="text"
                           aria-label="Tên quyết định"
@@ -856,7 +846,7 @@ export const AdminScholarships: React.FC = () => {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="font-bold text-slate-700">Số hiệu văn bản (Reference):</label>
+                        <label className="font-semibold text-slate-700">Số hiệu văn bản (Reference):</label>
                         <input
                           type="text"
                           aria-label="Số hiệu văn bản"
@@ -868,7 +858,7 @@ export const AdminScholarships: React.FC = () => {
                       </div>
 
                       <div className="sm:col-span-2 space-y-1">
-                        <label className="font-bold text-slate-700">Đường dẫn HTTPS văn bản gốc (Tùy chọn):</label>
+                        <label className="font-semibold text-slate-700">Đường dẫn HTTPS văn bản gốc (Tùy chọn):</label>
                         <input
                           type="url"
                           aria-label="Đường dẫn HTTPS văn bản gốc"
@@ -882,7 +872,7 @@ export const AdminScholarships: React.FC = () => {
 
                     {/* Per-field approval checklist */}
                     <div className="space-y-3 pt-2 border-t border-slate-100 text-xs">
-                      <span className="font-bold text-slate-800 block">Các trường phê duyệt công khai:</span>
+                      <span className="font-semibold text-slate-800 block">Các trường phê duyệt công khai:</span>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 opacity-80 cursor-not-allowed">
@@ -945,7 +935,7 @@ export const AdminScholarships: React.FC = () => {
                         type="button"
                         onClick={handleSubmitApproval}
                         disabled={actionLoading || !republicationConfirmed || !candidate || activeCampaign.status !== 'validated'}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                       >
                         {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
                         <span>Lưu phê duyệt</span>
@@ -959,8 +949,7 @@ export const AdminScholarships: React.FC = () => {
                   <div className="space-y-6">
                     {/* Batches Import History */}
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
-                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <History size={16} className="text-blue-600" />
+                      <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                         <span>Lịch sử các đợt nạp (Batches)</span>
                       </h4>
 
@@ -976,15 +965,15 @@ export const AdminScholarships: React.FC = () => {
                               className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-mono font-bold text-slate-800">
+                                <span className="font-semibold text-slate-800">
                                   Batch: {imp.batchId.slice(0, 16)}...
                                 </span>
-                                <span className="font-bold uppercase text-[10px] px-2 py-0.5 rounded-md bg-blue-100 text-blue-800">
+                                <span className="font-semibold uppercase text-xs px-2 py-0.5 rounded-md bg-blue-100 text-blue-800">
                                   {imp.status}
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-600">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-600">
                                 <div>Tệp: <strong>{imp.sourceFilename}</strong></div>
                                 <div>Dòng hợp lệ: <strong>{imp.acceptedRows}</strong></div>
                                 <div>Thời gian: <strong>{imp.createdAt}</strong></div>
@@ -1001,7 +990,7 @@ export const AdminScholarships: React.FC = () => {
                                           batchId: imp.batchId,
                                         });
                                       }}
-                                      className="text-amber-700 font-bold hover:underline"
+                                      className="text-amber-700 font-semibold hover:underline"
                                     >
                                       Rollback về đợt này
                                     </button>
@@ -1016,8 +1005,7 @@ export const AdminScholarships: React.FC = () => {
 
                     {/* Audit Trail Events */}
                     <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
-                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <Clock size={16} className="text-blue-600" />
+                      <h4 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                         <span>Nhật ký kiểm toán (Audit Trail)</span>
                       </h4>
 
@@ -1031,14 +1019,14 @@ export const AdminScholarships: React.FC = () => {
                               className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
                             >
                               <div className="space-y-0.5">
-                                <span className="font-bold text-slate-800">
+                                <span className="font-semibold text-slate-800">
                                   Hành động: {evt.action}
                                 </span>
-                                <div className="text-[11px] text-slate-400 font-mono">
+                                <div className="text-xs text-slate-400 ">
                                   User: {evt.actorUserId.slice(0, 8)}... • {evt.createdAt}
                                 </div>
                               </div>
-                              <span className="font-mono text-[10px] text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">
+                              <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">
                                 {JSON.stringify(evt.details)}
                               </span>
                             </div>
@@ -1059,7 +1047,7 @@ export const AdminScholarships: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 border border-slate-200 animate-fadeIn">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Tạo chiến dịch học bổng mới</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Tạo chiến dịch học bổng mới</h3>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
@@ -1071,50 +1059,50 @@ export const AdminScholarships: React.FC = () => {
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Mã định danh (slug):</label>
+                <label className="font-semibold text-slate-700 block mb-1">Mã định danh (slug):</label>
                 <input
                   type="text"
                   aria-label="Mã định danh chiến dịch"
                   value={createSlug}
                   onChange={(e) => setCreateSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                   placeholder="VD: hk1-2025-2026"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold"
                 />
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Tiêu đề chiến dịch:</label>
+                <label className="font-semibold text-slate-700 block mb-1">Tiêu đề chiến dịch:</label>
                 <input
                   type="text"
                   aria-label="Tiêu đề chiến dịch"
                   value={createTitle}
                   onChange={(e) => setCreateTitle(e.target.value)}
                   placeholder="VD: Học bổng Khuyến khích học tập HK1 2025-2026"
-                  className="w-full p-2.5 rounded-xl border border-slate-200 font-bold"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Năm học:</label>
+                  <label className="font-semibold text-slate-700 block mb-1">Năm học:</label>
                   <input
                     type="text"
                     aria-label="Năm học chiến dịch"
                     value={createSchoolYear}
                     onChange={(e) => setCreateSchoolYear(e.target.value)}
                     placeholder="2025-2026"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 font-bold"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold"
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Học kỳ:</label>
+                  <label className="font-semibold text-slate-700 block mb-1">Học kỳ:</label>
                   <input
                     type="text"
                     aria-label="Học kỳ chiến dịch"
                     value={createSemester}
                     onChange={(e) => setCreateSemester(e.target.value)}
                     placeholder="HK1"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 font-bold"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold"
                   />
                 </div>
               </div>
@@ -1124,7 +1112,7 @@ export const AdminScholarships: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold"
               >
                 Hủy
               </button>
@@ -1148,7 +1136,7 @@ export const AdminScholarships: React.FC = () => {
                     alert(err instanceof ScholarshipApiError ? err.message : 'Tạo thất bại.');
                   }
                 }}
-                className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-sm"
+                className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 shadow-sm"
               >
                 Tạo chiến dịch
               </button>
@@ -1165,7 +1153,7 @@ export const AdminScholarships: React.FC = () => {
               <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
                 <AlertTriangle size={20} />
               </div>
-              <h3 className="text-base font-bold text-slate-900">{actionConfirm.title}</h3>
+              <h3 className="text-base font-semibold text-slate-900">{actionConfirm.title}</h3>
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
@@ -1173,7 +1161,7 @@ export const AdminScholarships: React.FC = () => {
             </p>
 
             {actionError && (
-              <div className="p-3 rounded-xl bg-red-50 text-red-800 text-xs font-bold">
+              <div className="p-3 rounded-xl bg-red-50 text-red-800 text-xs font-semibold">
                 {actionError}
               </div>
             )}
@@ -1183,7 +1171,7 @@ export const AdminScholarships: React.FC = () => {
                 type="button"
                 onClick={() => setActionConfirm(null)}
                 disabled={actionLoading}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold"
+                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold"
               >
                 Hủy
               </button>
@@ -1191,7 +1179,7 @@ export const AdminScholarships: React.FC = () => {
                 type="button"
                 onClick={handleExecuteStateAction}
                 disabled={actionLoading}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
               >
                 {actionLoading && <Loader2 size={14} className="animate-spin" />}
                 <span>Xác nhận thực hiện</span>

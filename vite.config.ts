@@ -3,7 +3,7 @@ import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { devBackendOrigin, proxyCloudflareApi, resolveDevBackendOrigin, selectDevApiRoute } from './dev/devApiBridge'
+import { devBackendOrigin, isScholarshipApiPath, proxyCloudflareApi, resolveDevBackendOrigin, selectDevApiRoute } from './dev/devApiBridge'
 
 const apiRoot = path.join(process.cwd(), 'api')
 
@@ -91,7 +91,7 @@ const devApiPlugin = (): Plugin => ({
           } catch {
             res.statusCode = 502
             res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ error: 'Dev backend unavailable' }))
+            res.end(JSON.stringify({ error: isScholarshipApiPath(parsedUrl.pathname) ? 'Không thể kết nối hệ thống học bổng. Vui lòng thử lại.' : 'Dev backend unavailable' }))
           }
           return
         }

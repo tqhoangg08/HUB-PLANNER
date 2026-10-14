@@ -669,7 +669,6 @@ export const CelebrationStudio: React.FC = () => {
       {/* Loading verified awards */}
       {loadingAwards && (
         <div className="py-24 text-center flex flex-col items-center justify-center gap-3">
-          <Sparkles className="animate-spin text-amber-500" size={36} />
           <p className="text-xs font-semibold text-slate-600">Đang tải và kiểm chứng dữ liệu vinh danh của bạn...</p>
         </div>
       )}
@@ -677,16 +676,13 @@ export const CelebrationStudio: React.FC = () => {
       {/* Auth or Eligibility Error */}
       {!loadingAwards && awardError && (
         <div className="max-w-md mx-auto my-12 p-8 rounded-3xl bg-white border border-slate-200 text-center space-y-4 shadow-sm">
-          <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-800 mx-auto flex items-center justify-center">
-            <Lock size={30} />
-          </div>
-          <h2 className="text-xl font-bold text-[#003375]">Xác minh học bổng cá nhân</h2>
+          <h2 className="text-xl font-semibold text-[#003375]">Xác minh học bổng cá nhân</h2>
           <p className="text-xs text-slate-600 leading-relaxed">{awardError}</p>
           <div className="pt-2">
             <Link
               to="/scholarships/me"
               onClick={playClick}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0052CC] text-white text-xs font-bold hover:bg-[#0040a8] transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0052CC] text-white text-xs font-semibold hover:bg-[#0040a8] transition-colors"
             >
               <span>Xem học bổng của tôi</span>
               <ChevronLeft size={16} className="rotate-180" />
@@ -703,7 +699,7 @@ export const CelebrationStudio: React.FC = () => {
             {/* Award Selector if user has multiple awards */}
             {awards.length > 1 && (
               <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Award size={15} className="text-[#0052CC]" />
                   <span>Chọn giải thưởng vinh danh:</span>
                 </label>
@@ -711,7 +707,7 @@ export const CelebrationStudio: React.FC = () => {
                   aria-label="Chọn giải thưởng vinh danh"
                   value={selectedAwardId || ''}
                   onChange={(e) => setSelectedAwardId(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-[#0052CC]"
+                  className="w-full bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 rounded-xl p-2.5 outline-none focus:ring-1 focus:ring-[#0052CC]"
                 >
                   {awards.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -723,28 +719,23 @@ export const CelebrationStudio: React.FC = () => {
             )}
 
             {/* Locked Verified Identity Notice */}
-            <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-emerald-950 text-xs flex items-center justify-between gap-3 shadow-2xs">
+            <div className="p-4 rounded-2xl bg-white border border-slate-200 text-slate-700 text-xs flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <ShieldCheck size={20} className="text-emerald-600 shrink-0" />
                 <div>
-                  <div className="font-extrabold text-emerald-900">
+                  <div className="font-semibold text-slate-900">
                     {currentAward.fullName} — #{currentAward.studentCode}
                   </div>
-                  <div className="text-[11px] text-emerald-700">
+                  <div className="text-xs text-slate-600">
                     Học bổng: <strong>{currentAward.awardType}</strong> (Đã xác thực chính chủ)
                   </div>
                 </div>
               </div>
-              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-emerald-200/80 text-emerald-900">
-                Khóa
-              </span>
             </div>
 
             {/* 1. Upload & Position Portrait */}
             <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Camera size={16} className="text-[#0052CC]" />
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                   <span>Ảnh chân dung cá nhân</span>
                 </h3>
                 {imageElement && (
@@ -754,7 +745,7 @@ export const CelebrationStudio: React.FC = () => {
                       setImageSrc(null);
                       setImageElement(null);
                     }}
-                    className="text-[11px] font-bold text-red-600 hover:underline"
+                    className="text-xs font-semibold text-red-600 hover:underline"
                   >
                     Xóa ảnh
                   </button>
@@ -778,8 +769,8 @@ export const CelebrationStudio: React.FC = () => {
                   className="w-full py-8 border-2 border-dashed border-slate-200 hover:border-[#0052CC] rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:text-[#0052CC] transition-colors bg-slate-50/50 hover:bg-blue-50/30 cursor-pointer"
                 >
                   <Upload size={24} />
-                  <span className="text-xs font-bold">Tải ảnh chân dung từ máy tính hoặc điện thoại</span>
-                  <span className="text-[11px] text-slate-400">Định dạng JPG, PNG, WebP (Tối đa 10 MB)</span>
+                  <span className="text-xs font-semibold">Tải ảnh chân dung từ máy tính hoặc điện thoại</span>
+                  <span className="text-xs text-slate-400">Định dạng JPG, PNG, WebP (Tối đa 10 MB)</span>
                 </button>
               ) : (
                 <div className="space-y-3">
@@ -791,7 +782,7 @@ export const CelebrationStudio: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="text-[11px] font-bold text-[#0052CC] hover:underline"
+                      className="text-xs font-semibold text-[#0052CC] hover:underline"
                     >
                       Đổi ảnh khác
                     </button>
@@ -813,7 +804,7 @@ export const CelebrationStudio: React.FC = () => {
                     <ZoomIn size={16} className="text-slate-400" />
                   </div>
 
-                  <p className="text-[11px] text-slate-400 italic">
+                  <p className="text-xs text-slate-400 italic">
                     * Bạn có thể kéo trực tiếp vào khung ảnh bên phải để điều chỉnh góc mặt.
                   </p>
                 </div>
@@ -822,8 +813,7 @@ export const CelebrationStudio: React.FC = () => {
 
             {/* 2. Template Style Selector (4 Styles) */}
             <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Sparkles size={16} className="text-amber-500" />
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                 <span>Phong cách thiệp vinh danh</span>
               </h3>
 
@@ -833,7 +823,7 @@ export const CelebrationStudio: React.FC = () => {
                     id: 'academic-gold',
                     name: 'Academic Gold',
                     desc: 'Sang trọng, quyền uy',
-                    bg: 'bg-gradient-to-br from-[#001A3D] to-[#002654] text-amber-300',
+                    bg: 'bg-white text-slate-900',
                   },
                   {
                     id: 'hub-minimal',
@@ -845,13 +835,13 @@ export const CelebrationStudio: React.FC = () => {
                     id: 'scholarship-flex',
                     name: 'Scholarship Flex',
                     desc: 'Trẻ trung, nổi bật',
-                    bg: 'bg-gradient-to-br from-[#1A56FF] to-[#0A3B99] text-white',
+                    bg: 'bg-white text-slate-900',
                   },
                   {
                     id: 'soft-achievement',
                     name: 'Soft Achievement',
                     desc: 'Nhẹ nhàng, tinh tế',
-                    bg: 'bg-gradient-to-br from-[#FAF7F2] to-[#EDE2D3] text-amber-950',
+                    bg: 'bg-white text-slate-900',
                   },
                 ].map((item) => (
                   <button
@@ -867,8 +857,8 @@ export const CelebrationStudio: React.FC = () => {
                         : 'border-transparent hover:border-slate-200'
                     } ${item.bg}`}
                   >
-                    <div className="text-xs font-black leading-tight">{item.name}</div>
-                    <div className="text-[10px] opacity-80 mt-1">{item.desc}</div>
+                    <div className="text-xs font-semibold leading-tight">{item.name}</div>
+                    <div className="text-xs opacity-80 mt-1">{item.desc}</div>
                   </button>
                 ))}
               </div>
@@ -877,12 +867,12 @@ export const CelebrationStudio: React.FC = () => {
             {/* 3. Frame Mask & Aspect Ratio */}
             <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700">Tỷ lệ xuất ảnh:</span>
+                <span className="text-xs font-semibold text-slate-700">Tỷ lệ xuất ảnh:</span>
                 <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setExportRatio('story')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                       exportRatio === 'story'
                         ? 'bg-white text-[#003375] shadow-xs'
                         : 'text-slate-500 hover:text-slate-900'
@@ -893,7 +883,7 @@ export const CelebrationStudio: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setExportRatio('feed')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                       exportRatio === 'feed'
                         ? 'bg-white text-[#003375] shadow-xs'
                         : 'text-slate-500 hover:text-slate-900'
@@ -905,7 +895,7 @@ export const CelebrationStudio: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-700">Khung ảnh:</span>
+                <span className="text-xs font-semibold text-slate-700">Khung ảnh:</span>
                 <div className="flex gap-1.5">
                   {(['arch', 'circle', 'rounded-rect', 'shield'] as FrameMask[]).map((m) => (
                     <button
@@ -914,7 +904,7 @@ export const CelebrationStudio: React.FC = () => {
                       onClick={() => setFrameMask(m)}
                       className={`px-2.5 py-1 rounded-lg text-xs font-semibold capitalize border ${
                         frameMask === m
-                          ? 'border-[#0052CC] bg-blue-50 text-[#0052CC] font-bold'
+                          ? 'border-[#0052CC] bg-blue-50 text-[#0052CC] font-semibold'
                           : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                       }`}
                     >
@@ -927,7 +917,7 @@ export const CelebrationStudio: React.FC = () => {
 
             {/* 4. Display Toggles & Custom Quote */}
             <div className="p-5 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-3">
-              <span className="text-xs font-bold text-slate-700 block">Tùy chọn hiển thị chi tiết:</span>
+              <span className="text-xs font-semibold text-slate-700 block">Tùy chọn hiển thị chi tiết:</span>
 
               <div className="space-y-2 text-xs">
                 <label className="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
@@ -965,7 +955,7 @@ export const CelebrationStudio: React.FC = () => {
 
               {/* Personal Quote Input */}
               <div className="pt-2">
-                <label className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase block mb-1">
                   Châm ngôn / Lời tri ân cá nhân (Tùy chọn):
                 </label>
                 <input
@@ -984,11 +974,11 @@ export const CelebrationStudio: React.FC = () => {
           {/* RIGHT COLUMN: Live Interactive Preview & Export (7 cols) */}
           <div className="lg:col-span-7 space-y-4 lg:sticky lg:top-24">
             {/* Canvas Preview Container */}
-            <div className="p-4 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex flex-col items-center justify-center">
-              <div className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-2">
+            <div className="p-4 sm:p-6 rounded-3xl bg-white border border-slate-200 flex flex-col items-center justify-center">
+              <div className="text-xs font-semibold text-slate-400 mb-3 flex items-center gap-2">
                 <Eye size={15} />
                 <span>Xem trước trực tiếp (Live Preview)</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
                   {exportRatio === 'story' ? '1080 × 1920 px' : '1080 × 1350 px'}
                 </span>
               </div>
@@ -1014,7 +1004,7 @@ export const CelebrationStudio: React.FC = () => {
                 />
 
                 {imageElement && isDragging && (
-                  <div className="absolute inset-0 bg-blue-500/10 pointer-events-none flex items-center justify-center text-white text-xs font-bold backdrop-blur-xs">
+                  <div className="absolute inset-0 bg-blue-500/10 pointer-events-none flex items-center justify-center text-white text-xs font-semibold backdrop-blur-xs">
                     <Move size={24} className="animate-pulse" />
                   </div>
                 )}
@@ -1026,7 +1016,7 @@ export const CelebrationStudio: React.FC = () => {
                   type="button"
                   onClick={handleExportPNG}
                   disabled={isExporting}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#2563eb] text-white font-extrabold text-xs hover:brightness-105 active:scale-95 transition-all shadow-md disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#2563eb] text-white font-semibold text-xs hover:brightness-105 active:scale-95 transition-all shadow-md disabled:opacity-50"
                 >
                   <Download size={16} />
                   <span>{isExporting ? 'Đang tạo ảnh...' : 'Tải ảnh PNG (HD)'}</span>
@@ -1036,7 +1026,7 @@ export const CelebrationStudio: React.FC = () => {
                   type="button"
                   onClick={handleShare}
                   disabled={isExporting}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs active:scale-95 transition-all border border-white/20 disabled:opacity-50"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs transition-colors border border-slate-300 disabled:opacity-50"
                 >
                   <Share2 size={16} />
                   <span>Chia sẻ ngay</span>
@@ -1044,12 +1034,12 @@ export const CelebrationStudio: React.FC = () => {
               </div>
 
               {exportSuccessMessage && (
-                <p className="mt-3 text-xs font-bold text-emerald-400 animate-fadeIn">
+                <p className="mt-3 text-xs font-semibold text-emerald-700 animate-fadeIn">
                   ✓ {exportSuccessMessage}
                 </p>
               )}
 
-              <p className="mt-4 text-[11px] text-slate-500 text-center max-w-sm">
+              <p className="mt-4 text-xs text-slate-500 text-center max-w-sm">
                 Toàn bộ ảnh được vẽ cục bộ trong bộ nhớ trình duyệt (Canvas). Không có dữ liệu hình ảnh nào được lưu trữ hay tải lên máy chủ.
               </p>
             </div>

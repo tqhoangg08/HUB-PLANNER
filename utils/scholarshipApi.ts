@@ -276,7 +276,8 @@ export const mapScholarshipErrorCode = (code: string, status: number): string =>
 
   if (map[code]) return map[code];
   if (status === 429) return 'Đã vượt quá giới hạn tra cứu (60 yêu cầu/phút). Vui lòng thử lại sau 60 giây.';
-  return code || `Yêu cầu thất bại (${status})`;
+  if (status >= 500) return 'Không thể kết nối hệ thống học bổng. Vui lòng thử lại.';
+  return `Yêu cầu thất bại (${status}). Vui lòng thử lại.`;
 };
 
 // ============================================================================

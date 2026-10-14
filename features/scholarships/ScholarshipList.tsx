@@ -111,37 +111,33 @@ export const ScholarshipList: React.FC = () => {
     ? 'Đợt học bổng đã chọn chưa được công bố hoặc không còn khả dụng.' : '');
   const busy = loadingCampaigns || loading || pendingInput;
   return (
-    <ScholarshipShell eyebrow="DANH SÁCH CÔNG BỐ" title="Danh sách sinh viên nhận học bổng" subtitle="Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ.">
+    <ScholarshipShell title="Danh sách sinh viên nhận học bổng" subtitle="Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ." headerActions={
+      <div className="scholarship-field scholarship-term"><label htmlFor={`${id}-term`}>Học kỳ / Năm học</label>
+        <select id={`${id}-term`} className="scholarship-input" value={slugParam || slug} disabled={loadingCampaigns || !campaigns.length} onChange={e => update({ campaign: e.target.value, category: '', page: '' })}>
+          {!campaigns.length && <option value="">{loadingCampaigns ? 'Đang tải học kỳ...' : campaignError ? 'Không tải được học kỳ' : 'Chưa có đợt công bố'}</option>}
+          {slugParam && !selected && <option value={slugParam}>Đợt không khả dụng</option>}
+          {campaigns.map(c => <option value={c.slug} key={c.slug}>{c.semester} / {c.schoolYear} — {c.title}</option>)}
+        </select>
+      </div>
+    }>
       <section aria-label="Tra cứu sinh viên nhận học bổng">
         <div className="scholarship-surface scholarship-filters">
           <div className="scholarship-filter-grid">
             <div className="scholarship-field"><label htmlFor={`${id}-query`}>Tra cứu sinh viên</label>
-              <input id={`${id}-query`} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} aria-describedby={`${id}-help`} />
+              <input id={`${id}-query`} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} />
             </div>
-            <div className="scholarship-field"><label htmlFor={`${id}-major`}>Ngành học</label><select id={`${id}-major`} className="scholarship-input" disabled aria-describedby={`${id}-help`}><option>Tất cả ngành</option></select></div>
             <div className="scholarship-field"><label htmlFor={`${id}-award`}>Xếp loại học bổng</label>
               <select id={`${id}-award`} className="scholarship-input" value={category} disabled={disabled || summaryError} onChange={e => update({ category: e.target.value, page: '' })}>
                 <option value="">Tất cả xếp loại</option>
                 {[...new Set([...categories, ...(category ? [category] : [])])].map(value => <option key={value}>{value}</option>)}
               </select>
             </div>
-            <div className="scholarship-field"><label htmlFor={`${id}-class`}>Lớp</label><select id={`${id}-class`} className="scholarship-input" disabled aria-describedby={`${id}-help`}><option>Tất cả lớp</option></select></div>
-          </div>
-          <div className="scholarship-term-row">
-            <div className="scholarship-field"><label htmlFor={`${id}-term`}>Học kỳ / Năm học</label>
-              <select id={`${id}-term`} className="scholarship-input" value={slugParam || slug} disabled={loadingCampaigns || !campaigns.length} onChange={e => update({ campaign: e.target.value, category: '', page: '' })}>
-                {!campaigns.length && <option value="">Chưa có đợt công bố</option>}
-                {slugParam && !selected && <option value={slugParam}>Đợt không khả dụng</option>}
-                {campaigns.map(c => <option value={c.slug} key={c.slug}>{c.semester} / {c.schoolYear} — {c.title}</option>)}
-              </select>
-            </div>
-            <p className="scholarship-note" id={`${id}-help`}>Tìm kiếm từ 2 ký tự. Bộ lọc ngành và lớp đang chờ hỗ trợ từ hệ thống dữ liệu.</p>
           </div>
           {summaryError && <p role="status" className="scholarship-note">Chưa tải được xếp loại học bổng. <button className="scholarship-button" onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
         </div>
         <div className="scholarship-surface scholarship-table-surface" aria-busy={busy}>
           {message ? <div className="scholarship-status" role="alert"><p>{message}</p><button className="scholarship-button" disabled={cooldown > 0} onClick={() => setRetry(n => n + 1)}>{cooldown ? `Thử lại sau ${cooldown} giây` : 'Thử lại'}</button></div>
-            : busy ? <div className="scholarship-status" role="status">Đang tải danh sách học bổng...</div>
+            : busy ? <div className="scholarship-skeleton" role="status"><span className="sr-only">Đang tải danh sách học bổng...</span><div aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <div className="scholarship-skeleton-row" key={i}>{Array.from({ length: 4 }, (_, j) => <span key={j} />)}</div>)}</div></div>
             : !campaigns.length ? <div className="scholarship-status" role="status">Chưa có danh sách học bổng được công bố.</div>
             : shortQuery ? <div className="scholarship-status" role="status">Nhập ít nhất 2 ký tự để tra cứu.</div>
             : visibleData && !total ? <div className="scholarship-status" role="status">{query || category ? 'Không tìm thấy sinh viên phù hợp với bộ lọc.' : 'Đợt công bố này chưa có sinh viên nhận học bổng.'}</div>

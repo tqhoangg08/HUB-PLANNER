@@ -6,6 +6,7 @@ import {
   mapScholarshipErrorCode,
   ScholarshipApiError,
   fetchAllPublicCampaigns,
+  fetchCampaignRecipients,
   searchCampaignRecipients,
   fetchMyScholarships,
   type Campaign,
@@ -35,6 +36,17 @@ test('ScholarshipApiError accurately maps standard contract error codes to clear
   assert.match(mapScholarshipErrorCode('BODY_TOO_LARGE', 413), /Kích thước tệp vượt quá/);
   assert.match(mapScholarshipErrorCode('OFFICIAL_SOURCE_REQUIRED', 400), /nguồn văn bản quyết định/);
   assert.match(mapScholarshipErrorCode('RATE_LIMIT', 429), /giới hạn tra cứu/);
+});
+
+test('backend failure stays an error with Vietnamese text rather than an empty published list', async () => {
+  const original = globalThis.fetch;
+  try {
+    for (const status of [502, 503]) {
+      globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Dev backend unavailable' }), { status, headers: { 'Content-Type': 'application/json' } });
+      await assert.rejects(fetchAllPublicCampaigns(), (error: unknown) => error instanceof ScholarshipApiError && error.status === status && /Không thể kết nối/.test(error.message) && !/Dev backend/.test(error.message));
+      await assert.rejects(fetchCampaignRecipients('hk1'), (error: unknown) => error instanceof ScholarshipApiError && error.status === status);
+    }
+  } finally { globalThis.fetch = original; }
 });
 
 test('Scholarship routes are registered in AppRoutes.tsx with /scholarships as default and list/search redirected', () => {
