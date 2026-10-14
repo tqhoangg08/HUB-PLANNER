@@ -50,6 +50,8 @@ jobs:
         run: node scripts/check-public-release-approval.mjs --preflight
 
       - run: npm run test:advisor
+      - name: Text-first schema, authorization, publication and revision regressions
+        run: node --test --experimental-strip-types tests/ai-text-documents.test.ts
       - run: npm run typecheck
       - run: npm run cf:typecheck
 
@@ -105,7 +107,7 @@ jobs:
 
       # A successful upload is not proof of the effective serving percentage.
       # Read the actual traffic version and its bindings; never retry or auto-rollback.
-      - name: Verify serving Public version uses V2 100 percent and document flags remain OFF
+      - name: Verify serving Public version preserves V2 100 percent and document flags remain OFF
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.PUBLIC_RELEASE_CLOUDFLARE_ACCOUNT_ID }}

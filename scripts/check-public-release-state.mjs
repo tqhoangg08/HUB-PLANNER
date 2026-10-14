@@ -8,8 +8,9 @@ const canonicalObservability=o=>({enabled:o?.enabled??false,head_sampling_rate:o
   traces:{enabled:o?.traces?.enabled??false,head_sampling_rate:o?.traces?.head_sampling_rate??1,persist:o?.traces?.persist??true}});
 export const PUBLIC_RELEASE_ACCOUNT='6cd8bac6009a55f96bdf9df7c2057548';
 export const PUBLIC_RELEASE_DB='88d702e1-60d3-490a-8514-38ef881cf133';
-// A reviewed, one-way release transition, never a dispatcher-supplied drift allowance.
-export const PUBLIC_V2_TRANSITION=Object.freeze({before:'7',after:'100',mode:'canary'});
+// Text-first code release preserves the already deployed V2 100% baseline.
+// Neither phase accepts an old 7% baseline or a dispatcher-selected percentage.
+export const PUBLIC_V2_TRANSITION=Object.freeze({before:'100',after:'100',mode:'canary'});
 const phasePercent=phase=>{
   if(!['predeploy','postdeploy'].includes(phase))throw Error('UNSUPPORTED_RELEASE_PHASE');
   return phase==='predeploy'?PUBLIC_V2_TRANSITION.before:PUBLIC_V2_TRANSITION.after;
@@ -22,8 +23,7 @@ const offFlags={AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',AI_ADVISOR_DOC
 function validateRolloutVariables(vars,phase){
   if(vars.AI_ADVISOR_V2_MODE!==PUBLIC_V2_TRANSITION.mode||vars.AI_ADVISOR_V2_CANARY_PERCENT!==phasePercent(phase))throw Error('AI_RELEASE_STATE_DRIFT');
   for(const [key,value]of Object.entries(offFlags)){
-    // Old code has fail-closed defaults. The NEW serving version must explicitly carry OFF/0.
-    if(vars[key]!==value&&!(phase==='predeploy'&&vars[key]===undefined))throw Error('INITIAL_DOCUMENT_POLICY_MUST_BE_OFF');
+    if(vars[key]!==value)throw Error('INITIAL_DOCUMENT_POLICY_MUST_BE_OFF');
   }
 }
 export function validatePublicReleaseState(config,settings,schema,phase='predeploy') {
@@ -34,7 +34,6 @@ export function validatePublicReleaseState(config,settings,schema,phase='predepl
   const live=settings.bindings,vars=liveVariables(live);
   validateRolloutVariables(vars,phase);
   for(const [key,value]of Object.entries(config.vars||{})) {
-    if(phase==='predeploy'&&key in offFlags&&vars[key]===undefined)continue;
     if(vars[key]!==(key==='AI_ADVISOR_V2_CANARY_PERCENT'?expectedPercent:value))throw Error('LIVE_VARIABLE_DRIFT');
   }
   const expected=[...(config.d1_databases||[]).map(b=>[b.binding,'d1',b.database_id]),...(config.r2_buckets||[]).map(b=>[b.binding,'r2_bucket',b.bucket_name]),
@@ -48,6 +47,30 @@ export function validatePublicReleaseState(config,settings,schema,phase='predepl
   if(live.some(b=>!['plain_text','secret_text'].includes(b.type)&&!expected.some(([name])=>name===b.name)))throw Error('UNREVIEWED_LIVE_BINDING');
   if(!isDeepStrictEqual(canonicalObservability(settings.observability),canonicalObservability(config.observability)))throw Error('OBSERVABILITY_DRIFT_REQUIRES_REVIEW');
   if(!['ai_search_status','ai_search_revision','ocr_uncertain_tokens','gemini_indexing_status'].every(n=>schema.some(c=>c.name===n)))throw Error('0054_MIGRATION_APPROVAL_REQUIRED');
+  return true;
+}
+export const TEXT_FIRST_MIGRATIONS=Object.freeze(['0055_ai_document_index_segment_count.sql','0056_ai_text_document_revisions.sql']);
+const sqlIdentity=sql=>String(sql||'').replace(/\s/g,'').replace(/;$/,'');
+/** Additive migrations must be explicitly applied and recorded before release.
+ * No partial schema, missing guard, fabricated ledger or migration runner here. */
+export function validateTextFirstReleaseSchema(schema,objects,ledger){
+  const count=schema.filter(c=>c.name==='index_segment_count');
+  if(count.length!==1||count[0].type!=='INTEGER'||count[0].notnull!==0||count[0].dflt_value!==null)
+    throw Error('0055_SCHEMA_APPROVAL_REQUIRED');
+  if(!Array.isArray(objects)||!Array.isArray(ledger)||TEXT_FIRST_MIGRATIONS.some(name=>ledger.filter(r=>r.name===name).length!==1))
+    throw Error('TEXT_FIRST_MIGRATION_LEDGER_REQUIRED');
+  const migration=readFileSync('cloudflare/migrations/0056_ai_text_document_revisions.sql','utf8');
+  const specs=[['table','ai_text_documents',/CREATE TABLE ai_text_documents \([\s\S]*?\n\);/],
+    ['table','ai_text_revisions',/CREATE TABLE ai_text_revisions \([\s\S]*?\n\);/],
+    ['index','ai_text_revisions_document',/CREATE INDEX ai_text_revisions_document[^;]+;/],
+    ['trigger','ai_text_publication_source_guard',/CREATE TRIGGER ai_text_publication_source_guard[\s\S]*?\nEND;/]];
+  for(const [type,name,pattern]of specs){
+    const expected=migration.match(pattern)?.[0],actual=objects.filter(o=>o.name===name&&o.type===type);
+    if(!expected||actual.length!==1||sqlIdentity(actual[0].sql)!==sqlIdentity(expected))throw Error('0056_PUBLICATION_SCHEMA_DRIFT');
+  }
+  const table=objects.filter(o=>o.name==='ai_documents'&&o.type==='table');
+  const check=readFileSync('cloudflare/migrations/0055_ai_document_index_segment_count.sql','utf8').split('ADD COLUMN ')[1];
+  if(table.length!==1||!sqlIdentity(table[0].sql).includes(sqlIdentity(check)))throw Error('0055_SEGMENT_CHECK_DRIFT');
   return true;
 }
 export async function checkPublicReleaseState(config,{account,token,phase='predeploy',beforeVersion,fetchImpl=fetch}={}){
@@ -74,6 +97,10 @@ export async function checkPublicReleaseState(config,{account,token,phase='prede
   const [schema]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:'PRAGMA table_info(ai_documents)'});
   if(!Array.isArray(schema?.results)||schema.meta?.rows_written>0||schema.meta?.changed_db===true)throw Error('READ_ONLY_SCHEMA_UNVERIFIED');
   validatePublicReleaseState(config,settings,schema.results,phase);
+  const [objects]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:"SELECT type,name,sql FROM sqlite_schema WHERE name IN ('ai_documents','ai_text_documents','ai_text_revisions','ai_text_revisions_document','ai_text_publication_source_guard')"});
+  const [ledger]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:"SELECT name FROM d1_migrations WHERE name IN ('0055_ai_document_index_segment_count.sql','0056_ai_text_document_revisions.sql')"});
+  for(const result of [objects,ledger])if(!Array.isArray(result?.results)||result.meta?.rows_written>0||result.meta?.changed_db===true)throw Error('READ_ONLY_SCHEMA_UNVERIFIED');
+  validateTextFirstReleaseSchema(schema.results,objects.results,ledger.results);
   const deployments=await cf(`${worker}/deployments`);
   if(!Array.isArray(deployments.deployments)||!deployments.deployments.length
     ||deployments.deployments.some(d=>!Number.isFinite(Date.parse(d.created_on))))throw Error('TRAFFIC_METADATA_UNVERIFIED');
