@@ -57,7 +57,7 @@ import type { Subject } from '../../../types.ts';
 import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 import { classifyConductIntent, normalizeAdvisorIntentText, isAcademicPolicyQuestion } from './ai-advisor-intents.ts';
 import { documentSearchFailureStatus, isRelevantAdvisorEvidence } from './ai-advisor-grounding.ts';
-import {buildCompletenessDependencies,completenessEnabled,areDocumentEvidenceRevisionsCurrent,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
+import {buildCompletenessDependencies,buildTuitionConditionDependencies,completenessEnabled,areDocumentEvidenceRevisionsCurrent,type CompletenessEnv} from './ai-advisor-completeness-config.ts';
 import {isTuitionContinuationEvidence} from './ai-advisor-source-sections.ts';
 import {createAdvisorReleaseMetrics,readAdvisorProviderUsage,type AdvisorReleaseEvent} from './ai-advisor-release-telemetry.ts';
 import {useCloudflareDocumentPolicy,selectCloudflareDocumentPolicy,createDocumentPolicyDeadline,type DocumentProviderPolicyEnv} from './ai-advisor-document-policy.ts';
@@ -1749,11 +1749,14 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
         },
       } : generator;
       const completeness = buildCompletenessDependencies(documentEnv,countedClient,env.advisorV2AiSearchInstances||productionAiSearchInstances(env));
+      const conditionDependencies = buildTuitionConditionDependencies(env,question);
       const pageContent = completeness.pageContent;
       v2 = await executeAiAdvisorV2Document(question, v2Candidates, {
         aiSearchClient: countedClient,
         aiSearchInstances: env.advisorV2AiSearchInstances || productionAiSearchInstances(env),
+        ...(policyDeadline?{documentDeadline:policyDeadline}:{}),
         ...completeness,
+        ...conditionDependencies,
         ...(policyDeadline && pageContent ? { pageContent: source => policyDeadline.run(() => pageContent(source)) } : {}),
         evidenceGenerator: countedGenerator,
         retrievalCache: env.advisorV2RetrievalCache,
@@ -1777,7 +1780,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
           applicability: extractOfficialDocumentApplicability(source.snippet) })), retrieval.documentRoute);
       // Recheck current D1 authorization after awaited generation/cache access.
       if (citationResolution.sources.length !== new Set(answerEvidence.map((source) => source.documentId)).size
-        || cloudflareFirst && !await areDocumentEvidenceRevisionsCurrent(env,answerEvidence)
+        || (cloudflareFirst||Boolean(buildTuitionConditionDependencies(env,question).tuitionConditionContent)) && !await areDocumentEvidenceRevisionsCurrent(env,answerEvidence)
         || answerEvidence.some((source) => !isRelevantAdvisorEvidence(question, source.snippet,
           citationResolution.sources.find((resolved) => resolved.documentId === source.documentId)?.title)
           &&!(completenessEnabled(documentEnv)&&isTuitionContinuationEvidence(question,source,answerEvidence)))) {
