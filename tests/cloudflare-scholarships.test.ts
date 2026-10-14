@@ -39,7 +39,7 @@ const sqliteD1 = (sqlite: DatabaseSync) => {
 const setup = async (t: { after: (fn: () => void) => void }, options: Record<string, unknown> = {}) => {
   const sqlite = new DatabaseSync(':memory:'); t.after(() => sqlite.close());
   sqlite.exec('PRAGMA foreign_keys=ON');
-  for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql'])
+  for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql'])
     sqlite.exec(await readFile(new URL('../cloudflare/migrations/' + file, import.meta.url), 'utf8'));
   const DB = sqliteD1(sqlite);
   const env = { DB, AUTH_SERVICE: { fetch: async (request: Request) => {
@@ -275,4 +275,85 @@ test('rate limit and missing/failing D1 return actionable status without leaking
   await assert.rejects(handlePublicScholarships(request, new URL(request.url), { ...c.env, SCHOLARSHIP_SEARCH_RATE_LIMIT: { limit: async () => ({ success: false }) } } as never), { status: 429 });
   await assert.rejects(handlePublicScholarships(request, new URL(request.url), {}), { status: 503 });
   assert.equal(scholarshipErrorStatus(Error('D1 private diagnostics')), 503);
+});
+
+test('v1.1 AND filters use independent source type/rank/cohort and global pagination', async t => {
+  const c = await setup(t); await c.create();
+  const source = { ...input(), mapping: { ...mapping, major: 'Ngành', cohort: 'Khóa', scholarshipType: 'Chương trình', scholarshipRank: 'Xếp loại' },
+    rows: Array.from({ length: 37 }, (_, i) => ({ sourceRowNumber: i + 2, values: {
+      MSSV: String(i + 1).padStart(12, '0'), Tên: 'Đặng Văn An', Loại: 'Legacy label', Lớp: ['A1','A2','A3','B1'][i%4],
+      Ngành: i%4===3 ? 'Kinh tế' : 'Kế toán', Khóa: i%4===3 ? 'K23' : 'K24',
+      'Chương trình': i%4===2 ? 'Tiếp sức' : 'KKHT', 'Xếp loại': i%4===1 ? 'Khá' : 'Giỏi', Điểm: 9, Riêng: 999,
+    } })) };
+  const batchId = await c.applied(source);
+  await c.approved(batchId, ['fullName','studentCode','awardType','major','className','cohort','scholarshipType','scholarshipRank']);
+  await c.transition('publish',{batchId});
+  const filters = new URLSearchParams({ q:'dang', scholarshipType:'KKHT', scholarshipRank:'Giỏi', major:'Kế toán', cohort:'K24', className:'A1', limit:'3', page:'2' });
+  const result = await c.publicApi(slug+'/search?'+filters) as Record<string, any>;
+  assert.equal(result.total,10); assert.equal(result.recipients.length,3);
+  assert.deepEqual(result.recipients.map(r=>r.studentCode), ['000000000013','000000000017','000000000021']);
+  assert.equal(result.recipients[0].awardType,'Legacy label');
+  assert.equal(result.recipients[0].scholarshipType,'KKHT'); assert.equal(result.recipients[0].scholarshipRank,'Giỏi');
+  const facet = await c.publicApi(slug+'/facets?'+new URLSearchParams({major:'Kế toán',cohort:'K24'})) as Record<string, any>;
+  assert.deepEqual(facet.facets.className.options,['A1','A2','A3']); assert.equal(facet.totalRecipients,28);
+  assert.deepEqual((await c.publicApi(slug+'/facets?'+new URLSearchParams({scholarshipType:'KKHT',scholarshipRank:'Giỏi',major:'Kế toán',cohort:'K24',className:'A1'})) as any).facets.className.options,['A1']);
+  assert.equal((await c.publicApi(slug+'/recipients?'+new URLSearchParams({major:"' OR 1=1 --",cohort:'K24'}))).total,0);
+  assert.equal((await c.publicApi(slug+'/recipients?'+new URLSearchParams({major:'Kế toán',cohort:'K23'}))).total,0);
+  const plan = c.sqlite.prepare('EXPLAIN QUERY PLAN SELECT id FROM scholarship_snapshot_rows WHERE batch_id=? AND cohort=? AND major=? AND class_name=?').all(batchId,'K24','Kế toán','A1');
+  assert.match(JSON.stringify(plan),/scholarship_snapshot_cohort_major_idx/);
+  await c.transition('unpublish'); await assert.rejects(c.publicApi(slug+'/facets'),{status:404});
+});
+
+test('optional source fields require independent approval and never alias legacy awardType', async t => {
+  const c = await setup(t); await c.published();
+  const legacy = await c.publicApi(slug+'/recipients') as any;
+  assert.equal(legacy.recipients[0].scholarshipType,null); assert.equal(legacy.recipients[0].scholarshipRank,null); assert.equal(legacy.recipients[0].cohort,null);
+  assert.equal((await c.publicApi(slug+'/recipients?scholarshipRank='+encodeURIComponent('Giỏi'))).total,0);
+  assert.deepEqual((await c.publicApi(slug+'/facets') as any).supportedFilters,[]);
+  await c.transition('unpublish');
+  const batchId=await c.applied({ ...input(), mapping:{...mapping,scholarshipType:'Program',scholarshipRank:'Rank',cohort:'Cohort'},rows:[
+    {sourceRowNumber:2,values:{...input().rows[0].values,Program:'Private program',Rank:'Giỏi',Cohort:'K24'}},
+    {sourceRowNumber:3,values:{...input().rows[2].values,Program:null,Rank:null,Cohort:null}},
+  ]});
+  await c.approved(batchId,['fullName','studentCode','awardType','scholarshipRank']);await c.transition('publish',{batchId});
+  const data=await c.publicApi(slug+'/recipients') as any;
+  assert.equal(data.recipients[0].scholarshipType,null);assert.equal(data.recipients[0].cohort,null);assert.equal(data.recipients[1].scholarshipRank,null);
+  const facet=await c.publicApi(slug+'/facets') as any;
+  assert.deepEqual(facet.supportedFilters,['scholarshipRank']);assert.deepEqual(facet.facets.scholarshipRank.options,['Giỏi']);
+  assert.equal((await c.publicApi(slug+'/recipients?scholarshipType='+encodeURIComponent('Private program'))).total,0);
+});
+
+test('facets paginate source options without silent truncation and reject abusive queries', async t => {
+  const c=await setup(t);await c.create();const batchId=await c.applied({ ...input(),rows:Array.from({length:51},(_,i)=>({sourceRowNumber:i+2,values:{...input().rows[0].values,MSSV:String(i+1).padStart(12,'0'),Lớp:'C'+String(i).padStart(2,'0')}})) });
+  await c.approved(batchId,['fullName','studentCode','awardType','className']);await c.transition('publish',{batchId});
+  const facet=await c.publicApi(slug+'/facets?facetLimit=20&facetPage=3') as any;
+  assert.equal(facet.facets.className.total,51);assert.equal(facet.facets.className.options.length,11);assert.equal(facet.facets.className.options[0],'C40');
+  for(const query of ['major=','major=a&major=b','cohort='+encodeURIComponent('a\u007fb'),'scholarshipType='+('x'.repeat(161)),'facetLimit=201','facetPage=0','limit=20','campaignSlug=other','q=a']) await assert.rejects(c.publicApi(slug+'/facets?'+query),{status:400});
+  const req=c.req('/api/public/v1/scholarships/'+slug+'/facets','GET',undefined,{'CF-Connecting-IP':'192.0.2.1'});
+  await assert.rejects(handlePublicScholarships(req,new URL(req.url),{...c.env,SCHOLARSHIP_SEARCH_RATE_LIMIT:{limit:async()=>({success:false})}} as never),{status:429});
+});
+
+test('new import mapping distinguishes programs without deriving cohort or weakening duplicate detection', async () => {
+  const data={...input(),mapping:{...mapping,scholarshipType:'Program',scholarshipRank:'Rank',cohort:'Cohort'},rows:[
+    {sourceRowNumber:2,values:{...input().rows[0].values,Program:'A',Rank:'Giỏi',Cohort:null}},
+    {sourceRowNumber:3,values:{...input().rows[0].values,Program:'B',Rank:'Giỏi',Cohort:null}},
+  ]};
+  const valid=await validateScholarshipImport(data);assert.equal(valid.errors.length,0);assert.equal(valid.rows[0].cohort,null);
+  const invalid=await validateScholarshipImport({...data,rows:[data.rows[0],{...data.rows[0],sourceRowNumber:3}]});assert.equal(invalid.errors[0].code,'AMBIGUOUS_DUPLICATE_AWARD');
+  await assert.rejects(validateScholarshipImport({...data,mapping:{...data.mapping,cohort:'MSSV'}}),/AMBIGUOUS_COLUMN_MAPPING/);
+});
+
+test('additive 0057 preserves a v1.0 preview checksum and permits later apply', async t => {
+  const sqlite=new DatabaseSync(':memory:'); t.after(()=>sqlite.close());
+  for(const file of ['0055_scholarships.sql','0056_scholarship_snapshots.sql'])sqlite.exec(await readFile(new URL('../cloudflare/migrations/'+file,import.meta.url),'utf8'));
+  const data=await validateScholarshipImport(input());
+  sqlite.prepare('INSERT INTO scholarship_campaigns(slug,title,school_year,semester,source_title) VALUES (?,?,?,?,?)').run(slug,'Synthetic','2025-2026','HK2','');
+  const id='b'.repeat(64);
+  sqlite.prepare("INSERT INTO scholarship_import_batches(id,campaign_slug,source_sha256,source_filename,expected_rows,accepted_rows,rejected_rows,status,performed_by_user_id,mapping_json,payload_sha256) VALUES (?,?,?,?,?,?,0,'previewed',?,?,?)").run(id,slug,data.sourceSha256,data.sourceFilename,3,3,owner.userId,JSON.stringify(data.mapping),data.payloadSha256);
+  for(const r of data.rows) sqlite.prepare('INSERT INTO scholarship_snapshot_rows(batch_id,source_row_number,source_identifier,student_code,full_name,full_name_search,class_name,major,award_type,scores_json,source_row_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(id,r.sourceRowNumber,r.sourceIdentifier,r.studentCode,r.fullName,r.fullNameSearch,r.className,r.major,r.awardType,JSON.stringify(r.scores),r.rowSha256);
+  sqlite.exec(await readFile(new URL('../cloudflare/migrations/0057_scholarship_filters.sql',import.meta.url),'utf8'));
+  assert.equal(sqlite.prepare('SELECT scholarship_type FROM scholarship_snapshot_rows LIMIT 1').get()?.scholarship_type,null);
+  const req=new Request(origin+'/api/admin/v1/scholarships/campaigns/'+slug+'/imports/apply',{method:'POST',headers:{Cookie:'synthetic',Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:0,batchId:id})});
+  const result=await handleAdminScholarships(req,new URL(req.url),{DB:sqliteD1(sqlite),AUTH_SERVICE:{fetch:async()=>Response.json(owner)}} as never);
+  assert.equal(result.campaign.status,'validated');
 });
