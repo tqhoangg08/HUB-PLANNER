@@ -11,9 +11,6 @@
 .scholarship-collapse { margin-top:auto; align-self:stretch; }
 .scholarship-reopen { margin-bottom:16px; }
 .sidebar-collapsed .scholarship-sidebar { display:none; }
-.scholarship-brand { padding:0 12px 20px; margin-bottom:12px; border-bottom:1px solid #e2e8f0; }
-.scholarship-brand-label { color:#0052cc; font-size:11px; font-weight:500; letter-spacing:.04em; margin:0 0 4px; }
-.scholarship-brand-name { font-size:18px; font-weight:500; line-height:24px; }
 .scholarship-nav-link { display:flex; align-items:center; min-height:40px; padding:8px 12px; border-radius:6px; margin-bottom:4px; font-size:13px; font-weight:500; line-height:20px; }
 .scholarship-nav-link:hover { background:#f8fbff; }
 .scholarship-nav-link.is-active { background:#eff6ff; color:#0052cc; box-shadow:inset 2px 0 #0052cc; }
@@ -78,8 +75,7 @@
   .scholarship-shell { display:block; }
   .scholarship-body { display:block; }
   .scholarship-sidebar { position:static; height:auto; width:100%; padding:16px; border-right:0; border-bottom:1px solid #e2e8f0; }
-  .scholarship-brand { display:flex; justify-content:space-between; align-items:center; padding:0; margin:0; border-bottom:0; }
-  .scholarship-menu { display:block; }
+  .scholarship-menu { display:block; align-self:flex-start; }
   .scholarship-collapse { display:none; }
   .scholarship-sidebar nav { display:none; padding-top:12px; }
   .scholarship-sidebar nav.is-open { display:block; }

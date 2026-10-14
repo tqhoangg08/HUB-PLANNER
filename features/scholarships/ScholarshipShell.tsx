@@ -34,10 +34,7 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
       </header>
       <div className="scholarship-body">
       <aside className="scholarship-sidebar">
-        <div className="scholarship-brand">
-          <div><p className="scholarship-brand-label">HUB PLANNER</p><Link to="/scholarships" className="scholarship-brand-name">Học bổng</Link></div>
-          <button className="scholarship-menu scholarship-button" type="button" aria-expanded={menuOpen} aria-controls="scholarship-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
-        </div>
+        <button className="scholarship-menu scholarship-button" type="button" aria-expanded={menuOpen} aria-controls="scholarship-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
         <nav id="scholarship-navigation" aria-label="Điều hướng học bổng" className={menuOpen ? 'is-open' : ''}>
           {navigation.map(([to, label]) => <NavLink key={to} to={to} end={to === '/scholarships'} onClick={() => setMenuOpen(false)} className={({ isActive }) => `scholarship-nav-link${isActive ? ' is-active' : ''}`}>{label}</NavLink>)}
           <Link to="/dashboard" className="scholarship-back" onClick={() => setMenuOpen(false)}>Quay lại HUB Planner</Link>
