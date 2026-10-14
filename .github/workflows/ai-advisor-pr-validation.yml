@@ -35,12 +35,16 @@ jobs:
         run: node --test tests/public-release-metadata-probe.test.mjs
       - name: Focused Advisor and release safety regressions
         run: npm run test:advisor
+      - name: Text-first schema, authorization, revisions and receipt regressions
+        run: node --test --experimental-strip-types tests/ai-text-documents.test.ts
       - name: Frontend typecheck
         run: npm run typecheck
       - name: Worker typecheck
         run: npm run cf:typecheck
       - name: Build frontend without deploying
         run: npm run build
+      - name: Text-first local browser acceptance (no provider or deployment)
+        run: node --test --experimental-strip-types tests/ai-text-documents.browser.test.ts
       - name: Build isolated OCR review UI without deploying
         run: npx vite build --config staging/advisor/vite.config.mjs
       - name: Full offline/local suite

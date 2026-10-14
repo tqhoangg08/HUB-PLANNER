@@ -16,6 +16,8 @@ import { privateApiRequest } from '../utils/privateApi';
 import { showConfirm } from '../utils/appNotifications';
 import { inspectPdfTextLayer, runPdfOcrInBrowser, isPdfDocument, type AiDocumentOcrResult } from '../utils/aiDocumentOcr';
 import { aiDocumentCategoryLabel, AI_DOCUMENT_CATEGORY_OPTIONS } from '../shared/ai-document-categories';
+import AdminAITextDocuments from './AdminAITextDocuments';
+import {TEXT_FIRST_PIPELINE} from '../shared/ai-document-text';
 
 type AIDocument = {
   id: string;
@@ -33,6 +35,8 @@ type AIDocument = {
   indexing_error: string | null;
   ocr_status?: string;
   ocr_page_count?: number | null;
+  index_segment_count?: number | null;
+  extraction_pipeline_version?: string | null;
   ocr_used?: number;
   ai_search_status?: string;
   gemini_indexing_status?: string;
@@ -270,6 +274,7 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
           </button>
         </div>
 
+        <AdminAITextDocuments />
         <div className="mb-4 grid gap-3 rounded-xl border bg-white p-3 sm:grid-cols-[1fr_210px_auto]">
           <label className="relative">
             <Search className="absolute left-3 top-3 text-slate-400" size={18} />
@@ -344,6 +349,7 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
                       <div className="mt-1 text-xs text-slate-500">{item.ocr_page_count} trang · OCR tiếng Việt + Anh</div>
                     )}
                     {item.ai_search_status && <div className="mt-1 text-xs text-slate-500">AI Search: {aiSearchStatusLabels[item.ai_search_status] || 'Chưa xác nhận'}</div>}
+                    {item.extraction_pipeline_version===TEXT_FIRST_PIPELINE&&<div className="mt-1 text-xs text-blue-700">Text-first · {item.index_segment_count} phân đoạn · quản lý ở mục Tài liệu văn bản</div>}
                     {item.gemini_indexing_status && <div className="mt-1 text-xs text-slate-500">Gemini: {statusLabels[item.gemini_indexing_status] || 'Chưa xác nhận'}</div>}
                   </div>
                   <div className="text-xs text-slate-500">
@@ -383,6 +389,7 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
                     )}
                   </span>
                   <div className="flex">
+                    {item.extraction_pipeline_version!==TEXT_FIRST_PIPELINE&&<>
                     {onReviewOcr && item.original_file_name.toLowerCase().endsWith('.pdf') && item.ai_search_status === 'completed' && <button onClick={()=>onReviewOcr(item.id)} className="p-2 text-blue-800" aria-label={`Hiệu đính OCR ${item.title}`}>Hiệu đính OCR</button>}
                     <button
                       onClick={() => openPolicyEditor(item)}
@@ -418,6 +425,7 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
                     >
                       <Trash2 size={17} />
                     </button>
+                    </>}
                   </div>
                 </div>
               ))}
