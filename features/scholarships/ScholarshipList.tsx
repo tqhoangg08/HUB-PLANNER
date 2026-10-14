@@ -20,6 +20,7 @@ export const ScholarshipList: React.FC = () => {
   const page = scholarshipPage(params.get('page'));
   const limit = [20, 30, 50].includes(Number(params.get('limit'))) ? Number(params.get('limit')) : 20;
   const [input, setInput] = useState(query);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [campaignError, setCampaignError] = useState('');
@@ -119,13 +120,13 @@ export const ScholarshipList: React.FC = () => {
   const message = campaignError || error || (slugParam && !selected && !loadingCampaigns
     ? 'Đợt học bổng đã chọn chưa được công bố hoặc không còn khả dụng.' : '');
   const busy = loadingCampaigns || loading || pendingInput;
-  const renderFilter = (key: ScholarshipFilterKey, label: string) => {
+  const renderFilter = (key: ScholarshipFilterKey, label: string, emptyLabel: string) => {
     const supported = facets?.supportedFilters.includes(key);
     const values = facets?.facets[key].options || [];
     const value = filters[key] || '';
     return <div className="scholarship-field" key={key}><label htmlFor={`${id}-${key}`}>{label}</label>
       <select id={`${id}-${key}`} className="scholarship-input" value={value} disabled={disabled || loadingFacets || !supported} onChange={e => update({ [key]: e.target.value, page: '' })}>
-        <option value="">{loadingFacets || pendingInput || loadingCampaigns ? 'Đang tải...' : facetError ? 'Không tải được danh mục' : supported ? 'Tất cả' : 'Chưa có dữ liệu công bố'}</option>
+        <option value="">{loadingFacets || pendingInput || loadingCampaigns ? 'Đang tải...' : facetError ? 'Không tải được danh mục' : supported ? emptyLabel : 'Chưa có dữ liệu công bố'}</option>
         {value && !values.includes(value) && <option value={value}>{value}</option>}
         {values.map(option => <option key={option}>{option}</option>)}
       </select>
@@ -142,21 +143,27 @@ export const ScholarshipList: React.FC = () => {
       </div>
     }>
       <section aria-label="Tra cứu sinh viên nhận học bổng">
-        <div className="scholarship-surface scholarship-filters">
-          <div className="scholarship-filter-grid">
-            <div className="scholarship-field"><label htmlFor={`${id}-query`}>Tra cứu MSSV hoặc họ tên</label>
-              <input id={`${id}-query`} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} />
+        <div className={`scholarship-surface scholarship-filters${filtersCollapsed ? ' is-collapsed' : ''}`}>
+          <div className="scholarship-filter-heading">
+            <p>Bộ lọc</p>
+            <button type="button" className="scholarship-filter-toggle scholarship-button" aria-expanded={!filtersCollapsed} aria-controls={`${id}-filters`} aria-label={filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn bộ lọc'} onClick={() => setFiltersCollapsed(collapsed => !collapsed)}>{filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn'}</button>
+          </div>
+          <div id={`${id}-filters`} hidden={filtersCollapsed}>
+            <div className="scholarship-filter-controls">
+              <div className="scholarship-filter-grid">
+                <div className="scholarship-field scholarship-filter-query"><label htmlFor={`${id}-query`}>Tra cứu sinh viên</label>
+                  <input id={`${id}-query`} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} />
+                </div>
+                {renderFilter('scholarshipType', 'Loại học bổng', 'Tất cả loại')}
+                {renderFilter('scholarshipRank', 'Xếp loại học bổng', 'Tất cả xếp loại')}
+                {renderFilter('major', 'Ngành học', 'Tất cả ngành')}
+                {renderFilter('className', 'Lớp', 'Tất cả lớp')}
+                {renderFilter('cohort', 'Khóa', 'Tất cả khóa')}
+                <button type="button" className="scholarship-filter-reset scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
+              </div>
+              {facetError && <p role="status" className="scholarship-note">Không tải được danh mục bộ lọc. <button className="scholarship-button" onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
             </div>
-            {renderFilter('scholarshipType', 'Loại học bổng')}
-            {renderFilter('scholarshipRank', 'Xếp loại học bổng')}
           </div>
-          <div className="scholarship-filter-secondary">
-            {renderFilter('major', 'Ngành học')}
-            {renderFilter('className', 'Lớp')}
-            {renderFilter('cohort', 'Khóa')}
-            <button className="scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
-          </div>
-          {facetError && <p role="status" className="scholarship-note">Không tải được danh mục bộ lọc. <button className="scholarship-button" onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
         </div>
         <div className="scholarship-surface scholarship-table-surface" aria-busy={busy}>
           {message ? <div className="scholarship-status" role="alert"><p>{message}</p><button className="scholarship-button" disabled={cooldown > 0} onClick={() => setRetry(n => n + 1)}>{cooldown ? `Thử lại sau ${cooldown} giây` : 'Thử lại'}</button></div>

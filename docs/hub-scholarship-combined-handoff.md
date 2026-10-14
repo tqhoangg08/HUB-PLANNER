@@ -6,7 +6,7 @@
 
 Top header approximately 52 CSS px: Trở về, existing `/logoapp.png` HUB Planner logo, brand, Better Auth avatar/name or Đăng nhập. Session display metadata comes from the official Better Auth response; role still comes from the verified identity bridge. No Auth Worker changes. Desktop sidebar is 216px, text only, with visible bottom Thu gọn and Mở sidebar after closing; content expands. Inter remains inherited from global styles. Title 22px, table 12px; white/pale blue Canva table header/striping/borders retained, with internal horizontal scroll when the authorized columns need it.
 
-Filter row 1 uses 40/30/30 proportions: search, independent scholarship program/type, independent scholarship rank. Row 2: major, class, cohort and clear. Semester/year remains beside the page heading. Mobile stacks controls and provides expandable recipient details.
+Latest owner-selected filter reference replaces the initial 40/30/30 layout: full-width search, program/type beside rank, major beside class, then cohort with clear aligned right. Controls use 36px rounded pills, small labels and 12px gaps. Semester/year remains beside the page heading. A text-only Thu gọn / Mở bộ lọc button hides/reveals the controls without clearing conditions, changing URL or hiding results. Mobile stacks controls and provides expandable recipient details. The duplicate sidebar brand heading was removed; the actual topbar logo/brand remains.
 
 Every filter is sent to recipients/search as SQL AND conditions. Search debounce remains 350ms. Changing any condition resets page; URL parameters retain active conditions and unrelated sharing parameters. Clear resets q, all five new filters, legacy category/awardType and page while preserving selected campaign and page-size preference. Changing campaign clears prior conditions. Counts are backend totals; recipient rows are fetched only by page.
 
@@ -26,6 +26,7 @@ New source fields and Admin approval choices are separate `scholarshipType`, `sc
 Browser QA used the actual scholarship Worker + ephemeral D1 with two synthetic 96-row campaigns, no outbound calls. Identity/avatar responses are local fixtures, not a live Google/email login certification.
 
 - Kế toán + K24 + Khuyến khích học tập + Giỏi returned **24** backend results, two pages. Class facet narrowed to TEST-A1; adding that class reset page 2 to page 1 without losing other conditions.
+- Latest filter-layout refinement rechecked at 1440px and 390px: full-width search, paired type/rank and major/class, rounded reset, inherited Inter and no mobile overflow. Collapse/reopen kept the same URL, all selected values and 24 results; hidden controls leave the accessible tree and return on reopen. Typecheck, existing 23 frontend tests and build rerun PASS.
 - Clear restored all source options and removed URL conditions. MSSV 000000000096 (beyond the initial page) returned exactly one result. No-match returned total 0 in the table area. Slow-network typing showed the loading skeleton. Old category links remain legacy awardType conditions; no alias into either new field.
 - Anonymous public list works, Đăng nhập appears, Admin navigation is absent. Synthetic authenticated header uses the official-session name/image fields. Sidebar close/reopen and mobile menu exercised.
 - Studio local file chooser loaded the repository PNG logo as a non-personal portrait fixture. Zoom changed from 1 to 1.1; changing the mask and dragging altered rendered canvas pixels. Actual downloaded PNG headers verified Story 1080×1920 and Feed 1080×1350; both files visually inspected. Network trace confirmed `/api/me/scholarships` re-verification before export. Fixed discovered score-line overflow: all five approved source values now wrap inside the frame. No real portrait was uploaded and the picture remains browser-local.
@@ -33,6 +34,8 @@ Browser QA used the actual scholarship Worker + ephemeral D1 with two synthetic 
 - Compared screenshots with the previously captured chosen Canva reference: table background, header, alternating rows and thin borders are retained. Required header/navigation/filter rows and additional explicitly approved source fields account for layout differences.
 
 Screenshots: [1440 desktop](screenshots/hub-scholarship/combined/desktop-1440.jpg), [1280 desktop](screenshots/hub-scholarship/combined/desktop-1280.jpg), [390 mobile](screenshots/hub-scholarship/combined/mobile-390.jpg), [360 mobile](screenshots/hub-scholarship/combined/mobile-360.jpg), [Studio](screenshots/hub-scholarship/combined/studio-portrait.jpg). Synthetic exports: [Story](screenshots/hub-scholarship/combined/studio-story.png), [Feed](screenshots/hub-scholarship/combined/studio-feed.png).
+
+Latest filter reference screenshots: [expanded desktop](screenshots/hub-scholarship/combined/filters-expanded-1440.jpg), [collapsed desktop](screenshots/hub-scholarship/combined/filters-collapsed-1440.jpg), [collapsed mobile](screenshots/hub-scholarship/combined/filters-collapsed-390.jpg).
 
 ## Local startup and remaining acceptance
 
