@@ -7,14 +7,19 @@
 .scholarship-user img,.scholarship-avatar { width:32px; height:32px; border-radius:50%; object-fit:cover; }
 .scholarship-avatar { display:flex; align-items:center; justify-content:center; background:#eff6ff; color:#0052cc; }
 .scholarship-body { display:flex; flex:1; min-width:0; }
-.scholarship-sidebar { position:sticky; top:52px; height:calc(100dvh - 52px); display:flex; flex-direction:column; width:216px; flex:none; border-right:1px solid #e2e8f0; padding:24px 12px; background:white; }
-.scholarship-collapse { margin-top:auto; align-self:stretch; }
-.scholarship-reopen { margin-bottom:16px; }
-.sidebar-collapsed .scholarship-sidebar { display:none; }
-.scholarship-nav-link { display:flex; align-items:center; min-height:40px; padding:8px 12px; border-radius:6px; margin-bottom:4px; font-size:12px; font-weight:500; line-height:20px; }
+.scholarship-sidebar { position:sticky; top:52px; height:calc(100dvh - 52px); display:flex; flex-direction:column; width:216px; flex:none; overflow:hidden; border-right:1px solid #e2e8f0; padding:24px 12px; background:white; transition:width 240ms ease; }
+.scholarship-collapse { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:auto; align-self:stretch; overflow:hidden; }
+.scholarship-sidebar svg { flex:none; }
+.scholarship-nav-label { min-width:0; max-width:164px; white-space:nowrap; overflow:hidden; transition:max-width 240ms ease,opacity 180ms ease,transform 240ms ease; }
+.scholarship-nav-link { display:flex; align-items:center; gap:8px; min-height:40px; padding:8px 12px; border-radius:6px; margin-bottom:4px; font-size:12px; font-weight:500; line-height:20px; }
 .scholarship-nav-link:hover { background:#f8fbff; }
 .scholarship-nav-link.is-active { background:#eff6ff; color:#0052cc; box-shadow:inset 2px 0 #0052cc; }
-.scholarship-back { display:block; color:#475569; margin-top:16px; padding:16px 12px 0; border-top:1px solid #e2e8f0; font-size:12px; font-weight:500; }
+.scholarship-back { display:flex; align-items:center; gap:8px; min-height:36px; color:#475569; margin-top:16px; padding:16px 12px 0; border-top:1px solid #e2e8f0; font-size:12px; font-weight:500; }
+@media (min-width:781px) {
+  .sidebar-collapsed .scholarship-sidebar { width:64px; }
+  .sidebar-collapsed :is(.scholarship-nav-link,.scholarship-back,.scholarship-collapse) { justify-content:center; gap:0; }
+  .sidebar-collapsed .scholarship-nav-label { max-width:0; opacity:0; transform:translateX(-8px); }
+}
 .scholarship-workspace { min-width:0; flex:1; padding:24px 32px 40px; }
 .scholarship-workspace-inner { max-width:1260px; margin:auto; min-width:0; }
 .scholarship-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:start; gap:16px 24px; margin-bottom:16px; }
@@ -25,9 +30,12 @@
 .scholarship-term { width:100%; }
 .scholarship-surface { background:white; border:1px solid #e2e8f0; border-radius:8px; }
 .scholarship-filters { padding:12px; margin-bottom:16px; }
-.scholarship-filter-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.scholarship-filter-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; transition:margin-bottom 240ms ease; }
 .scholarship-filter-heading p { font-size:12px; font-weight:500; }
 .scholarship-filter-actions { display:flex; align-items:center; gap:8px; flex:none; }
+.scholarship-filter-panel { display:grid; grid-template-rows:1fr; opacity:1; transition:grid-template-rows 240ms ease,opacity 180ms ease; }
+.scholarship-filter-controls { min-height:0; overflow:hidden; }
+.scholarship-filters.is-collapsed .scholarship-filter-panel { grid-template-rows:0fr; opacity:0; }
 .scholarship-filter-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px 12px; align-items:end; }
 .scholarship-filter-controls .scholarship-field label { margin-bottom:4px; }
 .scholarship-shell .scholarship-filter-controls .scholarship-input { height:36px; border-radius:999px; }
@@ -101,3 +109,6 @@
   .scholarship-mobile-list dd { text-align:right; overflow-wrap:anywhere; }
 }
 @media (max-width:520px) { .scholarship-filter-grid { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion:reduce) {
+  .scholarship-sidebar,.scholarship-nav-label,.scholarship-filter-panel,.scholarship-filter-heading { transition:none; }
+}

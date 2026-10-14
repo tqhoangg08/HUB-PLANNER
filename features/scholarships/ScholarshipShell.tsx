@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import { ArrowLeft, Award, BookOpen, ChevronLeft, ChevronRight, GraduationCap, ListFilter, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { useUserRole } from '../../hooks/useUserRole';
 import './scholarship.css';
 
@@ -17,12 +18,12 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
   const [collapsed, setCollapsed] = useState(false);
   const avatar = session?.user.user_metadata.avatar_url || session?.user.user_metadata.picture;
   const userName = session?.user.user_metadata.full_name || session?.user.user_metadata.name || session?.user.email || '';
-  const navigation = [
-    ['/scholarships', 'Danh sách & Tra cứu'],
-    ['/scholarships/me', 'Học bổng của tôi'],
-    ['/scholarships/celebrate', 'Vinh danh cá nhân'],
-    ['/handbook/scholarships', 'Quy chế học bổng'],
-    ...(isAdmin ? [['/admin/scholarships', 'Quản trị học bổng']] : []),
+  const navigation: { to: string; label: string; icon: LucideIcon }[] = [
+    { to: '/scholarships', label: 'Danh sách & Tra cứu', icon: ListFilter },
+    { to: '/scholarships/me', label: 'Học bổng của tôi', icon: GraduationCap },
+    { to: '/scholarships/celebrate', label: 'Vinh danh cá nhân', icon: Award },
+    { to: '/handbook/scholarships', label: 'Quy chế học bổng', icon: BookOpen },
+    ...(isAdmin ? [{ to: '/admin/scholarships', label: 'Quản trị học bổng', icon: ShieldCheck }] : []),
   ];
   return (
     <div className={`scholarship-shell${collapsed ? ' sidebar-collapsed' : ''}`}>
@@ -36,14 +37,13 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
       <aside className="scholarship-sidebar">
         <button className="scholarship-menu scholarship-button" type="button" aria-expanded={menuOpen} aria-controls="scholarship-navigation" onClick={() => setMenuOpen(!menuOpen)}>Menu</button>
         <nav id="scholarship-navigation" aria-label="Điều hướng học bổng" className={menuOpen ? 'is-open' : ''}>
-          {navigation.map(([to, label]) => <NavLink key={to} to={to} end={to === '/scholarships'} onClick={() => setMenuOpen(false)} className={({ isActive }) => `scholarship-nav-link${isActive ? ' is-active' : ''}`}>{label}</NavLink>)}
-          <Link to="/dashboard" className="scholarship-back" onClick={() => setMenuOpen(false)}>Quay lại HUB Planner</Link>
+          {navigation.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} end={to === '/scholarships'} aria-label={label} title={label} onClick={() => setMenuOpen(false)} className={({ isActive }) => `scholarship-nav-link${isActive ? ' is-active' : ''}`}><Icon size={16} aria-hidden="true" /><span className="scholarship-nav-label">{label}</span></NavLink>)}
+          <Link to="/dashboard" className="scholarship-back" aria-label="Quay lại HUB Planner" title="Quay lại HUB Planner" onClick={() => setMenuOpen(false)}><ArrowLeft size={16} aria-hidden="true" /><span className="scholarship-nav-label">Quay lại HUB Planner</span></Link>
         </nav>
-        <button type="button" className="scholarship-collapse scholarship-button" onClick={() => setCollapsed(true)}>Thu gọn</button>
+        <button type="button" className="scholarship-collapse scholarship-button" aria-expanded={!collapsed} aria-controls="scholarship-navigation" aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'} title={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'} onClick={() => setCollapsed(value => !value)}>{collapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronLeft size={16} aria-hidden="true" />}<span className="scholarship-nav-label">Thu gọn</span></button>
       </aside>
       <main id="scholarship-content" className="scholarship-workspace" tabIndex={-1}>
         <div className="scholarship-workspace-inner">
-          {collapsed && <button type="button" className="scholarship-reopen scholarship-button" onClick={() => setCollapsed(false)}>Mở sidebar</button>}
           {(title || subtitle) && <header className="scholarship-heading">
             <div className="scholarship-heading-copy">
               {title && <h1>{title}</h1>}

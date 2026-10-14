@@ -151,7 +151,7 @@ export const ScholarshipList: React.FC = () => {
               <button type="button" className="scholarship-filter-toggle scholarship-button" aria-expanded={!filtersCollapsed} aria-controls={`${id}-filters`} aria-label={filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn bộ lọc'} onClick={() => setFiltersCollapsed(collapsed => !collapsed)}>{filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn'}</button>
             </div>
           </div>
-          <div id={`${id}-filters`} hidden={filtersCollapsed}>
+          <div id={`${id}-filters`} className="scholarship-filter-panel" inert={filtersCollapsed} aria-hidden={filtersCollapsed}>
             <div className="scholarship-filter-controls">
               <div className="scholarship-filter-grid">
                 <div className="scholarship-field"><label htmlFor={`${id}-query`}>Họ tên / MSSV</label>
