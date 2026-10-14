@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { ArrowLeft, Award, BookOpen, ChevronLeft, ChevronRight, GraduationCap, ListFilter, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { useUserRole } from '../../hooks/useUserRole';
@@ -15,7 +15,14 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
   const { isAdmin, session } = useUserRole();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return sessionStorage.getItem('hub-scholarship-sidebar-collapsed') === 'true'; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try { sessionStorage.setItem('hub-scholarship-sidebar-collapsed', String(collapsed)); }
+    catch {}
+  }, [collapsed]);
   const avatar = session?.user.user_metadata.avatar_url || session?.user.user_metadata.picture;
   const userName = session?.user.user_metadata.full_name || session?.user.user_metadata.name || session?.user.email || '';
   const navigation: { to: string; label: string; icon: LucideIcon }[] = [
