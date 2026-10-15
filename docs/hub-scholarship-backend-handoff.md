@@ -18,6 +18,16 @@ Final release review (2026-10-15): Scholarship tests 34/34; frontend 32/32; inte
 
 Technical status: READY FOR OWNER REVIEW. Empty-data deployment: CONDITIONAL on separate owner release approval and live binding/backup/operations verification. Real student-data publication: NOT READY; official source and documented per-field university republication authorization remain absent. No real import/publication, remote D1 migration, production deploy/write, secret change or PR merge occurred. This is technical validation, not legal clearance.
 
+## Post-PR #100 integration — 2026-10-15
+
+This section supersedes the earlier validation and dependency status above. Backend baseline `b0d30980e902cbb0cbef37a4d91d7c3cfa2657f5` integrates main `a1f8ec0e066e196652a172ecc63a4d8b3d16c775` in an isolated worktree. Both package.json conflict regions retain Scholarship, document-tag and dependency-security scripts. Dependencies, devDependencies and the entire lockfile match main after PR #100 exactly; no override or additional upgrade. Scholarship implementation/tests, API v1.1.0, migrations 0055–0057 and Auth Worker are unchanged.
+
+Fresh local verification: npm ci PASS (938 packages); production npm audit PASS (zero vulnerabilities); npm ls PASS; typecheck and cf:typecheck PASS; Scholarship 34/34, dependency-security 5/5 and full npm test 925/925 PASS (zero failed/skipped/cancelled); build and Wrangler cf:check dry-run PASS. Existing real Chrome text-document acceptance also passes 1/1, including 1280px/390px. Local D1 fresh 59-migration chain, upgrade from main retaining an existing synthetic marker and reverse Scholarship/AI ordering PASS; no foreign-key violations, zero public campaigns in the fresh/upgrade verification databases. No migration history was modified.
+
+Full npm audit still reports six development packages (3 high / 3 moderate): Miniflare, Sharp, nested undici, Wrangler, ExcelJS and uuid. These are the documented residuals in `dependency-security-remediation.md`; production audit zero does not certify the emulator or every separately hosted Node runtime. Use isolated loopback emulators and synthetic inputs. No real source or per-field university republication permission has been supplied: real student-data publication remains blocked. Empty-data deployment requires a separate owner decision and live operations review.
+
+GitHub CI and mergeability must be checked against the resulting feature head in Draft PR #91; local PASS is not a claim that a not-yet-triggered CI run passed. Primary dirty changes and unrelated worktrees are excluded and preserved. This integration performs no PR/main merge, deployment, remote migration, production write, secret change or real-data import/publication.
+
 ## Implemented
 
 - Public `GET /api/public/v1/scholarships/campaigns`, `/:slug/summary`, `/:slug/recipients`, `/:slug/search`:
