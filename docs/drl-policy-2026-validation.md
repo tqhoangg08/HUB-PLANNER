@@ -5,7 +5,7 @@ Phạm vi cuối cùng theo yêu cầu chủ dự án ngày 15/10/2026: giữ lo
 ## Thay đổi thực tế
 
 - Hoàn tác thay đổi nghiệp vụ Worker/API, AI/prediction/cache, candidate review/ingest, EventDetailView và helper form/payload về base. Không còn trường phiên bản/năm học/tìm kiếm hoặc ràng buộc context mới. Nút áp dụng gợi ý hoạt động như trước.
-- Worker, AI/cache và payload vẫn giống base. Sau góp ý về form, frontend chỉ điều chỉnh cỡ chữ/chiều cao trường và xử lý trạng thái lỗi/tải lại danh mục; không đổi cách chọn rule, điểm hoặc áp dụng gợi ý.
+- Worker, AI/cache và payload quản trị vẫn giống base. Theo góp ý tiếp theo, popup đóng góp bỏ hai trường mở đăng ký, điều chỉnh cỡ chữ/chiều cao trường và xử lý trạng thái lỗi/tải lại danh mục; không đổi cách chọn rule, điểm hoặc áp dụng gợi ý.
 - Phụ lục mới có đủ 71 hàng nguồn, 46 tiêu chí, 5 điểm trừ, giới hạn 25/20/20/15/20, ghi chú và Điều 8. Đã bỏ các đoạn giới thiệu/diễn giải và bộ chọn tra cứu theo góp ý trước.
 - Một migration dữ liệu 0058_seed_drl_catalog_2026.sql dùng schema hiện có: thêm 46 rule IDs mới, 23 rule event suitable; đặt active=0 cho danh mục cũ. Không sửa điểm/nội dung/ID cũ, không backfill sự kiện hay corpus. Không thêm bảng/cột/index; bỏ hai migrations phiên bản chưa phát hành trước đó.
 - Các tests riêng cho luồng phiên bản/năm học đã được thay bằng kiểm tra nguồn và seed dữ liệu vì luồng đó được chủ dự án yêu cầu hoàn tác. Tests baseline được khôi phục nguyên trạng; không skip tests để có kết quả xanh.
@@ -46,6 +46,8 @@ Giữ đúng logic baseline đồng nghĩa không bổ sung boundary năm học,
 
 ## Danh sách file cuối cùng so với base
 
+- components/EventContributionTimeFields.tsx
+- index.css
 - components/EventDrlAssistant.tsx
 - components/AdminEventEditorPage.tsx
 - components/AdminEventCandidates.tsx
@@ -79,3 +81,12 @@ Giữ đúng logic baseline đồng nghĩa không bổ sung boundary năm học,
 - Kiểm tra sau lần sửa này: 16 targeted tests PASS/0 FAIL/0 SKIP; 7 browser tests PASS/0 FAIL/0 SKIP (ba file admin-event-create, drl-policy và event-contribution-catalog); frontend typecheck/build/diff check PASS. Full suite 891 và Cloudflare/migration trong bảng trên là kết quả trước lần sửa hiển thị/lỗi tải này, không chạy lại.
 - Browser dùng form EventsBoard/MobileEvents thực, đo computed font-size của label/input/select/textarea ở 1440px và 390px, kiểm 401 → 503 → thành công khi retry, giữ nội dung nhập, tìm/chọn đơn vị, chọn rule và không gửi mutation. Response thành công dùng fixture, không tuyên bố đã đọc danh mục production bằng phiên người dùng. Đã xem ảnh hai kích thước.
 - Trong quá trình kiểm tra, đã sửa test navigation đang chờ load tài nguyên thay vì DOMContentLoaded và selector trạng thái có chứa nút con; kiểm computed style phát hiện text-sm nhỏ hơn dự tính và đã sửa cỡ chữ sản phẩm. Không bỏ hoặc skip kiểm tra thất bại.
+
+## Góp ý cuối: popup đóng góp gọn và thẳng hàng
+
+- Bỏ Ngày mở ĐK/Giờ mở ĐK trong popup đóng góp desktop/mobile, bỏ hai giá trị này khỏi state khởi tạo/reset và payload đóng góp. Dữ liệu mở đăng ký đã lưu của event cũ, form quản trị/sửa event và schema vẫn giữ nguyên. Nháp mobile cũ có thuộc tính mở đăng ký không bị đưa ngầm vào payload mới.
+- Bốn ô thời gian còn lại dùng chung component trình bày với các cột bằng nhau: bốn cột ở màn hình rộng, hai cột khi hẹp; giữ nhãn thời gian cho nhánh minigame và cơ chế vô hiệu hóa deadline khi đóng đủ số lượng.
+- CSS chỉ áp dụng trong popup đóng góp: chữ 13px, tiêu đề 15px, control cao 38px, nhãn/các hàng select thẳng nhau. Giữ khoảng đệm cho icon link; bỏ icon trang trí BTC bị lệch khi hiển thị lỗi danh mục. Không giảm cỡ chữ các màn hình khác.
+- Kiểm tra lần này: 3 browser tests PASS/0 FAIL/0 SKIP tại 1440px, 620px và 390px; 16 targeted tests PASS/0 FAIL/0 SKIP; frontend typecheck, build (Vite + PWA, exit 0) và diff check PASS. Full suite/Cloudflare/migration không chạy lại cho thay đổi popup này.
+- Browser đo font thực tế 13px, chiều cao/chiều rộng/tọa độ các ô thời gian và select cùng hàng; xác nhận hai trường mở đăng ký vắng mặt, dữ liệu thời gian giữ nguyên khi đổi loại hình, close-on-full, trạng thái lỗi/retry danh mục và phần đệm icon. Đã xem ảnh desktop/hẹp/mobile.
+- Trong vòng kiểm tra đã sửa selector checkbox của test và chụp sau khi kết thúc animation để đo đúng tọa độ; phép kiểm icon phát hiện selector CSS padding quá mạnh, đã sửa specificity và chạy lại đủ ba kích thước. Không bỏ hay skip assertion thất bại.

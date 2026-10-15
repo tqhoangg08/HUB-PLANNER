@@ -4,6 +4,35 @@
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* Compact fields apply only to the event contribution popup. */
+.event-contribution-form,
+.event-contribution-form .text-base,
+.event-contribution-form :is(label, input, select, textarea, [role="option"]) {
+  font-size: 13px;
+}
+
+.event-contribution-form label:not(.cursor-pointer) {
+  margin-bottom: 6px;
+  line-height: 18px;
+}
+
+.event-contribution-form :where(input:not([type="checkbox"]):not([type="hidden"]):not([type="file"]), select) {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.event-contribution-form #event-drl-rule {
+  margin-block-start: 0;
+}
+
+.event-contribution-form input.pl-9 {
+  padding-left: 32px;
+}
+
 /* =========================================================
    BASE
    ========================================================= */
