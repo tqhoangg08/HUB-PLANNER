@@ -9,6 +9,8 @@ import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categor
 import { parsePreparedPdfPages, storeDerivedPdfPages, buildDerivedPageObjectKey, isCompleteDerivedRevision } from './ai-document-ingestion.ts';
 import {prepareNativeDocx,DOCX_MIME,DocxExtractionError} from './ai-document-docx.ts';
 import {TEXT_FIRST_PIPELINE} from '../../../shared/ai-document-text.ts';
+import {attachDocumentTags,saveDocumentTags,taggedDocumentIds} from './ai-document-tags.ts';
+import {DocumentTagValidationError} from '../../../shared/ai-document-tags.ts';
 
 export interface AiDocumentsEnv extends BetterAuthIdentityEnv {
   DB?: D1Database;
@@ -82,6 +84,18 @@ const requireAdmin = async (request: Request, env: AiDocumentsEnv) => {
   const identity = await requireBetterAuthSession(request, env);
   if (identity.role !== 'admin') throw new AiDocumentsError(403, 'Chỉ quản trị viên được quản lý kho tài liệu AI.');
   return identity;
+};
+
+/** JSON actions contain metadata only, never file/text payloads. */
+const readMetadataJson=async(request:Request):Promise<Record<string,unknown>>=>{
+  const reader=request.body?.getReader();if(!reader)throw new AiDocumentsError(400,'Thiếu metadata.');
+  const parts:Uint8Array[]=[];let size=0;
+  while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;
+    if(size>8192){await reader.cancel();throw new AiDocumentsError(413,'Metadata quá lớn.');}parts.push(value);}
+  const bytes=new Uint8Array(size);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.byteLength;}
+  let body:unknown;try{body=JSON.parse(new TextDecoder().decode(bytes));}catch{throw new AiDocumentsError(400,'JSON không hợp lệ.');}
+  if(!body||typeof body!=='object'||Array.isArray(body))throw new AiDocumentsError(400,'Metadata không hợp lệ.');
+  return body as Record<string,unknown>;
 };
 
 const cleanOfficialSourceUrl = (value: unknown, required: boolean) => {
@@ -256,7 +270,8 @@ const listDocuments = async (url: URL, env: AiDocumentsEnv) => {
   if (id) {
     const document = await findAiDocument(env, id);
     if (!document) throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
-    return { document: await refreshAiSearchDocument(env,await refreshOperation(env, document) || document) };
+    const refreshed=await refreshAiSearchDocument(env,await refreshOperation(env, document) || document);
+    return { document: (await attachDocumentTags(db,[refreshed||document]))[0] };
   }
   const status = String(url.searchParams.get('status') || '').trim();
   const search = String(url.searchParams.get('search') || '').replace(/[^\p{L}\p{N}\s._-]/gu, '').trim().slice(0, 120);
@@ -264,15 +279,16 @@ const listDocuments = async (url: URL, env: AiDocumentsEnv) => {
   const bindings: unknown[] = [];
   if (status) { filters.push(`indexing_status = ?${bindings.length + 1}`); bindings.push(status); }
   if (search) {
-    filters.push(`(title LIKE ?${bindings.length + 1} ESCAPE '\\' OR original_file_name LIKE ?${bindings.length + 2} ESCAPE '\\')`);
+    const tagged=await taggedDocumentIds(db,search,'file');
+    filters.push(`(title LIKE ?${bindings.length + 1} ESCAPE '\\' OR original_file_name LIKE ?${bindings.length + 2} ESCAPE '\\'${tagged.length?` OR id IN (${tagged.map((_,i)=>`?${bindings.length+3+i}`).join(',')})`:''})`);
     const pattern = `%${search.replace(/[\\%_]/g, '\\$&')}%`;
-    bindings.push(pattern, pattern);
+    bindings.push(pattern, pattern,...tagged);
   }
   const where = filters.join(' AND ');
   const count = await db.prepare(`SELECT COUNT(*) AS total FROM ai_documents WHERE ${where}`).bind(...bindings).first<{ total: number }>();
   const result = await db.prepare(`SELECT * FROM ai_documents WHERE ${where} ORDER BY created_at DESC LIMIT ?${bindings.length + 1} OFFSET ?${bindings.length + 2}`)
     .bind(...bindings, pageSize, (page - 1) * pageSize).all<AiDocumentRow>();
-  return { documents: result.results || [], total: Number(count?.total || 0), page, pageSize };
+  return { documents: await attachDocumentTags(db,result.results||[]), total: Number(count?.total || 0), page, pageSize };
 };
 
 export const parseAiDocumentOcrPayload = (form: FormData, mimeType: string) => {
@@ -481,7 +497,17 @@ export const handleAdminAiDocuments = async (request: Request, url: URL, env: Ai
   if (request.method === 'POST') {
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) return { document: await indexDocument(request, env, identity) };
-    const body = await request.json() as { action?: unknown; id?: unknown; publicViewPolicy?: unknown; officialSourceUrl?: unknown };
+    const body = await readMetadataJson(request);
+    if(body.action==='update_tags'){
+      if(request.headers.get('Origin')!==url.origin)throw new AiDocumentsError(403,'Yêu cầu cùng origin.');
+      const id=String(body.id||'');
+      if(!/^[a-f0-9-]{36}$/i.test(id)||Object.keys(body).some(k=>!['action','id','tags'].includes(k)))throw new AiDocumentsError(400,'Metadata tag không hợp lệ.');
+      const document=await findAiDocument(env,id);
+      if(!document)throw new AiDocumentsError(404,'Không tìm thấy tài liệu.');
+      if(document.extraction_pipeline_version===TEXT_FIRST_PIPELINE)throw new AiDocumentsError(409,'Sửa tag ở tài liệu văn bản gốc để giữ tag qua các revision.');
+      try{return {tags:await saveDocumentTags(requireStorage(env).db,id,'file',body.tags,identity.userId)};}
+      catch(error){throw new AiDocumentsError(error instanceof DocumentTagValidationError?400:503,error instanceof DocumentTagValidationError?error.message:'Chưa lưu được tag; kiểm tra migration và mở lại tài liệu.');}
+    }
     if (body.action === 'retry') return { document: await retryDocument(body, env) };
     if (body.action === 'update_public_view') return { document: await updatePublicViewPolicy(body, env) };
     throw new AiDocumentsError(400, 'Thao tác tài liệu không hợp lệ.');

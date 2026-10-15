@@ -1,6 +1,7 @@
 import { normalizeAdvisorIntentText } from './ai-advisor-intents.ts';
 import {selectEvidenceWindow} from './ai-advisor-source-sections.ts';
 import {stripWordExtractionEnvelope} from '../../../shared/ai-source-presentation.ts';
+import {tuitionMajorQuery,resolveTuitionMajorAnswer,TUITION_SCOPE_QUESTION} from './ai-advisor-tuition-major.ts';
 
 /** Conservative guard; document text is data, never higher-priority instructions. */
 export const containsDocumentInstructions = (text: string) => /(?:system|assistant)\s*:/i.test(text)
@@ -94,6 +95,9 @@ const quoteRelevantWindow = (passage: string, question: string) => {
 };
 
 export const sourceSupportedReply = (reply: string, passages: readonly string[], question = '') => {
+  // Never turn a single-major question into a long multi-major table quote.
+  if(tuitionMajorQuery(question))return resolveTuitionMajorAnswer(question,passages.map((snippet,i)=>({sourceId:`S${i+1}`,documentId:`fallback-${i}`,revision:'',snippet})))?.reply||TUITION_SCOPE_QUESTION;
+  if(/\b(?:hoc phi|muc thu)\b/.test(normalizeAdvisorIntentText(question))&&passages.some(p=>(p.match(/\d{1,3}(?:[.,]\d{3})+/g)||[]).length>8))return TUITION_SCOPE_QUESTION;
   const normalized = exactEvidenceText(reply);
   const assertsCurrency = /\b(?:hien hanh|moi nhat|con hieu luc)\b/.test(normalizeAdvisorIntentText(reply));
   if (normalized && !assertsCurrency && isRelevantAdvisorEvidence(question, reply)

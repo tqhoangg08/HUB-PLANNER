@@ -21,6 +21,7 @@ import {tuitionPaymentCondition,retrieveTuitionConditionEvidence,resolveTuitionC
 import {createDocumentPolicyDeadline} from './ai-advisor-document-policy.ts';
 import {isUnpaginatedNativePipeline} from '../../../shared/ai-document-text.ts';
 import {DOCUMENT_STYLE_VERSION,formatOfficialDocumentReply} from './ai-advisor-document-style.ts';
+import {tuitionMajorQuery,resolveTuitionMajorAnswer} from './ai-advisor-tuition-major.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -122,6 +123,7 @@ export const shouldUseAiAdvisorV2 = async (config: AiAdvisorV2RuntimeConfig, use
 
 const toRevisionRecords = (candidates: readonly AiAdvisorV2Candidate[]) => candidates.map((candidate) => ({
   id: candidate.id,
+  tags: candidate.tags,
   version: candidate.revision ?? candidate.version,
   contentHash: candidate.contentHash,
   canonicalHash: candidate.canonicalHash,
@@ -172,7 +174,7 @@ export const executeAiAdvisorV2Document = async (
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: `evidence-abstention-grounded-v2:${DOCUMENT_STYLE_VERSION}:${titleFingerprint}`, answerPathVersion: conditionPath?'tuition-condition-source-v2':dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
+      promptVersion: `evidence-abstention-grounded-v3:${DOCUMENT_STYLE_VERSION}:${titleFingerprint}`, answerPathVersion: conditionPath?'tuition-condition-source-v2':dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -208,7 +210,7 @@ export const executeAiAdvisorV2Document = async (
   }
   let generatorConfigured = false;
   try { generatorConfigured = Boolean(dependencies.evidenceGenerator?.isConfigured({})); } catch { generatorConfigured = false; }
-  if (!conditionPath&&(!dependencies.evidenceGenerator || !generatorConfigured)) {
+  if (!conditionPath&&!tuitionMajorQuery(question)&&(!dependencies.evidenceGenerator || !generatorConfigured)) {
     return abstain('GENERATOR_ERROR', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length);
   }
   const evidence: AuthorizedEvidenceSource[] = retrieved.sources
@@ -226,6 +228,18 @@ export const executeAiAdvisorV2Document = async (
       ? {locatorKind:'word_unit' as const,unitNumber:Number(source.itemKey.match(/page-(\d{3})\.md$/)?.[1])||undefined} : {}),
   }));
   if (!evidence.length) return abstain('ALL_RESULTS_DROPPED', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.rawChunkCount);
+  if(tuitionMajorQuery(question)&&!(dependencies.completenessSearch&&tuitionTupleQuery(question))){
+    const result=resolveTuitionMajorAnswer(question,evidence)!;
+    const selected=evidence.filter(s=>result.sourceIds.includes(s.sourceId)).map(s=>({...s,snippet:result.sourceExcerpts[s.sourceId]}));
+    if(selected.length&&(hasUnsupportedAnswerDetails(result.reply,selected.map(s=>s.snippet))
+      ||validateEvidenceAbstention({question,evidence:selected},{text:result.reply,citedSourceIds:result.sourceIds}).kind!=='ANSWER'))
+      return abstain('INVALID_CITATIONS',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
+    // A clarification contains no monetary claim; existing authorized source
+    // identities still undergo final D1/revision checks at the caller.
+    const cited=selected.length?selected:evidence.slice(0,1);
+    return {kind:'ANSWER',answer:{reply:selected.length?formatOfficialDocumentReply(result.reply,cited):result.reply,evidence:cited},
+      searchCallCount:retrieved.searchCallCount,retrievalCacheHit:retrieved.cacheHit,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
+  }
   if(conditionPath){
     const extracted=resolveTuitionConditionAnswer(question,evidence);
     if(!extracted)return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);

@@ -9,7 +9,7 @@ const safeLink = (value: string | undefined) => {
 
 /** Shared, raw-HTML-free Markdown presentation for desktop and mobile chat. */
 export const AIMessageContent: React.FC<{ content: string }> = ({ content }) => (
-  <div className="ai-message-markdown prose prose-sm max-w-none break-words prose-p:leading-relaxed prose-headings:text-[#003375] prose-headings:font-bold prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-slate-800 prose-blockquote:border-[#003375]/30 prose-blockquote:text-slate-600">
+  <div className="ai-message-markdown prose prose-sm min-w-0 max-w-full break-words prose-p:leading-relaxed prose-headings:text-[#003375] prose-headings:font-bold prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-slate-800 prose-blockquote:border-[#003375]/30 prose-blockquote:text-slate-600">
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{

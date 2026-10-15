@@ -18,9 +18,11 @@ import { inspectPdfTextLayer, runPdfOcrInBrowser, isPdfDocument, type AiDocument
 import { aiDocumentCategoryLabel, AI_DOCUMENT_CATEGORY_OPTIONS } from '../shared/ai-document-categories';
 import AdminAITextDocuments from './AdminAITextDocuments';
 import {TEXT_FIRST_PIPELINE} from '../shared/ai-document-text';
+import AIDocumentTagEditor from './AIDocumentTagEditor';
 
 type AIDocument = {
   id: string;
+  tags?:string[];
   title: string;
   original_file_name: string;
   storage_path: string;
@@ -284,7 +286,7 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
                 setSearch(event.target.value);
                 setPage(1);
               }}
-              placeholder="Tìm tên tài liệu..."
+              placeholder="Tìm tên tài liệu hoặc tag..."
               className="h-11 w-full rounded-lg border pl-10 pr-3 text-sm outline-none focus:border-blue-500"
             />
           </label>
@@ -338,6 +340,7 @@ export const AdminAIDocuments: React.FC<{onReviewOcr?:(documentId:string)=>void}
                 >
                   <div className="min-w-0">
                     <div className="truncate font-bold">{item.title}</div>
+                    {item.extraction_pipeline_version!==TEXT_FIRST_PIPELINE&&<AIDocumentTagEditor documentId={item.id} kind="file" tags={item.tags} onSaved={()=>void load()}/>}
                     <div className="truncate text-xs text-slate-500">
                       {item.original_file_name} · {(item.file_size / 1024 / 1024).toFixed(1)} MB ·{' '}
                       {aiDocumentCategoryLabel(item.category)}
