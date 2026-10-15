@@ -1,3 +1,5 @@
+> Historical implementation brief. Current v1.1.0 API contract, the owner-approved compact table, and the release audit handoff supersede the old mock/landing/card/rebase guidance. This file is retained for provenance, not as a new execution instruction.
+
 # ANTIGRAVITY EXECUTION BRIEF — HUB SCHOLARSHIP FRONTEND
 
 ROLE: You own React UI/UX, route integration, client API adapter, photo editor and browser-side exports. Implement working code and demonstrate it; do not just create Figma-like static mockups.

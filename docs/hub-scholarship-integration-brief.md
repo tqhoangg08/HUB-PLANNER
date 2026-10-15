@@ -1,5 +1,7 @@
 # CODEX INTEGRATION AND RELEASE-CANDIDATE REVIEW — HUB SCHOLARSHIP
 
+> Historical integration brief. The pre-deploy cleanup audit and v1.1.0 contract supersede its rebase, score-table and launch guidance. Preserve local work; do not merge, rebase, deploy or migrate remote D1 as an automatic step.
+
 Run ONLY after:
 1. Backend branch feature/hub-scholarship-foundation has completed backend implementation, tests and contract handoff.
 2. Antigravity has opened the frontend Draft PR targeting the backend branch.

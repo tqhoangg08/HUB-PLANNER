@@ -8,7 +8,8 @@ import { handlePublicScholarships } from '../cloudflare/worker/src/scholarships.
 
 test('real Worker routing + D1 migrations/JSON chunks/CAS transactions run locally without Auth network', async t => {
   const bundled = await build({ entryPoints: ['cloudflare/worker/src/index.ts'], bundle: true, write: false,
-    format: 'esm', platform: 'browser', external: ['cloudflare:*'], logLevel: 'silent' });
+    format: 'esm', platform: 'browser', external: ['cloudflare:*'], logLevel: 'silent', metafile: true });
+  assert.ok(Object.keys(bundled.metafile.inputs).every(file => !/^(?:dev\/|tests\/|scripts\/(?:dev-scholarships-local|prepare-scholarship-import|scholarship-workbook)\.)/.test(file)), 'production Worker must not import scholarship dev identity, offline tools or fixtures');
   const mf = new Miniflare({ modules: true, script: bundled.outputFiles[0].text, compatibilityDate: '2026-07-29',
     d1Databases: ['DB'], bindings: { ALLOWED_ORIGINS: 'https://example.test' } });
   t.after(() => mf.dispose());
@@ -24,6 +25,11 @@ test('real Worker routing + D1 migrations/JSON chunks/CAS transactions run local
   assert.equal((await empty.json()).total, 0);
   const noAuth = await mf.dispatchFetch(origin + '/api/admin/v1/scholarships/campaigns');
   assert.equal(noAuth.status, 401); assert.equal(noAuth.headers.get('cache-control'), 'private, no-store');
+  const qaCookie = { headers: { Cookie: 'scholarship_qa=synthetic', 'X-User-Role': 'admin' } };
+  for (const route of ['/api/me/scholarships', '/api/admin/v1/scholarships/campaigns']) {
+    const forged = await mf.dispatchFetch(origin + route, qaCookie);
+    assert.equal(forged.status, 503, 'without AUTH_SERVICE a supplied QA cookie must fail closed, never grant access');
+  }
   const method = await mf.dispatchFetch(origin + '/api/public/v1/scholarships/campaigns', { method: 'POST' });
   assert.equal(method.status, 405); assert.match(method.headers.get('allow'), /GET/);
   const guessed = await mf.dispatchFetch(origin + '/api/public/v1/scholarships/guessed/recipients');
