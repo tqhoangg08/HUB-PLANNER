@@ -1,5 +1,5 @@
 /**
- * HUB Scholarship — Client API & Types (v1.0.0)
+ * HUB Scholarship — Client API & Types (v1.1.0)
  * Compliant with docs/hub-scholarship-api-contract.md
  */
 
@@ -168,6 +168,9 @@ export interface PrivateSnapshotRow {
   className: string | null;
   major: string | null;
   awardType: string;
+  scholarshipType: string | null;
+  scholarshipRank: string | null;
+  cohort: string | null;
   scores: Record<string, string | number | null>;
   rowSha256: string;
 }
@@ -578,7 +581,7 @@ export const previewAdminImport = async (
   payload: {
     sourceSha256: string;
     sourceFilename: string;
-    mapping: any;
+    mapping: ImportMapping;
     rows: Array<{ sourceRowNumber: number; values: Record<string, string | number | null> }>;
   },
   signal?: AbortSignal,

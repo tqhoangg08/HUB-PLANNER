@@ -1,16 +1,18 @@
-# HUB Scholarship backend handoff — 2026-10-13
+# HUB Scholarship backend handoff — v1.1.0
 
 ## ANTIGRAVITY_READY = YES
 
 Backend branch: `feature/hub-scholarship-foundation`.
 Backend implementation and regression-test SHA: `c78ab17c1115059b1c547e1e7ebad942901ede53`.
 Implementation commit: `664b8158dbbde0ebc0b9d6996c2feb9e95464a49`; additional atomicity regression commit: `c78ab17`.
-Contract frozen: **v1.0.0**, `docs/hub-scholarship-api-contract.md`.
+Current contract: **v1.1.0**, `docs/hub-scholarship-api-contract.md`.
 The branch's subsequent documentation commit contains this handoff and contract; use latest branch HEAD when creating the frontend branch.
 Draft PR: https://github.com/tqhoangg08/HUB-PLANNER/pull/91. Keep it Draft; no merge/deploy authorization.
 
 Ready means frontend development can integrate against the implemented contract with empty campaigns or clearly synthetic local fixtures.
 Production release is **NOT approved or verified**. The official source file and per-field republication authorization are still absent.
+
+Latest v1.1 implementation is 270d0c8, documented by 24cc7b3; see the API contract and filter-extension ledger. The pre-deploy audit remains NOT READY for real student data without explicit authorization. Current integrated validation is maintained in the frontend combined handoff; old counts below are historical.
 
 ## Implemented
 
@@ -31,7 +33,7 @@ Examples: empty campaigns `{campaigns:[],total:0,page:1,limit:20}`;
 unverified self `{verified:false,awards:[]}`; verified without awards `{verified:true,awards:[]}`.
 See the contract for exact recipient, source-specific score and Admin body/response fixtures.
 
-## Actual validation ledger
+## Historical v1.0 validation ledger (not a current release certification)
 
 All commands ran locally, with synthetic test records only. No unrun check is recorded as PASS.
 

@@ -1,29 +1,16 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Award,
-  Camera,
-  Check,
   ChevronLeft,
-  Crown,
   Download,
   Eye,
-  EyeOff,
-  Image as ImageIcon,
-  Layers,
-  Lock,
   Move,
-  RefreshCw,
   Share2,
   Sliders,
-  Sparkles,
-  Trophy,
   Upload,
   ZoomIn,
   ZoomOut,
-  X,
-  FileCheck,
-  ShieldCheck,
 } from 'lucide-react';
 import { ScholarshipShell } from './ScholarshipShell';
 import { ConfettiOverlay } from './ConfettiOverlay';
@@ -47,7 +34,6 @@ export type FrameMask = 'circle' | 'arch' | 'rounded-rect' | 'shield';
 
 export const CelebrationStudio: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const { session, loading: authLoading } = useUserRole();
 
   // Awards state
@@ -247,7 +233,6 @@ export const CelebrationStudio: React.FC = () => {
         ctx.strokeRect(50, 50, targetWidth - 100, targetHeight - 100);
 
         // Corner ornaments
-        const cornerSize = 30;
         const corners = [
           [55, 55],
           [targetWidth - 55, 55],
@@ -606,8 +591,7 @@ export const CelebrationStudio: React.FC = () => {
         setExportSuccessMessage(`Đã xuất ảnh thành công (${targetW}×${targetH}px)!`);
         setShowVictoryReveal(true);
       }, 'image/png');
-    } catch (err) {
-      console.error('Export error:', err);
+    } catch {
       alert('Đã xảy ra lỗi khi tạo ảnh vinh danh.');
       setIsExporting(false);
     }

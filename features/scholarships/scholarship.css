@@ -129,7 +129,6 @@
   .scholarship-filter-scholarshipRank { order:2; }
   .scholarship-filter-major { order:3; }
   .scholarship-filter-cohort { order:4; }
-  .scholarship-filter-scholarshipType { grid-column:1 / -1; order:5; }
   .scholarship-mobile-results { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:12px 0 8px; }
   .scholarship-shell .scholarship-mobile-results h2 { font-size:12px; }
   .scholarship-mobile-results > span { color:#64748b; font-size:10px; }

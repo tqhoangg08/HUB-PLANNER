@@ -7,6 +7,7 @@ import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
 import { handleAdminScholarships } from '../cloudflare/worker/src/scholarship-admin.ts';
 
+if (process.env.NODE_ENV === 'production') throw new Error('Scholarship QA is development-only');
 const port = Number(process.env.SCHOLARSHIP_QA_PORT || 8787);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Invalid local port');
 const origin = `http://127.0.0.1:${port}`;

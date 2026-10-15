@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import {
   formatScoreValue,
@@ -27,7 +28,7 @@ test('celebration wraps all approved score values without dropping Vietnamese or
   assert.deepEqual(celebrationScoreLines([], text => text.length, 920), []);
 });
 
-test('ScoreBadges faithfully formats scores without coercing null to zero or assuming /4.0 scale', () => {
+test('score formatter preserves source values without coercing null to zero or assuming /4.0 scale', () => {
   // Null or undefined should be dash '—', NEVER 0
   assert.equal(formatScoreValue(null), '—');
   assert.equal(formatScoreValue(undefined), '—');
@@ -40,6 +41,16 @@ test('ScoreBadges faithfully formats scores without coercing null to zero or ass
   // String scores from Vietnamese source documents preserved
   assert.equal(formatScoreValue('9,7'), '9,7');
   assert.equal(formatScoreValue('Xuất sắc'), 'Xuất sắc');
+});
+
+test('local synthetic server refuses a production process before opening a listener', () => {
+  const result = spawnSync(process.execPath, ['--experimental-strip-types', 'scripts/dev-scholarships-local.mjs'], {
+    env: { ...process.env, NODE_ENV: 'production' }, encoding: 'utf8', timeout: 15000,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Scholarship QA is development-only/);
+  assert.doesNotMatch(result.stdout, /Synthetic scholarship QA: http/);
 });
 
 test('ScholarshipApiError accurately maps standard contract error codes to clear user messages', () => {
@@ -113,6 +124,9 @@ test('Canva list preserves exact names and scholarship rank without the retired 
   // Current official list no longer includes academic/training scores or credits.
   assert.doesNotMatch(listPage, /scoreColumns|r\.scores|formatScoreValue/);
   assert.match(listPage, /r\.scholarshipRank/);
+  const controls = listPage.match(/const filterLabels = (.*);/)?.[1] || '';
+  assert.doesNotMatch(controls, /scholarshipType/);
+  for (const key of ['major', 'className', 'scholarshipRank', 'cohort']) assert.match(controls, new RegExp(key));
 
   // 7: Pagination
   assert.match(listPage, /totalPages/);

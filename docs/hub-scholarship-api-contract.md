@@ -70,10 +70,12 @@ The implementation never logs search text, row cells, names or student codes.
 `fullName`, `studentCode`, `awardType` require explicit approval before publication.
 Unapproved class/major become null. `scores` contains **only explicitly approved individual keys**.
 The three legacy score properties alias `scores.gpa`, `scores.trainingScore`, `scores.selectionScore`, or null if absent/unapproved.
-They are not inferred or coerced. Use `scoreColumns` and `scores` for new UI: the source may use a different scale or textual value such as `"9,7"`.
+They are not inferred or coerced. Historical/private score views use `scoreColumns` and `scores`: the source may use a different scale or textual value such as `"9,7"`.
 Null means missing or not approved; never substitute zero, assume GPA /4, or derive an award.
 Raw source row numbers, source identifiers, private score columns, filename, mapping and actor IDs are Admin-only.
 Recipient IDs identify immutable snapshot rows; they may change across replacement imports and are never proof of ownership.
+
+Current public table policy (2026-10-15): identity, approved class/major/cohort and scholarship rank only. It omits academic/training score and credit columns, and the program/type column. The lookup UI omits the program/type dropdown; API scholarshipType mapping/filter/approval and historical URLs remain compatible. Removing a UI column does not revoke stored field approval or change the API response.
 
 ## Public endpoints (no login)
 
@@ -194,7 +196,7 @@ Retries of the currently applied candidate return `idempotent:true` even with a 
 
 Title max 240; schoolYear/semester max 80; all required text is nonempty, NFC-trimmed and control-free.
 No hard-delete endpoint; archive is the supported removal path.
-Private rows: `{id,sourceRowNumber,sourceIdentifier,studentCode,fullName,className,major,awardType,scores,rowSha256}`.
+Private rows: `{id,sourceRowNumber,sourceIdentifier,studentCode,fullName,className,major,awardType,scholarshipType,scholarshipRank,cohort,scores,rowSha256}`.
 Rejected receipts have no stored recipient rows and rows total 0.
 `ImportMetadata` adds to Receipt: `{sourceFilename,mapping,approvedFields:string[]|null,officialSource:OfficialSource|null,
 actorUserId,createdAt,approvedBy:string|null,approvedAt:string|null}`.

@@ -3,15 +3,10 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowRight,
-  ExternalLink,
   HelpCircle,
-  Lock,
-  LogIn,
-  MailCheck,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  UserCheck,
 } from 'lucide-react';
 import { ScholarshipShell } from './ScholarshipShell';
 import { ScholarshipBadge } from './ScholarshipBadge';

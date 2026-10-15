@@ -136,8 +136,8 @@ export const ScholarshipList: React.FC = () => {
       </select>
     </div>;
   };
-  const filterLabels = { major: ['Ngành học', 'Tất cả ngành'], className: ['Lớp', 'Tất cả lớp'], scholarshipType: ['Loại học bổng', 'Tất cả loại'], scholarshipRank: ['Xếp loại học bổng', 'Tất cả xếp loại'], cohort: ['Khóa', 'Tất cả khóa'] } as const;
-  const filterOrder: ScholarshipFilterKey[] = mobile ? ['className', 'scholarshipRank', 'major', 'cohort', 'scholarshipType'] : ['major', 'className', 'scholarshipType', 'scholarshipRank', 'cohort'];
+  const filterLabels = { major: ['Ngành học', 'Tất cả ngành'], className: ['Lớp', 'Tất cả lớp'], scholarshipRank: ['Xếp loại học bổng', 'Tất cả xếp loại'], cohort: ['Khóa', 'Tất cả khóa'] } as const;
+  const filterOrder: (keyof typeof filterLabels)[] = mobile ? ['className', 'scholarshipRank', 'major', 'cohort'] : ['major', 'className', 'scholarshipRank', 'cohort'];
   const filterActions = <>
     <button type="button" className="scholarship-filter-reset scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
     <button type="button" className="scholarship-filter-toggle scholarship-button" aria-expanded={!filtersCollapsed} aria-controls={`${id}-filters`} aria-label={filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn bộ lọc'} onClick={() => setFiltersCollapsed(collapsed => !collapsed)}><span className="scholarship-desktop-text">{filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn'}</span><span className="scholarship-mobile-text">{filtersCollapsed ? 'Mở rộng' : 'Thu gọn'}</span>{filtersCollapsed ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}</button>
