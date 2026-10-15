@@ -1,5 +1,10 @@
 import type { RetrievalCache } from './ai-advisor-cache.ts';
 import type { RetrievalProvider } from './ai-advisor-providers.ts';
+import {documentTagSearchQuery,documentTagScore,isMultiTopicDocumentQuestion} from '../../../shared/ai-document-tags.ts';
+import {isRelevantAdvisorEvidence} from './ai-advisor-grounding.ts';
+import {tuitionMajorQuery} from './ai-advisor-tuition-major.ts';
+import {normalizeAdvisorIntentText} from './ai-advisor-intents.ts';
+import {createDocumentPolicyDeadline} from './ai-advisor-document-policy.ts';
 
 export type AiSearchBackend = 'TEXT' | 'OCR';
 
@@ -7,6 +12,7 @@ export type AiSearchAuthorizedDocument = {
   id: string;
   /** D1-authorized document identity hint; never used as a support quote. */
   title?: string;
+  tags?: readonly string[];
   /** D1-derived format, never inferred from provider text or object filename. */
   locatorKind?: 'word_unit' | 'page';
   /** Stage 5 will source this from D1 ingestion metadata. Unknown stays TEXT. */
@@ -177,6 +183,9 @@ const normalizeResults = (
   const chunkId = boundedText(chunk.id, 256);
   const itemKey = boundedText(chunk.item?.key, 1_024);
   if (!documentId || !snippet || !chunkId || !itemKey) return [];
+  const document=documents.find(d=>d.id===documentId),metadata=chunk.item?.metadata;
+  if(document?.visibility&&metadata?.visibility!==undefined&&metadata.visibility!==document.visibility)return [];
+  if(document?.revision&&metadata?.revision!==undefined&&String(metadata.revision)!==String(document.revision))return [];
   const score = typeof chunk.score === 'number' && Number.isFinite(chunk.score) ? chunk.score : null;
   // Accept only our exact per-document one-page key convention. Older
   // multi-page part-NNN objects cannot supply a page number this way.
@@ -192,7 +201,7 @@ export const normalizeAuthorizedAiSearchChunks = (
   chunks: readonly AiSearchRawChunk[], documents: readonly AiSearchAuthorizedDocument[], backend: AiSearchBackend = 'TEXT',
 ) => normalizeResults(postAuthorizeResults(chunks, new Set(documents.filter((d) => d.active !== false).map((d) => d.id))), backend, documents);
 
-const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 'sourceId'>[], topK: number) => {
+const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 'sourceId'>[], topK: number,priority:(documentId:string)=>number=()=>0) => {
   const deduped = new Map<string, Omit<RetrievedAiSearchSource, 'sourceId'>>();
   for (const source of sources) {
     // A PDF/object can contain multiple relevant chunks (e.g. both pages of a
@@ -205,7 +214,7 @@ const mergeAiSearchSources = (sources: readonly Omit<RetrievedAiSearchSource, 's
     if (!current || sourceScore > currentScore || (sourceScore === currentScore && source.chunkId < current.chunkId)) deduped.set(key, source);
   }
   return [...deduped.values()]
-    .sort((left, right) => (right.score ?? Number.NEGATIVE_INFINITY) - (left.score ?? Number.NEGATIVE_INFINITY)
+    .sort((left, right) => priority(right.documentId)-priority(left.documentId)||(right.score ?? Number.NEGATIVE_INFINITY) - (left.score ?? Number.NEGATIVE_INFINITY)
       || left.documentId.localeCompare(right.documentId)
       || left.itemKey.localeCompare(right.itemKey)
       || left.chunkId.localeCompare(right.chunkId))
@@ -240,6 +249,8 @@ export class CloudflareAiSearchRetrievalProvider
     const filter = buildAiSearchAuthorizationFilter(request.allowedDocuments);
     if (!filter) return { sources: [], rawChunkCount: 0, searchCallCount: 0, backends: [], latencyMs: Date.now() - startedAt };
     const allowedDocuments = request.allowedDocuments.filter((document) => document.active !== false);
+    const hintedQuery=documentTagSearchQuery(request.question,allowedDocuments);
+    const hintDeadline=hintedQuery!==request.question?createDocumentPolicyDeadline():null;
     const topK = clampTopK(request.topK);
     const backends = [...new Set(allowedDocuments.map(backendFor))].sort() as AiSearchBackend[];
     const sources: Array<Omit<RetrievedAiSearchSource, 'sourceId'>> = [];
@@ -255,8 +266,8 @@ export class CloudflareAiSearchRetrievalProvider
       searchCallCount += 1;
       let response: Awaited<ReturnType<AiSearchClient['search']>>;
       try {
-        response = await this.client.search(backend === 'TEXT' ? this.instances.text : this.instances.ocr, {
-          query: boundedText(request.question, 2_000),
+        const execute=()=>this.client.search(backend === 'TEXT' ? this.instances.text : this.instances.ocr, {
+          query: boundedText(hintedQuery, 2_000),
           ai_search_options: {
             retrieval: {
               retrieval_type: 'vector',
@@ -266,6 +277,7 @@ export class CloudflareAiSearchRetrievalProvider
             },
           },
         });
+        response=await (hintDeadline?hintDeadline.run(execute):execute());
       } catch (error) {
         this.reportError('SEARCH_INVOCATION', error);
         throw error;
@@ -285,8 +297,25 @@ export class CloudflareAiSearchRetrievalProvider
       try { sources.push(...normalizeResults(authorizedChunks, backend, allowedDocuments)); }
       catch (error) { this.reportError('RESPONSE_NORMALIZATION', error); throw error; }
     }
+    // A tag miss must not suppress the original query. Same authorization,
+    // no extra hydration/generation, at most three total Search calls.
+    const major=tuitionMajorQuery(request.question)?.major;
+    if(hintDeadline&&!sources.some(s=>isRelevantAdvisorEvidence(request.question,s.snippet,allowedDocuments.find(d=>d.id===s.documentId)?.title)
+      &&(!major||normalizeAdvisorIntentText(s.snippet).includes(major)))){
+      sources.length=0;
+      for(const backend of backends){
+        if(searchCallCount>=3)break;searchCallCount++;
+        const scoped=allowedDocuments.filter(d=>backendFor(d)===backend),filters=buildAiSearchAuthorizationFilter(scoped);
+        if(!filters)continue;
+        const response=await hintDeadline.run(()=>this.client.search(backend==='TEXT'?this.instances.text:this.instances.ocr,{query:boundedText(request.question,2000),
+          ai_search_options:{retrieval:{retrieval_type:'vector',match_threshold:DEFAULT_AI_SEARCH_MATCH_THRESHOLD,max_num_results:topK,filters}}}));
+        if(response.chunks&&!Array.isArray(response.chunks))throw new TypeError('Invalid AI Search chunks response.');
+        rawChunkCount+=(response.chunks||[]).length;
+        sources.push(...normalizeResults(postAuthorizeResults(response.chunks||[],new Set(scoped.map(d=>d.id))),backend,scoped));
+      }
+    }
     return {
-      sources: mergeAiSearchSources(sources, topK),
+      sources: mergeAiSearchSources(sources, topK,id=>!isMultiTopicDocumentQuestion(request.question)&&documentTagScore(request.question,allowedDocuments.find(d=>d.id===id)?.tags)>0?1:0),
       rawChunkCount,
       searchCallCount,
       backends,

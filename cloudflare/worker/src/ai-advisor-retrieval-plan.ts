@@ -2,6 +2,7 @@ import {normalizeAdvisorIntentText,isAcademicPolicyQuestion} from './ai-advisor-
 import {isConductTableQuestion,conductTableEvidencePriority} from './ai-advisor-table-evidence.ts';
 import {conductExcerptSearchQuery,conductExcerptPriority} from './ai-advisor-policy-excerpts.ts';
 import type {AiSearchAuthorizedDocument} from './ai-search-retrieval.ts';
+import {documentTagScore,isMultiTopicDocumentQuestion,hasMultipleDocumentTopics} from '../../../shared/ai-document-tags.ts';
 
 /** Input selectors only. No facts/answers/source IDs/page numbers are injected. */
 export const tuitionTupleQuery = (question:string) => {
@@ -57,7 +58,7 @@ export const buildEvidenceRetrievalPlan = (question:string,documents:readonly Ai
   // Narrow on explicit document subject only; never truncate arbitrary top N
   // by upload date/category. If metadata does not identify a subject, search
   // the whole authorized set. Private/inactive documents never enter this set.
-  const identified=titlePattern?documents.filter(d=>d.active!==false&&titlePattern!.test(normalizeAdvisorIntentText(d.title||''))):[];
+  const identified=titlePattern?documents.filter(d=>d.active!==false&&(titlePattern!.test(normalizeAdvisorIntentText(d.title||''))||documentTagScore(question,d.tags)>0)):[];
   const scoped=academic&&(specializedPlan!==standardPlan)
     ? identified.filter(d=>{const title=normalizeAdvisorIntentText(d.title||'');return specializedPlan
       ? /\b(?:tieng anh ban phan|chuong trinh dac biet|chuong trinh tinh hoa)\b/.test(title)
@@ -68,7 +69,7 @@ export const buildEvidenceRetrievalPlan = (question:string,documents:readonly Ai
     :article?`Điều ${article.number} ${q.split(/\bdieu\s+\d+\b/)[1]||''}`
     :academic?/\bnghi tet\b/.test(q)?'nghỉ Tết':/\bhoc ky he\b/.test(q)?'Học kỳ hè thời gian đăng ký môn học':/\bdang ky (?:mon hoc|hoc phan|hoc ky)\b/.test(q)?'đăng ký môn học học kỳ '+(q.match(/\b(?:hoc ky|ky)\s+(\d+)\b/)?.[1]||''):/\bthuc tap cuoi khoa\b/.test(q)?'thực tập cuối khóa':/\b(?:hoc ky|ky)\s+\d+\b/.test(q)?'Học kỳ '+q.match(/\b(?:hoc ky|ky)\s+(\d+)\b/)![1]+' thời gian':question.trim().slice(0,1800)
     :question.trim().slice(0,1800));
-  return {scoped,hydrate,table,query,tuple,article,academic,
+  return {scoped:hasMultipleDocumentTopics(question)?documents:isMultiTopicDocumentQuestion(question)?scoped:[...scoped].sort((a,b)=>documentTagScore(question,b.tags)-documentTagScore(question,a.tags)),hydrate,table,query,tuple,article,academic,
     // One bounded semantic/lexical pass plus a table-header pass ONLY for
     // scoped tuition rows: units/program cannot be inferred from bare numbers.
     headerQuery:tuple?'Học phí theo năm Học phí theo tín chỉ '+(tuple.program||''):null,

@@ -342,7 +342,8 @@ test('metadata paging includes relevant source older than 48 uploads and outside
     db.insert('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'completed', 'admin');
     const rows = await selectAdvisorDocumentCandidates(envFor(db.DB), routeAdvisorDocuments(question));
     assert.equal(rows.length, 151); assert.ok(rows.some((row) => row.id === DOC));
-    assert.equal(db.queries.length, 2);
+    assert.equal(db.queries.filter(sql=>/FROM ai_documents\s+WHERE/.test(sql)).length, 2);
+    assert.equal(db.queries.filter(sql=>sql.includes('FROM ai_document_tags')).length,1,'unapplied additive tag migration adds one bounded metadata probe, not a catalog truncation');
     assert.equal(buildDocumentCandidateMetadataFilter(rows.map((row) => row.id)), 'visibility = "public"');
     const docs = rows.map((row) => ({ id: row.id, visibility: 'public', active: true }));
     assert.deepEqual(buildAiSearchAuthorizationFilter(docs), { active: true, visibility: 'public' });

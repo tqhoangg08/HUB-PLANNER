@@ -3,6 +3,8 @@ import {AiDocumentsError,sha256AiDocumentBlob,type AiDocumentsEnv} from './ai-do
 import {AI_DOCUMENT_CATEGORY_VALUES} from '../../../shared/ai-document-categories.ts';
 import {segmentDocumentText,renderTextSegment,TEXT_FIRST_PIPELINE,TextDocumentValidationError} from '../../../shared/ai-document-text.ts';
 import {buildDerivedPageObjectKey,buildEffectiveIndexRevision,buildServerDerivedMetadata,isCompleteDerivedRevision,listDerivedRevisionReceipts} from './ai-document-ingestion.ts';
+import {attachDocumentTags,saveDocumentTags,taggedDocumentIds} from './ai-document-tags.ts';
+import {DocumentTagValidationError} from '../../../shared/ai-document-tags.ts';
 
 type TextRoot={id:string;sequence:number;latest_revision_id:string|null;live_document_id:string|null};
 type Revision={id:string;document_id:string;version:number;title:string;category:string;academic_year:string|null;program_code:string;
@@ -179,16 +181,26 @@ export async function handleAdminAiTextDocuments(request:Request,url:URL,env:AiD
   const {db}=storage(env);
   if(request.method==='GET'){
     const id=url.searchParams.get('id');
-    if(!id){const rows=await db.prepare(`SELECT d.id,d.sequence,d.live_document_id,r.title,r.state,r.version FROM ai_text_documents d
-      JOIN ai_text_revisions r ON r.id=d.latest_revision_id ORDER BY d.updated_at DESC LIMIT 50`).all();return {documents:rows.results};}
+    if(!id){
+      const query=(url.searchParams.get('search')||'').slice(0,120),tagged=query?await taggedDocumentIds(db,query,'text'):[];
+      const rows=await db.prepare(`SELECT d.id,d.sequence,d.live_document_id,r.title,r.state,r.version FROM ai_text_documents d
+        JOIN ai_text_revisions r ON r.id=d.latest_revision_id ${query?`WHERE r.title LIKE ?${tagged.length?` OR d.id IN (${tagged.map(()=>'?').join(',')})`:''}`:''}
+        ORDER BY d.updated_at DESC LIMIT 50`).bind(...(query?[`%${query.replace(/[%_]/g,'')}%`,...tagged]:[])).all<{id:string}>();
+      return {documents:await attachDocumentTags(db,rows.results||[],'text')};
+    }
     const root=await readRoot(env,identifier(id));if(!root.latest_revision_id)throw new AiDocumentsError(404,'Chưa có bản nháp.');
     const r=await readRevision(env,root.latest_revision_id),history=await db.prepare('SELECT id,version,state,created_at,published_at FROM ai_text_revisions WHERE document_id=? ORDER BY version DESC LIMIT 50').bind(root.id).all();
-    return {documentId:root.id,sequence:root.sequence,liveDocumentId:root.live_document_id,revision:safeRevision(r),text:await source(env,r),history:history.results};
+    return {documentId:root.id,sequence:root.sequence,liveDocumentId:root.live_document_id,tags:(await attachDocumentTags(db,[root],'text'))[0].tags,revision:safeRevision(r),text:await source(env,r),history:history.results};
   }
   if(request.method!=='POST')throw new AiDocumentsError(405,'Phương thức không hỗ trợ.');
   // Cookie-based editor writes require exact origin; no client role/approval bypass.
   if(request.headers.get('Origin')!==url.origin)throw new AiDocumentsError(403,'Yêu cầu cùng origin.');
   const input=await boundedJson(request);
+  if(input.action==='update_tags'){
+    fields(input,['action','documentId','tags']);const root=await readRoot(env,identifier(input.documentId));
+    try{return {tags:await saveDocumentTags(db,root.id,'text',input.tags,identity.userId)};}
+    catch(error){throw new AiDocumentsError(error instanceof DocumentTagValidationError?400:503,error instanceof DocumentTagValidationError?error.message:'Chưa lưu được tag; kiểm tra migration và mở lại tài liệu.');}
+  }
   if(input.action==='save')return saveDraft(env,input,identity.userId);
   fields(input,input.action==='publish'?['action','revisionId','confirmation','expectedLiveDocumentId']:['action','revisionId']);
   const r=await readRevision(env,identifier(input.revisionId));

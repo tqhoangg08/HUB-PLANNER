@@ -38,6 +38,7 @@ import {
 } from './ai-advisor-v2-runtime.ts';
 import type { EvidenceGenerationProvider } from './ai-advisor-providers.ts';
 import type { RetrievalCache } from './ai-advisor-cache.ts';
+import {attachDocumentTags} from './ai-document-tags.ts';
 import {
   classifyAiSearchRetrievalError,
   type AiSearchClient,
@@ -1103,6 +1104,7 @@ type DocumentCandidateIdentityRow = DocumentCandidateRow & {
 
 export type AdvisorDocumentCandidate = {
   id: string;
+  tags?: string[];
   title?: string;
   category: AiDocumentCategory;
   academicYear: string | null;
@@ -1146,9 +1148,10 @@ export const selectAdvisorDocumentCandidates = async (env: AiAdvisorEnv, route: 
   const db = requireDb(env);
   const rows = await readAdvisorDocumentPages<DocumentCandidateRow>(db,
     'id, title, category, academic_year, program_code, version, updated_at, created_at');
-  return rows
+  return (await attachDocumentTags(db,rows))
     .map((row) => ({
       id: String(row.id),
+      tags: row.tags,
       title: String(row.title || ''),
       category: normalizeAiDocumentCategory(row.category),
       academicYear: row.academic_year || null,
@@ -1206,9 +1209,10 @@ export const selectAdvisorDocumentCandidatesWithIndexIdentity = async (
       if (!/no such column: (?:ai_search_revision|ai_search_status)/i.test(String(error))) throw error;
       rows = await readAdvisorDocumentPages<DocumentCandidateIdentityRow>(db, columns);
     }
-    return rows
+    return (await attachDocumentTags(db,rows))
       .map((row) => ({
         id: String(row.id),
+        tags: row.tags,
         title: String(row.title || ''),
         category: normalizeAiDocumentCategory(row.category),
         academicYear: row.academic_year || null,
@@ -1521,7 +1525,7 @@ const runAdvisorShadow = async (
   try {
     const candidates = await withinDeadline(() => selectAdvisorDocumentCandidatesWithIndexIdentity(env, route));
     const v2Candidates: AiAdvisorV2Candidate[] = candidates.map((candidate) => ({
-      id: candidate.id, title: candidate.title, category: candidate.category, visibility: 'public', revision: candidate.aiSearchRevision || candidate.version, active: hasReadyAiSearchIdentity(candidate),
+      id: candidate.id, title: candidate.title, tags:candidate.tags, category: candidate.category, visibility: 'public', revision: candidate.aiSearchRevision || candidate.version, active: hasReadyAiSearchIdentity(candidate),
       contentHash: candidate.contentHash, canonicalHash: candidate.canonicalHash,
       indexSourceKind: candidate.indexSourceKind || 'legacy', derivedSourceKind: candidate.derivedSourceKind || 'legacy',
       extractionPipelineVersion: candidate.extractionPipelineVersion, derivedContentHash: candidate.derivedContentHash,
@@ -1713,6 +1717,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
       const v2Candidates: AiAdvisorV2Candidate[] = candidates.map((candidate) => ({
         id: candidate.id,
         title: candidate.title,
+        tags: candidate.tags,
         category: candidate.category,
         visibility: 'public',
         revision: candidate.aiSearchRevision || candidate.version,

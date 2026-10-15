@@ -22,6 +22,7 @@ export interface RetrievalCache<T> {
 
 export type AdvisorRevisionRecord = {
   id: string;
+  tags?:readonly string[];
   /** Original document revision maintained by D1. */
   version?: string | number | null;
   /** Hash of the original uploaded bytes, not the derived indexing artifact. */
@@ -84,6 +85,7 @@ const canonicalRevisionRecord = (record: AdvisorRevisionRecord) => [
   bounded(record.extractionPipelineVersion, 128),
   bounded(record.derivedContentHash, 256),
   bounded(record.indexingStatus, 64),
+  bounded(JSON.stringify([...(record.tags||[])].sort()),2048),
 ].join('|');
 
 /** Stable across D1 result ordering; a changed revision naturally yields a miss. */
