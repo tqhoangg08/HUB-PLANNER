@@ -1,3 +1,5 @@
+import { EventContributionTimeFields } from './EventContributionTimeFields';
+import { DrlScoreGuideModal as ScoreGuideModal } from './DrlScoreGuide';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -146,124 +148,6 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
     );
 };
 
-const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-    if (!isOpen) return null;
-
-    const sections = [
-        {
-            id: 'I', title: 'Đánh giá về ý thức học tập', range: '0 → 20', color: 'blue',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- Kết quả học tập xuất sắc/giỏi/khá/TBK/TB', points: '+ 5 đến 15' },
-                { text: '- Tham gia/Đạt giải NCKH, cuộc thi học thuật', points: '+ 4 đến 20' },
-                { text: '- Là thành viên CLB học thuật', points: '+ 5' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: 'Bị cảnh báo học vụ, vi phạm liên quan học tập.', points: '- 5/lần' },
-            ]
-        },
-        {
-            id: 'II', title: 'Ý thức chấp hành nội quy', range: '0 → 25', color: 'green',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- Không vi phạm nội quy Trường', points: '+ 20' },
-                { text: '- Tham gia sinh hoạt lớp, sinh hoạt công dân', points: '+ 5đ/lần' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: '- Vi phạm quy chế bị lập biên bản, vắng sinh hoạt lớp', points: '- 3 đến 5/lần' },
-            ]
-        },
-        {
-            id: 'III', title: 'Hoạt động chính trị, văn hóa, thể thao', range: '0 → 20', color: 'yellow',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- BTC/Tham gia trực tiếp các hoạt động', points: '+ 5 đến 10đ/HĐ' },
-                { text: '- Cổ vũ, tham gia công trình thanh niên', points: '+ 3 đến 5đ/HĐ' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: 'Vi phạm kỷ luật trong quá trình tham gia', points: '- 5đ/lần' },
-            ]
-        },
-        {
-            id: 'IV', title: 'Ý thức công dân, cộng đồng', range: '0 → 25', color: 'orange',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- Chấp hành tốt tại nơi cư trú', points: '+ 15' },
-                { text: '- Mùa hè xanh, Xuân tình nguyện, Hiến máu', points: '+ 10 đến 15' },
-                { text: '- Thành viên CLB khác, CTV Đoàn/Hội', points: '+ 4 đến 5' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: 'Vi phạm quy định nơi cư trú, KTX', points: '- 5đ/vi phạm' },
-            ]
-        },
-        {
-            id: 'V', title: 'Công tác cán bộ, thành tích đặc biệt', range: '0 → 10', color: 'purple',
-            content: [
-                { text: '- Ban cán sự lớp, BCH Đoàn/Hội, BCN CLB', points: '+ 5' },
-                { text: '- Thành tích đặc biệt xuất sắc (Bằng khen Tỉnh/Thành)', points: '+ 10' },
-                { text: '- Đạt danh hiệu Sinh viên 5 tốt các cấp', points: '+ 6 đến 10' },
-            ]
-        }
-    ];
-
-    return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end sm:items-center justify-center animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-t-3xl sm:rounded-xl w-full h-[90vh] flex flex-col animate-slideUp relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                <DragHandle />
-                <div className="px-4 pb-4 pt-2 border-b flex justify-between items-center bg-white shrink-0">
-                    <h3 className="text-lg font-bold flex items-center gap-2 text-[#003375]"><FileText size={20}/> Phụ lục Điểm Rèn Luyện</h3>
-                    <button onClick={onClose} className="text-gray-400 bg-gray-100 p-2 rounded-full active:scale-95"><X size={20} /></button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gray-50">
-                    <div className="space-y-4">
-                        {sections.map((section) => (
-                            <div key={section.id} className={`bg-white rounded-xl border-l-4 shadow-sm overflow-hidden ${
-                                section.color === 'blue' ? 'border-blue-500' :
-                                section.color === 'green' ? 'border-green-500' :
-                                section.color === 'yellow' ? 'border-yellow-500' :
-                                section.color === 'orange' ? 'border-orange-500' :
-                                'border-purple-500'
-                            }`}>
-                                <div className="px-4 py-3 border-b flex justify-between items-center bg-gray-50/50">
-                                    <h4 className="font-bold text-sm text-gray-800 flex flex-1 items-center gap-2 pr-2">
-                                        <span className="shrink-0 w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs border border-gray-200">{section.id}</span>
-                                        {section.title}
-                                    </h4>
-                                    <span className="font-bold bg-white px-2 py-1 rounded text-xs shadow-sm border border-gray-200 whitespace-nowrap">{section.range}</span>
-                                </div>
-                                <div>
-                                    <table className="w-full text-xs">
-                                        <tbody>
-                                            {section.content.map((row: any, idx: number) => {
-                                                if (row.type === 'header') {
-                                                    return (
-                                                        <tr key={idx} className={`${row.isNegative ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-700'} font-bold`}>
-                                                            <td colSpan={2} className="px-4 py-2 uppercase text-[10px] tracking-wider border-b border-gray-100">{row.text}</td>
-                                                        </tr>
-                                                    )
-                                                }
-                                                return (
-                                                    <tr key={idx} className="border-b border-gray-100 last:border-0">
-                                                        <td className="px-4 py-2.5 text-gray-700 leading-relaxed">{row.text}</td>
-                                                        <td className="px-4 py-2.5 text-right font-bold whitespace-nowrap align-top">
-                                                            {row.points && (
-                                                                <span className={`px-1.5 py-0.5 rounded ${row.points.includes('-') ? 'text-red-700 bg-red-50' : 'text-[#003375] bg-blue-50'}`}>
-                                                                    {row.points}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>, document.body
-    );
-};
-
 const DRAFT_KEY = 'event_form_draft';
 
 const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
@@ -271,14 +155,13 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     
     const [formData, setFormData] = useState({
         title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
-        registration_start_date: '', registration_start_time: '',
         category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
     });
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [isDraftLoaded, setIsDraftLoaded] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
-    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
+    const { rules, organizers, prediction, catalogState, reloadCatalog } = useEventDrlAssistant(formData, isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -313,7 +196,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             playClick();
             setFormData({
                 title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
-                registration_start_date: '', registration_start_time: '',
                 category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             setIsCustomCategory(false);
@@ -341,8 +223,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 close_on_full: formData.close_on_full,
                 event_date: formData.event_date ? formData.event_date : null,
                 event_time: formData.event_time ? formData.event_time : null, 
-                registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
-                registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
                 category: formData.category, drl_rule_id: formData.drl_rule_id, recognition_type: formData.recognition_type, recognition_note: formData.recognition_note,
                 organizer: formData.organizer, link: formData.link, format: formData.format,
                 description: formData.description, location_type: formData.location_type,
@@ -371,7 +251,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             <div className="bg-white rounded-t-3xl w-full h-[90vh] flex flex-col overflow-hidden animate-slideUp relative shadow-2xl" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="px-5 pb-3 pt-2 flex justify-between items-center bg-white shrink-0 border-b border-gray-100">
-                    <h3 className="font-bold text-lg flex items-center gap-2 text-[#003375]">
+                    <h3 className="font-bold text-[15px] flex items-center gap-2 text-[#003375]">
                         <PlusCircle size={20}/> Đóng góp Sự kiện
                     </h3>
                     <div className="flex items-center gap-2">
@@ -386,74 +266,18 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         <p>Dữ liệu đang nhập sẽ tự động lưu nháp.</p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-4 pb-10">
+                    <form onSubmit={handleSubmit} className="event-contribution-form space-y-4 pb-10">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                             <input type="text" required className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50" placeholder="VD: Cuộc thi Tiếng Anh..." value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                         </div>
                         
-                        {/* KHU VỰC THỜI GIAN ĐỘNG */}
-                        {formData.category?.toLowerCase().includes('minigame') ? (
-                            <>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
-                                        <input type="date" className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
-                                        <input type="time" className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
-                                        <input type="date" disabled={formData.close_on_full} className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50 disabled:bg-gray-200 disabled:text-gray-400" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
-                                        <input type="time" disabled={formData.close_on_full} className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50 disabled:bg-gray-200 disabled:text-gray-400" value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
-                                        <input type="date" className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50" value={formData.registration_start_date} onChange={e => setFormData({...formData, registration_start_date: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
-                                        <input type="time" className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50" value={formData.registration_start_time} onChange={e => setFormData({...formData, registration_start_time: e.target.value})} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
-                                        <input type="date" disabled={formData.close_on_full} className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50 disabled:bg-gray-200 disabled:text-gray-400" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
-                                        <input type="time" disabled={formData.close_on_full} className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50 disabled:bg-gray-200 disabled:text-gray-400" value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
-                                        <input type="date" className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
-                                        <input type="time" className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-gray-50" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
-                                    </div>
-                                </div>
-                            </>
-                        )}
+                        <EventContributionTimeFields value={formData}
+                            onChange={(key,value) => setFormData((current) => ({ ...current, [key]:value }))}/>
 
                         <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200">
                             <div>
-                                <span className="font-bold text-gray-700 text-sm block">Đóng khi đủ số lượng</span>
+                                <span className="font-bold text-gray-700 text-base block">Đóng khi đủ số lượng</span>
                                 <span className="text-[10px] text-gray-500">Form tự khóa trước thời hạn</span>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -463,7 +287,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Loại hình</label>
                             <select 
                                 className="w-full border border-gray-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#003375] bg-white"
                                 value={isCustomCategory ? "Khác" : formData.category}
@@ -499,8 +323,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Ban Tổ Chức</label>
-                            <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers}/>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Ban Tổ Chức</label>
+                            <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers} catalogState={catalogState} onRetry={reloadCatalog}/>
                         </div>
 
                         <RecognitionFields type={formData.recognition_type || 'Không có / Chưa xác định'} note={formData.recognition_note || ''}
@@ -508,7 +332,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia <span className="text-red-500">*</span></label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Link tham gia <span className="text-red-500">*</span></label>
                             <input type="text" required className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
                         </div>
 
@@ -652,7 +476,7 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [isManagementView, setIsManagementView] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [eventEditData, setEventEditData] = useState<any>({});
-  const { rules: editRules, organizers: editOrganizers, prediction: editPrediction } = useEventDrlAssistant({
+  const { rules: editRules, organizers: editOrganizers, prediction: editPrediction, catalogState: editCatalogState, reloadCatalog: reloadEditCatalog } = useEventDrlAssistant({
     title: String(eventEditData.title || ''), organizer: String(eventEditData.organizer || ''),
     description: String(eventEditData.description || ''), format: String(eventEditData.format || ''),
   }, Boolean(editingEvent || Object.keys(eventEditData).length));
@@ -1512,35 +1336,35 @@ return (
                       <h3 className="font-black text-[#003375] text-lg flex items-center gap-2">{editingEvent ? <Edit2 size={18}/> : <PlusCircle size={18}/>} {editingEvent ? 'Chỉnh sửa sự kiện' : 'Thêm sự kiện'}</h3>
                       <button onClick={closeEventEditor} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                   </div>
-                  <form onSubmit={saveEventEdit} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
-                      <input required placeholder="Tên sự kiện" value={eventEditData.title || ''} onChange={e => setEventEditData({...eventEditData, title: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                      <OrganizerPicker value={eventEditData.organizer || ''} onChange={(value) => setEventEditData({ ...eventEditData, organizer: value })} organizers={editOrganizers}/>
+                  <form onSubmit={saveEventEdit} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe text-base">
+                      <input required placeholder="Tên sự kiện" value={eventEditData.title || ''} onChange={e => setEventEditData({...eventEditData, title: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#003375] bg-gray-50" />
+                      <OrganizerPicker value={eventEditData.organizer || ''} onChange={(value) => setEventEditData({ ...eventEditData, organizer: value })} organizers={editOrganizers} catalogState={editCatalogState} onRetry={reloadEditCatalog}/>
                       <EventDrlRulePicker rules={editRules} selectedRuleId={eventEditData.drl_rule_id || ''} prediction={editPrediction}
                         onSelect={(rule) => setEventEditData({ ...eventEditData, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
                       <RecognitionFields type={eventEditData.recognition_type || 'Không có / Chưa xác định'} note={eventEditData.recognition_note || ''}
                         onType={(value) => setEventEditData({ ...eventEditData, recognition_type: value })}
                         onNote={(value) => setEventEditData({ ...eventEditData, recognition_note: value })}/>
                       <div className="grid grid-cols-2 gap-3">
-                          <input placeholder="Loại hình" value={eventEditData.category || ''} onChange={e => setEventEditData({...eventEditData, category: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                          <select value={eventEditData.status || 'Sắp diễn ra'} onChange={e => setEventEditData({...eventEditData, status: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
+                          <input placeholder="Loại hình" value={eventEditData.category || ''} onChange={e => setEventEditData({...eventEditData, category: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#003375] bg-gray-50" />
+                          <select value={eventEditData.status || 'Sắp diễn ra'} onChange={e => setEventEditData({...eventEditData, status: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none bg-gray-50">
                               <option value="pending">Chờ duyệt</option><option value="Sắp diễn ra">Sắp diễn ra</option><option value="Đang diễn ra">Đang diễn ra</option><option value="Đã kết thúc">Đã kết thúc</option>
                           </select>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                          <select value={eventEditData.location_type || 'Trong trường'} onChange={e => setEventEditData({...eventEditData, location_type: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
+                          <select value={eventEditData.location_type || 'Trong trường'} onChange={e => setEventEditData({...eventEditData, location_type: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none bg-gray-50">
                               <option value="Trong trường">Trong trường</option><option value="Ngoài trường">Ngoài trường</option>
                           </select>
-                          <select value={eventEditData.format || 'Offline'} onChange={e => setEventEditData({...eventEditData, format: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
+                          <select value={eventEditData.format || 'Offline'} onChange={e => setEventEditData({...eventEditData, format: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none bg-gray-50">
                               <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hybrid">Hybrid</option>
                           </select>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                          <input type="date" value={eventEditData.event_date || ''} onChange={e => setEventEditData({...eventEditData, event_date: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50" />
-                          <input type="time" value={eventEditData.event_time || ''} onChange={e => setEventEditData({...eventEditData, event_time: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50" />
+                          <input type="date" value={eventEditData.event_date || ''} onChange={e => setEventEditData({...eventEditData, event_date: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none bg-gray-50" />
+                          <input type="time" value={eventEditData.event_time || ''} onChange={e => setEventEditData({...eventEditData, event_time: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none bg-gray-50" />
                       </div>
-                      <input placeholder="Link đăng ký" value={eventEditData.link || ''} onChange={e => setEventEditData({...eventEditData, link: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                      <textarea rows={3} placeholder="Mô tả" value={eventEditData.description || ''} onChange={e => setEventEditData({...eventEditData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50 resize-none" />
-                      <button type="submit" disabled={isSavingEvent} className="w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
+                      <input placeholder="Link đăng ký" value={eventEditData.link || ''} onChange={e => setEventEditData({...eventEditData, link: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#003375] bg-gray-50" />
+                      <textarea rows={3} placeholder="Mô tả" value={eventEditData.description || ''} onChange={e => setEventEditData({...eventEditData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-base outline-none focus:border-[#003375] bg-gray-50 resize-none" />
+                      <button type="submit" disabled={isSavingEvent} className="w-full py-3 rounded-xl bg-[#003375] text-white text-base font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
                           {isSavingEvent ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Lưu sự kiện
                       </button>
                   </form>

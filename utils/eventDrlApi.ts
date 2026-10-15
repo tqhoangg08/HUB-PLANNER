@@ -26,8 +26,13 @@ export interface EventDrlDraft {
   description?: string;
   format?: string;
 }
+export class EventDrlRequestError extends Error {
+  constructor(readonly status: number) {
+    super(status === 401 ? 'Vui lòng đăng nhập để tải danh mục ĐRL và đơn vị tổ chức.' : 'Danh mục và gợi ý ĐRL hiện chưa sẵn sàng.');
+  }
+}
 const read = async <T>(response: Response): Promise<T> => {
-  if (!response.ok) throw new Error('Gợi ý ĐRL hiện chưa sẵn sàng.');
+  if (!response.ok) throw new EventDrlRequestError(response.status);
   return response.json() as Promise<T>;
 };
 export const loadEventDrlCatalog = async () => {

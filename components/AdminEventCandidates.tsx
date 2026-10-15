@@ -238,7 +238,7 @@ const CandidateDetailModal = ({
   approving: boolean;
   rejecting: boolean;
 }) => {
-  const { rules, organizers } = useEventDrlAssistant(draft, Boolean(candidate), false);
+  const { rules, organizers, catalogState, reloadCatalog } = useEventDrlAssistant(draft, Boolean(candidate), false);
   if (!candidate) return null;
 
   const aiResult = normalizeAiResult(candidate);
@@ -274,7 +274,7 @@ const CandidateDetailModal = ({
                   ) : null}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-base">
                   <div>
                     <div className="text-xs font-semibold text-gray-500 mb-1">Nguồn</div>
                     <div className="font-semibold text-gray-900">{candidate.source_name}</div>
@@ -357,7 +357,7 @@ const CandidateDetailModal = ({
                 </div>
 
                 {aiResult ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-base">
                     <div className="rounded-lg border border-gray-200 p-2.5 bg-gray-50">
                       <div className="text-xs font-semibold text-gray-500 mb-1">is_event</div>
                       <div className="font-bold text-gray-900">{String(aiResult.is_event)}</div>
@@ -378,7 +378,7 @@ const CandidateDetailModal = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-lg p-3">
+                  <div className="text-base text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-lg p-3">
                     Chưa có kết quả AI. Bấm “Phân tích AI” để tạo bản nháp.
                   </div>
                 )}
@@ -394,19 +394,19 @@ const CandidateDetailModal = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Tiêu đề *</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Tiêu đề *</span>
                     <input
                       value={draft.title}
                       onChange={(e) => onDraftChange({ ...draft, title: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Link</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Link</span>
                     <input
                       value={draft.link}
                       onChange={(e) => onDraftChange({ ...draft, link: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <div className="sm:col-span-2 space-y-2">
@@ -422,15 +422,15 @@ const CandidateDetailModal = ({
                     <p className="text-xs text-gray-500">JPG, PNG hoặc WEBP, tối đa 2 MB. Chỉ tải lên ảnh được phép sử dụng; liên kết ảnh mạng xã hội có thể hết hạn.</p>
                   </div>
                   <div className="block sm:col-span-2">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Đơn vị tổ chức</span>
-                    <OrganizerPicker value={draft.organizer} onChange={(value) => onDraftChange({ ...draft, organizer: value })} organizers={organizers}/>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Đơn vị tổ chức</span>
+                    <OrganizerPicker value={draft.organizer} onChange={(value) => onDraftChange({ ...draft, organizer: value })} organizers={organizers} catalogState={catalogState} onRetry={reloadCatalog}/>
                   </div>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Category</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Category</span>
                     <select
                       value={draft.category}
                       onChange={(e) => onDraftChange({ ...draft, category: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     >
                       {EVENT_CATEGORIES.map((item) => (
                         <option key={item} value={item}>
@@ -457,11 +457,11 @@ const CandidateDetailModal = ({
                     onType={(value) => onDraftChange({ ...draft, recognition_type: value })}
                     onNote={(value) => onDraftChange({ ...draft, recognition_note: value })}/></div>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Format</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Format</span>
                     <select
                       value={draft.format}
                       onChange={(e) => onDraftChange({ ...draft, format: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     >
                       <option value="Online">Online</option>
                       <option value="Offline">Offline</option>
@@ -469,93 +469,93 @@ const CandidateDetailModal = ({
                     </select>
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Location</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Location</span>
                     <select
                       value={draft.location_type}
                       onChange={(e) => onDraftChange({ ...draft, location_type: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     >
                       <option value="Trong trường">Trong trường</option>
                       <option value="Ngoài trường">Ngoài trường</option>
                     </select>
                   </label>
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Phân loại</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Phân loại</span>
                     <input
                       value={draft.classification}
                       onChange={(e) => onDraftChange({ ...draft, classification: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Ngày sự kiện</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Ngày sự kiện</span>
                     <input
                       type="date"
                       value={draft.event_date}
                       onChange={(e) => onDraftChange({ ...draft, event_date: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Giờ sự kiện</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Giờ sự kiện</span>
                     <input
                       type="time"
                       value={draft.event_time}
                       onChange={(e) => onDraftChange({ ...draft, event_time: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Deadline</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Deadline</span>
                     <input
                       type="date"
                       value={draft.deadline}
                       onChange={(e) => onDraftChange({ ...draft, deadline: e.target.value })}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Giờ deadline</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Giờ deadline</span>
                     <input
                       type="time"
                       value={draft.deadline_time}
                       onChange={(e) => onDraftChange({ ...draft, deadline_time: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Mở đăng ký</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Mở đăng ký</span>
                     <input
                       type="date"
                       value={draft.registration_start_date}
                       onChange={(e) => onDraftChange({ ...draft, registration_start_date: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Giờ mở</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Giờ mở</span>
                     <input
                       type="time"
                       value={draft.registration_start_time}
                       onChange={(e) => onDraftChange({ ...draft, registration_start_time: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     />
                   </label>
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Mô tả</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Mô tả</span>
                     <textarea
                       rows={5}
                       value={draft.description}
                       onChange={(e) => onDraftChange({ ...draft, description: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375] resize-none"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none focus:ring-2 focus:ring-[#003375] focus:border-[#003375] resize-none"
                     />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-semibold text-gray-500 mb-1 block">Status</span>
+                    <span className="text-base font-semibold text-gray-500 mb-1 block">Status</span>
                     <select
                       value={draft.status}
                       onChange={(e) => onDraftChange({ ...draft, status: e.target.value })}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-base outline-none bg-white focus:ring-2 focus:ring-[#003375] focus:border-[#003375]"
                     >
                       <option value="Sắp diễn ra">Sắp diễn ra</option>
                       <option value="Đang diễn ra">Đang diễn ra</option>
@@ -568,7 +568,7 @@ const CandidateDetailModal = ({
                       checked={draft.close_on_full}
                       onChange={(e) => onDraftChange({ ...draft, close_on_full: e.target.checked })}
                     />
-                    <span className="text-sm font-semibold text-gray-700">Đóng đăng ký khi đầy</span>
+                    <span className="text-base font-semibold text-gray-700">Đóng đăng ký khi đầy</span>
                   </label>
                 </div>
               </div>
@@ -578,7 +578,7 @@ const CandidateDetailModal = ({
                   type="button"
                   onClick={onApprove}
                   disabled={approving}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#003375] text-white text-base font-bold disabled:opacity-60"
                 >
                   {approving ? <Loader2 size={16} className="animate-spin" /> : <CircleCheckBig size={16} />} Duyệt & tạo sự kiện
                 </button>
@@ -587,14 +587,14 @@ const CandidateDetailModal = ({
                     type="button"
                     onClick={onReject}
                     disabled={rejecting}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-red-200 text-red-700 text-sm font-bold disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white border border-red-200 text-red-700 text-base font-bold disabled:opacity-60"
                   >
                     {rejecting ? <Loader2 size={16} className="animate-spin" /> : <ThumbsDown size={16} />} Từ chối
                   </button>
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 text-sm font-bold"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-100 text-gray-700 text-base font-bold"
                   >
                     <X size={16} /> Đóng
                   </button>
