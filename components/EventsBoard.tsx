@@ -295,7 +295,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </div>
 
                         <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện</label>
                             <input
                                 type="url"
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
@@ -579,7 +579,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     </div>
 
                     <div>
-                        <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
+                        <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện</label>
                         <input
                             type="url"
                             className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]"
