@@ -1,3 +1,4 @@
+import { resolveAdminEventDrlRule } from './admin-event-mutations.ts';
 import {
   BetterAuthIdentityError,
   listBetterAuthStaffUserIds,
@@ -72,21 +73,28 @@ const insertSubmission = async (env: UserSubmissionEnv, normalized: NormalizedSu
 const insertEventContribution = async (env: UserSubmissionEnv, value: unknown) => {
   const payload = isRecord(value) ? value : {}, title = text(payload.title, 300), link = text(payload.link, 1_000);
   if (!title || !link) throw new UserSubmissionError(400, 'Thiếu tên sự kiện hoặc link tham gia.');
-  const ruleId = text(payload.drl_rule_id, 120);
-  const rule = ruleId ? await env.DB.prepare('SELECT section,points FROM drl_rules WHERE rule_id=? AND active=1 AND event_suitable=1 AND points IS NOT NULL')
-    .bind(ruleId).first<{ section: string; points: number }>() : null;
-  if (ruleId && (!rule || !Number.isSafeInteger(rule.points))) {
-    throw new UserSubmissionError(400, 'Quy tắc ĐRL không hợp lệ.');
-  }
+  let resolved;
+  try {
+    resolved = await resolveAdminEventDrlRule(env, 'create', {
+      title, status: 'pending', drl_rule_id: text(payload.drl_rule_id, 120),
+      drl_policy_version: text(payload.drl_policy_version, 120) || null,
+      drl_academic_year: text(payload.drl_academic_year, 9) || null,
+      category: text(payload.category, 200), format: text(payload.format, 80),
+      description: text(payload.description, 5_000),
+      ...(payload.points != null ? { points: text(payload.points, 40) } : {}),
+      ...(payload.criteria != null ? { criteria: text(payload.criteria, 20) } : {}),
+    });
+  } catch (error) { throw new UserSubmissionError(400, (error as Error).message); }
+  const ruleId = resolved.drl_rule_id || null;
   const recognitionType = text(payload.recognition_type, 80);
   if (recognitionType && !new Set(['Không có / Chưa xác định', 'Giấy chứng nhận',
     'Giấy khen', 'Bằng khen', 'Chứng nhận tham gia', 'Chứng nhận đạt giải', 'Khác']).has(recognitionType)) {
     throw new UserSubmissionError(400, 'Loại chứng nhận không hợp lệ.');
   }
   const now = new Date().toISOString();
-  const result = await env.DB.prepare(`INSERT INTO admin_events (title,organizer,category,criteria,points,drl_rule_id,recognition_type,recognition_note,format,deadline,deadline_time,close_on_full,description,link,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url,title_search,organizer_search) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending',0,0,?,?,?,?,?,?,?,?)`)
-    .bind(title, nullable(payload.organizer, 300), nullable(payload.category, 200), rule?.section || null,
-      rule ? String(rule.points) : null, ruleId || null, recognitionType || null,
+  const result = await env.DB.prepare(`INSERT INTO admin_events (title,organizer,category,criteria,points,drl_rule_id,drl_policy_version,drl_academic_year,recognition_type,recognition_note,format,deadline,deadline_time,close_on_full,description,link,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url,title_search,organizer_search) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending',0,0,?,?,?,?,?,?,?,?)`)
+    .bind(title, nullable(payload.organizer, 300), nullable(payload.category, 200), resolved.criteria || null,
+      resolved.points || null, ruleId, resolved.drl_policy_version || null, resolved.drl_academic_year || null, recognitionType || null,
       nullable(payload.recognition_note, 500), nullable(payload.format, 80), nullable(payload.deadline, 20),
       nullable(payload.deadline_time, 20), Boolean(payload.close_on_full) ? 1 : 0,
       nullable(payload.description, 5_000), link, nullable(payload.location_type, 80), now,

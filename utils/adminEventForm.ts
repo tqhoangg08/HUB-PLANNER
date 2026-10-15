@@ -14,6 +14,8 @@ export interface AdminEventFormValues {
   criteria: string;
   points: string;
   drl_rule_id?: string;
+  drl_policy_version?: string;
+  drl_academic_year?: string;
   recognition_type?: string;
   recognition_note?: string;
   format: string;
@@ -34,9 +36,9 @@ export interface AdminEventFormValues {
 }
 
 export const createEmptyAdminEventDraft = (): AdminEventFormValues => ({
-  title: '', category: 'Hoạt động phong trào', organizer: '', criteria: 'III',
-  points: '5', format: 'Offline', location_type: 'Trong trường', classification: '',
-  drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
+  title: '', category: 'Hoạt động phong trào', organizer: '', criteria: '',
+  points: '', format: 'Offline', location_type: 'Trong trường', classification: '',
+  drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
   registration_start_date: '', registration_start_time: '', deadline: '', deadline_time: '',
   event_date: '', event_time: '', close_on_full: false, description: '', link: '',
   image_url: '', status: EVENT_DRAFT_STATUS, is_manually_closed: false,
@@ -46,9 +48,11 @@ export const buildAdminEventPayload = (draft: AdminEventFormValues) => ({
   title: draft.title.trim(),
   organizer: draft.organizer.trim() || null,
   category: draft.category.trim() || null,
-  criteria: draft.drl_rule_id ? draft.criteria : null,
-  points: draft.drl_rule_id ? draft.points.trim() || null : null,
+  criteria: draft.criteria || null,
+  points: draft.points.trim() || null,
   drl_rule_id: draft.drl_rule_id || null,
+  ...(draft.drl_policy_version ? { drl_policy_version: draft.drl_policy_version } : {}),
+  ...(draft.drl_academic_year ? { drl_academic_year: draft.drl_academic_year } : {}),
   recognition_type: draft.recognition_type || null,
   recognition_note: draft.recognition_note?.trim() || null,
   format: draft.format,

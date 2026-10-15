@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import { DRL_POLICY_VERSION, CURRENT_DRL_YEAR } from '../utils/drlPolicy';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -48,7 +49,7 @@ interface EventCandidate {
   approved_event_id?: number | null;
   reviewed_at?: string | null;
   created_at?: string | null;
-  drl_prediction?: { state: 'pending' | 'completed' | 'failed'; rule_id: string | null;
+  drl_prediction?: { state: 'pending' | 'completed' | 'failed'; stale?: boolean; policy_version?: string; rule_id: string | null;
     confidence: number | null; confidence_label: string | null; historical_support_count: number | null;
     section: string | null; content: string | null; condition_text: string | null; points: number | null; } | null;
 }
@@ -60,6 +61,8 @@ interface EventDraft {
   criteria: string;
   points: string;
   drl_rule_id: string;
+  drl_policy_version?: string;
+  drl_academic_year?: string;
   recognition_type: string;
   recognition_note: string;
   format: string;
@@ -111,9 +114,9 @@ const defaultDraft = (): EventDraft => ({
   title: '',
   organizer: '',
   category: DEFAULT_EVENT_CATEGORY,
-  criteria: 'III',
-  points: '3',
-  drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
+  criteria: '',
+  points: '',
+  drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
   format: 'Offline',
   link: '',
   location_type: 'Trong trường',
@@ -155,9 +158,9 @@ const buildDraftFromCandidate = (candidate: EventCandidate | null): EventDraft =
     title: ai?.title || '',
     organizer: ai?.organizer || candidate?.source_name || '',
     category: normalizeCategory(ai?.category),
-    criteria: ai?.criteria || 'III',
-    points: ai?.points !== undefined && ai?.points !== null ? String(ai.points) : '3',
-    drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
+    criteria: '',
+    points: '',
+    drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
     format: ai?.format || 'Offline',
     link: candidate?.post_url || ai?.link || '',
     location_type: ai?.location_type || 'Trong trường',
@@ -238,7 +241,7 @@ const CandidateDetailModal = ({
   approving: boolean;
   rejecting: boolean;
 }) => {
-  const { rules, organizers } = useEventDrlAssistant(draft, Boolean(candidate), false);
+  const { rules, organizers, catalogState } = useEventDrlAssistant(draft, Boolean(candidate), false);
   if (!candidate) return null;
 
   const aiResult = normalizeAiResult(candidate);
@@ -441,17 +444,17 @@ const CandidateDetailModal = ({
                   </label>
                   <div className="sm:col-span-2">
                     {candidate.drl_prediction?.state === 'completed' ? <p className="mb-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-[#003375]">
-                      AI dự kiến: {drlCandidateLabel(candidate)} · {candidate.drl_prediction.historical_support_count || 0} sự kiện lịch sử hỗ trợ
+                      {candidate.drl_prediction?.stale ? 'Gợi ý cũ cần tính lại' : 'AI dự kiến'}: {drlCandidateLabel(candidate)} · {candidate.drl_prediction.historical_support_count || 0} sự kiện lịch sử hỗ trợ
                     </p> : <p className="mb-2 text-xs text-slate-500">Dự đoán ĐRL: {candidate.drl_prediction?.state || 'đang chờ'}</p>}
-                    {candidate.drl_prediction?.state === 'failed' && <button type="button" disabled={retryingDrl}
+                    {(candidate.drl_prediction?.state === 'failed' || candidate.drl_prediction?.stale) && <button type="button" disabled={retryingDrl}
                       className="mb-2 rounded border border-blue-300 px-2 py-1 text-xs font-semibold text-[#0052cc] disabled:opacity-50"
                       onClick={onRetryDrl}>{retryingDrl ? 'Đang thử lại…' : 'Thử lại gợi ý ĐRL'}</button>}
-                    <EventDrlRulePicker rules={rules} selectedRuleId={draft.drl_rule_id} prediction={null}
-                      onSelect={(rule) => onDraftChange({ ...draft, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
-                    {candidate.drl_prediction?.rule_id && rules.some((rule) => rule.rule_id === candidate.drl_prediction?.rule_id) &&
+                    <EventDrlRulePicker policyVersion={draft.drl_policy_version || undefined} academicYear={draft.drl_academic_year || undefined} onContextChange={(context) => onDraftChange({ ...draft, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={catalogState} rules={rules} selectedRuleId={draft.drl_rule_id} prediction={null}
+                      onSelect={(rule) => onDraftChange({ ...draft, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
+                    {(!draft.drl_policy_version || draft.drl_policy_version === DRL_POLICY_VERSION) && (!draft.drl_academic_year || draft.drl_academic_year === CURRENT_DRL_YEAR) && !candidate.drl_prediction?.stale && candidate.drl_prediction?.policy_version === DRL_POLICY_VERSION && candidate.drl_prediction?.rule_id && rules.some((rule) => rule.rule_id === candidate.drl_prediction?.rule_id) &&
                       <button type="button" className="mt-2 rounded border border-blue-300 px-2 py-1 text-xs font-semibold text-[#0052cc]"
                         onClick={() => { const rule = rules.find((item) => item.rule_id === candidate.drl_prediction?.rule_id)!;
-                          onDraftChange({ ...draft, drl_rule_id: rule.rule_id, criteria: rule.section, points: String(rule.points) }); }}>Áp dụng gợi ý ĐRL</button>}
+                          onDraftChange({ ...draft, drl_rule_id: rule.rule_id, drl_policy_version: rule.policy_version, drl_academic_year: CURRENT_DRL_YEAR, criteria: rule.section, points: String(rule.points) }); }}>Áp dụng gợi ý ĐRL</button>}
                   </div>
                   <div className="sm:col-span-2"><RecognitionFields type={draft.recognition_type} note={draft.recognition_note}
                     onType={(value) => onDraftChange({ ...draft, recognition_type: value })}

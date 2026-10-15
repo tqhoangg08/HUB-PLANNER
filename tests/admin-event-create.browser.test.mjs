@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
 import { chromium } from 'playwright-core';
 
-const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+const server = await createServer({ configFile:false, plugins:[react()], cacheDir:'.cache/drl-browser-admin-deps',
+  optimizeDeps:{entries:['tests/admin-event-create-harness.html']},
+  server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
 await server.listen();
 const browser = await chromium.launch({ executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', headless: true });
 const base = `${server.resolvedUrls.local[0]}tests/admin-event-create-harness.html`;
@@ -11,21 +14,23 @@ test.after(async () => { await browser.close(); await server.close(); });
 
 const open = async (role, width = 1440) => {
   const page = await browser.newPage({ viewport: { width, height: 844 } });
+  page.on('pageerror',(error) => console.error('Admin harness page error:',error.message));
   const calls = [];
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/auth/get-session') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ session: { id: 'fixture-session' }, user: { id: 'fixture-user', email: 'staff@example.org' } }) });
     if (path === '/api/private/v1/me') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ userId: 'fixture-user', email: 'staff@example.org', role }) });
     if (path === '/api/private/v1/event-drl/catalog') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      success: true, organizers: ['HUB'], rules: [{ rule_id: 'III_EVENT', section: 'III', rule_group: null,
-        content: 'Hoạt động phong trào', condition_text: 'Tham gia', points: 5, unit: 'điểm' }],
+      success: true, organizers: ['HUB'], rules: [{ rule_id: 'hub-drl-2026-5549-v1:III:34', section: 'III', rule_group: 'Điểm cộng',
+        content: '- Tham gia hoạt động chính trị, văn hóa, văn nghệ, thể thao', condition_text: '+ Là thành viên Ban tổ chức', points: 5, unit: 'hoạt động',
+        policy_version: 'hub-drl-2026-5549-v1', active: 1, event_suitable: 1 }],
     }) });
     if (path === '/api/private/v1/event-drl/predict') {
       calls.push({ path, method: route.request().method(), body: route.request().postDataJSON() });
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      success: true, prediction: { rule_id: 'III_EVENT', section: 'III', points: 5, content: 'Hoạt động phong trào',
-        condition_text: 'Tham gia', confidence: 0.8, confidence_label: 'medium', historical_support_count: 4,
-        closest_matches: [], reason_code: 'historical_ai' },
+      success: true, prediction: { rule_id: 'hub-drl-2026-5549-v1:III:34', section: 'III', points: 5, content: '- Tham gia hoạt động chính trị, văn hóa, văn nghệ, thể thao',
+        condition_text: '+ Là thành viên Ban tổ chức', confidence: 0.8, confidence_label: 'medium', historical_support_count: 4,
+        closest_matches: [], reason_code: 'historical_ai', policy_version: 'hub-drl-2026-5549-v1', academic_year: '2026-2027' },
       }) });
     }
     calls.push({ path, method: route.request().method(), body: ['/api/admin/v1/events', '/api/private/v1/event-drl/predict'].includes(path) ? route.request().postDataJSON() : null, key: route.request().headers()['idempotency-key'] });
@@ -56,6 +61,11 @@ test('admin full-page form and preview are read-only', async () => {
     const predictionCall = calls.find(call => call.path === '/api/private/v1/event-drl/predict');
     assert.deepEqual(Object.keys(predictionCall.body).sort(), ['description', 'format', 'organizer', 'title']);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.getByRole('combobox', { name: 'Quy tắc ĐRL chính thức' }).selectOption('hub-drl-2026-5549-v1:III:34');
+    await page.getByRole('button', { name: 'Xem trước' }).click();
+    await page.getByRole('dialog').getByText('5549/QĐ-ĐHNH ngày 02/10/2026 · Năm học 2026-2027').waitFor();
+    assert.equal(await page.getByRole('dialog').getByText('+5/hoạt động · Mục III').count(),1);
+    await page.getByRole('button', { name: 'Đóng', exact:true }).click();
   } finally { await page.close(); }
 });
 
@@ -65,7 +75,7 @@ test('auditor mobile form disables deadline on close-on-full, creates once with 
     assert.equal(await page.getByRole('heading', { name: 'Thêm sự kiện' }).count(), 1);
     await page.getByLabel('Tên sự kiện').fill('Sự kiện kiểm thử');
     await page.getByLabel('Đơn vị tổ chức').fill('HUB');
-    await page.getByRole('combobox', { name: 'Quy tắc ĐRL chính thức' }).selectOption('III_EVENT');
+    await page.getByRole('combobox', { name: 'Quy tắc ĐRL chính thức' }).selectOption('hub-drl-2026-5549-v1:III:34');
     await page.getByLabel('Đóng khi đủ số lượng').check();
     assert.equal(await page.getByLabel('Ngày đóng đăng ký').isDisabled(), true);
     assert.equal(await page.getByLabel('Giờ đóng đăng ký').isDisabled(), true);
@@ -77,8 +87,10 @@ test('auditor mobile form disables deadline on close-on-full, creates once with 
     assert.equal(createCalls[0].body.close_on_full, true);
     assert.equal(createCalls[0].body.deadline, null);
     assert.equal(createCalls[0].body.status, 'pending');
-    assert.equal(createCalls[0].body.drl_rule_id, 'III_EVENT');
+    assert.equal(createCalls[0].body.drl_rule_id, 'hub-drl-2026-5549-v1:III:34');
     assert.equal(createCalls[0].body.points, '5');
+    assert.equal(createCalls[0].body.drl_policy_version, 'hub-drl-2026-5549-v1');
+    assert.equal(createCalls[0].body.drl_academic_year, '2026-2027');
     assert.match(createCalls[0].key, /^[0-9a-f-]{36}$/);
     assert.equal(Object.hasOwn(createCalls[0].body, 'creator'), false);
   } finally { await page.close(); }

@@ -10,6 +10,7 @@ const option = (name) => { const index = args.indexOf(name); return index < 0 ? 
 const workbook = option('--workbook') || path.join(homedir(), 'Downloads', 'SỰ KIỆN ĐRL.xlsx');
 const apply = args.includes('--apply');
 const remote = args.includes('--remote');
+if (apply) throw new Error('Legacy replacement import disabled: it deletes history, rules and caches. Use an additive versioned import after a separate data review.');
 if (apply !== remote || args.includes('--help')) {
   throw new Error('Usage: node scripts/import-event-drl-history.mjs [--workbook PATH] [--apply --remote]. Dry-run is default.');
 }

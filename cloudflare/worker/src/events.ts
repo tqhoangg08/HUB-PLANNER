@@ -9,6 +9,11 @@ export interface CoreEventRow {
   category: string | null;
   criteria: string | null;
   points: string | null;
+  drl_rule_id?: string | null;
+  drl_policy_version?: string | null;
+  drl_academic_year?: string | null;
+  recognition_type?: string | null;
+  recognition_note?: string | null;
   format: string | null;
   deadline: string | null;
   deadline_time: string | null;
@@ -58,6 +63,11 @@ const EVENT_COLUMNS = [
   'title',
   'criteria',
   'points',
+  'drl_rule_id',
+  'drl_policy_version',
+  'drl_academic_year',
+  'recognition_type',
+  'recognition_note',
   'format',
   'deadline',
   'deadline_time',

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { recordEventView } from '../utils/eventsApi';
+import { DRL_POLICY_VERSION, DRL_RULES_2026, DRL_NOTES } from '../utils/drlPolicy2026';
 import {
   ArrowLeft, Bookmark, BookmarkCheck, CalendarDays, CheckCircle2, Clock3,
   Copy, ExternalLink, FileText, Flag, ImageOff, Info, Link2, MapPin,
@@ -11,6 +12,9 @@ export interface EventDetailData {
   name: string;
   category: string;
   score: string;
+  drl_rule_id?: string | null;
+  drl_policy_version?: string | null;
+  drl_academic_year?: string | null;
   location: string;
   time: string;
   deadlineDate: Date | null;
@@ -92,6 +96,14 @@ export const EventDetailView: React.FC<Props> = ({
       : status === 'Sắp diễn ra' ? 'bg-blue-50 text-[#0052cc]' : 'bg-emerald-50 text-emerald-700';
   const score = event.score?.trim() || '0';
   const scoreLabel = /^[+-]/.test(score) ? score : `+${score}`;
+  const currentPolicy = event.drl_policy_version === DRL_POLICY_VERSION;
+  const officialRule = currentPolicy ? DRL_RULES_2026.find((rule) => rule.rule_id === event.drl_rule_id) : null;
+  const scoreWithUnit = officialRule ? officialRule.unit === 'điểm cố định'
+    ? `${scoreLabel} điểm cố định` : `${scoreLabel}/${officialRule.unit}` : scoreLabel;
+  const policyLabel = currentPolicy
+    ? `5549/QĐ-ĐHNH ngày 02/10/2026 · Năm học ${event.drl_academic_year || 'chưa cập nhật'}`
+    : event.id === 'preview' && !event.drl_policy_version ? 'Bản nháp chưa chọn quy chế'
+      : `Dữ liệu lịch sử · Nguồn quy chế chưa xác minh${event.drl_academic_year ? ` · ${event.drl_academic_year}` : ''}`;
 
   const miniCards = [
     { label: 'Mã sự kiện', value: event.id === 'preview' ? 'Tự động sau khi lưu' : `#${event.id}`, icon: FileText },
@@ -125,9 +137,15 @@ export const EventDetailView: React.FC<Props> = ({
             { label: 'Đăng ký', value: event.close_on_full ? 'Đóng khi đủ số lượng' : event.deadlineDate ? `${dateLabel(event.deadlineDate.toISOString())}${event.deadline_time ? ` · ${event.deadline_time.slice(0, 5)}` : ''}` : 'Chưa cập nhật', icon: Clock3 },
             { label: 'Địa điểm / phạm vi', value: textOrFallback(event.scope), icon: MapPin },
             { label: 'Hình thức', value: textOrFallback(event.location), icon: Info },
-            { label: 'Điểm rèn luyện', value: `${scoreLabel} · Mục ${textOrFallback(event.category)}`, icon: CheckCircle2 },
+            { label: 'Điểm rèn luyện', value: `${scoreWithUnit} · Mục ${textOrFallback(event.category)}`, icon: CheckCircle2 },
+            { label: 'Quy chế ĐRL', value: policyLabel, icon: FileText },
           ]).map(({ label, value, icon: Icon }) => <div key={label} className="flex min-w-0 gap-3"><Icon size={16} className="mt-0.5 shrink-0 text-[#0052cc]" aria-hidden="true"/><div className="min-w-0"><dt className="text-xs font-semibold text-slate-500">{label}</dt><dd className="break-words font-semibold text-slate-800">{value}</dd></div></div>)}
         </dl>
+        {officialRule && <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs leading-5">
+          <p>{officialRule.content} {officialRule.condition_text}</p>
+          <p>Điểm được công nhận khi đáp ứng đủ điều kiện của tiêu chí. {DRL_NOTES[0]}</p>
+          {event.scope === 'Ngoài trường' && <p>{DRL_NOTES[1]}</p>}
+        </div>}
       </div>
       </div>
     </section>

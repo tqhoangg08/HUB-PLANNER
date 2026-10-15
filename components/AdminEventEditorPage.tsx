@@ -22,6 +22,7 @@ type Field = keyof AdminEventFormValues;
 const previewEvent = (draft: AdminEventFormValues, imageUrl: string): EventDetailData => ({
   id: 'preview', name: draft.title.trim() || 'Tên sự kiện chưa nhập',
   category: draft.criteria, score: draft.points, location: draft.format,
+  drl_rule_id: draft.drl_rule_id, drl_policy_version: draft.drl_policy_version, drl_academic_year: draft.drl_academic_year,
   time: draft.event_time, deadlineDate: draft.deadline ? new Date(`${draft.deadline}T00:00:00`) : null,
   deadline_time: draft.deadline_time || null, close_on_full: draft.close_on_full,
   description: draft.description || null, link: draft.link, organizer: draft.organizer,
@@ -42,7 +43,7 @@ export const AdminEventEditorPage: React.FC = () => {
   const [localImageUrl, setLocalImageUrl] = useState('');
   const [preview, setPreview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { rules, organizers, prediction } = useEventDrlAssistant(draft, !loading && (isAdmin || isAuditor));
+  const { rules, organizers, prediction, catalogState } = useEventDrlAssistant(draft, !loading && (isAdmin || isAuditor));
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => { document.title = 'Thêm sự kiện | HUB Planner'; }, []);
@@ -128,7 +129,7 @@ export const AdminEventEditorPage: React.FC = () => {
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {field('organizer', 'Đơn vị tổ chức', <OrganizerPicker value={draft.organizer} onChange={(value) => setField('organizer', value)} organizers={organizers}/>, true)}
-            <div className="lg:col-span-2">{field('drl_rule_id', 'Mục / Tiểu mục ĐRL', <EventDrlRulePicker rules={rules} selectedRuleId={draft.drl_rule_id || ''} prediction={prediction} onSelect={(rule) => setDraft((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))} />)}</div>
+            <div className="lg:col-span-2">{field('drl_rule_id', 'Mục / Tiểu mục ĐRL', <EventDrlRulePicker policyVersion={draft.drl_policy_version || undefined} academicYear={draft.drl_academic_year || undefined} onContextChange={(context) => setDraft({ ...draft, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={catalogState} rules={rules} selectedRuleId={draft.drl_rule_id || ''} prediction={prediction} onSelect={(rule) => setDraft((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))} />)}</div>
             {field('format', 'Hình thức', <select id="event-format" className={control} value={draft.format} onChange={(event) => setField('format', event.target.value)}>{['Offline', 'Online', 'Hỗn hợp'].map((item) => <option key={item}>{item}</option>)}</select>, true)}
           </div>
           <div className="mt-4"><RecognitionFields type={draft.recognition_type || 'Không có / Chưa xác định'} note={draft.recognition_note || ''} onType={(value) => setField('recognition_type', value)} onNote={(value) => setField('recognition_note', value)}/></div>

@@ -1,3 +1,4 @@
+import { DrlScoreGuideModal as ScoreGuideModal } from './DrlScoreGuide';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -63,6 +64,9 @@ interface HubEvent {
   registration_start_time: string | null;
   image_url: string | null;
   drl_rule_id?: string | null;
+  drl_snapshot?: { criteria: string | null; points: string | null };
+  drl_policy_version?: string | null;
+  drl_academic_year?: string | null;
   recognition_type?: string | null;
   recognition_note?: string | null;
   view_count?: number;
@@ -146,123 +150,7 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
     );
 };
 
-const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-    if (!isOpen) return null;
 
-    const sections = [
-        {
-            id: 'I', title: 'Đánh giá về ý thức học tập', range: '0 → 20', color: 'blue',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- Kết quả học tập xuất sắc/giỏi/khá/TBK/TB', points: '+ 5 đến 15' },
-                { text: '- Tham gia/Đạt giải NCKH, cuộc thi học thuật', points: '+ 4 đến 20' },
-                { text: '- Là thành viên CLB học thuật', points: '+ 5' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: 'Bị cảnh báo học vụ, vi phạm liên quan học tập.', points: '- 5/lần' },
-            ]
-        },
-        {
-            id: 'II', title: 'Ý thức chấp hành nội quy', range: '0 → 25', color: 'green',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- Không vi phạm nội quy Trường', points: '+ 20' },
-                { text: '- Tham gia sinh hoạt lớp, sinh hoạt công dân', points: '+ 5đ/lần' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: '- Vi phạm quy chế bị lập biên bản, vắng sinh hoạt lớp', points: '- 3 đến 5/lần' },
-            ]
-        },
-        {
-            id: 'III', title: 'Hoạt động chính trị, văn hóa, thể thao', range: '0 → 20', color: 'yellow',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- BTC/Tham gia trực tiếp các hoạt động', points: '+ 5 đến 10đ/HĐ' },
-                { text: '- Cổ vũ, tham gia công trình thanh niên', points: '+ 3 đến 5đ/HĐ' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: 'Vi phạm kỷ luật trong quá trình tham gia', points: '- 5đ/lần' },
-            ]
-        },
-        {
-            id: 'IV', title: 'Ý thức công dân, cộng đồng', range: '0 → 25', color: 'orange',
-            content: [
-                { type: 'header', text: 'Điểm cộng' },
-                { text: '- Chấp hành tốt tại nơi cư trú', points: '+ 15' },
-                { text: '- Mùa hè xanh, Xuân tình nguyện, Hiến máu', points: '+ 10 đến 15' },
-                { text: '- Thành viên CLB khác, CTV Đoàn/Hội', points: '+ 4 đến 5' },
-                { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: 'Vi phạm quy định nơi cư trú, KTX', points: '- 5đ/vi phạm' },
-            ]
-        },
-        {
-            id: 'V', title: 'Công tác cán bộ, thành tích đặc biệt', range: '0 → 10', color: 'purple',
-            content: [
-                { text: '- Ban cán sự lớp, BCH Đoàn/Hội, BCN CLB', points: '+ 5' },
-                { text: '- Thành tích đặc biệt xuất sắc (Bằng khen Tỉnh/Thành)', points: '+ 10' },
-                { text: '- Đạt danh hiệu Sinh viên 5 tốt các cấp', points: '+ 6 đến 10' },
-            ]
-        }
-    ];
-
-    return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end sm:items-center justify-center animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-t-3xl sm:rounded-xl w-full h-[90vh] flex flex-col animate-slideUp relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                <DragHandle />
-                <div className="px-4 pb-4 pt-2 border-b flex justify-between items-center bg-white shrink-0">
-                    <h3 className="text-lg font-bold flex items-center gap-2 text-[#003375]"><FileText size={20}/> Phụ lục Điểm Rèn Luyện</h3>
-                    <button onClick={onClose} className="text-gray-400 bg-gray-100 p-2 rounded-full active:scale-95"><X size={20} /></button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gray-50">
-                    <div className="space-y-4">
-                        {sections.map((section) => (
-                            <div key={section.id} className={`bg-white rounded-xl border-l-4 shadow-sm overflow-hidden ${
-                                section.color === 'blue' ? 'border-blue-500' :
-                                section.color === 'green' ? 'border-green-500' :
-                                section.color === 'yellow' ? 'border-yellow-500' :
-                                section.color === 'orange' ? 'border-orange-500' :
-                                'border-purple-500'
-                            }`}>
-                                <div className="px-4 py-3 border-b flex justify-between items-center bg-gray-50/50">
-                                    <h4 className="font-bold text-sm text-gray-800 flex flex-1 items-center gap-2 pr-2">
-                                        <span className="shrink-0 w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs border border-gray-200">{section.id}</span>
-                                        {section.title}
-                                    </h4>
-                                    <span className="font-bold bg-white px-2 py-1 rounded text-xs shadow-sm border border-gray-200 whitespace-nowrap">{section.range}</span>
-                                </div>
-                                <div>
-                                    <table className="w-full text-xs">
-                                        <tbody>
-                                            {section.content.map((row: any, idx: number) => {
-                                                if (row.type === 'header') {
-                                                    return (
-                                                        <tr key={idx} className={`${row.isNegative ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-700'} font-bold`}>
-                                                            <td colSpan={2} className="px-4 py-2 uppercase text-[10px] tracking-wider border-b border-gray-100">{row.text}</td>
-                                                        </tr>
-                                                    )
-                                                }
-                                                return (
-                                                    <tr key={idx} className="border-b border-gray-100 last:border-0">
-                                                        <td className="px-4 py-2.5 text-gray-700 leading-relaxed">{row.text}</td>
-                                                        <td className="px-4 py-2.5 text-right font-bold whitespace-nowrap align-top">
-                                                            {row.points && (
-                                                                <span className={`px-1.5 py-0.5 rounded ${row.points.includes('-') ? 'text-red-700 bg-red-50' : 'text-[#003375] bg-blue-50'}`}>
-                                                                    {row.points}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>, document.body
-    );
-};
 
 const DRAFT_KEY = 'event_form_draft';
 
@@ -272,13 +160,13 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [formData, setFormData] = useState({
         title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
         registration_start_date: '', registration_start_time: '',
-        category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
+        category: 'Hoạt động phong trào', criteria: '', points: '', drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
     });
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [isDraftLoaded, setIsDraftLoaded] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
-    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
+    const { rules, organizers, prediction, catalogState } = useEventDrlAssistant(formData, isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -314,7 +202,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             setFormData({
                 title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
                 registration_start_date: '', registration_start_time: '',
-                category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
+                category: 'Hoạt động phong trào', criteria: '', points: '', drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             setIsCustomCategory(false);
             localStorage.removeItem(DRAFT_KEY);
@@ -343,7 +231,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 event_time: formData.event_time ? formData.event_time : null, 
                 registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
                 registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
-                category: formData.category, drl_rule_id: formData.drl_rule_id, recognition_type: formData.recognition_type, recognition_note: formData.recognition_note,
+                category: formData.category, drl_rule_id: formData.drl_rule_id, drl_policy_version: formData.drl_policy_version, drl_academic_year: formData.drl_academic_year, recognition_type: formData.recognition_type, recognition_note: formData.recognition_note,
                 organizer: formData.organizer, link: formData.link, format: formData.format,
                 description: formData.description, location_type: formData.location_type,
                 status: 'pending', is_manually_closed: false 
@@ -495,8 +383,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             )}
                         </div>
 
-                        <EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id || ''} prediction={prediction}
-                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/>
+                        <EventDrlRulePicker policyVersion={formData.drl_policy_version || undefined} academicYear={formData.drl_academic_year || undefined} onContextChange={(context) => setFormData({ ...formData, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={catalogState} rules={rules} selectedRuleId={formData.drl_rule_id || ''} prediction={prediction}
+                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/>
 
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Ban Tổ Chức</label>
@@ -652,9 +540,9 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [isManagementView, setIsManagementView] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [eventEditData, setEventEditData] = useState<any>({});
-  const { rules: editRules, organizers: editOrganizers, prediction: editPrediction } = useEventDrlAssistant({
+  const { rules: editRules, organizers: editOrganizers, prediction: editPrediction, catalogState: editCatalogState } = useEventDrlAssistant({
     title: String(eventEditData.title || ''), organizer: String(eventEditData.organizer || ''),
-    description: String(eventEditData.description || ''), format: String(eventEditData.format || ''),
+    description: String(eventEditData.description || ''), format: String(eventEditData.format || ''), drl_policy_version: eventEditData.drl_policy_version, drl_academic_year: eventEditData.drl_academic_year,
   }, Boolean(editingEvent || Object.keys(eventEditData).length));
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
@@ -843,6 +731,7 @@ const canManage = isAdmin || isAuditor || isCTV;
             }
             return {
                 id: row.id.toString(), name: row.title || 'Sự kiện chưa có tên', category: row.criteria || 'Khác',
+                drl_snapshot: { criteria: row.criteria ?? null, points: row.points == null ? null : String(row.points) },
                 score: row.points?.toString() || '0', location: row.format || 'Offline', time: formatDateString(row.deadline),
                 deadlineDate: deadlineDate, deadline_time: row.deadline_time || null, close_on_full: row.close_on_full || false,
                 description: row.description || null, link: row.link || '', organizer: row.organizer || 'HUB',
@@ -852,7 +741,7 @@ const canManage = isAdmin || isAuditor || isCTV;
                 event_date: row.event_date || null, event_time: row.event_time || null,
                 registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
                 image_url: row.image_url || null,
-                drl_rule_id: row.drl_rule_id || null,
+                drl_rule_id: row.drl_rule_id || null, drl_policy_version: row.drl_policy_version || null, drl_academic_year: row.drl_academic_year || null,
                 recognition_type: row.recognition_type || null,
                 recognition_note: row.recognition_note || null,
                 view_count: Number(row.view_count) || 0
@@ -911,6 +800,7 @@ const canManage = isAdmin || isAuditor || isCTV;
                 }
                 return {
                   id: row.id.toString(), name: row.title || 'Sự kiện chưa có tên', category: row.criteria || 'Khác',
+                  drl_snapshot: { criteria: row.criteria ?? null, points: row.points == null ? null : String(row.points) },
                   score: row.points?.toString() || '0', location: row.format || 'Offline', time: formatDateString(row.deadline),
                   deadlineDate, deadline_time: row.deadline_time || null, close_on_full: row.close_on_full || false,
                   description: row.description || null, link: row.link || '', organizer: row.organizer || 'HUB',
@@ -920,7 +810,7 @@ const canManage = isAdmin || isAuditor || isCTV;
                   event_date: row.event_date || null, event_time: row.event_time || null,
                   registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
                   image_url: row.image_url || null,
-                  drl_rule_id: row.drl_rule_id || null,
+                  drl_rule_id: row.drl_rule_id || null, drl_policy_version: row.drl_policy_version || null, drl_academic_year: row.drl_academic_year || null,
                   recognition_type: row.recognition_type || null,
                   recognition_note: row.recognition_note || null,
                   view_count: Number(row.view_count) || 0
@@ -978,9 +868,9 @@ const canManage = isAdmin || isAuditor || isCTV;
       setEventEditData({
           title: evt?.name || '',
           organizer: evt?.organizer || '',
-          criteria: evt?.category || 'III',
-          points: evt?.score || '5',
-          drl_rule_id: evt?.drl_rule_id || '',
+          criteria: evt?.drl_snapshot ? evt.drl_snapshot.criteria || '' : evt?.category || '',
+          points: evt?.drl_snapshot ? evt.drl_snapshot.points || '' : evt?.score || '',
+          drl_rule_id: evt?.drl_rule_id || '', drl_policy_version: evt?.drl_policy_version || '', drl_academic_year: evt?.drl_academic_year || '',
           recognition_type: evt?.recognition_type || 'Không có / Chưa xác định',
           recognition_note: evt?.recognition_note || '',
           category: evt?.type || 'Hoạt động phong trào',
@@ -1024,9 +914,9 @@ const canManage = isAdmin || isAuditor || isCTV;
       setEventEditData({
           title: target.name || '',
           organizer: target.organizer || '',
-          criteria: target.category || 'III',
-          points: target.score || '5',
-          drl_rule_id: target.drl_rule_id || '',
+          criteria: target.drl_snapshot ? target.drl_snapshot.criteria || '' : target.category || '',
+          points: target.drl_snapshot ? target.drl_snapshot.points || '' : target.score || '',
+          drl_rule_id: target.drl_rule_id || '', drl_policy_version: target.drl_policy_version || '', drl_academic_year: target.drl_academic_year || '',
           recognition_type: target.recognition_type || 'Không có / Chưa xác định',
           recognition_note: target.recognition_note || '',
           category: target.type || 'Hoạt động phong trào',
@@ -1053,7 +943,7 @@ const canManage = isAdmin || isAuditor || isCTV;
               organizer: eventEditData.organizer,
               criteria: eventEditData.criteria,
               points: eventEditData.points,
-              drl_rule_id: eventEditData.drl_rule_id || null,
+              drl_rule_id: eventEditData.drl_rule_id || null, drl_policy_version: eventEditData.drl_policy_version || null, drl_academic_year: eventEditData.drl_academic_year || null,
               recognition_type: eventEditData.recognition_type || 'Không có / Chưa xác định',
               recognition_note: eventEditData.recognition_note || null,
               category: eventEditData.category,
@@ -1515,8 +1405,8 @@ return (
                   <form onSubmit={saveEventEdit} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
                       <input required placeholder="Tên sự kiện" value={eventEditData.title || ''} onChange={e => setEventEditData({...eventEditData, title: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
                       <OrganizerPicker value={eventEditData.organizer || ''} onChange={(value) => setEventEditData({ ...eventEditData, organizer: value })} organizers={editOrganizers}/>
-                      <EventDrlRulePicker rules={editRules} selectedRuleId={eventEditData.drl_rule_id || ''} prediction={editPrediction}
-                        onSelect={(rule) => setEventEditData({ ...eventEditData, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
+                      <EventDrlRulePicker policyVersion={eventEditData.drl_policy_version || undefined} academicYear={eventEditData.drl_academic_year || undefined} onContextChange={(context) => setEventEditData({ ...eventEditData, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={editCatalogState} rules={editRules} selectedRuleId={eventEditData.drl_rule_id || ''} prediction={editPrediction}
+                        onSelect={(rule) => setEventEditData({ ...eventEditData, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
                       <RecognitionFields type={eventEditData.recognition_type || 'Không có / Chưa xác định'} note={eventEditData.recognition_note || ''}
                         onType={(value) => setEventEditData({ ...eventEditData, recognition_type: value })}
                         onNote={(value) => setEventEditData({ ...eventEditData, recognition_note: value })}/>
