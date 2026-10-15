@@ -20,6 +20,8 @@ Ngày kiểm tra: 15/10/2026, Asia/Saigon. Base đã fetch lại trước bàn g
 
 Chi tiết 900 tests của full suite: scholarships 17; advisor 459; Word usability 22; student directory 16; recovery 3; event DRL 18; unit 339; authority checks 25; read optimization 1. Không thay cấu hình AI Advisor, Student Directory, ranking hoặc Auth để đạt kết quả này.
 
+Sau yêu cầu tinh gọn modal, đã chạy lại `npm run test:event-drl`: 18 PASS/0 FAIL/0 SKIP; hai file browser nêu trên: 5 PASS/0 FAIL/0 SKIP; frontend typecheck, build và diff check đều PASS. Đã xem ảnh desktop 1440px/mobile 390px. Full suite 900 tests, Cloudflare typecheck và migration local trong bảng là kết quả trước thay đổi hiển thị này, không chạy lại cho lần tinh gọn modal.
+
 Targeted command:
 
 ```sh
@@ -36,7 +38,7 @@ node --test --test-reporter=tap --test-concurrency=1 tests/drl-policy.browser.te
 
 ## Thay đổi bàn giao
 
-- UI: desktop/mobile dùng cùng phụ lục nguyên văn và cùng picker; đủ 46 tiêu chí/5 mục, 5 điểm trừ, ghi chú, trường hợp đặc thù, nguồn và năm học. Tra cứu bản giao diện cũ có nhãn chưa xác minh. Picker có tìm kiếm, nhóm mục, vai trò/cấp, đơn vị, context, trạng thái tải/lỗi và giữ rule đã lưu. Chi tiết sự kiện hiển thị phiên bản/năm/đơn vị và điều kiện minh chứng ngoài Trường.
+- UI: desktop/mobile dùng cùng phụ lục nguyên văn và cùng picker; đủ 46 tiêu chí/5 mục, 5 điểm trừ, ghi chú và trường hợp đặc thù. Theo yêu cầu chủ dự án, modal chỉ hiển thị phụ lục 2026, đã bỏ bộ chọn “Phiên bản tra cứu”, đoạn giới thiệu nguồn ở đầu và đoạn diễn giải “Điểm cố định…” ở cuối. Dữ liệu giao diện cũ vẫn được lưu trong mã nguồn để đối chiếu. Picker có tìm kiếm, nhóm mục, vai trò/cấp, đơn vị, context, trạng thái tải/lỗi và giữ rule đã lưu. Chi tiết sự kiện hiển thị phiên bản/năm/đơn vị và điều kiện minh chứng ngoài Trường.
 - API: kiểm context năm học/policy; với phiên bản 2026, chỉ nhận rule thuộc danh mục nguồn đã kiểm chứng; không nhập điểm tùy ý. Legacy giữ nhãn nguồn chưa xác minh. Draft mới có context và chỉ công khai khi có rule. Đường contribution dùng cùng bộ kiểm; quyền Auth/Staff không đổi.
 - DB: chỉ thêm 0058/0059, không sửa 0052; thêm context/indexes/audit và seed idempotent 46 IDs mới, không backfill lịch sử. Importer replacement cũ bị khóa chế độ apply.
 - AI: corpus vẫn tìm exact/recurring/similar; policy/corpus/year/rule hash và revision thuật toán cùng tham gia fingerprint. Rule mới chưa có mapping được duyệt thì abstain; observed code không là rule ID. Cache cũ giữ nguyên; retry candidate pending lưu snapshot; candidate đã duyệt giữ nguyên. Điểm trừ/khuyết tật/chức vụ/thành viên không vào event picker.
