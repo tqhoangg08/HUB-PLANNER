@@ -5,9 +5,9 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useScholarshipMobile } from './useScholarshipMobile';
 import {
   fetchAllPublicCampaigns, fetchCampaignRecipients, fetchCampaignFacets, searchCampaignRecipients,
-  formatScoreValue, ScholarshipApiError, type Campaign, type PaginatedRecipients, type CampaignFacets, type ScholarshipFilterKey,
+  ScholarshipApiError, type Campaign, type PaginatedRecipients, type CampaignFacets, type ScholarshipFilterKey,
 } from '../../utils/scholarshipApi';
-import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipFilterKeys, resetScholarshipFilters } from '../../utils/scholarshipListModel';
+import { scholarshipPage, updateScholarshipParams, scholarshipFilterKeys, resetScholarshipFilters } from '../../utils/scholarshipListModel';
 
 const errorText = (error: unknown) => error instanceof ScholarshipApiError
   ? error.message : 'Không thể kết nối đến hệ thống học bổng. Vui lòng thử lại.';
@@ -45,7 +45,6 @@ export const ScholarshipList: React.FC = () => {
   const pendingInput = input.trim().normalize('NFC') !== query;
   const shortQuery = query.length === 1;
   const visibleData = !pendingInput && !shortQuery && dataKey === requestKey ? data : null;
-  const scoreColumns = visibleData ? approvedScoreColumns(visibleData.campaign) : [];
   const detailColumns = (['scholarshipType', 'cohort'] as const).filter(key => visibleData?.campaign.approvedFields.includes(key));
   const hasRank = visibleData?.campaign.approvedFields.includes('scholarshipRank');
   const detailLabels = { scholarshipType: 'Loại học bổng', cohort: 'Khóa' };
@@ -189,12 +188,12 @@ export const ScholarshipList: React.FC = () => {
                   {['STT', 'MSSV', 'Họ và tên'].map(label => <th scope="col" className="scholarship-desktop-cell" key={label}>{label}</th>)}
                   {['Mã lớp SV', 'Ngành học'].map(label => <th scope="col" key={label}>{label}</th>)}
                   {detailColumns.map(key => <th scope="col" key={key}>{detailLabels[key]}</th>)}
-                  {scoreColumns.map(c => <th scope="col" key={c.key} className="scholarship-number">{c.label}</th>)}<th scope="col">{hasRank ? 'Xếp loại HB' : 'Kết quả học bổng'}</th>
+                  <th scope="col">{hasRank ? 'Xếp loại HB' : 'Kết quả học bổng'}</th>
                 </tr></thead><tbody>{visibleData.recipients.map((r, i) => <tr key={r.id}>
                   <td className="scholarship-mobile-cell scholarship-student"><span>{r.fullName}</span><small>{r.studentCode || '—'}</small></td>
                   <td className="scholarship-number scholarship-desktop-cell">{(page - 1) * limit + i + 1}</td><td className="scholarship-desktop-cell">{r.studentCode}</td><td className="scholarship-desktop-cell">{r.fullName}</td><td>{r.className || '—'}</td><td>{r.major || '—'}</td>
                   {detailColumns.map(key => <td key={key}>{r[key] || '—'}</td>)}
-                  {scoreColumns.map(c => <td key={c.key} className="scholarship-number">{formatScoreValue(r.scores[c.key])}</td>)}<td>{hasRank ? r.scholarshipRank || '—' : r.awardType}</td>
+                  <td>{hasRank ? r.scholarshipRank || '—' : r.awardType}</td>
                 </tr>)}</tbody></table>
               </div>
             </>}

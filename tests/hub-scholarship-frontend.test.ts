@@ -84,7 +84,7 @@ test('Scholarship routes are registered in AppRoutes.tsx with /scholarships as d
   assert.ok(scholarshipPos > 0 && catchAllPos > 0 && scholarshipPos < catchAllPos, 'Scholarships must precede catch-all route');
 });
 
-test('Canva list has merged accurate names, approved score columns and no decorative row badges', () => {
+test('Canva list preserves exact names and scholarship rank without the retired academic score columns', () => {
   const listPage = readFileSync('features/scholarships/ScholarshipList.tsx', 'utf8');
 
   // 1 & 2: Title & One-sentence description
@@ -110,9 +110,9 @@ test('Canva list has merged accurate names, approved score columns and no decora
   // 5: Result count
   assert.match(listPage, /total\.toLocaleString\('vi-VN'\)/);
 
-  // 6: Table & Mobile view with dynamic scoreColumns
-  assert.match(listPage, /scoreColumns/);
-  assert.match(listPage, /formatScoreValue/);
+  // Current official list no longer includes academic/training scores or credits.
+  assert.doesNotMatch(listPage, /scoreColumns|r\.scores|formatScoreValue/);
+  assert.match(listPage, /r\.scholarshipRank/);
 
   // 7: Pagination
   assert.match(listPage, /totalPages/);

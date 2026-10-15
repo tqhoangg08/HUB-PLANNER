@@ -58,6 +58,12 @@ Latest control polish: [long rounded search](screenshots/hub-scholarship/combine
 
 Screenshots (synthetic local data): [390 collapsed](screenshots/hub-scholarship/combined/mobile-drawer-390.jpg), [390 expanded filters](screenshots/hub-scholarship/combined/mobile-filters-expanded-390.jpg), [390 drawer](screenshots/hub-scholarship/combined/mobile-menu-open-390.jpg), [390 session avatar](screenshots/hub-scholarship/combined/mobile-avatar-390.jpg), [360](screenshots/hub-scholarship/combined/mobile-drawer-360.jpg), [360 expanded](screenshots/hub-scholarship/combined/mobile-filters-expanded-360.jpg), [768](screenshots/hub-scholarship/combined/mobile-drawer-768.jpg), [1280](screenshots/hub-scholarship/combined/mobile-refinement-desktop-1280.jpg), [1440](screenshots/hub-scholarship/combined/mobile-refinement-desktop-1440.jpg).
 
+## Public table column update — 2026-10-15
+
+At the owner's request, the current official public list no longer renders academic score columns: Điểm TB HB, Xếp loại HT, Điểm RL, Xếp loại RL or Số TC. This applies to desktop and the horizontal mobile table even if a historical campaign response still contains score metadata. The public list retains STT/MSSV/full name, approved class/major/program/cohort and scholarship rank (legacy result fallback unchanged). This supersedes earlier table score-column descriptions above. API v1.1 optional score support, stored source data and other scholarship workflows are retained for compatibility; this frontend change does not modify Worker/schema/approval snapshots.
+
+Actual local browser verification: desktop has 8 visible headers/cells, mobile has 6 after combining full name/MSSV and hiding STT. None of the five retired columns appears; scholarship rank remains. Screenshots use the existing synthetic local campaign: [desktop](screenshots/hub-scholarship/combined/list-without-scores-desktop.jpg), [mobile](screenshots/hub-scholarship/combined/list-without-scores-mobile.jpg). Updated the existing frontend table regression check for the current official columns. Typecheck, frontend/dev bridge tests 23/23 and build PASS; unrelated full-suite tests were not repeated for this table-only change.
+
 ## Local startup and remaining acceptance
 
 Terminal 1: `$env:SCHOLARSHIP_QA_PORT='8794'; npm run dev:scholarships:local`.
