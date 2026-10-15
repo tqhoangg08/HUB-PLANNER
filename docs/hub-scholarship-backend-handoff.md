@@ -12,7 +12,11 @@ Draft PR: https://github.com/tqhoangg08/HUB-PLANNER/pull/91. Keep it Draft; no m
 Ready means frontend development can integrate against the implemented contract with empty campaigns or clearly synthetic local fixtures.
 Production release is **NOT approved or verified**. The official source file and per-field republication authorization are still absent.
 
-Latest v1.1 implementation is 270d0c8, documented by 24cc7b3; see the API contract and filter-extension ledger. The pre-deploy audit remains NOT READY for real student data without explicit authorization. Current integrated validation is maintained in the frontend combined handoff; old counts below are historical.
+Initial v1.1 implementation is 270d0c8; final hardening regression is 251c0b4. Backend/main integration candidate cf9a9f0 includes origin/main 93eda00; package test-chain conflict was resolved by retaining both Scholarship and document-tag tests. No main branch or Auth Worker was changed by this work. Old counts below are historical.
+
+Final release review (2026-10-15): Scholarship tests 34/34; frontend 32/32; integrated full suite 920/920, zero failures/skips; typecheck, Cloudflare typecheck, build and Wrangler dry-run PASS. Local main upgrade with a retained synthetic marker, fresh 59-migration chain and reverse Scholarship/AI ordering PASS. No migration file was renamed or edited. See the frontend combined handoff for current Admin/Studio browser evidence and exact candidate limits.
+
+Technical status: READY FOR OWNER REVIEW. Empty-data deployment: CONDITIONAL on separate owner release approval and live binding/backup/operations verification. Real student-data publication: NOT READY; official source and documented per-field university republication authorization remain absent. No real import/publication, remote D1 migration, production deploy/write, secret change or PR merge occurred. This is technical validation, not legal clearance.
 
 ## Implemented
 

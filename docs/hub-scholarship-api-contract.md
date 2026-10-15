@@ -1,7 +1,7 @@
 # HUB Scholarship — API Contract v1.1.0
 
 Backward-compatible extension for Antigravity, 2026-10-14. Branch: `feature/hub-scholarship-foundation`.
-Latest backend implementation/test commit: `270d0c8914e8269de9223b7c7c620bd2b4646943`.
+Initial v1.1.0 implementation/test commit: `270d0c8914e8269de9223b7c7c620bd2b4646943`; final hardening regression: `251c0b45bea58f297cf1f2d1dc551f5399ddcc61`.
 Source of truth: `cloudflare/worker/src/scholarships.ts`, `scholarship-admin.ts`,
 `shared/scholarship-import.ts`, migrations `0055`, `0056` and additive filter extension `0057`.
 
