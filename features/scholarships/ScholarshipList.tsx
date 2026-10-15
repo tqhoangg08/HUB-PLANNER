@@ -45,9 +45,9 @@ export const ScholarshipList: React.FC = () => {
   const pendingInput = input.trim().normalize('NFC') !== query;
   const shortQuery = query.length === 1;
   const visibleData = !pendingInput && !shortQuery && dataKey === requestKey ? data : null;
-  const detailColumns = (['scholarshipType', 'cohort'] as const).filter(key => visibleData?.campaign.approvedFields.includes(key));
+  const detailColumns = (['cohort'] as const).filter(key => visibleData?.campaign.approvedFields.includes(key));
   const hasRank = visibleData?.campaign.approvedFields.includes('scholarshipRank');
-  const detailLabels = { scholarshipType: 'Loại học bổng', cohort: 'Khóa' };
+  const detailLabels = { cohort: 'Khóa' };
   const total = visibleData?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const cooldown = Math.max(0, Math.ceil((retryAt - now) / 1000));

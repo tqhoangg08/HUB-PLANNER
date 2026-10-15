@@ -64,6 +64,10 @@ At the owner's request, the current official public list no longer renders acade
 
 Actual local browser verification: desktop has 8 visible headers/cells, mobile has 6 after combining full name/MSSV and hiding STT. None of the five retired columns appears; scholarship rank remains. Screenshots use the existing synthetic local campaign: [desktop](screenshots/hub-scholarship/combined/list-without-scores-desktop.jpg), [mobile](screenshots/hub-scholarship/combined/list-without-scores-mobile.jpg). Updated the existing frontend table regression check for the current official columns. Typecheck, frontend/dev bridge tests 23/23 and build PASS; unrelated full-suite tests were not repeated for this table-only change.
 
+## Hide program column, retain filter — 2026-10-15
+
+The public table no longer displays Loại học bổng on desktop or mobile. Its facet dropdown, URL parameter and server-side AND filtering remain unchanged. Scholarship rank and approved cohort remain table columns. Browser QA against synthetic local data confirmed 7 desktop and 5 mobile visible headers/cells, with no program column. Selecting Tiếp sức still returns 24 backend results and sets scholarshipType in the URL. The clear action restores the full list. Typecheck, frontend/dev bridge tests 23/23 and build PASS for this refinement; unrelated full-suite tests were not repeated. Screenshots: [desktop](screenshots/hub-scholarship/combined/list-without-type-desktop.jpg), [mobile with expanded filters](screenshots/hub-scholarship/combined/list-without-type-mobile.jpg).
+
 ## Local startup and remaining acceptance
 
 Terminal 1: `$env:SCHOLARSHIP_QA_PORT='8794'; npm run dev:scholarships:local`.
