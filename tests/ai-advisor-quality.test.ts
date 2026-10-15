@@ -362,7 +362,7 @@ test('legacy nonselected canary uses relevant authorized evidence, no Groq and r
   try {
     db.insert(); assert.ok(await aiAdvisorV2CanaryBucket(USER) >= 7);
     const result = await send({ ...envFor(db.DB), fileSearchAnswer: async () => { calls++; return providerResult(); } });
-    assert.equal(result.reply, PASSAGE); assert.equal(calls, 1);
+    assert.ok(result.reply.startsWith('Theo **'));assert.ok(result.reply.endsWith(PASSAGE)); assert.equal(calls, 1);
     assert.equal(result.documentSources[0].title, TITLE); assert.equal(result.documentSources[0].pageNumber, 2);
     assert.deepEqual(result.documentSources[0].locators, ['Điều 1']); assert.equal(result.documentSources[0].inferredCurrent, false);
   } finally { db.sql.close(); }
@@ -473,7 +473,7 @@ test('portal how-to uses retrieved workflow instead of rejecting grounded websit
       assert.match(retrievalInput, /hướng dẫn thao tác tự đánh giá/);
       return groundGeminiReply(workflow, q, [{ documentId: DOC, title: TITLE, fileName: 'fixture.pdf', pageNumber: 3, evidenceText: workflow }]);
     } }, q);
-    assert.equal(result.reply, workflow); assert.equal(result.documentSources[0].pageNumber, 3);
+    assert.ok(result.reply.startsWith('Theo **'));assert.ok(result.reply.endsWith(workflow)); assert.equal(result.documentSources[0].pageNumber, 3);
   } finally { db.sql.close(); }
 });
 
@@ -543,7 +543,7 @@ test('selected 7% canary exposes authorized DRL source cards; invalid facts fall
         advisorCanaryTelemetry: { record(event) { events.push(event); } },
       });
       assert.equal(searches, 1); assert.equal(generations, 1); assert.equal(legacy, invalid ? 1 : 0);
-      assert.equal(result.reply, PASSAGE); assert.equal(result.documentSources[0].documentId, DOC);
+      assert.ok(result.reply.startsWith('Theo **'));assert.ok(result.reply.endsWith(PASSAGE)); assert.equal(result.documentSources[0].documentId, DOC);
       assert.equal(events.length, 1); assert.equal(events[0].response_source, invalid ? 'legacy_fallback' : 'v2');
       assert.equal(events[0].v2_result_class, invalid ? 'INVALID_GROUNDING' : 'SUPPORTED_VALID_CITATIONS');
       assert.equal(events[0].search_calls, 1); assert.equal(events[0].generator_calls, 1);
@@ -573,7 +573,7 @@ test('full rollout serves both old selected/nonselected buckets with completenes
         advisorV2EvidenceGenerator:{id:'fixture',isConfigured:()=>true,async generate(){generations++;if(failV2)throw Error('fixture-timeout');return{supported:true,answer:PASSAGE,sourceIds:['S1']};}},
         fileSearchAnswer:async()=>{legacy++;return providerResult();},
       });
-      assert.equal(result.reply,PASSAGE);assert.equal(result.documentSources[0].documentId,DOC);
+      assert.ok(result.reply.startsWith('Theo **'));assert.ok(result.reply.endsWith(PASSAGE));assert.equal(result.documentSources[0].documentId,DOC);
       assert.equal(searches,1);assert.equal(generations,1);assert.equal(legacy,failV2?1:0);
     }finally{db.sql.close();}
   }

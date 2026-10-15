@@ -5,6 +5,7 @@ import type {CompletenessSearchRequest} from './ai-search-completeness.ts';
 import type {AuthorizedEvidenceSource} from './ai-advisor-evidence.ts';
 import {containsDocumentInstructions} from './ai-advisor-grounding.ts';
 import {AI_DOCUMENT_MAX_SEGMENTS} from '../../../shared/ai-document-limits.ts';
+import {formatOfficialDocumentReply} from './ai-advisor-document-style.ts';
 
 /** Parse a requested condition, not a fee/discount or a document identity. */
 export function tuitionPaymentCondition(question:string){
@@ -98,5 +99,14 @@ export function resolveTuitionConditionAnswer(question:string,evidence:readonly 
   const unique=[...new Map(matches.map(m=>[JSON.stringify([m.source.documentId,m.excerpt]),m])).values()];
   if(unique.length!==1)return null;
   const match=unique[0];
-  return {reply:`Theo đoạn nguồn:\n\n> ${match.row}\n\nChưa xác nhận hiệu lực hiện hành ngoài nội dung tài liệu đã công bố.`,sourceIds:[match.source.sourceId],sourceExcerpts:{[match.source.sourceId]:match.excerpt}};
+  // Wording is derived only from the already matched row, not the question.
+  // Table delimiters/row ordinals are presentation, not the payment condition.
+  const condition=tuitionPaymentCondition(match.row)!,rate=match.row.match(/\d+(?:[.,]\d+)?\s*%/)![0];
+  const payment=`đóng học phí ${condition.comparison==='gt'?'trên ':condition.comparison==='gte'?'từ ':''}${condition.count} ${condition.unit==='ky'?'kỳ':'năm'}${condition.comparison==='gte'?' trở lên':''}`;
+  const cells=match.row.split(/\t|\|/).map(c=>c.trim()).filter(Boolean);
+  if(cells.length>1&&/^\d+[.)]?$/.test(cells[0]))cells.shift();
+  const quote=cells.join(' — ').replace(/[\\`*_{}[\]()<>#+|~]/g,'\\$&');
+  const validationReply=`trường hợp **${payment}** được quy định **mức giảm ${rate}**.\n\n**Căn cứ nội dung tài liệu:**\n\n> ${quote}\n\nChưa xác nhận hiệu lực hiện hành ngoài nội dung tài liệu đã công bố.`;
+  return {reply:formatOfficialDocumentReply(validationReply,[match.source],true),validationReply,
+    sourceIds:[match.source.sourceId],sourceExcerpts:{[match.source.sourceId]:match.excerpt}};
 }

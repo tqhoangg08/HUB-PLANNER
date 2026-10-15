@@ -1,4 +1,5 @@
 import {isUnpaginatedNativePipeline} from '../../../shared/ai-document-text.ts';
+import {formatOfficialDocumentReply} from './ai-advisor-document-style.ts';
 import {
   BetterAuthIdentityError,
   requireBetterAuthSession,
@@ -2035,7 +2036,7 @@ const chat = async (request: Request, env: AiAdvisorEnv, body: Record<string, un
           const answerSources = [...retrieval.sources, ...sourcesWithGrounding.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
           const reply = classifyConductIntent(question) !== 'portal_help' && isGroundedPolicyDeflection(result.reply)
             ? INSUFFICIENT_GROUNDED_EVIDENCE_REPLY
-            : result.reply;
+            : formatOfficialDocumentReply(result.reply,sourcesWithGrounding.map(s=>({documentTitle:s.title})));
           if (logId) await patchTurnLog(env, userId, logId, { bot_reply: reply, document_sources: sourcesWithGrounding, answer_sources: answerSources, document_search_unavailable: false });
           emitPath('SEARCH_GENERATE', false, providers.groundedDocument.id);
           return { reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };

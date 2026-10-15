@@ -2,6 +2,7 @@ import {
   buildAnswerCacheKey,
   buildRetrievalCacheKey,
   fingerprintDocumentRevisions,
+  fingerprintStructuredSources,
   type AnswerCache,
   type AdvisorCacheScope,
   type RetrievalCache,
@@ -19,6 +20,7 @@ import {isAcademicPolicyQuestion,isAcademicRegistrationQuestion} from './ai-advi
 import {tuitionPaymentCondition,retrieveTuitionConditionEvidence,resolveTuitionConditionAnswer} from './ai-advisor-tuition-condition.ts';
 import {createDocumentPolicyDeadline} from './ai-advisor-document-policy.ts';
 import {isUnpaginatedNativePipeline} from '../../../shared/ai-document-text.ts';
+import {DOCUMENT_STYLE_VERSION,formatOfficialDocumentReply} from './ai-advisor-document-style.ts';
 import {
   CloudflareAiSearchRetrievalProvider,
   retrieveAiSearchWithCache,
@@ -165,11 +167,12 @@ export const executeAiAdvisorV2Document = async (
 
   const revisionFingerprint = await fingerprintDocumentRevisions(toRevisionRecords(allowed));
   const scope: AdvisorCacheScope = { kind: 'PUBLIC' };
+  const titleFingerprint=dependencies.answerCache?await fingerprintStructuredSources(allowed.map(d=>({id:d.id,title:d.title||''}))):'';
   const answerCacheKey = dependencies.answerCache
     ? await buildAnswerCacheKey({
       question, scope, sourceRevisionFingerprint: revisionFingerprint,
       providerOrFormatterVersion: dependencies.evidenceGenerator?.id || 'v2-generator-unavailable',
-      promptVersion: 'evidence-abstention-grounded-v2', answerPathVersion: conditionPath?'tuition-condition-source-v2':dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
+      promptVersion: `evidence-abstention-grounded-v2:${DOCUMENT_STYLE_VERSION}:${titleFingerprint}`, answerPathVersion: conditionPath?'tuition-condition-source-v2':dependencies.completenessSearch ? 'completeness-word-native-v7' : 'ai-search-word-native-v6-presentation',
     })
     : undefined;
   if (dependencies.answerCache && answerCacheKey) {
@@ -227,8 +230,11 @@ export const executeAiAdvisorV2Document = async (
     const extracted=resolveTuitionConditionAnswer(question,evidence);
     if(!extracted)return abstain('GENERATOR_ABSTAINED',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
     const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId)).map(s=>({...s,snippet:extracted.sourceExcerpts[s.sourceId]}))};
-    if(hasUnsupportedAnswerDetails(answer.reply,answer.evidence.map(s=>s.snippet))
-      ||validateEvidenceAbstention({question,evidence:answer.evidence},{text:answer.reply,citedSourceIds:extracted.sourceIds}).kind!=='ANSWER')
+    // Validate every displayed factual claim as before. The separate source
+    // introduction is authorized metadata, not an evidence quote (its title
+    // may contain a year/decision number absent from this particular excerpt).
+    if(hasUnsupportedAnswerDetails(extracted.validationReply,answer.evidence.map(s=>s.snippet))
+      ||validateEvidenceAbstention({question,evidence:answer.evidence},{text:extracted.validationReply,citedSourceIds:extracted.sourceIds}).kind!=='ANSWER')
       return abstain('INVALID_CITATIONS',quotaMode,retrieved.searchCallCount,retrieved.cacheHit,retrieved.sources.length);
     // Deterministic exact source quotes use the same citation authorization at
     // the caller; no model can invent a rate, rule, locator, or support span.
@@ -250,6 +256,7 @@ export const executeAiAdvisorV2Document = async (
       // article on a physical page that happens to contain several articles.
       const excerpts='sourceExcerpts' in extracted?extracted.sourceExcerpts as Record<string,string>:{};
       const answer={reply:extracted.reply,evidence:evidence.filter(s=>extracted.sourceIds.includes(s.sourceId)).map(s=>({...s,snippet:excerpts[s.sourceId]||s.snippet}))};
+      answer.reply=formatOfficialDocumentReply(answer.reply,answer.evidence);
       if(dependencies.answerCache&&answerCacheKey){try{await dependencies.answerCache.put(answerCacheKey,answer,120);}catch{/* optional */}}
       return {kind:'ANSWER',answer,searchCallCount:retrieved.searchCallCount,
         retrievalCacheHit:retrieved.cacheHit,answerCacheHit:false,retrievedChunkCount:retrieved.sources.length,generatorCalled:false,quotaMode};
@@ -273,7 +280,7 @@ export const executeAiAdvisorV2Document = async (
     const decision = validateEvidenceAbstention({ question, evidence }, { text: generated.answer, citedSourceIds: generated.sourceIds });
     if (decision.kind !== 'ANSWER') return abstain('INVALID_CITATIONS', quotaMode, retrieved.searchCallCount, retrieved.cacheHit, retrieved.sources.length, true);
     const citedEvidence = evidence.filter((source) => decision.citedSourceIds.includes(source.sourceId));
-    const answer: AiAdvisorV2Answer = { reply: sourceSupportedReply(generated.answer.trim(), citedEvidence.map((source) => source.snippet), question), evidence: citedEvidence };
+    const answer: AiAdvisorV2Answer = { reply: formatOfficialDocumentReply(sourceSupportedReply(generated.answer.trim(), citedEvidence.map((source) => source.snippet), question),citedEvidence), evidence: citedEvidence };
     if (dependencies.answerCache && answerCacheKey) {
       try { await dependencies.answerCache.put(answerCacheKey, answer, 120); } catch { /* optional */ }
     }
