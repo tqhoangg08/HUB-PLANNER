@@ -774,7 +774,7 @@ test('grading policy question is grounded in a D1-validated Gemini citation and 
         };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; locators?: string[]; publicView: string; publicUrl?: string }>; answerSources: Array<{ type: string }> };
-    assert.equal(result.reply, 'Theo Điều 21, khoản 2, điểm a của quy chế chính thức.');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nTheo Điều 21, khoản 2, điểm a của quy chế chính thức.');
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.deepEqual(result.documentSources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
     assert.equal(result.documentSources[0]?.publicView, 'local_rehost');
@@ -859,8 +859,8 @@ test('grounded policy answers remain direct, preserve retrieved grading rows, an
         };
       },
     }) as { reply: string; documentSources: Array<{ locators?: string[]; applicability?: Array<{ cohortYear?: number }> }> };
-    assert.equal(result.reply, groundedReply);
-    assert.match(result.reply, /^Áp dụng cho khóa tuyển sinh năm 2026/u);
+    assert.equal(result.reply, `Theo **Quy chế đào tạo 2026**, nội dung liên quan được trình bày như sau:\n\n${groundedReply}`);
+    assert.match(result.reply, /\n\nÁp dụng cho khóa tuyển sinh năm 2026/u);
     assert.match(result.reply, /\| Thang điểm 10 \| Điểm chữ \| Hệ 4 \|/u);
     assert.doesNotMatch(result.reply, /có thể tham khảo|truy cập website|để biết chính xác|thường được quy định/iu);
     assert.deepEqual(result.documentSources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
@@ -1021,7 +1021,7 @@ test('scholarship overview routes to official documents without hardcoded schola
     assert.equal(routeAdvisorDocuments('các loại học bổng ở HUB?').domain, 'scholarship');
     assert.equal(routeAdvisorDocuments('các loại học bổng ở HUB?').coverageMode, true);
     assert.equal(filters.length, 1);
-    assert.equal(result.reply, groundedReply);
+    assert.equal(result.reply, `Theo **Quy chế học bổng**, nội dung liên quan được trình bày như sau:\n\n${groundedReply}`);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.doesNotMatch(workerSource, /Học bổng Ngân hàng|Học bổng Tương hỗ|Học bổng Quốc tế/u);
   } finally { fixture.sql.close(); }
@@ -1044,7 +1044,7 @@ test('legacy general-category documents remain reachable through one broad-first
         return { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: null, pageNumber: 1 }] };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string }> };
-    assert.equal(result.reply, 'Theo quy chế chính thức.');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo cũ**, nội dung liên quan được trình bày như sau:\n\nTheo quy chế chính thức.');
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assertCandidateFilter(filters[0], [DOCUMENT_A]);
   } finally { fixture.sql.close(); }
@@ -1067,7 +1067,7 @@ test('a scoped current legacy Quy chế document is accepted by broad-first sear
         return { reply: 'Theo quy chế hiện hành.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; category: string }> };
-    assert.equal(result.reply, 'Theo quy chế hiện hành.');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo hiện hành**, nội dung liên quan được trình bày như sau:\n\nTheo quy chế hiện hành.');
     assertCandidateFilter(filters[0], [DOCUMENT_A]);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.equal(result.documentSources[0]?.category, 'training_regulation');
@@ -1097,7 +1097,7 @@ test('a focused narrow File Search miss is diagnosed and the broad public fallba
           : { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
       },
     }) as { reply: string };
-    assert.equal(result.reply, 'Theo quy chế chính thức.');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nTheo quy chế chính thức.');
     assert.equal(filters.length, 2);
     assertCandidateFilter(filters[0], [DOCUMENT_A]);
     assert.equal(filters[1], 'visibility = "public"');
@@ -1157,7 +1157,7 @@ test('one transient Gemini 5xx is retried within the same budget and a grounded 
         return { reply: 'Bảng quy đổi chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string }> };
-    assert.equal(result.reply, 'Bảng quy đổi chính thức.');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nBảng quy đổi chính thức.');
     assert.equal(fileSearchCalls, 2);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.equal(warnings.some((warning) => warning.includes('"attempt":1') && warning.includes('"maxAttempts":2') && warning.includes('"providerStatus":503') && warning.includes('remainingBudgetMs')), true);
@@ -1285,7 +1285,7 @@ test('a focused valid narrow result returns immediately without optional fallbac
         return { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che.pdf' }] };
       },
     }) as { reply: string };
-    assert.equal(result.reply, 'Theo quy chế chính thức.');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nTheo quy chế chính thức.');
     assertCandidateFilter(filters[0], [DOCUMENT_A]);
   } finally { fixture.sql.close(); }
 });
@@ -1478,7 +1478,7 @@ test('provider abstraction injects the document adapter and passes D1 candidate 
       body: JSON.stringify({ question: 'Quy đổi điểm ở HUB như nào?' }),
     });
     const result = await handleAiAdvisor(request, new URL(request.url), { ...env(fixture.DB), advisorProviders: providers }) as { reply: string; documentSources: Array<{ documentId: string }> };
-    assert.equal(result.reply, 'Nguồn từ adapter test.');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nNguồn từ adapter test.');
     assert.deepEqual(receivedCandidateIds, [[DOCUMENT_A]]);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.equal(generalCalls, 0);
@@ -1704,7 +1704,7 @@ test('Stage 6 OFF preserves the legacy document provider and makes zero V2 searc
       advisorV2AiSearchInstances: { text: 'text', ocr: 'ocr' },
       AI: { async run() { workersAiCalls += 1; return { choices: [] }; } },
     }, { waitUntil() { backgroundTasks += 1; } }) as { reply: string };
-    assert.equal(result.reply, 'Legacy grounded');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy grounded');
     assert.equal(legacyCalls, 1);
     assert.equal(searchCalls, 0);
     assert.equal(workersAiCalls, 0);
@@ -1742,7 +1742,7 @@ test('Stage 7B1C ON uses the configured local bindings and validates Workers AI 
         },
       },
     }) as { reply: string };
-    assert.match(result.reply, /Đoạn nguồn liên quan/);
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nCác trích đoạn dưới đây có thể chưa đủ để trả lời toàn bộ câu hỏi.\n\n> Điều 10 quy định thang điểm 4.\n\nChưa xác nhận hiệu lực hiện hành ngoài nội dung tài liệu đã công bố.');
     assert.doesNotMatch(result.reply, /V2 có dẫn nguồn/);
     assert.equal(searchCalls, 1);
     assert.equal(workersAiCalls, 1);
@@ -1769,7 +1769,7 @@ test('Stage 6 SHADOW discards V2 success or failure and keeps the legacy user re
     const request = v2RequestFor('Quy đổi điểm ở HUB như nào?');
     const result = await handleAiAdvisor(request, new URL(request.url), runtime, { waitUntil(task) { background.push(task); } }) as { reply: string };
     await Promise.all(background);
-    assert.equal(result.reply, 'Legacy wins in shadow');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy wins in shadow');
     assert.equal(searchCalls, 1);
     assert.equal(legacyCalls, 1);
   } finally { fixture.sql.close(); }
@@ -1795,7 +1795,7 @@ test('Stage 7B2A1 SHADOW returns legacy before pending V2 and emits one content-
       advisorV2EvidenceGenerator: { id: 'test-v2', isConfigured: () => true, async generate() { generatorCalls += 1; return { supported: true, answer: 'V2 secret answer', sourceIds: ['S1'] }; } },
       advisorShadowTelemetry: { record(event) { events.push(event); } },
     }, { waitUntil(task) { background.push(task); } }) as { reply: string };
-    assert.equal(result.reply, 'Legacy only');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy only');
     assert.equal(background.length, 1);
     for (let step = 0; step < 200 && searchCalls === 0; step += 1) await new Promise((resolve) => setTimeout(resolve, 5));
     assert.equal(searchCalls, 1, 'V2 should still be pending after the legacy response');
@@ -1835,7 +1835,7 @@ test('Stage 7B2A3C shadow safely classifies instance resolution failure without 
       advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { throw new Error('must not run'); } },
       advisorShadowTelemetry: { record(event) { events.push(event); } },
     }, { waitUntil(task) { background.push(task); } }) as { reply: string };
-    assert.equal(result.reply, 'Legacy remains visible');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy remains visible');
     await Promise.all(background);
     assert.equal(events.length, 1);
     assert.equal(events[0].safe_error_class, 'retrieval');
@@ -1878,7 +1878,7 @@ test('Stage 7B2A3C shadow classifies provider, timeout, normalization and post-a
         advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { throw new Error('must not run'); } },
         advisorShadowTelemetry: { record(event) { events.push(event); } },
       }, { waitUntil(task) { background.push(task); } }) as { reply: string };
-      assert.equal(result.reply, 'Legacy remains visible');
+      assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy remains visible');
       await Promise.all(background);
       assert.equal(providerCalls, 1);
       assert.equal(events.length, 1);
@@ -1943,7 +1943,7 @@ test('Stage 7B2A1 SHADOW isolates identity, retrieval, generator, citation and t
       if (scenario.name === 'setup') Object.defineProperty(runtime, 'advisorV2AiSearchClient', { get() { throw new Error('V2 setup failed'); } });
       const result = await handleAiAdvisor(request, new URL(request.url), runtime, { waitUntil(task) { background.push(task); } }) as { reply: string };
       if (scenario.name === 'survival') assert.match(result.reply, /chưa thể xác minh/i);
-      else assert.equal(result.reply, 'Legacy survives', scenario.name);
+      else assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy survives', scenario.name);
       await Promise.all(background);
       assert.equal(events.length, 1, scenario.name);
       assert.equal(events[0].outcome, scenario.expected, scenario.name);
@@ -1992,7 +1992,7 @@ test('Stage 7B2A1 SHADOW scheduling failure never starts V2 or changes legacy', 
       advisorV2AiSearchClient: { async search() { searches += 1; return { chunks: [] }; } },
     }, { waitUntil() { throw new Error('scheduler unavailable'); } }) as { reply: string };
     await Promise.resolve();
-    assert.equal(result.reply, 'Legacy despite scheduler');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy despite scheduler');
     assert.equal(searches, 0);
   } finally { fixture.sql.close(); }
 });
@@ -2153,7 +2153,7 @@ test('Stage 7B2A2 shadow lifecycle and final console failures cannot change the 
       advisorV2EvidenceGenerator: { id: 'fake', isConfigured: () => true, async generate() { return { supported: false, answer: '', sourceIds: [] }; } },
     }, { waitUntil(task) { background.push(task); } }) as { reply: string };
     await Promise.all(background);
-    assert.equal(result.reply, 'Legacy survives telemetry failure');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy survives telemetry failure');
     assert.equal(searchCalls, 1);
   } finally { console.info = originalInfo; console.warn = originalWarn; fixture.sql.close(); }
 });
@@ -2181,11 +2181,11 @@ test('Stage 6 CANARY zero percent remains legacy and ON exposes only citation-va
     };
     const canaryRequest = v2RequestFor('Quy đổi điểm ở HUB như nào?');
     const canary = await handleAiAdvisor(canaryRequest, new URL(canaryRequest.url), { ...common, AI_ADVISOR_V2_MODE: 'canary', AI_ADVISOR_V2_CANARY_PERCENT: '0' }) as { reply: string };
-    assert.equal(canary.reply, 'Legacy canary');
+    assert.equal(canary.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy canary');
     assert.equal(searchCalls, 0);
     const onRequest = v2RequestFor('Quy đổi điểm ở HUB như nào?');
     const on = await handleAiAdvisor(onRequest, new URL(onRequest.url), { ...common, AI_ADVISOR_V2_MODE: 'on' }) as { reply: string; documentSources: unknown[] };
-    assert.match(on.reply, /Đoạn nguồn liên quan/);
+    assert.equal(on.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nCác trích đoạn dưới đây có thể chưa đủ để trả lời toàn bộ câu hỏi.\n\n> Điều 10 quy định thang điểm 4.\n\nChưa xác nhận hiệu lực hiện hành ngoài nội dung tài liệu đã công bố.');
     assert.doesNotMatch(on.reply, /V2 grounded/);
     assert.equal(searchCalls, 1);
     assert.equal(legacyCalls, 1);
@@ -2275,7 +2275,7 @@ test('selected CANARY falls back once for abstention, retrieval/generator errors
         advisorV2EvidenceGenerator: { id: 'fake-v2', isConfigured: () => true, async generate() { generatorCalls += 1; return scenario.generate(); } },
         advisorCanaryTelemetry: { record(event: AdvisorCanaryEvent) { events.push(event); } },
       }) as { reply: string };
-      assert.equal(result.reply, 'Legacy fallback', scenario.name);
+      assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy fallback', scenario.name);
       assert.equal(legacyCalls, 1, scenario.name);
       assert.equal(searchCalls, scenario.searchCalls, scenario.name);
       assert.equal(generatorCalls, scenario.generatorCalls, scenario.name);
@@ -2313,7 +2313,7 @@ test('selected CANARY falls back for a support span rejected by the unchanged Wo
       AI: { async run() { generatorCalls += 1; return { choices: [{ message: { tool_calls: [{ type: 'function', function: { name: 'submit_grounded_answer', arguments: JSON.stringify({ supported: true, answer: 'unsupported', source_ids: ['S1'], support_spans: [{ source_id: 'S1', quote: 'fabricated quotation' }] }) } }] } }] }; } },
       advisorCanaryTelemetry: { record(event: AdvisorCanaryEvent) { events.push(event); } },
     }) as { reply: string };
-    assert.equal(result.reply, 'Legacy fallback');
+    assert.equal(result.reply, 'Theo **Quy chế đào tạo**, nội dung liên quan được trình bày như sau:\n\nLegacy fallback');
     assert.equal(legacyCalls, 1);
     assert.equal(searchCalls, 1);
     assert.equal(generatorCalls, 1);

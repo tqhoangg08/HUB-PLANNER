@@ -1,9 +1,10 @@
-# Admin Text-first MVP — review only, no deployment approval
+# Admin Text-first — behavior and maintenance
 
 ## Scope and reuse
 
-This branch starts from main `be7b6738138a190230273af90d585af38c18be6a`.
-PR #92 stays Draft; its parser/OCR changes and interrupted work are not imported.
+PR #93 is merged and Text-first is deployed. PR #92's separate parser/OCR work
+is not imported. For the last verified serving snapshot and release caveats,
+see [production release notes](text-first-production-release.md).
 Reuse: Better Auth Admin identity, private API, existing R2 binding, canonical
 AI Search per-segment keys, revision identity, receipt authorization and grounded
 citations. No OCR, Gemini upload, new provider, background infrastructure,
@@ -53,7 +54,7 @@ retrieval quota increase or production flags are required by this MVP.
 - Existing retrieval remains bounded at 3 R2 hydration reads, 8k characters /
   32k bytes per read; Search/generation/cache/quota limits unchanged.
 
-## Schema and rollout gate (plan only)
+## Schema and change gates
 
 `0055_ai_document_index_segment_count.sql` adds a nullable INTEGER CHECK 1..128.
 `0044` and `0054` are untouched. Legacy rows/counts remain unchanged. Long text
@@ -61,23 +62,12 @@ revisions set `index_segment_count=N`, `ocr_page_count=NULL`; ≤40 also keep th
 legacy count. `0056_ai_text_document_revisions.sql` adds draft/revision tables and
 the atomic publication source guard. No rebuild, backfill or automatic migration.
 
-Before any staging write, obtain separate owner approval:
-
-1. Verify live isolation of staging D1/R2/AI Search and the exact commit/config.
-2. Backup staging outside Git; verify hash, schema, counts and row digests, record
-   recovery metadata privately. No backup/migration has been run by this task.
-3. Check 0032/0044/0045/0049/0054 schema assumptions, absence/presence of 0055/0056
-   and migration ledger. Partial/drifted state means STOP, not raw ALTER repair.
-4. Isolated migration directory/config: only approved 0055 and 0056, staging UUID.
-   Pending list must match exactly. Apply with D1 ledger, not all repo pending.
-5. Check old data/schema unchanged; 52/79/128 counts accepted; out-of-range values
-   rejected; new tables empty. Then deploy only the approved staging code.
-6. Use one synthetic document to accept preview → draft → all receipts → explicit
-   publication → real Search/citation; edit a new revision, verify old is retained.
-
-Production requires separate migration/deployment/document-publication approvals.
-No production, Auth, provider tests, live flags, existing documents or PR merges
-are changed here. Upload files remains available with its existing behavior.
+Production migrations 0055/0056 were applied during the approved PR #93 release;
+do not replay them. Future changes require current schema/ledger preflight and
+separate approval. Partial/drifted state means STOP, not raw ALTER repair.
+Staging writes still require verified D1/R2/AI Search isolation and owner approval.
+Deployment never authorizes publication of a document. File upload remains
+available with its existing behavior.
 
 ## Rollback / remaining limits
 
@@ -93,6 +83,7 @@ and explicit recovery approval. Existing identical active content hashes are
 rejected (including metadata-only edits with identical body), preventing duplicate
 sources. The historical file editor cannot delete/retry/publish Text-first rows.
 
-Local SQLite/binding doubles and local Chrome are regression evidence only.
-Cloudflare binding upload capability, real provider receipts/citations, staging
-latency/cost and production usability remain NOT VERIFIED until separately approved.
+Regression coverage lives in `tests/ai-text-documents.test.ts` and
+`tests/ai-advisor-tuition-condition.test.ts`. Local tests do not establish live
+provider/UI acceptance. The bounded published-source retrieval repair and its
+verified evidence are described in [retrieval notes](text-first-tuition-retrieval-fix.md).

@@ -10,6 +10,14 @@ import {createDocumentPolicyDeadline} from '../cloudflare/worker/src/ai-advisor-
 import {textFixture} from './fixtures/ai-text-documents.ts';
 import {handleAiAdvisor,type AiAdvisorEnv} from '../cloudflare/worker/src/ai-advisor.ts';
 import {readFileSync} from 'node:fs';
+import {formatOfficialDocumentReply,escapeDocumentMarkdown} from '../cloudflare/worker/src/ai-advisor-document-style.ts';
+import {hasUnsupportedAnswerDetails} from '../cloudflare/worker/src/ai-advisor-grounding.ts';
+import {buildAnswerCacheKey,fingerprintDocumentRevisions,type AnswerCache} from '../cloudflare/worker/src/ai-advisor-cache.ts';
+import type {AiAdvisorV2Answer} from '../cloudflare/worker/src/ai-advisor-v2-runtime.ts';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 const ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',OTHER='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',revision='v1-fixture';
 const q='Theo tài liệu quy định học phí, mức thu đối với trường hợp đóng học phí từ 3 kỳ trở lên là bao nhiêu? Hãy trích dẫn nguồn.';
 const document:AiAdvisorV2Candidate={id:ID,title:'Quy định học phí',category:'tuition',visibility:'public',active:true,revision,
@@ -193,4 +201,56 @@ test('original and segment readers share R2 budget; oversized originals and nonc
     const env={...f.env,AI_DOCUMENTS_BUCKET:{async get(k:string){reads++;return original.get(k);}}} as CompletenessEnv;
     f.sql.prepare('UPDATE ai_documents SET file_size=1048577 WHERE id=?').run(id);assert.equal(await createAuthorizedTextSourceReader(env)(s),null);assert.equal(reads,0);
   }finally{f.sql.close();}
+});
+
+test('academic answer uses only verified dynamic title and row facts, preserving exact citation excerpts',()=>{
+  const title='Quyết định về mức thu học phí năm học 2026–2027';
+  const result=resolveTuitionConditionAnswer(q,[{...source(),documentTitle:title}])!;
+  assert.ok(result.reply.startsWith(`Theo **${title}**, trường hợp **đóng học phí từ 3 kỳ trở lên**`));
+  assert.match(result.reply,/\*\*mức giảm 5%\*\*/);assert.match(result.reply,/\n\n\*\*Căn cứ nội dung tài liệu:\*\*\n\n> Đóng học phí 3 kỳ trở lên — Giảm 5%/);
+  assert.match(result.reply,/Chưa xác nhận hiệu lực hiện hành ngoài nội dung tài liệu đã công bố\.$/);
+  assert.doesNotMatch(result.reply,/Theo đoạn nguồn|phải nộp|95%|Nguồn tham khảo|https?:/);
+  assert.deepEqual(result.sourceIds,['S1']);assert.equal(result.sourceExcerpts.S1,`Bảng 4. Chính sách giảm học phí\nSTT\tĐiều kiện\tMức giảm\n2\tĐóng học phí 3 kỳ trở lên\tGiảm 5%`);
+  assert.equal(hasUnsupportedAnswerDetails(result.validationReply,[result.sourceExcerpts.S1]),false);
+  assert.equal(resolveTuitionConditionAnswer(q,[{...source('Thông tin không có điều kiện được hỏi.'),documentTitle:title}]),null);
+});
+test('missing and unsafe source titles never become invented names, links, HTML or headings',()=>{
+  for(const title of [undefined,'','  ','Tiêu đề\u202eẩn']){
+    const reply=resolveTuitionConditionAnswer(q,[{...source(),documentTitle:title}])!.reply;
+    assert.ok(reply.startsWith('Theo nội dung tài liệu đã công bố,'));assert.doesNotMatch(reply,/Theo \*\*/);
+  }
+  const title='Quy định **mới** [x](https://example.invalid) <script> 2026_2027 `a` | # Học phí';
+  const reply=resolveTuitionConditionAnswer(q,[{...source(),documentTitle:title}])!.reply;
+  assert.ok(reply.startsWith(`Theo **${escapeDocumentMarkdown(title)}**,`));
+  const html=renderToStaticMarkup(createElement(ReactMarkdown,{remarkPlugins:[remarkGfm],children:reply}));
+  assert.doesNotMatch(html,/<a\b|<script\b|<img\b|<h[1-6]\b/);assert.match(html,/<strong>mức giảm 5%<\/strong>/);
+});
+test('other official-document presentation retains source text and uncertainty without source-card duplication',()=>{
+  const raw='Điều 3. Nội dung đã được xác minh.\n\nKhông có thông tin về ngày hết hiệu lực.';
+  const formatted=formatOfficialDocumentReply(raw,[{documentTitle:'Quy chế công tác sinh viên'}]);
+  assert.ok(formatted.startsWith('Theo **Quy chế công tác sinh viên**, '));assert.ok(formatted.endsWith(raw));
+  assert.doesNotMatch(formatted,/Nguồn tham khảo|\[S1\]|https?:/);
+  const guarded=formatOfficialDocumentReply('Đoạn nguồn liên quan đã truy xuất (chưa xác nhận hiệu lực hiện hành; các trích đoạn có thể chưa đủ để trả lời toàn bộ câu hỏi):\n\n> Nội dung nguyên văn.',[{documentTitle:'Quy chế'}]);
+  assert.match(guarded,/có thể chưa đủ để trả lời toàn bộ câu hỏi/);assert.match(guarded,/> Nội dung nguyên văn\./);assert.match(guarded,/Chưa xác nhận hiệu lực hiện hành/);
+});
+test('metadata-only year/title does not invalidate grounded facts and provider titles are never displayed',async()=>{
+  const title='Quy định học phí 2026–2027';
+  const result=await executeAiAdvisorV2Document(q,[{...document,title}],{quota:evaluateAdvisorQuota(undefined),aiSearchInstances:{text:'fixture',ocr:'fixture'},
+    aiSearchClient:{async search(){return {chunks:[chunk(10,body,{title:'Bịa mức giảm 99%'})]};}},tuitionConditionContent:async()=>body});
+  assert.equal(result.kind,'ANSWER');if(result.kind==='ANSWER'){
+    assert.ok(result.answer.reply.startsWith(`Theo **${title}**,`));assert.doesNotMatch(result.answer.reply,/99%|Bịa/);
+    assert.equal(result.answer.evidence[0].documentTitle,title);assert.equal(result.answer.evidence[0].documentId,ID);assert.equal(result.answer.evidence[0].revision,revision);
+    assert.deepEqual(extractOfficialDocumentLocators(result.answer.evidence[0].snippet),['Bảng 4']);
+  }
+});
+test('old presentation cache is not reused and title-only changes invalidate answer presentation, not retrieval',async()=>{
+  const fingerprint=await fingerprintDocumentRevisions([{id:ID,version:revision,indexSourceKind:'legacy',derivedSourceKind:'native_text',extractionPipelineVersion:'admin-text-structured-v1',indexingStatus:'completed'}]);
+  const oldKey=await buildAnswerCacheKey({question:q,scope:{kind:'PUBLIC'},sourceRevisionFingerprint:fingerprint,providerOrFormatterVersion:'v2-generator-unavailable',promptVersion:'evidence-abstention-grounded-v2',answerPathVersion:'tuition-condition-source-v2'});
+  const keys:string[]=[],cache:AnswerCache<AiAdvisorV2Answer>={async get(key){keys.push(key);return key===oldKey?{reply:'Theo đoạn nguồn: cũ',evidence:[source()]}:null;},async put(){},async delete(){}};
+  for(const title of ['Quy định học phí A','Quy định học phí B']){
+    const result=await executeAiAdvisorV2Document(q,[{...document,title}],{quota:evaluateAdvisorQuota(undefined),answerCache:cache,aiSearchInstances:{text:'fixture',ocr:'fixture'},
+      aiSearchClient:{async search(){return {chunks:[chunk(10,body)]};}},tuitionConditionContent:async()=>body});
+    assert.equal(result.kind,'ANSWER');if(result.kind==='ANSWER'){assert.equal(result.answerCacheHit,false);assert.ok(result.answer.reply.startsWith(`Theo **${title}**,`));}
+  }
+  assert.ok(keys.every(k=>k!==oldKey));assert.notEqual(keys[0],keys[1]);
 });
