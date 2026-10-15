@@ -44,7 +44,8 @@ const admin = async (suffix, body) => {
   return handleAdminScholarships(request, new URL(request.url), env);
 };
 for (const [slug, semester, schoolYear] of [['synthetic-hk1', 'HK1', '2026-2027'], ['synthetic-hk2', 'HK2', '2025-2026']]) {
-  await admin('', { slug, title: 'Đợt kiểm thử cục bộ', schoolYear, semester });
+  const longText = process.env.SCHOLARSHIP_QA_LONG_TEXT === '1';
+  await admin('', { slug, title: longText ? 'Đợt học bổng kiểm thử tên quyết định rất dài '.repeat(8).slice(0,240).trim() : 'Đợt kiểm thử cục bộ', schoolYear, semester });
   const preview = await admin(`/${slug}/imports/preview`, { sourceSha256: 'a'.repeat(64), sourceFilename: 'synthetic.csv',
     mapping: { studentCode: 'Code', fullName: 'Name', awardType: 'Award', className: 'Class', major: 'Major',
       scholarshipType: 'Program', scholarshipRank: 'ScholarshipRank', cohort: 'Cohort',
@@ -52,7 +53,7 @@ for (const [slug, semester, schoolYear] of [['synthetic-hk1', 'HK1', '2026-2027'
         { key: 'trainingScore', column: 'RL', label: 'Điểm RL' }, { key: 'trainingRank', column: 'Rank', label: 'Xếp loại RL' },
         { key: 'credits', column: 'Credits', label: 'Số TC' }, { key: 'privateScore', column: 'Private', label: 'Điểm chưa phê duyệt' }] },
     rows: Array.from({ length: 96 }, (_, index) => ({ sourceRowNumber: index + 2, values: {
-      Code: String(index + 1).padStart(12, '0'), Name: `Sinh viên kiểm thử ${String(index + 1).padStart(2, '0')}`,
+      Code: String(index + 1).padStart(12, '0'), Name: longText && index === 0 ? 'Sinh viên kiểm thử có họ tên rất dài '.repeat(8).slice(0,160).trim() : `Sinh viên kiểm thử ${String(index + 1).padStart(2, '0')}`,
       Award: 'Kết quả kiểm thử', Class: ['TEST-A1', 'TEST-A2', 'TEST-A3', 'TEST-B1'][index % 4],
       Major: index % 4 === 3 ? 'Kinh tế' : 'Kế toán', Cohort: index % 4 === 3 ? 'K23' : 'K24',
       Program: index % 4 === 2 ? 'Tiếp sức' : 'Khuyến khích học tập', ScholarshipRank: index % 4 === 1 ? 'Khá' : 'Giỏi', GPA: index % 2 ? '9,7' : 9.5,

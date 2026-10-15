@@ -311,7 +311,11 @@ export const CelebrationStudio: React.FC = () => {
       ctx.fillStyle = isDark ? '#CBD5E1' : '#64748B';
       ctx.letterSpacing = '1px';
       const semesterText = `${verifiedAward.campaignTitle} • ${verifiedAward.semester} (${verifiedAward.schoolYear})`;
-      ctx.fillText(semesterText, targetWidth / 2, 200);
+      const heading = celebrationTextLayout(semesterText, (text, size) => {
+        ctx.font = '500 ' + size + 'px sans-serif'; return ctx.measureText(text).width;
+      }, targetWidth - 160, 24, 14, 2);
+      ctx.font = '500 ' + heading.size + 'px sans-serif';
+      heading.lines.forEach((line, index) => ctx.fillText(line, targetWidth / 2, 200 + index * (heading.size + 4), targetWidth - 160));
 
       // 3. User Portrait Frame & Image
       const isStory = targetHeight === 1920;
@@ -449,7 +453,7 @@ export const CelebrationStudio: React.FC = () => {
       ctx.letterSpacing = '1px';
       const nameLayout = celebrationTextLayout(verifiedAward.fullName.toUpperCase(), (text, size) => {
         ctx.font = '900 ' + size + 'px sans-serif'; return ctx.measureText(text).width;
-      }, targetWidth - 160, 58, 24, 2);
+      }, targetWidth - 160, 58, 24, 3);
       ctx.font = '900 ' + nameLayout.size + 'px sans-serif';
       nameLayout.lines.forEach((line, index) => ctx.fillText(line, targetWidth / 2, nameY + index * (nameLayout.size + 4), targetWidth - 160));
 

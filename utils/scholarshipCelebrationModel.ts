@@ -22,7 +22,11 @@ export function celebrationTextLayout(text: string, measure: (text: string, size
   const wrap = (size: number) => {
     const lines: string[] = []; let line = '';
     for (const char of Array.from(text)) {
-      if (line && measure(line + char, size) > width) { lines.push(line); line = ''; }
+      if (line && measure(line + char, size) > width) {
+        const split = line.lastIndexOf(' ');
+        if (split > 0) { lines.push(line.slice(0, split + 1)); line = line.slice(split + 1); }
+        else { lines.push(line); line = ''; }
+      }
       line += char;
     }
     if (line) lines.push(line);

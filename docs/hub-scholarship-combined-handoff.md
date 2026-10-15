@@ -1,80 +1,62 @@
-# HUB Scholarship — pre-deploy cleanup and release audit
+# HUB Scholarship — final release hardening
 
-Audit date: 2026-10-15. Contract **v1.1.0**. Backend Draft [PR #91](https://github.com/tqhoangg08/HUB-PLANNER/pull/91) targets main; frontend Draft [PR #94](https://github.com/tqhoangg08/HUB-PLANNER/pull/94) targets the backend branch. No release/deployment authorization is implied.
+Review date: 2026-10-15. Contract **v1.1.0**, no schema/endpoint changes. Draft [PR #91](https://github.com/tqhoangg08/HUB-PLANNER/pull/91) targets main; Draft [PR #94](https://github.com/tqhoangg08/HUB-PLANNER/pull/94) targets the backend branch. This is an owner-review handoff, not deployment authorization.
 
-## Cleanup summary and file inventory
+## Changes and file inventory
 
-| Classification | Files / decision |
-| --- | --- |
-| KEEP | Scholarship Worker/Admin handlers, shared import validator, CSV/XLSX parser/CLI, migrations 0055–0057, all auth/ownership/publication gates, frontend routes/lazy screens, Me/Studio/Admin and tests. Legacy awardType/summary, optional scholarshipType APIs and historical URLs remain compatible. No new dependency was added by these branches; existing ExcelJS/PapaParse/Miniflare are still used. |
-| SAFE CLEANUP — edited | Main lookup removes only the program/type dropdown, per latest audit request. Its URL/API compatibility remains; clear resets it. Removed 36 unused named imports and unused Studio navigation/corner local variables; removed Studio error console logging. Fixed API header to v1.1.0 and private snapshot field types, replaced preview mapping any with ImportMapping. Removed the dead program-selector CSS rule. |
-| SAFE CLEANUP — removed | Unused `features/scholarships/ScoreBadges.tsx` (no application consumer; shared score formatter remains). Superseded `docs/hub-scholarship-ui-refinement.md`. 41 obsolete intermediate screenshots/exports; the two synthetic Story/Feed PNG binaries are not test fixtures and were removed. Git history retains earlier evidence. |
-| KEEP — QA evidence | Nine images remain: current desktop/mobile, drawer and Studio under `combined/`, plus the original Canva reference and four old screenshots still referenced by the locally modified/deleted Canva handoff. Those five are historical, not current acceptance. Inspected retained screenshots: synthetic names/codes and repository logo fixtures; no real portrait/account avatar or official student source file is needed or introduced. |
-| KEEP — isolated dev | `scripts/dev-scholarships-local.mjs`, dev bridge, synthetic tests and ephemeral D1. QA startup now rejects NODE_ENV=production. Ignore rules cover QA state, private imports, local D1/cache, exported PNGs and local dev secrets. |
-| UNRESOLVED / preserved | Existing dirty API notes, deleted Canva handoff, Admin/Studio/list changes, and untracked docs/ai-advisor-v2 are excluded from audit commits. Clean candidate validation uses a separate worktree with only intended changes; local-only behavior is not certified. |
+- `AdminScholarships.tsx`: current-value draft edit/create forms, validation, busy/disabled/error states and original expectedRevision. A 409 locks resubmission until the operator reloads and reviews. Validated/approved/published/archived campaigns stay uneditable; server authorization/state/CAS guards are unchanged.
+- `ScholarshipAdminControls.tsx`, `useScholarshipAdminPage.ts`, `scholarshipAdminModel.ts`: accessible modal/retry/pager controls and independent backend pagination for campaigns, imports, immutable batch details and audit. Twenty rows/page, real totals, page clamping, cancellation and scope reset. API failure is an error, not empty data. Candidate/history/file reads retain cancellation/campaign guards.
+- `scholarshipApi.ts`: 20-second request/body timeout, caller cancellation, Vietnamese session/permission/conflict/service errors; credentials/status/Retry-After preserved. Timed-out mutations may have committed: refresh state before retrying. No automatic retries, privilege expansion or approval.
+- `CelebrationStudio.tsx`, `scholarshipPortrait.ts`: actual PNG/JPEG/WebP signature/header dimensions before decode and decoded dimensions after decode; 10 MiB, 4096px/edge, 12 million pixels, 10-second decode timeout. Reject animated PNG/WebP, disguised, malformed and oversized input. Cancel on replacement/session/unmount; revoke URLs and release image/canvas resources; prevent concurrent export and reverify ownership before PNG/share. No image server upload.
+- `scholarshipCelebrationModel.ts`: bounded word-aware name/campaign wrapping with complete source text. Long names use at most three lines; heading/provenance at most two. Short-name card design, masks and zoom remain.
+- `devApiBridge.ts`: fix local Admin PATCH 403 by translating only matching local browser origins to a loopback Scholarship upstream. Foreign/missing origins and Sec-Fetch-Site remain unchanged. Production Scholarship upstream gets no translation; dev plugin remains serve-only. Auth Worker was not edited.
+- `dev-scholarships-local.mjs`: opt-in extended history/draft and long-text fixtures plus controlled Admin errors. Loopback-only, ephemeral D1, outbound denial; NODE_ENV=production still fails before listening. No dev identity/server import in production Worker graph.
+- New `scholarship-hardening.test.ts`; updated frontend/dev-bridge and D1 runtime regression tests. No added dependency. Contract/backend handoff and this existing report refreshed. Earlier c0e5513 cleanup removed ScoreBadges, obsolete UI-refinement handoff and 41 intermediate images/exports; nine reference/QA images remain. Admin/Studio evidence refreshed; private PNG exports are not committed.
 
-## Preserved behavior and final UI policy
+## Preserved policy and behavior
 
-The approved table is unchanged: desktop STT, MSSV, Họ và tên, Mã lớp SV, Ngành học, approved Khóa, Xếp loại HB (legacy result fallback when rank is unapproved). Mobile uses the same table with combined name/code and no STT. No academic/training score, credit or program/type table columns are reintroduced. No new sticky student column is added.
+Approved Canva public table unchanged: seven desktop columns (STT, MSSV, exact full name, approved class/major/cohort, rank/legacy result); five on mobile with combined name/code. One scrollable mobile table. No card replacement, retired score/credit/program columns, program/type dropdown or new sticky column.
 
-Visible lookup controls: MSSV/name, class, scholarship rank, major, cohort, semester/year. Program/type is absent from the main filter UI. Existing URL program/type and legacy category/awardType conditions are forwarded to the backend and retained when other filters/collapse change; clear removes them. Filtering is SQL AND across the whole active snapshot, debounce 350ms, page reset, global totals and approved dependent facets. Hidden conditions are not silently discarded. Collapsed search, adjacent clear/collapse buttons, one mobile scrollable table, Inter/header/avatar and sidebar/icon rail/drawer remain.
+Search, class, rank, major, cohort, semester/year, backend SQL AND, 350ms debounce, URL state, global totals, page reset, approved facets, clear/collapse/live search, Inter/header/login/avatar/sidebar/icon rail/drawer, Me and rules remain. Historical type/award API/source/URL compatibility remains; no GPA/code/class inference. Import/preview/apply/per-field approval/explicit republication confirmation/publish/unpublish/rollback/archive and verified ownership stay server-side. No schema history edit/reset/drop, remote migration, production write/deploy, secret/branch-protection change or PR merge.
 
-Me requires verified session ownership. Studio keeps portrait upload/crop, templates, fresh server ownership recheck before PNG/share, and browser-local image processing. ConfettiOverlay/ScholarshipBadge have confirmed consumers and remain. Admin preview/apply/per-field approval/publish/unpublish/rollback/archive remain server-authorized.
+## Actual validation
 
-## Privacy, security and production separation
+Executed in the current-main integration candidate, excluding primary workspace dirty edits. Final Studio changes were followed by another targeted/full/build/dry-run pass; older PR counts are not reused.
 
-- Public queries join only a published campaign with public approval and an applied, approved active snapshot. Preview/inactive rows and unapproved scores/major/class/cohort/program/rank cannot be accessed through recipients, own awards or facets. Bound SQL, exact query validation and bounded snapshot scans are preserved. Per-score gates and immutable triggers remain.
-- Every Admin read/mutation verifies the server admin role; user/auditor and forged role headers cannot elevate access. JSON/body/origin/revision/CAS checks, audit and atomic rollback remain. No frontend MSSV claim can select a personal award. Source-file SHA is operator-supplied provenance, not independent proof of authenticity.
-- Worker entrypoint is `cloudflare/worker/src/index.ts`; static assets are dist and `/api/*` runs the Worker first. QA server/CSV tools/dev bridge are not in the production Worker import graph. Regression tests check graph isolation and that a QA cookie grants no privilege: no-cookie yields 401; a cookie without AUTH_SERVICE yields 503, failing closed.
-- Vite dev API plugin uses apply:serve; scholarship proxy permits only explicit HTTP loopback and has no production fallback. Other existing application's dev routes can still use its configured production backend; scholarship QA startup explicitly points both origins to loopback. No production config/authentication change is made.
-- QA listens only on 127.0.0.1, uses in-memory D1 and outbound denial, and local synthetic identity responses. NODE_ENV=production is rejected before opening a listener. No mock route/identity is imported by the production handler. Browser QA is synthetic, not live Google/email/OTP certification.
-- Scholarship handlers do not log names, codes, score cells or search terms. Build drops console/debugger in the browser. Applied data is retained after unpublish; subsequent reads use no-store. Data already downloaded cannot be revoked. Retention/deletion/correction and re-publication after revocation require an authorized operational policy; archive is terminal, not physical erasure.
-- DB, AUTH_SERVICE and SCHOLARSHIP_SEARCH_RATE_LIMIT bindings are present in config. Scholarship requires no new secret. Live binding/secret existence and actual production data are not queried, changed or certified in this audit. No real data import, remote D1 command, production deployment, Auth Worker edit or branch-protection change.
-
-## Needs review and release blockers
-
-**RELEASE BLOCKER:** no official source file and no documented per-field university republication authorization. Do not ingest/publish real student data. Technical PASS is not legal clearance. Empty-data infrastructure remains CONDITIONAL on separate owner release approval, current-main integration and live binding/operational verification.
-
-**NEEDS REVIEW:** Admin “Sửa thông tin” sets edit state but has no edit modal; `updateAdminCampaign` API is retained for compatibility. Admin listError and non-modal actionError are not rendered consistently, so service errors can resemble an empty list. Import/history views show only initial 20/30 rows without pagination UI; server APIs still support pagination. Some form labels lack associations; local Studio removes several accessibility labels. These were not deleted, redesigned or silently repaired because Admin workflow/local edits require review.
-
-**NEEDS REVIEW:** local Admin edits remove committed cancellation/history guards; local list edits change the empty last-page guard. They are backed up and excluded. Review before including them in any release. Studio still needs explicit decoded-image dimension/magic-byte bounds and long name/campaign canvas text QA; existing MIME/10MiB checks and browser decode are present. No server image upload exists.
-
-**NEEDS REVIEW:** rate limiting is approximate per Cloudflare location and applies to filtered/facet requests; it is not an anti-enumeration guarantee. Maximum source snapshot is 2000 rows / 1MiB JSON / 4MiB source. No production load test or live identity-provider test is claimed.
-
-## Branch, migration and rollback audit
-
-Fetched origin/main at 7fa10b9 and both PRs. At audit start backend was 10 commits behind / 14 ahead of main; frontend 10 behind / 33 ahead. `git merge-tree --write-tree --messages` found no conflicts for main/backend or backend/frontend without changing either checkout. No main merge/rebase was performed. Recent main changes affect AI documents and two AI migrations, not Scholarship schema; the computed merge retains rate-limit config and routes.
-
-Main already has `0055_ai_document_index_segment_count.sql` and `0056_ai_text_document_revisions.sql`, sharing number prefixes with Scholarship migrations. Names differ. Local upgrade from all current main migrations to Scholarship 0055–0057 PASS with Wrangler 4.115.0; filename-level migration tracking applies all three. Migration history is not renamed/rewritten. A fresh combined-chain check and reverse-order check are recorded in the current test ledger. Coordinate future migration numbering before release.
-
-Owner-reviewed rollout order: integrate/revalidate current main, review both Drafts and exact candidate SHA, verify backup/bindings, apply the reviewed additive migrations before the compatible Worker/frontend, and start empty. These are instructions for a separately approved release, not actions executed. Unpublish hides subsequent reads; re-import a corrected candidate, inspect, explicitly approve authorized fields, then publish. Rollback can target a previously approved/published snapshot only, so verify authorization is still valid. Do not drop tables/restore stale raw rows or automatically republish revoked data.
-
-## Current validation ledger
-
-All commands below were executed for this audit, not copied from earlier PR reports. Frontend/full/build validation ran in an isolated clean candidate worktree, excluding pre-existing local edits.
-
-| Command | Actual final result |
+| Command | Final result |
 | --- | --- |
 | npm run typecheck | PASS, exit 0 |
-| npm run cf:typecheck | PASS, exit 0; also run on backend branch |
-| npm run test:scholarships | PASS, 32/32; backend branch and integrated candidate |
-| npm run test:scholarships:frontend | PASS, 24/24 |
-| npm test | PASS, 878/878, zero failures/skips |
-| npm run build | PASS, exit 0; existing Browserslist/chunk-size warnings |
-| npm run cf:check | PASS, exit 0; Wrangler dry-run only |
+| npm run cf:typecheck | PASS, exit 0 |
+| npm run test:scholarships | 34/34 PASS |
+| npm run test:scholarships:frontend | 32/32 PASS |
+| npm test | 920/920 PASS, zero failure/skip |
+| npm run build | PASS; existing chunk/Browserslist notices |
+| npm run cf:check | PASS; Wrangler 4.115.0 dry-run only |
 
-D1 validation: current-main-to-Scholarship upgrade PASS; fresh combined 58-migration chain PASS with Wrangler --local; reverse Scholarship-before-main-AI order PASS in ephemeral SQLite, zero foreign-key violations and zero campaigns. No remote migration ran. Production Worker import graph and dist scans contain no Scholarship QA server/identity/dev bridge; startup under NODE_ENV=production exits before listening. Initial new graph/QA-cookie assertions failed and were corrected (an existing non-Scholarship helper is allowed; missing Auth service correctly returns 503 rather than 401), then targeted and full suites passed.
+Tests cover draft edits, stale revisions, invalid text, non-Admin/protected states through real transitions; pages beyond page 1; errors, request/body timeout/cancellation without retry; modal/pager rendering; image format/animation/size/dimension/decode/resource limits and complete long Vietnamese text. Graph/QA-cookie fail-closed tests remain. Initial compile/regression failures and an invalid test-fixture transition were corrected and rerun, not counted as PASS.
 
-Current browser QA used the clean candidate and explicit loopback backend: 1440px/390px, computed Inter, no page horizontal overflow, seven/five table columns, no type dropdown. Major Kế toán + cohort K24 + rank Giỏi gives 48 global results; collapsed MSSV search gives 1, no-match 0, clear 96; page 2 starts at row 21. Legacy /scholarships/list redirects with type/ref query intact and returns 24 source-matched rows without restoring the dropdown. Empty campaign and backend failure have distinct neutral/error states. Mobile drawer opens and closes; current screenshots were refreshed.
+Browser at **360/390/768/1280/1440px**: Inter, no page horizontal overflow, unchanged public columns. Maximum-length Studio text and edit modal fit all widths. Current values/empty-title error/409 locked-save/reload/valid PATCH revision update verified. Published campaign has no edit button. Page 2 checked for 26 campaigns, 25 imports, 29 audit events and 96 batch rows (starts at student 21). Simulated 503 shows retry/error without false empty. Session/permission/timeout paths also have regression coverage.
 
-Synthetic student sees two own awards and cannot enter Admin; synthetic Admin can enter the approval screen, where republication confirmation is unchecked and Save disabled. Studio PNG export was exercised and its fresh /api/me/scholarships ownership request returned 200 before the success message. Portrait/crop and real downloaded PNG dimensions were not newly reverified in this cleanup; retained Studio image is historical workflow evidence, not a new claim. Server tests cover preview/apply/approve/publish/unpublish/rollback, hidden fields and authorization.
+Synthetic student cannot enter Admin; anonymous Me shows login. An open Studio refuses export after fresh ownership no longer matches. Real file upload, oversized-image rejection, circle/arch masks and zoom exercised. Story/Feed downloads inspected at **1080x1920 / 1080x1350**, including 160-character name and 240-character campaign. Network trace confirms fresh /api/me/scholarships 200 before eligible exports. No real portrait/student file used. Live Google/email/OTP and native OS share are not certified.
 
-Backend audit commit: 1186087ce6614e4ce7d4f35dcc96a26c20de23bb. The frontend includes matching shared documentation/test changes without an automatic branch merge/rebase; recheck mergeability after both pushes. Logs and the original dirty patch are retained under ignored .cache/scholarship-release-audit/ in the primary workspace.
+Evidence: [Admin form](screenshots/hub-scholarship/admin.jpg), [Studio long-text fixture](screenshots/hub-scholarship/combined/studio-portrait.jpg), [public desktop](screenshots/hub-scholarship/combined/list-without-type-desktop.jpg), [mobile](screenshots/hub-scholarship/combined/list-without-type-mobile.jpg), [drawer](screenshots/hub-scholarship/combined/mobile-menu-open-390.jpg). Original Canva reference is historical design evidence, not an importer source.
 
-## Minimal evidence and safe local startup
+## Main integration, migrations and local work
 
-Current synthetic evidence: [desktop](screenshots/hub-scholarship/combined/list-without-type-desktop.jpg), [mobile](screenshots/hub-scholarship/combined/list-without-type-mobile.jpg), [drawer](screenshots/hub-scholarship/combined/mobile-menu-open-390.jpg), [Studio](screenshots/hub-scholarship/combined/studio-portrait.jpg). Desktop/mobile and drawer were refreshed after the audit UI dropdown removal. Historical Canva screenshot contains design example rows only; it is not an importer source or production data.
+Fetched main **93eda001ed12271b3f10853ede207a5cb264fc82**. Separate candidate merged main/backend then the stacked frontend; package.json conflict resolved by retaining Scholarship AND main document-tag tests. Backend/main candidate **cf9a9f046d68544f461d0c7968ed42abddfc4bd5** was fast-forwarded on the backend feature branch only. Backend documentation head **b0d30980e902cbb0cbef37a4d91d7c3cfa2657f5** is included by frontend PR HEAD. Main itself unchanged; no rebase/force-push/PR merge. Integrated routing/D1/Auth/rate-limit bindings and API compatibility PASS; Scholarship needs no new secret.
 
-Terminal 1: `$env:SCHOLARSHIP_QA_PORT='8794'; npm run dev:scholarships:local`. Terminal 2: set DEV_BACKEND_ORIGIN and DEV_SCHOLARSHIP_BACKEND_ORIGIN to `http://127.0.0.1:8794`, then `npm run dev -- --host 127.0.0.1 --port 3002 --strictPort`. State is ignored `.cache/scholarship-qa-state.json`; all records and identities are synthetic. No development server is required by the production Worker.
+Distinct AI/Scholarship filenames share 0055/0056/0057 prefixes. Wrangler --local fresh **59-migration** chain PASS; current-main DB upgrade PASS with an existing synthetic marker retained. Reverse Scholarship-before-AI order in ephemeral SQLite PASS, zero FK violations/campaigns. No migration rename/edit. Coordinate future filenames.
 
-**DEPLOY READINESS = NOT READY for real data publication.** Empty-data code/infrastructure is CONDITIONAL, not authorized for deployment. `ANTIGRAVITY_READY = YES` refers only to v1.1 integration with synthetic fixtures; it does not override release blockers.
+Primary D:/Projects/HUB-PLANNER stays on c0e5513 because of pre-existing Admin/Studio/list/API edits, deleted Canva handoff and untracked docs/ai-advisor-v2. Tracked dirty patch is byte-identical before/after. Those edits are excluded from validation; reconcile separately before release. Review attached integration worktree/PR HEAD. Logs/fixtures/exports remain ignored/private.
+
+## Readiness, remaining decisions and blockers
+
+**Technical: READY FOR OWNER REVIEW** for scoped Scholarship changes/integrated candidate. Server Admin/ownership/publication gates, approved-only snapshots/facets, bound SQL, privacy-safe errors/logging and explicit approval remain. Production DB contents/live binding/secret existence, identity provider, native share and production load were not inspected/certified.
+
+**Dependency release gate:** actual npm audit --omit=dev reports 7 affected packages (6 high, 1 moderate): axios, brace-expansion, dompurify, form-data, react-router, react-router-dom, undici. This additional check is FAIL; the seven required functional/build commands above are PASS. GitHub separately reports 88 default-branch alerts including development dependencies. Shared dependency remediation/exploitability assessment remains application-wide work and must be resolved by the owner release/security process before deployment; no dependency version was silently changed or certified by this scoped hardening.
+
+**Empty-data deployment: CONDITIONAL**, requiring separate owner release approval, reviewed SHA, backup, live bindings/operations and dependency/release review. Apply reviewed additive migrations before compatible Worker/frontend only during that approved rollout. Build/dry-run PASS is not authorization.
+
+**Real data publication: NOT READY — RELEASE BLOCKER.** Official source and documented university permission per republished field are absent. No real import/publication. Technical validation is not legal clearance. Retention/deletion/correction/withdrawal require an authorized operational policy. Unpublish hides subsequent no-store reads; delivered data cannot be revoked, immutable snapshots remain retained, archive is not erasure. Correct via reviewed new snapshot and explicit approval; rollback only to approved/published snapshots whose authorization remains valid. Never automatically republish revoked data.
+
+`ANTIGRAVITY_READY = YES` means v1.1 integration/synthetic acceptance only. Both PRs remain Draft; no deployment authorization.

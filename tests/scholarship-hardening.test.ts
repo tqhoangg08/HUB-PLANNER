@@ -103,4 +103,8 @@ test('Story/Feed long Vietnamese student and campaign text fits bounded lines wi
     assert.ok(layout.lines.length<=2); assert.equal(layout.lines.join(''),text);
     assert.ok(layout.size>=12 && layout.size<=58);
   }
+  const name='Sinh viên kiểm thử có họ tên rất dài '.repeat(8).slice(0,160).trim().toUpperCase();
+  const layout=celebrationTextLayout(name,(text,size)=>Array.from(text).length*(size*0.65+1),920,58,24,3);
+  assert.equal(layout.lines.join(''),name);
+  assert.ok(layout.lines.length<=3 && layout.lines.every(line=>Array.from(line).length*(layout.size*0.65+1)<=920));
 });
