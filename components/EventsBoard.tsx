@@ -202,7 +202,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [isCustomCategory, setIsCustomCategory] = useState(false);
-    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
+    const { rules, organizers, prediction, catalogState, reloadCatalog } = useEventDrlAssistant(formData, isOpen);
 
     if (!isOpen) return null;
 
@@ -281,9 +281,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 </div>
 
                 <div className="p-6">
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4 text-base">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                             <input 
                                 type="text" 
                                 required 
@@ -295,7 +295,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
                             <input
                                 type="url"
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
@@ -309,20 +309,20 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         {formData.category?.toLowerCase().includes('minigame') ? (
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
+                                    <label className="block text-base font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
                                     <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
+                                    <label className="block text-base font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
                                     <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                                 </div>
                                 <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                     <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
+                                        <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
                                         <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                     </div>
                                     <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
+                                        <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
                                         <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                     </div>
                                 </div>
@@ -331,30 +331,30 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
+                                        <label className="block text-base font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
                                         <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_date} onChange={e => setFormData({...formData, registration_start_date: e.target.value})} />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
+                                        <label className="block text-base font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
                                         <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_time} onChange={e => setFormData({...formData, registration_start_time: e.target.value})} />
                                     </div>
                                 </div>
                                 <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                     <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
+                                        <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
                                         <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                     </div>
                                     <div>
-                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
+                                        <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
                                         <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
+                                    <label className="block text-base font-bold text-gray-700 mb-1">Ngày diễn ra</label>
                                     <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                                    <label className="block text-base font-bold text-gray-700 mb-1">Giờ diễn ra</label>
                                     <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                                 </div>
                             </div>
@@ -372,7 +372,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Loại hình</label>
                             <select 
                                 className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                 value={isCustomCategory ? "Khác" : formData.category}
@@ -416,7 +416,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
                                 onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                             <div className="col-span-1">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
+                                <label className="block text-base font-bold text-gray-700 mb-1">Khu vực</label>
                                 <select 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                     value={formData.location_type} 
@@ -427,7 +427,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 </select>
                             </div>
                             <div className="col-span-1">
-                                 <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
+                                 <label className="block text-base font-bold text-gray-700 mb-1">Hình thức</label>
                                  <select 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                     value={formData.format} 
@@ -442,14 +442,14 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label>
+                                <label className="block text-base font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label>
                                 <div className="relative">
                                     <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
-                                    <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers}/>
+                                    <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers} catalogState={catalogState} onRetry={reloadCatalog}/>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia <span className="text-red-500">*</span></label>
+                                <label className="block text-base font-bold text-gray-700 mb-1">Link tham gia <span className="text-red-500">*</span></label>
                                 <div className="relative">
                                     <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
                                     <input 
@@ -468,7 +468,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             onType={(value) => setFormData((current) => ({ ...current, recognition_type: value }))}
                             onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
                             <textarea 
                                 rows={4}
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
@@ -523,7 +523,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
     const [isCustomCategory, setIsCustomCategory] = useState(
         editingEvent?.type ? !predefinedCategories.includes(editingEvent.type) : false
     );
-    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
+    const { rules, organizers, prediction, catalogState, reloadCatalog } = useEventDrlAssistant(formData, isOpen);
 
     if (!isOpen) return null;
 
@@ -572,14 +572,14 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                 </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-6 space-y-4 text-base">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                        <label className="block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                         <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
+                        <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
                         <input
                             type="url"
                             className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]"
@@ -593,20 +593,20 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     {formData.category?.toLowerCase().includes('minigame') ? (
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
+                                <label className="block text-base font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
                                 <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
+                                <label className="block text-base font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
                                 <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                             </div>
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
+                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
                                     <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
+                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
                                     <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                 </div>
                             </div>
@@ -615,30 +615,30 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
+                                    <label className="block text-base font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
                                     <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_date} onChange={e => setFormData({...formData, registration_start_date: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
+                                    <label className="block text-base font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
                                     <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_time} onChange={e => setFormData({...formData, registration_start_time: e.target.value})} />
                                 </div>
                             </div>
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
+                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
                                     <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
+                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
                                     <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
+                                <label className="block text-base font-bold text-gray-700 mb-1">Ngày diễn ra</label>
                                 <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                                <label className="block text-base font-bold text-gray-700 mb-1">Giờ diễn ra</label>
                                 <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                             </div>
                         </div>
@@ -659,14 +659,14 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
                             onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                         <div className="col-span-1">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Khu vực</label>
                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
                                 <option value="Trong trường">Trong trường</option>
                                 <option value="Ngoài trường">Ngoài trường</option>
                             </select>
                         </div>
                         <div className="col-span-1">
-                             <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
+                             <label className="block text-base font-bold text-gray-700 mb-1">Hình thức</label>
                              <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.format} onChange={e => setFormData({...formData, format: e.target.value})}>
                                 <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hỗn hợp">Hỗn hợp</option>
                             </select>
@@ -674,7 +674,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     </div>
 
                     <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Loại hình</label>
                             <select 
                                 className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                 value={isCustomCategory ? "Khác" : (predefinedCategories.includes(formData.category) ? formData.category : "Khác")}
@@ -708,17 +708,17 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">BTC</label>
-                            <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers}/>
+                            <label className="block text-base font-bold text-gray-700 mb-1">BTC</label>
+                            <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers} catalogState={catalogState} onRetry={reloadCatalog}/>
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Link</label>
+                            <label className="block text-base font-bold text-gray-700 mb-1">Link</label>
                             <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
+                        <label className="block text-base font-bold text-gray-700 mb-1">Trạng thái</label>
                         <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                             <option value="pending">Chờ duyệt (Pending)</option>
                             <option value="Sắp diễn ra">Sắp diễn ra</option>
@@ -731,7 +731,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         onType={(value) => setFormData((current) => ({ ...current, recognition_type: value }))}
                         onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
+                        <label className="block text-base font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
                         <textarea 
                             rows={4}
                             className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"

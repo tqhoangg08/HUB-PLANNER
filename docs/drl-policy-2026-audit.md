@@ -19,7 +19,7 @@ Các file bắt buộc đã đọc: EventsBoard, MobileEvents, EventDrlAssistant
 
 Giữ nguyên logic trước PR, chỉ cập nhật các mục ĐRL. Các nhận xét về hạn chế trong audit ở trên là ghi nhận baseline, không phải cam kết sửa trong phạm vi cuối cùng.
 
-- Toàn bộ Worker/API, prediction, cache, candidate review/ingest, form/picker, payload và EventDetailView giống base main đã kiểm chứng. Không thêm bộ chọn phiên bản, năm học, tìm kiếm, context, ràng buộc năm học, cache fingerprint mới hoặc audit snapshot.
+- Toàn bộ Worker/API, prediction, cache, candidate review/ingest, payload và EventDetailView giống base main đã kiểm chứng. Form/picker chỉ sửa typography và hiển thị trạng thái tải danh mục/thử lại theo góp ý tiếp theo; logic chọn rule/điểm/áp dụng AI giữ nguyên. Không thêm bộ chọn phiên bản, năm học, tìm kiếm, context, ràng buộc năm học, cache fingerprint mới hoặc audit snapshot.
 - Desktop/mobile dùng chung phụ lục theo Word; nội dung nguồn, 46 tiêu chí, giới hạn điểm và ghi chú được giữ. Không có bộ chọn tra cứu hay hai đoạn diễn giải đã được yêu cầu bỏ.
 - Một migration dữ liệu 0058 dùng đúng schema drl_rules hiện có: thêm 46 IDs mới, giữ 23 tiêu chí phù hợp với event, ngừng đưa danh mục cũ vào lựa chọn bằng active=0. Không sửa nội dung/điểm/ID/source_version của rule cũ, không tạo bảng/cột mới, không chuyển đổi lịch sử/candidate/cache.
 - Các trường hợp chỉnh sửa event cũ có rule inactive và prediction cache vẫn theo cách xử lý baseline. Không tuyên bố có lớp bảo vệ phiên bản hoặc invalidation mới. Cần kiểm tra ảnh hưởng trên staging trước release.
