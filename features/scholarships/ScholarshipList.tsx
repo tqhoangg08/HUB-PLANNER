@@ -1,6 +1,8 @@
 import React, { useEffect, useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ScholarshipShell } from './ScholarshipShell';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useScholarshipMobile } from './useScholarshipMobile';
 import {
   fetchAllPublicCampaigns, fetchCampaignRecipients, fetchCampaignFacets, searchCampaignRecipients,
   formatScoreValue, ScholarshipApiError, type Campaign, type PaginatedRecipients, type CampaignFacets, type ScholarshipFilterKey,
@@ -20,7 +22,9 @@ export const ScholarshipList: React.FC = () => {
   const page = scholarshipPage(params.get('page'));
   const limit = [20, 30, 50].includes(Number(params.get('limit'))) ? Number(params.get('limit')) : 20;
   const [input, setInput] = useState(query);
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const mobile = useScholarshipMobile();
+  const [filtersCollapsed, setFiltersCollapsed] = useState(mobile);
+  useEffect(() => { setFiltersCollapsed(mobile); }, [mobile]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [campaignError, setCampaignError] = useState('');
@@ -125,7 +129,7 @@ export const ScholarshipList: React.FC = () => {
     const supported = facets?.supportedFilters.includes(key);
     const values = facets?.facets[key].options || [];
     const value = filters[key] || '';
-    return <div className="scholarship-field" key={key}><label htmlFor={`${id}-${key}`}>{label}</label>
+    return <div className={`scholarship-field scholarship-filter-${key}`} key={key}><label htmlFor={`${id}-${key}`}>{label}</label>
       <select id={`${id}-${key}`} className="scholarship-input" value={value} disabled={disabled || loadingFacets || !supported} onChange={e => update({ [key]: e.target.value, page: '' })}>
         <option value="">{loadingFacets || pendingInput || loadingCampaigns ? 'Đang tải...' : facetError ? 'Không tải được danh mục' : supported ? emptyLabel : 'Chưa có dữ liệu công bố'}</option>
         {value && !values.includes(value) && <option value={value}>{value}</option>}
@@ -133,13 +137,19 @@ export const ScholarshipList: React.FC = () => {
       </select>
     </div>;
   };
+  const filterLabels = { major: ['Ngành học', 'Tất cả ngành'], className: ['Lớp', 'Tất cả lớp'], scholarshipType: ['Loại học bổng', 'Tất cả loại'], scholarshipRank: ['Xếp loại học bổng', 'Tất cả xếp loại'], cohort: ['Khóa', 'Tất cả khóa'] } as const;
+  const filterOrder: ScholarshipFilterKey[] = mobile ? ['className', 'scholarshipRank', 'major', 'cohort', 'scholarshipType'] : ['major', 'className', 'scholarshipType', 'scholarshipRank', 'cohort'];
+  const filterActions = <>
+    <button type="button" className="scholarship-filter-reset scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
+    <button type="button" className="scholarship-filter-toggle scholarship-button" aria-expanded={!filtersCollapsed} aria-controls={`${id}-filters`} aria-label={filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn bộ lọc'} onClick={() => setFiltersCollapsed(collapsed => !collapsed)}><span className="scholarship-desktop-text">{filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn'}</span><span className="scholarship-mobile-text">{filtersCollapsed ? 'Mở rộng' : 'Thu gọn'}</span>{filtersCollapsed ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}</button>
+  </>;
   return (
-    <ScholarshipShell title="Danh sách sinh viên nhận học bổng" subtitle="Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ." headerActions={
+    <ScholarshipShell title="Danh sách sinh viên nhận học bổng" mobileTitle="Danh sách học bổng" subtitle="Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ." headerActions={
       <div className="scholarship-field scholarship-term"><label htmlFor={`${id}-term`}>Học kỳ / Năm học</label>
         <select id={`${id}-term`} className="scholarship-input" value={slugParam || slug} disabled={loadingCampaigns || !campaigns.length} onChange={e => { const campaign = e.target.value; setInput(''); setParams(previous => { const next = resetScholarshipFilters(previous); next.set('campaign', campaign); return next; }); }}>
           {!campaigns.length && <option value="">{loadingCampaigns ? 'Đang tải học kỳ...' : campaignError ? 'Không tải được học kỳ' : 'Chưa có đợt công bố'}</option>}
           {slugParam && !selected && <option value={slugParam}>Đợt không khả dụng</option>}
-          {campaigns.map(c => <option value={c.slug} key={c.slug}>{c.semester} / {c.schoolYear} — {c.title}</option>)}
+          {campaigns.map(c => <option value={c.slug} key={c.slug}>{mobile ? `${c.semester} · ${c.schoolYear}` : `${c.semester} / ${c.schoolYear} — ${c.title}`}</option>)}
         </select>
       </div>
     }>
@@ -147,30 +157,25 @@ export const ScholarshipList: React.FC = () => {
         <div className={`scholarship-surface scholarship-filters${filtersCollapsed ? ' is-collapsed' : ''}`}>
           <div className="scholarship-filter-heading">
             <div className="scholarship-filter-heading-main">
-              <p>Bộ lọc</p>
+              <p><span className="scholarship-desktop-text">Bộ lọc</span><span className="scholarship-mobile-text">Tra cứu sinh viên</span></p>
               {filtersCollapsed && <div className="scholarship-compact-search">{renderSearchInput(true)}</div>}
             </div>
-            <div className="scholarship-filter-actions">
-              <button type="button" className="scholarship-filter-reset scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
-              <button type="button" className="scholarship-filter-toggle scholarship-button" aria-expanded={!filtersCollapsed} aria-controls={`${id}-filters`} aria-label={filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn bộ lọc'} onClick={() => setFiltersCollapsed(collapsed => !collapsed)}>{filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn'}</button>
-            </div>
+            <div className="scholarship-filter-actions scholarship-filter-actions-desktop">{filterActions}</div>
           </div>
           <div id={`${id}-filters`} className="scholarship-filter-panel" inert={filtersCollapsed} aria-hidden={filtersCollapsed}>
             <div className="scholarship-filter-controls">
               <div className="scholarship-filter-grid">
-                <div className="scholarship-field"><label htmlFor={`${id}-query`}>Họ tên / MSSV</label>
+                <div className="scholarship-field scholarship-filter-query"><label htmlFor={`${id}-query`}><span className="scholarship-desktop-text">Họ tên / MSSV</span><span className="scholarship-mobile-text">Tra cứu sinh viên</span></label>
                   {renderSearchInput()}
                 </div>
-                {renderFilter('major', 'Ngành học', 'Tất cả ngành')}
-                {renderFilter('className', 'Lớp', 'Tất cả lớp')}
-                {renderFilter('scholarshipType', 'Loại học bổng', 'Tất cả loại')}
-                {renderFilter('scholarshipRank', 'Xếp loại học bổng', 'Tất cả xếp loại')}
-                {renderFilter('cohort', 'Khóa', 'Tất cả khóa')}
+                {filterOrder.map(key => renderFilter(key, filterLabels[key][0], filterLabels[key][1]))}
               </div>
               {facetError && <p role="status" className="scholarship-note">Không tải được danh mục bộ lọc. <button className="scholarship-button" onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
             </div>
           </div>
+          <div className="scholarship-filter-actions scholarship-filter-actions-mobile">{filterActions}</div>
         </div>
+        {visibleData && total > 0 && <div className="scholarship-mobile-results"><h2>Bảng kết quả</h2><span>Vuốt ngang để xem đầy đủ</span></div>}
         <div className="scholarship-surface scholarship-table-surface" aria-busy={busy}>
           {message ? <div className="scholarship-status" role="alert"><p>{message}</p><button className="scholarship-button" disabled={cooldown > 0} onClick={() => setRetry(n => n + 1)}>{cooldown ? `Thử lại sau ${cooldown} giây` : 'Thử lại'}</button></div>
             : busy ? <div className="scholarship-skeleton" role="status"><span className="sr-only">Đang tải danh sách học bổng...</span><div aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <div className="scholarship-skeleton-row" key={i}>{Array.from({ length: 4 }, (_, j) => <span key={j} />)}</div>)}</div></div>
@@ -180,20 +185,18 @@ export const ScholarshipList: React.FC = () => {
             : visibleData && <>
               <div className="scholarship-table-scroll" tabIndex={0} role="region" aria-label="Bảng sinh viên nhận học bổng">
                 <table className="scholarship-table"><caption className="sr-only">Danh sách sinh viên nhận học bổng — {visibleData.campaign.title}</caption><thead><tr>
-                  {['STT', 'MSSV', 'Họ và tên', 'Mã lớp SV', 'Ngành học'].map(label => <th scope="col" key={label}>{label}</th>)}
+                  <th scope="col" className="scholarship-mobile-cell">Họ tên / MSSV</th>
+                  {['STT', 'MSSV', 'Họ và tên'].map(label => <th scope="col" className="scholarship-desktop-cell" key={label}>{label}</th>)}
+                  {['Mã lớp SV', 'Ngành học'].map(label => <th scope="col" key={label}>{label}</th>)}
                   {detailColumns.map(key => <th scope="col" key={key}>{detailLabels[key]}</th>)}
                   {scoreColumns.map(c => <th scope="col" key={c.key} className="scholarship-number">{c.label}</th>)}<th scope="col">{hasRank ? 'Xếp loại HB' : 'Kết quả học bổng'}</th>
                 </tr></thead><tbody>{visibleData.recipients.map((r, i) => <tr key={r.id}>
-                  <td className="scholarship-number">{(page - 1) * limit + i + 1}</td><td>{r.studentCode}</td><td>{r.fullName}</td><td>{r.className || '—'}</td><td>{r.major || '—'}</td>
+                  <td className="scholarship-mobile-cell scholarship-student"><span>{r.fullName}</span><small>{r.studentCode || '—'}</small></td>
+                  <td className="scholarship-number scholarship-desktop-cell">{(page - 1) * limit + i + 1}</td><td className="scholarship-desktop-cell">{r.studentCode}</td><td className="scholarship-desktop-cell">{r.fullName}</td><td>{r.className || '—'}</td><td>{r.major || '—'}</td>
                   {detailColumns.map(key => <td key={key}>{r[key] || '—'}</td>)}
                   {scoreColumns.map(c => <td key={c.key} className="scholarship-number">{formatScoreValue(r.scores[c.key])}</td>)}<td>{hasRank ? r.scholarshipRank || '—' : r.awardType}</td>
                 </tr>)}</tbody></table>
               </div>
-              <div className="scholarship-mobile-list">{visibleData.recipients.map((r, i) => <details key={r.id}><summary>{(page - 1) * limit + i + 1}. {r.fullName}<small>{r.studentCode} · {hasRank ? r.scholarshipRank || '—' : r.awardType}</small></summary><dl>
-                <dt>Mã lớp SV</dt><dd>{r.className || '—'}</dd><dt>Ngành học</dt><dd>{r.major || '—'}</dd>
-                {detailColumns.map(key => <React.Fragment key={key}><dt>{detailLabels[key]}</dt><dd>{r[key] || '—'}</dd></React.Fragment>)}
-                {scoreColumns.map(c => <React.Fragment key={c.key}><dt>{c.label}</dt><dd>{formatScoreValue(r.scores[c.key])}</dd></React.Fragment>)}
-              </dl></details>)}</div>
             </>}
           {visibleData && !message && <div className="scholarship-pager">
             <p role="status">Tổng số: {total.toLocaleString('vi-VN')} kết quả</p>
