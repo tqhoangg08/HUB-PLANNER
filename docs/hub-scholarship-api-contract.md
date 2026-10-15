@@ -360,3 +360,10 @@ Maximum source snapshot remains 2000 rows; options therefore have at most 2000 d
 Frontend should fetch all metadata pages if needed, cancel stale requests, disable controls until metadata is loaded, preserve selected values if the new conjunction has no results, and show zero results rather than clear another condition silently. Reset recipient page on filter changes; preserve unrelated URL parameters. Fetch recipients page-by-page, never load the whole recipient dataset for filtering.
 
 Validation and readiness for this extension are recorded in docs/hub-scholarship-filter-extension.md. Production release remains unverified and requires separate approval.
+
+
+### Admin client hardening (2026-10-15; no API/schema change)
+
+Campaign PATCH remains draft-only, requires the originally displayed expectedRevision, and validates title (1–240), schoolYear/semester (1–80), NFC-trimmed text with no controls. A 409 never authorizes an automatic retry: reload current details and explicitly review before resubmission. Validated/approved/published/archived campaigns cannot be edited by this endpoint. Every request still verifies the server Admin role and same-origin mutation checks.
+
+Campaigns, imports, immutable batch rows and audit all retain server page/limit/total pagination (limit <=50). Admin UI uses independent 20-row pages, resets on campaign/batch change and cancels stale reads. A service/session/permission failure is an error, not an empty result. Frontend requests time out after 20 seconds, including response body reads; mutation completion can be unknown after timeout, so refresh state before retrying. No automatic mutation retry, approval or republication confirmation is added.
