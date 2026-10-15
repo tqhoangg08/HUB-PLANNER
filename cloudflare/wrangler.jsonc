@@ -142,6 +142,11 @@
   ],
   "ratelimits": [
     {
+      "name": "SCHOLARSHIP_SEARCH_RATE_LIMIT",
+      "namespace_id": "45871912",
+      "simple": { "limit": 60, "period": 60 }
+    },
+    {
       "name": "AUTH_INGRESS_IP_RATE_LIMIT",
       "namespace_id": "45871911",
       "simple": {
