@@ -10,7 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+/dev-dist/
 *.local
+
+# Accidental copied Git metadata (keep existing tracked backup pending owner review)
+/git/
 
 # Editor directories and files
 .vscode/*
