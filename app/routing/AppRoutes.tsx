@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { UserData } from '../../types';
 import type { AuthRefresh } from '../../hooks/useUserRole';
 import { SupportNoticeModal } from '../../components/SupportNoticeModal';
@@ -18,7 +18,16 @@ import {
     RegistrationPasswordScreen,
     StaffPasswordActivationScreen,
     TermsOfUse,
+    ScholarshipList,
+    ScholarshipMe,
+    CelebrationStudio,
+    AdminScholarships,
 } from './lazyScreens';
+
+const ScholarshipRedirect: React.FC = () => {
+    const location = useLocation();
+    return <Navigate to={`/scholarships${location.search}`} replace />;
+};
 
 interface AppRoutesProps {
     data: UserData;
@@ -90,6 +99,12 @@ export const AppRoutes = ({
                 <Route path="/events/edit/:eventId" element={<AuthMaintenanceScreen />} />
                 <Route path="/rankings" element={<PublicRankings />} />
                 <Route path="/tai-lieu/:documentId" element={<PublicAIDocumentViewer />} />
+                <Route path="/scholarships" element={<ScholarshipList />} />
+                <Route path="/scholarships/list" element={<ScholarshipRedirect />} />
+                <Route path="/scholarships/search" element={<ScholarshipRedirect />} />
+                <Route path="/scholarships/me" element={<AuthMaintenanceScreen />} />
+                <Route path="/scholarships/celebrate" element={<AuthMaintenanceScreen />} />
+                <Route path="/admin/scholarships" element={<AuthMaintenanceScreen />} />
                 <Route path="/support/*" element={<AuthMaintenanceScreen />} />
                 <Route path="/handbook/*" element={<AuthMaintenanceScreen />} />
                 <Route path="/profile/*" element={<AuthMaintenanceScreen />} />
@@ -134,6 +149,12 @@ export const AppRoutes = ({
                 />
                 <Route path="/account" element={<RecoveryAccountScreen />} />
                 <Route path="/tai-lieu/:documentId" element={<PublicAIDocumentViewer />} />
+                <Route path="/scholarships" element={<ScholarshipList />} />
+                <Route path="/scholarships/list" element={<ScholarshipRedirect />} />
+                <Route path="/scholarships/search" element={<ScholarshipRedirect />} />
+                <Route path="/scholarships/me" element={<ScholarshipMe />} />
+                <Route path="/scholarships/celebrate" element={<CelebrationStudio />} />
+                <Route path="/admin/scholarships" element={<AdminScholarships />} />
                 <Route
                     path="/onboarding"
                     element={isLoaded ? (

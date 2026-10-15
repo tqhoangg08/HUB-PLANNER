@@ -7,6 +7,7 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    Award,
     Clock,
     GraduationCap,
     Loader2,
@@ -15,6 +16,7 @@ import {
     Package,
     Search,
     Shield,
+    Trophy,
     Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -277,6 +279,23 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         )}
                     </section>
                 )}
+
+                <Link
+                    to="/scholarships"
+                    onClick={playClick}
+                    className="mx-6 mb-3 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-xs hover:border-gray-300 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0052cc]">
+                            <Award size={20} strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0">
+                            <div className="text-[13px] font-bold text-gray-900 leading-tight">Học bổng sinh viên</div>
+                            <div className="mt-0.5 text-[11px] text-gray-500">Tra cứu danh sách & học bổng cá nhân</div>
+                        </div>
+                    </div>
+                    <ChevronRight size={18} className="text-gray-400 shrink-0" />
+                </Link>
 
                 <h2 className="mb-3 mt-5 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Chức năng nổi bật</h2>
                 <section className="grid grid-cols-4 gap-x-2 gap-y-4 px-6">

@@ -58,7 +58,9 @@
     "cf:test:lost-found:remote": "node scripts/compare-lost-found-backends.mjs --candidate=https://hub-planner-public-dev-api.tqhoangg2.workers.dev",
     "ocr:notifications": "node scripts/ocr_need_review_notifications.js",
     "preview": "vite preview",
-    "test:scholarships": "node --test --experimental-strip-types tests/cloudflare-scholarships.test.ts tests/scholarship-workbook.test.mjs tests/scholarship-d1-runtime.test.mjs"
+    "test:scholarships": "node --test --experimental-strip-types tests/cloudflare-scholarships.test.ts tests/scholarship-workbook.test.mjs tests/scholarship-d1-runtime.test.mjs",
+    "dev:scholarships:local": "node --experimental-strip-types scripts/dev-scholarships-local.mjs",
+    "test:scholarships:frontend": "node --test --experimental-strip-types tests/hub-scholarship-frontend.test.ts tests/dev-api-bridge.test.ts tests/scholarship-hardening.test.ts"
   },
   "dependencies": {
     "@axiomhq/winston": "^1.4.0",

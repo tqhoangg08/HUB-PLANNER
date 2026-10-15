@@ -319,6 +319,12 @@ Handle loading, empty campaign, no-match, duplicate name, null/private scores, e
 Use `/api/me/scholarships` for personal selection only; no student-code override, public “claim this award”, or portrait server upload.
 Do not modify Workers/migrations or initiate deployment. Refresh verified awards before celebration; unpublish can remove eligibility.
 
+Frontend integration v1.1.0 (2026-10-14):
+- Combined list/search uses /scholarships; old routes retain query parameters.
+- Use fullName and individually approved scoreColumns; no inferred names, programs, ranks or cohort.
+- Five independent AND filters use recipients/search and published facets. Legacy awardType is not an alias for scholarshipType or scholarshipRank.
+- Compact header/sidebar, real Better Auth display metadata and synthetic local/browser validation: docs/hub-scholarship-combined-handoff.md.
+
 ## ANTIGRAVITY_READY
 
 See `docs/hub-scholarship-backend-handoff.md` for the final test ledger and readiness verdict.
@@ -360,7 +366,6 @@ Maximum source snapshot remains 2000 rows; options therefore have at most 2000 d
 Frontend should fetch all metadata pages if needed, cancel stale requests, disable controls until metadata is loaded, preserve selected values if the new conjunction has no results, and show zero results rather than clear another condition silently. Reset recipient page on filter changes; preserve unrelated URL parameters. Fetch recipients page-by-page, never load the whole recipient dataset for filtering.
 
 Validation and readiness for this extension are recorded in docs/hub-scholarship-filter-extension.md. Production release remains unverified and requires separate approval.
-
 
 ### Admin client hardening (2026-10-15; no API/schema change)
 
