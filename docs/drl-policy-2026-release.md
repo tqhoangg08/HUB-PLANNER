@@ -1,35 +1,23 @@
-# Kế hoạch kiểm tra và phát hành ĐRL 2026
+# Release và phục hồi — chỉ cập nhật danh mục
 
-Task này dừng ở Draft PR. Không merge, deploy, chạy migration/import remote, ghi D1/R2 production, sửa Auth Worker hoặc thay đổi rollout AI Advisor.
+Phạm vi cuối cùng theo yêu cầu chủ dự án: giữ nguyên logic form/API/AI/cache/candidate của base main. Các migrations phiên bản 0058/0059 trước đó chỉ từng nằm trong Draft PR, chưa chạy production, đã được thay bằng 0058_seed_drl_catalog_2026.sql.
 
-## Migration bổ sung
+## Migration dữ liệu
 
-1. `0058_drl_policy_versions.sql`: thêm metadata phiên bản, context nullable cho event/cache/candidate, indexes và bảng/trigger audit prediction. Không backfill các hàng cũ, không xóa dữ liệu và không thay trạng thái candidate. FK mới của event context tham chiếu metadata quy chế; FK rule cũ giữ nguyên.
-2. `0059_seed_drl_policy_2026.sql`: thêm 46 IDs mới bằng INSERT OR IGNORE, sau đó đối chiếu **mọi trường** và tổng số rules của phiên bản bằng CHECK constraint. ID trùng nhưng khác nội dung/điểm sẽ làm seed thất bại, không ghi đè. Nguồn sinh SQL là `utils/drlPolicy2026.ts`; tái sinh bằng `node --experimental-strip-types scripts/build-drl-policy-seed.mjs`.
-3. Wrangler quản lý ledger cho schema migration có ALTER TABLE; không chạy lại SQL 0058 trực tiếp. Seed 0059 có thể chạy lặp và không thay đổi hàng đã đúng. Không sửa migration 0052 đã phát hành.
+- Dùng schema 0052 hiện có, không thêm bảng/cột/index. Thêm 46 rule IDs mới từ nguồn đã kiểm; catalog API hiện có tự lấy 23 rule active và event suitable.
+- INSERT OR IGNORE cùng kiểm tra toàn bộ giá trị chính thức; ID trùng nội dung/điểm khác làm thất bại migration thay vì ghi đè. Chạy trong transaction migration. Seed lặp không đổi kết quả.
+- Chỉ chuyển active của các rules nguồn cũ từ 1 sang 0 để ngừng hiển thị. Giữ tất cả hàng, ID, nội dung, điểm, source_version, liên kết FK. Không sửa history, corpus, admin/public event, prediction cache hay trạng thái/duyệt candidate.
+- Không chạy importer workbook hiện có vì chứa DELETE. Không tự ánh xạ rule cũ sang rule mới.
 
-`scripts/import-event-drl-history.mjs --apply` đã bị khóa vì đường cũ có DELETE toàn corpus/rules/cache. Dry-run kiểm workbook vẫn dùng được. Cập nhật quy chế không cần import lại workbook; chưa thiết kế hay thực hiện một lần thay corpus mới trong task này.
+## Trước khi phát hành riêng
 
-## Kiểm tra local và phục hồi
+1. Chủ dự án review và duyệt riêng. Task này không merge, deploy hoặc ghi production.
+2. Xuất snapshot danh mục drl_rules (đặc biệt active của từng ID), giữ bản sao ngoài Git; kiểm tra FK và danh sách migration đã áp dụng trên môi trường đích. Không dùng số workbook/local để suy số production.
+3. Kiểm tra trên staging dữ liệu đại diện: sửa event có rule cũ inactive, candidate prediction cũ, cache cũ. Logic baseline có thể từ chối rule inactive khi lưu chỉnh sửa và có thể dùng lại cache không có rule; không bổ sung xử lý mới trong PR này.
+4. Sau khi duyệt, áp dụng migration dữ liệu và frontend trong cửa sổ đã thống nhất. Không thay Worker vì mã runtime giữ nguyên. Kiểm danh mục 23 lựa chọn mới, phụ lục 5 mục/100 điểm, form desktop/mobile và quyền Admin/Auditor.
 
-- `tests/event-drl-policy.test.ts` chạy schema thật trên SQLite với foreign keys bật. Test đối chiếu toàn bộ 2.750 hàng **giả lập**, rule/điểm của hai projection, cache cũ, seed lặp và xung đột ID; không dùng dữ liệu cá nhân hoặc production.
-- `node scripts/test-drl-policy-d1-local.mjs` tạo config/DB local riêng dưới `.cache/drl-d1-<timestamp>`, chỉ có binding D1 giả lập, không Auth/R2/remote. Áp schema nền tối thiểu, nạp fixture giả lập trước migration mới, chạy migration apply hai lần qua ledger, seed lặp và `PRAGMA foreign_key_check`. File log local không được commit.
-- Nguồn chính thức có thể đối chiếu lại bằng `python -X utf8 scripts/verify-drl-policy-source.py <path-to-official-docx>`; script kiểm SHA, 71 hàng phụ lục, quyết định/ngày/năm áp dụng và hai ghi chú, không copy Word vào repo. Renderer Word chưa chạy được vì thiếu LibreOffice; không coi kiểm tra phân trang trực quan là PASS.
+## Phục hồi
 
-## Trước release cần chủ dự án quyết định riêng
+Dừng thao tác quản trị trong cửa sổ phục hồi. Khôi phục active của đúng các rule cũ từ snapshot trước migration; đặt active=0 cho source_version hub-drl-2026-5549-v1. Không bật hàng loạt tất cả rules cũ, không xóa rule mới vì có thể đã được event tham chiếu. Khôi phục frontend trước PR nếu cần. Giữ nguyên toàn bộ sự kiện, lịch sử, cache và candidate. Chuẩn bị migration bù cho ledger nếu cần, không sửa migration đã phát hành.
 
-1. Xác nhận các điểm chưa rõ và phân loại event suitable trong [bảng đối chiếu](drl-policy-2026-crosswalk.md). Không suy diễn cộng dồn/khấu trừ/áp trần; không xây bộ tính điểm sinh viên trong task này.
-2. Đối chiếu trực quan trang 8–10 và bảng chi tiết theo năm học nếu Trường có văn bản hướng dẫn bổ sung. Xác minh quy chế cũ trước khi ghi nhãn chính thức theo năm.
-3. Kiểm tra metadata/ledger và số lượng thực tế ở staging/production trong một phiên được cho phép riêng; không lấy số liệu workbook làm số liệu D1. Xác minh 0058/0059 chưa bị trùng số bởi thay đổi khác trên main.
-4. Tạo snapshot/backup được kiểm tra khả năng phục hồi cho rules, metadata, history, events, cache và candidates trước migration remote. Lưu hash và số hàng theo từng bảng/source_version; hậu kiểm so sánh các hàng lịch sử, observed codes, approvals, điểm và IDs cũ.
-5. Rehearsal schema + seed trên staging từ snapshot phù hợp. Với Worker cũ còn hoạt động, **không áp cả 0058 và 0059 trước khi đổi code**: predictor cũ đọc mọi rule active, có thể trộn hai quy chế. Lập cửa sổ bảo trì cho ĐRL, áp schema 0058 trước, triển khai Worker/frontend hiểu phiên bản, rồi áp seed 0059 và kiểm tra. Trong khoảng chưa seed đủ 46 hàng, code mới từ chối catalog/prediction/chọn rule thay vì phục vụ danh mục thiếu. Kiểm tra cả desktop/mobile, quyền Admin/Auditor, contribution và extension ingest; client cũ cần tải lại. Chỉ thực hiện khi có phê duyệt riêng; không dùng production cho rehearsal và không chạy lệnh apply-all remote theo thói quen.
-6. Xác nhận trạng thái AI Advisor thực tế trước release: base main đã khác snapshot được nêu trong yêu cầu. Task này không kiểm tra hoặc thay traffic/rollout của AI Advisor; các tests trên main có nhắc rollout 100%, không phải bằng chứng trạng thái production.
-
-## Rollback hoặc phục hồi
-
-- Trước khi có ghi mới: giữ schema/rows bổ sung, rollback application chỉ sau khi kiểm khả năng tương thích. Không chạy DROP/DELETE hoặc importer replacement để “undo”.
-- Khi đã có event theo quy chế 2026: ưu tiên forward-fix và giữ backend hiểu phiên bản. Không quay thẳng về predictor trên main cũ vì nó đọc mọi rule active và không biết boundary policy.
-- Nếu cần tạm ngừng nhận ĐRL mới, chủ dự án có thể duyệt một thao tác riêng đặt metadata policy mới inactive và các rules mới inactive. Giữ nguyên IDs, điểm snapshot, cache và audit; UI đọc phụ lục tĩnh và các chỉnh sửa không đổi ĐRL lịch sử vẫn được bảo toàn. Phải kiểm thử thao tác đó trên staging trước khi production.
-- Nếu migration bị ngắt: kiểm ledger và CHECK guard; chạy lại phần seed idempotent sau khi xác định nguyên nhân, không sửa ID trùng để ép thành công. Khôi phục snapshot đã kiểm chứng vào DB staging riêng để so sánh; mọi phục hồi production cần phê duyệt riêng và phải bảo toàn các ghi mới phát sinh.
-
-Kết quả thực chạy và giới hạn được ghi trong `docs/drl-policy-2026-validation.md` khi hoàn tất kiểm thử. Các kế hoạch remote ở trên chưa được thực thi.
+Lệnh D1 local sử dụng --local và config riêng không trỏ production theo [tài liệu Wrangler](https://developers.cloudflare.com/d1/wrangler-commands/). Kết quả thực chạy nằm trong báo cáo kiểm chứng; đây là kế hoạch, chưa có thao tác release nào.

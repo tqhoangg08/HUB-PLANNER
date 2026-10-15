@@ -64,9 +64,6 @@ interface HubEvent {
   registration_start_time: string | null;
   image_url: string | null;
   drl_rule_id?: string | null;
-  drl_snapshot?: { criteria: string | null; points: string | null };
-  drl_policy_version?: string | null;
-  drl_academic_year?: string | null;
   recognition_type?: string | null;
   recognition_note?: string | null;
   view_count?: number;
@@ -150,8 +147,6 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
     );
 };
 
-
-
 const DRAFT_KEY = 'event_form_draft';
 
 const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
@@ -160,13 +155,13 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [formData, setFormData] = useState({
         title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
         registration_start_date: '', registration_start_time: '',
-        category: 'Hoạt động phong trào', criteria: '', points: '', drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
+        category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
     });
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [isDraftLoaded, setIsDraftLoaded] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
-    const { rules, organizers, prediction, catalogState } = useEventDrlAssistant(formData, isOpen);
+    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -202,7 +197,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             setFormData({
                 title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',
                 registration_start_date: '', registration_start_time: '',
-                category: 'Hoạt động phong trào', criteria: '', points: '', drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
+                category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             setIsCustomCategory(false);
             localStorage.removeItem(DRAFT_KEY);
@@ -231,7 +226,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 event_time: formData.event_time ? formData.event_time : null, 
                 registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
                 registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
-                category: formData.category, drl_rule_id: formData.drl_rule_id, drl_policy_version: formData.drl_policy_version, drl_academic_year: formData.drl_academic_year, recognition_type: formData.recognition_type, recognition_note: formData.recognition_note,
+                category: formData.category, drl_rule_id: formData.drl_rule_id, recognition_type: formData.recognition_type, recognition_note: formData.recognition_note,
                 organizer: formData.organizer, link: formData.link, format: formData.format,
                 description: formData.description, location_type: formData.location_type,
                 status: 'pending', is_manually_closed: false 
@@ -383,8 +378,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             )}
                         </div>
 
-                        <EventDrlRulePicker policyVersion={formData.drl_policy_version || undefined} academicYear={formData.drl_academic_year || undefined} onContextChange={(context) => setFormData({ ...formData, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={catalogState} rules={rules} selectedRuleId={formData.drl_rule_id || ''} prediction={prediction}
-                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/>
+                        <EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id || ''} prediction={prediction}
+                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/>
 
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Ban Tổ Chức</label>
@@ -540,9 +535,9 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [isManagementView, setIsManagementView] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [eventEditData, setEventEditData] = useState<any>({});
-  const { rules: editRules, organizers: editOrganizers, prediction: editPrediction, catalogState: editCatalogState } = useEventDrlAssistant({
+  const { rules: editRules, organizers: editOrganizers, prediction: editPrediction } = useEventDrlAssistant({
     title: String(eventEditData.title || ''), organizer: String(eventEditData.organizer || ''),
-    description: String(eventEditData.description || ''), format: String(eventEditData.format || ''), drl_policy_version: eventEditData.drl_policy_version, drl_academic_year: eventEditData.drl_academic_year,
+    description: String(eventEditData.description || ''), format: String(eventEditData.format || ''),
   }, Boolean(editingEvent || Object.keys(eventEditData).length));
   const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
@@ -731,7 +726,6 @@ const canManage = isAdmin || isAuditor || isCTV;
             }
             return {
                 id: row.id.toString(), name: row.title || 'Sự kiện chưa có tên', category: row.criteria || 'Khác',
-                drl_snapshot: { criteria: row.criteria ?? null, points: row.points == null ? null : String(row.points) },
                 score: row.points?.toString() || '0', location: row.format || 'Offline', time: formatDateString(row.deadline),
                 deadlineDate: deadlineDate, deadline_time: row.deadline_time || null, close_on_full: row.close_on_full || false,
                 description: row.description || null, link: row.link || '', organizer: row.organizer || 'HUB',
@@ -741,7 +735,7 @@ const canManage = isAdmin || isAuditor || isCTV;
                 event_date: row.event_date || null, event_time: row.event_time || null,
                 registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
                 image_url: row.image_url || null,
-                drl_rule_id: row.drl_rule_id || null, drl_policy_version: row.drl_policy_version || null, drl_academic_year: row.drl_academic_year || null,
+                drl_rule_id: row.drl_rule_id || null,
                 recognition_type: row.recognition_type || null,
                 recognition_note: row.recognition_note || null,
                 view_count: Number(row.view_count) || 0
@@ -800,7 +794,6 @@ const canManage = isAdmin || isAuditor || isCTV;
                 }
                 return {
                   id: row.id.toString(), name: row.title || 'Sự kiện chưa có tên', category: row.criteria || 'Khác',
-                  drl_snapshot: { criteria: row.criteria ?? null, points: row.points == null ? null : String(row.points) },
                   score: row.points?.toString() || '0', location: row.format || 'Offline', time: formatDateString(row.deadline),
                   deadlineDate, deadline_time: row.deadline_time || null, close_on_full: row.close_on_full || false,
                   description: row.description || null, link: row.link || '', organizer: row.organizer || 'HUB',
@@ -810,7 +803,7 @@ const canManage = isAdmin || isAuditor || isCTV;
                   event_date: row.event_date || null, event_time: row.event_time || null,
                   registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
                   image_url: row.image_url || null,
-                  drl_rule_id: row.drl_rule_id || null, drl_policy_version: row.drl_policy_version || null, drl_academic_year: row.drl_academic_year || null,
+                  drl_rule_id: row.drl_rule_id || null,
                   recognition_type: row.recognition_type || null,
                   recognition_note: row.recognition_note || null,
                   view_count: Number(row.view_count) || 0
@@ -868,9 +861,9 @@ const canManage = isAdmin || isAuditor || isCTV;
       setEventEditData({
           title: evt?.name || '',
           organizer: evt?.organizer || '',
-          criteria: evt?.drl_snapshot ? evt.drl_snapshot.criteria || '' : evt?.category || '',
-          points: evt?.drl_snapshot ? evt.drl_snapshot.points || '' : evt?.score || '',
-          drl_rule_id: evt?.drl_rule_id || '', drl_policy_version: evt?.drl_policy_version || '', drl_academic_year: evt?.drl_academic_year || '',
+          criteria: evt?.category || 'III',
+          points: evt?.score || '5',
+          drl_rule_id: evt?.drl_rule_id || '',
           recognition_type: evt?.recognition_type || 'Không có / Chưa xác định',
           recognition_note: evt?.recognition_note || '',
           category: evt?.type || 'Hoạt động phong trào',
@@ -914,9 +907,9 @@ const canManage = isAdmin || isAuditor || isCTV;
       setEventEditData({
           title: target.name || '',
           organizer: target.organizer || '',
-          criteria: target.drl_snapshot ? target.drl_snapshot.criteria || '' : target.category || '',
-          points: target.drl_snapshot ? target.drl_snapshot.points || '' : target.score || '',
-          drl_rule_id: target.drl_rule_id || '', drl_policy_version: target.drl_policy_version || '', drl_academic_year: target.drl_academic_year || '',
+          criteria: target.category || 'III',
+          points: target.score || '5',
+          drl_rule_id: target.drl_rule_id || '',
           recognition_type: target.recognition_type || 'Không có / Chưa xác định',
           recognition_note: target.recognition_note || '',
           category: target.type || 'Hoạt động phong trào',
@@ -943,7 +936,7 @@ const canManage = isAdmin || isAuditor || isCTV;
               organizer: eventEditData.organizer,
               criteria: eventEditData.criteria,
               points: eventEditData.points,
-              drl_rule_id: eventEditData.drl_rule_id || null, drl_policy_version: eventEditData.drl_policy_version || null, drl_academic_year: eventEditData.drl_academic_year || null,
+              drl_rule_id: eventEditData.drl_rule_id || null,
               recognition_type: eventEditData.recognition_type || 'Không có / Chưa xác định',
               recognition_note: eventEditData.recognition_note || null,
               category: eventEditData.category,
@@ -1405,8 +1398,8 @@ return (
                   <form onSubmit={saveEventEdit} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
                       <input required placeholder="Tên sự kiện" value={eventEditData.title || ''} onChange={e => setEventEditData({...eventEditData, title: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
                       <OrganizerPicker value={eventEditData.organizer || ''} onChange={(value) => setEventEditData({ ...eventEditData, organizer: value })} organizers={editOrganizers}/>
-                      <EventDrlRulePicker policyVersion={eventEditData.drl_policy_version || undefined} academicYear={eventEditData.drl_academic_year || undefined} onContextChange={(context) => setEventEditData({ ...eventEditData, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={editCatalogState} rules={editRules} selectedRuleId={eventEditData.drl_rule_id || ''} prediction={editPrediction}
-                        onSelect={(rule) => setEventEditData({ ...eventEditData, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
+                      <EventDrlRulePicker rules={editRules} selectedRuleId={eventEditData.drl_rule_id || ''} prediction={editPrediction}
+                        onSelect={(rule) => setEventEditData({ ...eventEditData, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
                       <RecognitionFields type={eventEditData.recognition_type || 'Không có / Chưa xác định'} note={eventEditData.recognition_note || ''}
                         onType={(value) => setEventEditData({ ...eventEditData, recognition_type: value })}
                         onNote={(value) => setEventEditData({ ...eventEditData, recognition_note: value })}/>

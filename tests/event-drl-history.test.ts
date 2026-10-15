@@ -41,13 +41,11 @@ test('different observed codes for one title remain separate evidence', () => {
 const predictionFixture = () => {
   const sql = new DatabaseSync(':memory:');
   sql.exec(`CREATE TABLE event_drl_corpus(source_version TEXT,historical_rows INTEGER,status TEXT,imported_at TEXT);
-    CREATE TABLE drl_rules(rule_id TEXT PRIMARY KEY,section TEXT,rule_group TEXT,content TEXT,condition_text TEXT,points INTEGER,unit TEXT,active INTEGER,event_suitable INTEGER,source_version TEXT);
+    CREATE TABLE drl_rules(rule_id TEXT PRIMARY KEY,section TEXT,rule_group TEXT,content TEXT,condition_text TEXT,points INTEGER,unit TEXT,active INTEGER,event_suitable INTEGER);
     CREATE TABLE event_drl_history(id INTEGER PRIMARY KEY,observed_code TEXT,title_clean TEXT,title_normalized TEXT,title_normalized_no_year TEXT,organizer_normalized TEXT,mapped_rule_id TEXT,source_version TEXT);
-    CREATE TABLE event_drl_prediction_cache(fingerprint TEXT PRIMARY KEY,source_version TEXT,rule_id TEXT,observed_code TEXT,confidence REAL,confidence_label TEXT,reason_code TEXT,historical_support_count INTEGER,closest_matches_json TEXT,created_at TEXT,policy_version TEXT,rules_fingerprint TEXT);
-    CREATE TABLE drl_policy_versions(policy_version TEXT PRIMARY KEY,active INTEGER);
-    INSERT INTO drl_policy_versions VALUES('legacy-workbook',1);
+    CREATE TABLE event_drl_prediction_cache(fingerprint TEXT PRIMARY KEY,source_version TEXT,rule_id TEXT,observed_code TEXT,confidence REAL,confidence_label TEXT,reason_code TEXT,historical_support_count INTEGER,closest_matches_json TEXT,created_at TEXT);
     INSERT INTO event_drl_corpus VALUES('fixture',4,'ready','2026-10-06');
-    INSERT INTO drl_rules VALUES('I_RULE','I',NULL,'Official event rule',NULL,5,NULL,1,1,'fixture');`);
+    INSERT INTO drl_rules VALUES('I_RULE','I',NULL,'Official event rule',NULL,5,NULL,1,1);`);
   const DB = { prepare: (query: string) => {
     const statement = sql.prepare(query);
     const bound = (args: unknown[]) => ({
@@ -74,7 +72,7 @@ test('full-corpus AI choice uses official rule points once and caches repeated d
       return { choices: [{ message: { tool_calls: [{ function: { name: 'choose_drl_rule',
         arguments: JSON.stringify({ rule_id: 'I_RULE', confidence: 0.8 }) } }] } }] };
     } };
-    const input = { title: 'Hội nghị học thuật 2026', drl_academic_year: '2025-2026' };
+    const input = { title: 'Hội nghị học thuật 2026' };
     const result = await predictEventDrl({ DB, AI } as never, input);
     assert.equal(result.rule_id, 'I_RULE');
     assert.equal(result.points, 5);

@@ -6,10 +6,6 @@ export interface EventDrlRule {
   condition_text: string | null;
   points: number;
   unit: string | null;
-  policy_version?: string;
-  active?: number;
-  event_suitable?: number;
-  academic_year?: string;
 }
 export interface EventDrlPrediction {
   rule_id: string | null;
@@ -23,18 +19,12 @@ export interface EventDrlPrediction {
   reason_code: string;
   historical_support_count: number;
   closest_matches: string[];
-  policy_version?: string;
-  rules_fingerprint?: string;
-  stale?: boolean;
-  academic_year?: string;
 }
 export interface EventDrlDraft {
   title: string;
   organizer?: string;
   description?: string;
   format?: string;
-  drl_policy_version?: string;
-  drl_academic_year?: string;
 }
 const read = async <T>(response: Response): Promise<T> => {
   if (!response.ok) throw new Error('Gợi ý ĐRL hiện chưa sẵn sàng.');
@@ -55,8 +45,6 @@ export const requestEventDrlPrediction = async (draft: EventDrlDraft, signal?: A
       organizer: draft.organizer || '',
       description: draft.description || '',
       format: draft.format || '',
-      ...(draft.drl_policy_version ? { drl_policy_version: draft.drl_policy_version } : {}),
-      ...(draft.drl_academic_year ? { drl_academic_year: draft.drl_academic_year } : {}),
     }),
   });
   return read<{ success: true; prediction: EventDrlPrediction }>(response);

@@ -11,9 +11,7 @@ import {
   validateAdminEventMutationPayload,
 } from './admin-event-mutations.ts';
 import type { AdminEventsEnv } from './admin-events.ts';
-import { fingerprintEventDrlDraft, predictEventDrl, type EventDrlEnv, type EventDrlPrediction } from './event-drl-prediction.ts';
-import { drlRulesFingerprint, loadDrlPolicyRules } from './event-drl-policy.ts';
-import { CURRENT_DRL_YEAR, DRL_POLICY_VERSION } from '../../../utils/drlPolicy.ts';
+import { predictEventDrl, type EventDrlEnv, type EventDrlPrediction } from './event-drl-prediction.ts';
 import { EventBannerError, readBoundedEventBannerImage } from './event-banner.ts';
 import {
   allowedCandidateImageUrl, candidateImageKey, fetchCandidateImage, imageRightsBasis, isDurableCandidateImage,
@@ -71,10 +69,6 @@ interface StoredCandidate {
 }
 
 interface StoredDrlPrediction {
-  fingerprint: string | null;
-  policy_version: string | null;
-  rules_fingerprint: string | null;
-  stale?: boolean;
   candidate_id: number;
   state: 'pending' | 'completed' | 'failed';
   rule_id: string | null;
@@ -157,7 +151,6 @@ const toApiCandidate = (row: StoredCandidate, drl: StoredDrlPrediction | null = 
     ai_reason: row.ai_reason,
     ai_result: aiResult,
     drl_prediction: drl ? {
-      policy_version: drl.policy_version, rules_fingerprint: drl.rules_fingerprint, stale: Boolean(drl.stale),
       state: drl.state, rule_id: drl.rule_id, confidence: drl.confidence,
       confidence_label: drl.confidence_label, reason_code: drl.reason_code,
       section: drl.section, content: drl.content, condition_text: drl.condition_text, points: drl.points,
@@ -172,37 +165,15 @@ const toApiCandidate = (row: StoredCandidate, drl: StoredDrlPrediction | null = 
   };
 };
 
-const currentRulesFingerprint = async (env: EventCandidatesEnv) => drlRulesFingerprint(await loadDrlPolicyRules(env.DB, DRL_POLICY_VERSION));
-const currentPredictionContext = async (env: EventCandidatesEnv) => {
-  const [rulesFingerprint, corpus] = await Promise.all([currentRulesFingerprint(env),
-    env.DB.prepare("SELECT source_version FROM event_drl_corpus WHERE status='ready' ORDER BY imported_at DESC LIMIT 1").first<{ source_version: string }>()]);
-  return { rulesFingerprint, sourceVersion: corpus?.source_version };
-};
-const isCandidateDrlStale = async (candidate: StoredCandidate, prediction: StoredDrlPrediction,
-  context: Awaited<ReturnType<typeof currentPredictionContext>>) => {
-  if (prediction.policy_version !== DRL_POLICY_VERSION || prediction.rules_fingerprint !== context.rulesFingerprint || !context.sourceVersion) return true;
-  const expected = await fingerprintEventDrlDraft(candidateDrlDraft(candidate), context.sourceVersion,
-    DRL_POLICY_VERSION, CURRENT_DRL_YEAR, context.rulesFingerprint);
-  return prediction.fingerprint !== expected;
-};
-const candidateDrl = async (env: EventCandidatesEnv, id: number) => {
-  const result = await env.DB.prepare(
-  `SELECT p.candidate_id,p.fingerprint,p.state,p.rule_id,p.confidence,p.confidence_label,p.reason_code,p.policy_version,p.rules_fingerprint,
+const candidateDrl = (env: EventCandidatesEnv, id: number) => env.DB.prepare(
+  `SELECT p.candidate_id,p.state,p.rule_id,p.confidence,p.confidence_label,p.reason_code,
     p.historical_support_count,p.closest_matches_json,r.section,r.content,r.condition_text,r.points
-    FROM event_candidate_drl_predictions p LEFT JOIN drl_rules r ON r.rule_id=p.rule_id
+    FROM event_candidate_drl_predictions p LEFT JOIN drl_rules r ON r.rule_id=p.rule_id AND r.active=1
     WHERE p.candidate_id=?`,
 ).bind(id).first<StoredDrlPrediction>();
-  if (result) {
-    const candidate = await candidateById(env, id);
-    result.stale = !candidate || await isCandidateDrlStale(candidate, result, await currentPredictionContext(env));
-  }
-  return result;
-};
 
 type CandidatePredictionStatus = 'pending' | 'completed' | 'failed' | null;
 interface CandidatePredictionState {
-  policy_version: string | null;
-  rules_fingerprint: string | null;
   state: Exclude<CandidatePredictionStatus, null>;
   fingerprint: string | null;
   rule_id: string | null;
@@ -214,7 +185,7 @@ interface CandidatePredictionState {
 
 const PENDING_PREDICTION_STALE_MS = 2 * 60_000;
 const candidatePredictionState = (env: EventCandidatesEnv, id: number) => env.DB.prepare(`
-  SELECT p.state,p.fingerprint,p.rule_id,p.updated_at,p.policy_version,p.rules_fingerprint,
+  SELECT p.state,p.fingerprint,p.rule_id,p.updated_at,
     cache.source_version AS cached_source_version,cache.rule_id AS cached_rule_id,
     r.rule_id AS active_rule_id
   FROM event_candidate_drl_predictions p
@@ -228,16 +199,10 @@ const ensureCandidateDrlPrediction = async (
   defer: (task: Promise<unknown>) => void,
 ): Promise<CandidatePredictionStatus> => {
   const previous = await candidatePredictionState(env, id);
-  const candidate = await candidateById(env, id);
-  if (!candidate || candidate.review_status !== 'pending') return previous?.state || null;
   if (previous?.state === 'completed') {
     const corpus = await env.DB.prepare("SELECT source_version FROM event_drl_corpus WHERE status='ready' ORDER BY imported_at DESC LIMIT 1")
       .first<{ source_version: string }>();
-    const rulesFingerprint = await currentRulesFingerprint(env);
-    const expected = corpus ? await fingerprintEventDrlDraft(candidateDrlDraft(candidate), corpus.source_version,
-      DRL_POLICY_VERSION, CURRENT_DRL_YEAR, rulesFingerprint) : null;
-    if (previous.fingerprint === expected && previous.policy_version === DRL_POLICY_VERSION &&
-        previous.rules_fingerprint === rulesFingerprint && previous.cached_source_version === corpus?.source_version &&
+    if (previous.fingerprint && previous.cached_source_version === corpus?.source_version &&
         previous.cached_rule_id === previous.rule_id &&
         (!previous.rule_id || previous.active_rule_id === previous.rule_id)) return 'completed';
   }
@@ -265,7 +230,9 @@ const ensureCandidateDrlPrediction = async (
   return 'pending';
 };
 
-const candidateDrlDraft = (candidate: StoredCandidate) => {
+const predictCandidateDrl = async (env: EventCandidatesEnv, id: number, claimedAt: string) => {
+  const candidate = await candidateById(env, id);
+  if (!candidate) return;
   let parsed: unknown;
   try { parsed = candidate.ai_result_json ? JSON.parse(candidate.ai_result_json) : null; }
   catch { parsed = null; }
@@ -273,18 +240,13 @@ const candidateDrlDraft = (candidate: StoredCandidate) => {
   const title = typeof classified.title === 'string' && classified.title.trim()
     ? classified.title.trim().slice(0, 300)
     : candidate.raw_content.split(/\r?\n/u).find((line) => line.trim())?.trim().slice(0, 300) || '';
-  return {
+  let prediction: EventDrlPrediction | null = null;
+  try {
+    prediction = await predictEventDrl(env, {
       title, organizer: typeof classified.organizer === 'string' ? classified.organizer : candidate.source_name,
       description: candidate.raw_content.slice(0, 5_000),
       format: typeof classified.format === 'string' ? classified.format : '',
-    };
-};
-const predictCandidateDrl = async (env: EventCandidatesEnv, id: number, claimedAt: string) => {
-  const candidate = await candidateById(env, id);
-  if (!candidate || candidate.review_status !== 'pending') return;
-  let prediction: EventDrlPrediction | null = null;
-  try {
-    prediction = await predictEventDrl(env, candidateDrlDraft(candidate));
+    });
   } catch {
     await env.DB.prepare("UPDATE event_candidate_drl_predictions SET state='failed',updated_at=? WHERE candidate_id=? AND state='pending' AND updated_at=?")
       .bind(new Date().toISOString(), id, claimedAt).run();
@@ -292,12 +254,11 @@ const predictCandidateDrl = async (env: EventCandidatesEnv, id: number, claimedA
   }
   await env.DB.prepare(`UPDATE event_candidate_drl_predictions SET
     fingerprint=?,state='completed',rule_id=?,confidence=?,confidence_label=?,reason_code=?,
-    historical_support_count=?,closest_matches_json=?,updated_at=?,policy_version=?,rules_fingerprint=?
+    historical_support_count=?,closest_matches_json=?,updated_at=?
     WHERE candidate_id=? AND state='pending' AND updated_at=?`)
     .bind(prediction.fingerprint, prediction.rule_id, prediction.confidence,
       prediction.confidence_label, prediction.reason_code, prediction.historical_support_count,
-      JSON.stringify(prediction.closest_matches), new Date().toISOString(), prediction.policy_version || null,
-      prediction.rules_fingerprint || null, id, claimedAt).run();
+      JSON.stringify(prediction.closest_matches), new Date().toISOString(), id, claimedAt).run();
 };
 
 const candidateById = async (env: EventCandidatesEnv, id: number) => {
@@ -758,20 +719,15 @@ export const handleAdminEventCandidates = async (
     // D1 permits at most 100 bound parameters per statement. Staff pages can contain 200 candidates.
     for (let start = 0; start < ids.length; start += 90) {
       const batch = ids.slice(start, start + 90);
-      const predictions = await env.DB.prepare(`SELECT p.candidate_id,p.fingerprint,p.state,p.rule_id,p.confidence,p.confidence_label,
-        p.reason_code,p.historical_support_count,p.closest_matches_json,p.policy_version,p.rules_fingerprint,
+      const predictions = await env.DB.prepare(`SELECT p.candidate_id,p.state,p.rule_id,p.confidence,p.confidence_label,
+        p.reason_code,p.historical_support_count,p.closest_matches_json,
         r.section,r.content,r.condition_text,r.points
-        FROM event_candidate_drl_predictions p LEFT JOIN drl_rules r ON r.rule_id=p.rule_id
+        FROM event_candidate_drl_predictions p LEFT JOIN drl_rules r ON r.rule_id=p.rule_id AND r.active=1
         WHERE p.candidate_id IN (${batch.map(() => '?').join(',')})`)
         .bind(...batch).all<StoredDrlPrediction>();
       for (const item of predictions.results || []) byId.set(item.candidate_id, item);
     }
-    const context = await currentPredictionContext(env);
-    return { success: true, candidates: await Promise.all((rows.results || []).map(async (row) => {
-      const prediction = byId.get(row.id);
-      if (prediction) prediction.stale = await isCandidateDrlStale(row, prediction, context);
-      return toApiCandidate(row, prediction || null);
-    })) };
+    return { success: true, candidates: (rows.results || []).map((row) => toApiCandidate(row, byId.get(row.id) || null)) };
   }
   if (request.method !== 'POST') throw new EventCandidateError(405, 'Phương thức không được hỗ trợ.');
   const body = await readBody(request);
@@ -785,7 +741,6 @@ export const handleAdminEventCandidates = async (
     await requireCapability(request, env, 'analyze');
     const candidate = await candidateById(env, id);
     if (!candidate) throw new EventCandidateError(404, 'Không tìm thấy candidate.');
-    if (candidate.review_status !== 'pending') throw new EventCandidateError(409, 'Giữ nguyên prediction của candidate đã duyệt.');
     const claimedAt = new Date().toISOString();
     await env.DB.prepare(`INSERT INTO event_candidate_drl_predictions(candidate_id,state,updated_at)
       VALUES (?,'pending',?) ON CONFLICT(candidate_id) DO UPDATE SET state='pending',updated_at=excluded.updated_at`)

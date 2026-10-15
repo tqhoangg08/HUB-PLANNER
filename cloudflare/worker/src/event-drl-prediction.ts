@@ -1,6 +1,4 @@
 /** Private full-corpus DRL recommendation. An observed historical code is never a rule ID. */
-import { drlRulesFingerprint, loadDrlPolicyRules, resolveDrlContext } from './event-drl-policy.ts';
-import { DRL_POLICY_VERSION, isOnlineMiniGame } from '../../../utils/drlPolicy.ts';
 export interface EventDrlEnv {
   DB: D1Database;
   AI?: Ai;
@@ -24,8 +22,7 @@ export interface EventDrlRule {
   points: number;
   unit: string | null;
 }
-export interface EventDrlDraft { title: string; organizer?: string; description?: string; format?: string;
-  drl_policy_version?: string; drl_academic_year?: string; }
+export interface EventDrlDraft { title: string; organizer?: string; description?: string; format?: string; }
 export interface EventDrlPrediction {
   rule_id: string | null;
   observed_code: string | null;
@@ -40,9 +37,6 @@ export interface EventDrlPrediction {
   closest_matches: string[];
   fingerprint: string;
   source_version: string;
-  policy_version?: string;
-  rules_fingerprint?: string;
-  academic_year?: string;
 }
 interface ScoredMatch { row: HistoryRow; score: number; }
 const MODEL = '@cf/zai-org/glm-4.7-flash';
@@ -80,8 +74,6 @@ const safeDraft = (draft: EventDrlDraft): EventDrlDraft => ({
   organizer: String(draft.organizer || '').trim().slice(0, 300),
   description: String(draft.description || '').trim().slice(0, 5_000),
   format: String(draft.format || '').trim().slice(0, 80),
-  drl_policy_version: draft.drl_policy_version,
-  drl_academic_year: draft.drl_academic_year,
 });
 const digest = async (input: string) => {
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
@@ -191,46 +183,38 @@ const aiChoice = async (env: EventDrlEnv, draft: EventDrlDraft, matches: ScoredM
   return parseAiChoice(output);
 };
 
-export const fingerprintEventDrlDraft = async (draft: EventDrlDraft, sourceVersion: string,
-  policyVersion: string, academicYear: string, rulesFingerprint: string) => digest(JSON.stringify({
-  algorithm: 'policy-boundary-v1', policyVersion, academicYear, rulesFingerprint,
-  v: sourceVersion, title: normalizeEventDrlText(draft.title),
-  organizer: normalizeEventDrlText(draft.organizer || ''),
-  description: normalizeEventDrlText(draft.description || ''), format: normalizeEventDrlText(draft.format || ''),
-}));
-
 export const predictEventDrl = async (env: EventDrlEnv, input: EventDrlDraft): Promise<EventDrlPrediction> => {
   const draft = safeDraft(input);
-  const { policyVersion, academicYear } = resolveDrlContext(draft);
-  const policyRules = await loadDrlPolicyRules(env.DB, policyVersion);
-  const rulesFingerprint = await drlRulesFingerprint(policyRules);
-  const eligibleRules = policyRules.filter((rule) => rule.active === 1 && rule.event_suitable === 1 && Number.isSafeInteger(rule.points));
   if (!draft.title || new TextEncoder().encode(JSON.stringify(draft)).byteLength > MAX_INPUT_BYTES) {
     throw new Error('INVALID_EVENT_DRL_DRAFT');
   }
   const metadata = await env.DB.prepare("SELECT source_version FROM event_drl_corpus WHERE status='ready' ORDER BY imported_at DESC LIMIT 1")
     .first<{ source_version: string }>();
   if (!metadata) throw new Error('EVENT_DRL_CORPUS_NOT_READY');
-  const fingerprint = await fingerprintEventDrlDraft(draft, metadata.source_version, policyVersion, academicYear, rulesFingerprint);
-  const cached = await env.DB.prepare('SELECT * FROM event_drl_prediction_cache WHERE fingerprint=? AND source_version=? AND policy_version=? AND rules_fingerprint=?')
-    .bind(fingerprint, metadata.source_version, policyVersion, rulesFingerprint).first<{ rule_id: string | null; observed_code: string | null; confidence: number;
+  const fingerprint = await digest(JSON.stringify({
+    v: metadata.source_version, title: normalizeEventDrlText(draft.title),
+    organizer: normalizeEventDrlText(draft.organizer || ''),
+    description: normalizeEventDrlText(draft.description || ''), format: normalizeEventDrlText(draft.format || ''),
+  }));
+  const cached = await env.DB.prepare('SELECT * FROM event_drl_prediction_cache WHERE fingerprint=? AND source_version=?')
+    .bind(fingerprint, metadata.source_version).first<{ rule_id: string | null; observed_code: string | null; confidence: number;
       confidence_label: EventDrlPrediction['confidence_label']; reason_code: EventDrlPrediction['reason_code'];
       historical_support_count: number; closest_matches_json: string; }>();
   if (cached) {
-    const rule = eligibleRules.find((entry) => entry.rule_id === cached.rule_id) || null;
+    const rule = cached.rule_id ? await env.DB.prepare('SELECT rule_id,section,rule_group,content,condition_text,points,unit FROM drl_rules WHERE rule_id=? AND active=1')
+      .bind(cached.rule_id).first<EventDrlRule>() : null;
     if (!cached.rule_id || rule) return {
       ...response(rule, cached.observed_code, fingerprint, metadata.source_version, [], cached.confidence,
         cached.confidence_label, cached.reason_code),
       historical_support_count: cached.historical_support_count,
       closest_matches: JSON.parse(cached.closest_matches_json) as string[],
-      policy_version: policyVersion, rules_fingerprint: rulesFingerprint,
-      academic_year: academicYear,
     };
   }
   const [historyResult, rulesResult] = await Promise.all([
     env.DB.prepare('SELECT id,observed_code,title_clean,title_normalized,title_normalized_no_year,organizer_normalized,mapped_rule_id FROM event_drl_history WHERE source_version=? ORDER BY id')
       .bind(metadata.source_version).all<HistoryRow>(),
-    Promise.resolve({ results: eligibleRules }),
+    env.DB.prepare('SELECT rule_id,section,rule_group,content,condition_text,points,unit FROM drl_rules WHERE active=1 AND event_suitable=1 AND points IS NOT NULL')
+      .all<EventDrlRule>(),
   ]);
   const history = historyResult.results || [], rules = rulesResult.results || [];
   if (!history.length || !rules.length) throw new Error('EVENT_DRL_CORPUS_EMPTY');
@@ -246,27 +230,26 @@ export const predictEventDrl = async (env: EventDrlEnv, input: EventDrlDraft): P
     rule = rules.find((candidate) => candidate.rule_id === [...top.mappedRules.keys()][0]) || null;
     if (rule) { confidence = 0.95; label = 'high'; reason = matches[0].score === 1 ? 'exact_consensus' : 'recurring_consensus'; }
   }
-  // Legacy corpus is reference evidence only. No unreviewed cross-policy mapping by the model.
-  // The new policy needs explicitly reviewed mappings to a new immutable rule ID.
-  if (!rule && policyVersion !== DRL_POLICY_VERSION && (matches[0]?.score || 0) >= 0.55) {
+  if (!rule && (matches[0]?.score || 0) >= 0.55) {
     const choice = await aiChoice(env, draft, matches, groups, rules);
     rule = choice ? rules.find((candidate) => candidate.rule_id === choice.rule_id) || null : null;
+    if (rule && top && rule.section !== top.observed_code.split('.')[0]) rule = null;
     if (rule && choice) {
       confidence = Math.min(choice.confidence, matches[0].score, 0.85);
       label = confidence >= 0.65 ? 'medium' : 'low';
       reason = 'historical_ai';
     }
   }
-  if (isOnlineMiniGame(draft)) { rule = null; confidence = 0; label = 'low'; reason = 'insufficient_evidence'; }
   const result = response(rule, top?.observed_code || null, fingerprint, metadata.source_version,
     strong, confidence, label, reason);
-  result.policy_version = policyVersion;
-  result.rules_fingerprint = rulesFingerprint;
-  result.academic_year = academicYear;
   await env.DB.prepare(`INSERT INTO event_drl_prediction_cache
-    (fingerprint,source_version,rule_id,observed_code,confidence,confidence_label,reason_code,historical_support_count,closest_matches_json,created_at,policy_version,rules_fingerprint)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(fingerprint) DO NOTHING`)
+    (fingerprint,source_version,rule_id,observed_code,confidence,confidence_label,reason_code,historical_support_count,closest_matches_json,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(fingerprint) DO UPDATE SET
+    source_version=excluded.source_version,rule_id=excluded.rule_id,observed_code=excluded.observed_code,confidence=excluded.confidence,
+    confidence_label=excluded.confidence_label,reason_code=excluded.reason_code,
+    historical_support_count=excluded.historical_support_count,closest_matches_json=excluded.closest_matches_json,
+    created_at=excluded.created_at`)
     .bind(fingerprint, metadata.source_version, rule?.rule_id || null, top?.observed_code || null, confidence, label, reason,
-      strong.length, JSON.stringify(result.closest_matches), new Date().toISOString(), policyVersion, rulesFingerprint).run();
+      strong.length, JSON.stringify(result.closest_matches), new Date().toISOString()).run();
   return result;
 };

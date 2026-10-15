@@ -71,9 +71,6 @@ interface HubEvent {
   registration_start_time: string | null;
   image_url: string | null;
   drl_rule_id?: string | null;
-  drl_snapshot?: { criteria: string | null; points: string | null };
-  drl_policy_version?: string | null;
-  drl_academic_year?: string | null;
   recognition_type?: string | null;
   recognition_note?: string | null;
   view_count?: number;
@@ -181,8 +178,6 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
     );
 };
 
-
-
 const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     const [formData, setFormData] = useState({
         title: '',
@@ -194,9 +189,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         registration_start_date: '',
         registration_start_time: '',
         category: 'Hoạt động phong trào',
-        criteria: '',
-        points: '',
-        drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
+        criteria: 'III',
+        points: '5',
+        drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
         organizer: '',
         link: '',
         image_url: '',
@@ -207,7 +202,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [submitting, setSubmitting] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [isCustomCategory, setIsCustomCategory] = useState(false);
-    const { rules, organizers, prediction, catalogState } = useEventDrlAssistant(formData, isOpen);
+    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
 
     if (!isOpen) return null;
 
@@ -238,7 +233,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
                 registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
                 category: formData.category, 
-                drl_rule_id: formData.drl_rule_id, drl_policy_version: formData.drl_policy_version, drl_academic_year: formData.drl_academic_year,
+                drl_rule_id: formData.drl_rule_id,
                 recognition_type: formData.recognition_type,
                 recognition_note: formData.recognition_note,
                 organizer: formData.organizer,
@@ -261,7 +256,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
             
             setFormData({
-                title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', registration_start_date: '', registration_start_time: '', category: 'Hoạt động phong trào', criteria: '', points: '', drl_rule_id: '', drl_policy_version: '', drl_academic_year: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
+                title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', registration_start_date: '', registration_start_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5', drl_rule_id: '', recognition_type: 'Không có / Chưa xác định', recognition_note: '',
                 organizer: '', link: '', image_url: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             onClose();
@@ -418,8 +413,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="col-span-2"><EventDrlRulePicker policyVersion={formData.drl_policy_version || undefined} academicYear={formData.drl_academic_year || undefined} onContextChange={(context) => setFormData({ ...formData, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={catalogState} rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
-                                onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
+                            <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
+                                onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                             <div className="col-span-1">
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
                                 <select 
@@ -511,9 +506,9 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         registration_start_date: editingEvent?.registration_start_date || '',
         registration_start_time: formatTimeString(editingEvent?.registration_start_time ?? null) || '',
         category: editingEvent?.type || 'Hoạt động phong trào',
-        criteria: editingEvent?.drl_snapshot ? editingEvent.drl_snapshot.criteria || '' : editingEvent?.category || '',
-        points: editingEvent?.drl_snapshot ? editingEvent.drl_snapshot.points || '' : editingEvent?.score || '',
-        drl_rule_id: editingEvent?.drl_rule_id || '', drl_policy_version: editingEvent?.drl_policy_version || '', drl_academic_year: editingEvent?.drl_academic_year || '', recognition_type: editingEvent?.recognition_type || 'Không có / Chưa xác định', recognition_note: editingEvent?.recognition_note || '',
+        criteria: editingEvent?.category || 'III',
+        points: editingEvent?.score || '5',
+        drl_rule_id: editingEvent?.drl_rule_id || '', recognition_type: editingEvent?.recognition_type || 'Không có / Chưa xác định', recognition_note: editingEvent?.recognition_note || '',
         organizer: editingEvent?.organizer || '',
         link: editingEvent?.link || '',
         image_url: editingEvent?.image_url || '',
@@ -528,7 +523,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
     const [isCustomCategory, setIsCustomCategory] = useState(
         editingEvent?.type ? !predefinedCategories.includes(editingEvent.type) : false
     );
-    const { rules, organizers, prediction, catalogState } = useEventDrlAssistant(formData, isOpen);
+    const { rules, organizers, prediction } = useEventDrlAssistant(formData, isOpen);
 
     if (!isOpen) return null;
 
@@ -661,8 +656,8 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="col-span-2"><EventDrlRulePicker policyVersion={formData.drl_policy_version || undefined} academicYear={formData.drl_academic_year || undefined} onContextChange={(context) => setFormData({ ...formData, drl_rule_id: '', criteria: '', points: '', ...context })} catalogState={catalogState} rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
-                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', drl_policy_version: rule?.policy_version || '', drl_academic_year: rule?.academic_year || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
+                        <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
+                            onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                         <div className="col-span-1">
                             <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
@@ -1069,7 +1064,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                 id: row.id.toString(),
                 name: row.title || 'Sự kiện chưa có tên',
                 category: row.criteria || 'Khác',
-                drl_snapshot: { criteria: row.criteria ?? null, points: row.points == null ? null : String(row.points) },
                 score: row.points?.toString() || '0',
                 location: row.format || 'Online',
                 time: formatDateString(row.deadline),
@@ -1091,7 +1085,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                 registration_start_date: row.registration_start_date || null,
                 registration_start_time: row.registration_start_time || null,
                 image_url: row.image_url || null,
-                drl_rule_id: row.drl_rule_id || null, drl_policy_version: row.drl_policy_version || null, drl_academic_year: row.drl_academic_year || null,
+                drl_rule_id: row.drl_rule_id || null,
                 recognition_type: row.recognition_type || null,
                 recognition_note: row.recognition_note || null,
                 view_count: Number(row.view_count) || 0
@@ -1103,7 +1097,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         return;
       }
 
-      const eventColumns = 'id,title,criteria,points,drl_rule_id,drl_policy_version,drl_academic_year,recognition_type,recognition_note,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
+      const eventColumns = 'id,title,criteria,points,drl_rule_id,recognition_type,recognition_note,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
       let fetchedData: any[] | null = null;
       const mirrorReady =
         !options.bypassCache || (await syncAdminEventMirror());
@@ -1145,7 +1139,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                   id: row.id.toString(),
                   name: row.title || 'Sự kiện chưa có tên',
                   category: row.criteria || 'Khác',
-                  drl_snapshot: { criteria: row.criteria ?? null, points: row.points == null ? null : String(row.points) },
                   score: row.points?.toString() || '0',
                   location: row.format || 'Online',
                   time: formatDateString(row.deadline),
@@ -1167,7 +1160,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                   registration_start_date: row.registration_start_date || null,
                   registration_start_time: row.registration_start_time || null,
                   image_url: row.image_url || null,
-                  drl_rule_id: row.drl_rule_id || null, drl_policy_version: row.drl_policy_version || null, drl_academic_year: row.drl_academic_year || null,
+                  drl_rule_id: row.drl_rule_id || null,
                   recognition_type: row.recognition_type || null,
                   recognition_note: row.recognition_note || null,
                   view_count: Number(row.view_count) || 0

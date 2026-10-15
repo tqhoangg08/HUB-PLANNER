@@ -15,13 +15,14 @@ Base đã fetch và đối chiếu `git ls-remote origin refs/heads/main`: `0194
 
 Các file bắt buộc đã đọc: EventsBoard, MobileEvents, EventDrlAssistant, AdminEventEditorPage, AdminEventCandidates, utils/eventDrlApi; worker event-drl-api, event-drl-prediction, event-candidates, admin-event-mutations, admin-events, events; migration 0052, scripts/event-drl-workbook và import-event-drl-history. Đã tìm thêm tham chiếu trong user-submissions, adminEventForm, eventsApi, EventDetailView, event-filters, eventFilters và tests liên quan.
 
-## Kiến trúc triển khai
+## Phạm vi cuối cùng theo yêu cầu chủ dự án
 
-- Mã `hub-drl-2026-5549-v1` ổn định; 46 rule IDs mới có prefix phiên bản và hàng nguồn, không thay thế ID cũ. `drl_policy_versions` giữ quyết định/ngày/năm học/SHA nguồn/trạng thái active. `source_version` rule mới là policy ID; corpus vẫn giữ hash nguồn lịch sử độc lập. Các rules nguồn workbook không khớp metadata chính thức thuộc bucket `legacy-workbook`, ghi rõ chưa xác minh nguồn quy chế.
-- `active` và `event_suitable` độc lập: toàn bộ 46 tiêu chí mới active để tra cứu; 23 phù hợp picker, còn lại chỉ trong phụ lục. Điểm nền, học lực, đề tài/bài viết/bài báo, trường hợp khuyết tật, chức vụ/thành viên/cộng tác viên không là điểm event. Thành tích/chứng chỉ cần duyệt điều kiện công nhận.
-- Context event gồm policy và năm học, không tự suy từ ngày tạo/ngày diễn ra. Mặc định event mới 2026–2027; legacy chỉ được chọn cho năm học trước 2026. Event cũ giữ context NULL, không backfill hoặc âm thầm chuyển rule/điểm.
-- Server kiểm rule thuộc policy, active, event_suitable, điểm chính thức; không tin điểm hoặc rule từ AI phân loại/extension. Chỉnh sửa snapshot cũ không đổi DRL được giữ nguyên dù rule đã inactive hoặc không có trong catalog.
-- Fingerprint gồm revision thuật toán, corpus SHA, policy, năm học, hash toàn danh mục rules và draft. Cache cũ giữ nguyên. Candidate stale có nhãn; retry chỉ candidate pending và lưu snapshot trước update. Đã duyệt không đổi prediction/approval.
-- Lịch sử giữ nguyên để exact/recurring/similar retrieval. Với 2026 chưa có mapping được duyệt sang rule mới, AI abstain; không tự ánh xạ từ observed code hoặc điểm/mục cũ. Gợi ý phải được con người chọn áp dụng.
+Giữ nguyên logic trước PR, chỉ cập nhật các mục ĐRL. Các nhận xét về hạn chế trong audit ở trên là ghi nhận baseline, không phải cam kết sửa trong phạm vi cuối cùng.
 
-Xem [đối chiếu toàn bộ phụ lục](drl-policy-2026-crosswalk.md) và [kế hoạch migration](drl-policy-2026-release.md). Không có tệp Word, workbook, tên sinh viên hoặc secrets trong commit.
+- Toàn bộ Worker/API, prediction, cache, candidate review/ingest, form/picker, payload và EventDetailView giống base main đã kiểm chứng. Không thêm bộ chọn phiên bản, năm học, tìm kiếm, context, ràng buộc năm học, cache fingerprint mới hoặc audit snapshot.
+- Desktop/mobile dùng chung phụ lục theo Word; nội dung nguồn, 46 tiêu chí, giới hạn điểm và ghi chú được giữ. Không có bộ chọn tra cứu hay hai đoạn diễn giải đã được yêu cầu bỏ.
+- Một migration dữ liệu 0058 dùng đúng schema drl_rules hiện có: thêm 46 IDs mới, giữ 23 tiêu chí phù hợp với event, ngừng đưa danh mục cũ vào lựa chọn bằng active=0. Không sửa nội dung/điểm/ID/source_version của rule cũ, không tạo bảng/cột mới, không chuyển đổi lịch sử/candidate/cache.
+- Các trường hợp chỉnh sửa event cũ có rule inactive và prediction cache vẫn theo cách xử lý baseline. Không tuyên bố có lớp bảo vệ phiên bản hoặc invalidation mới. Cần kiểm tra ảnh hưởng trên staging trước release.
+- Importer lịch sử được giữ nguyên như base, không sử dụng cho cập nhật danh mục vì có DELETE. Không chạy import/migration production.
+
+Xem [đối chiếu nguồn](drl-policy-2026-crosswalk.md), [release/rollback](drl-policy-2026-release.md) và [kiểm chứng cuối cùng](drl-policy-2026-validation.md).

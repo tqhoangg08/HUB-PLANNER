@@ -34,12 +34,12 @@ for (const width of [1440,390]) test(`full appendix and keyboard dialog at ${wid
     assert.equal(await dialog.count(),0);
     assert.equal(await page.getByRole('button',{name:'Mở phụ lục'}).evaluate((node) => node === document.activeElement),true);
     assert.equal(await page.getByLabel('Dữ liệu đã chọn').textContent(),snapshot);
-    await page.getByLabel('Phiên bản quy chế').selectOption('hub-drl-2026-5549-v1');
-    await page.getByLabel('Tìm tiêu chí, vai trò, cấp tổ chức').fill('Ban tổ chức');
+    assert.equal(await page.getByLabel('Phiên bản quy chế').count(),0);
+    assert.equal(await page.getByLabel('Năm học áp dụng').count(),0);
+    assert.equal(await page.getByLabel('Tìm tiêu chí, vai trò, cấp tổ chức').count(),0);
     await page.getByRole('combobox',{name:'Quy tắc ĐRL chính thức',exact:true}).selectOption('hub-drl-2026-5549-v1:III:34');
     const chosen = JSON.parse(await page.getByLabel('Dữ liệu đã chọn').textContent());
-    assert.equal(chosen.points,'5'); assert.equal(chosen.drl_academic_year,'2026-2027');
-    await page.getByLabel('Năm học áp dụng').fill('2025-2026');
-    assert.equal(await page.getByRole('combobox',{name:'Quy tắc ĐRL chính thức',exact:true}).isDisabled(),true);
+    assert.equal(chosen.points,'5'); assert.equal(chosen.criteria,'III');
+    await page.screenshot({path:`.cache/drl-ui/picker-${width}.png`});
   } finally { await page.close(); }
 });

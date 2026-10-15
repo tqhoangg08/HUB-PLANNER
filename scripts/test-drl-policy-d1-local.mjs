@@ -10,7 +10,7 @@ const directory = path.join(root, '.cache', `drl-d1-${Date.now()}`);
 const migrations = path.join(directory, 'migrations');
 await mkdir(migrations, { recursive: true });
 for (const name of ['0006_create_public_events.sql','0008_create_admin_events.sql',
-  '0027_create_event_candidates.sql','0052_event_drl_history.sql','0058_drl_policy_versions.sql','0059_seed_drl_policy_2026.sql']) {
+  '0027_create_event_candidates.sql','0052_event_drl_history.sql','0058_seed_drl_catalog_2026.sql']) {
   await writeFile(path.join(migrations, name), await readFile(path.join(root, 'cloudflare/migrations', name)));
 }
 await writeFile(path.join(migrations, '0057_synthetic_legacy_fixture.sql'), `
@@ -41,7 +41,7 @@ try {
   run(['migrations','apply','drl-policy-local']);
   const repeated = run(['migrations','apply','drl-policy-local']);
   assert.match(repeated,/No migrations to apply/i);
-  run(['execute','drl-policy-local','--file',path.join(migrations,'0059_seed_drl_policy_2026.sql')]);
+  run(['execute','drl-policy-local','--file',path.join(migrations,'0058_seed_drl_catalog_2026.sql')]);
   const output = run(['execute','drl-policy-local','--json','--command', `SELECT
     (SELECT COUNT(*) FROM event_drl_history) AS history_rows,
     (SELECT COUNT(*) FROM drl_rules WHERE source_version='hub-drl-2026-5549-v1') AS new_rules,

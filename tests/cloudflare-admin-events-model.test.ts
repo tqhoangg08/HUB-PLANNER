@@ -195,7 +195,6 @@ const d1Fixture = () => {
     '0048_event_view_count.sql',
     '0027_create_event_candidates.sql',
     '0052_event_drl_history.sql',
-    '0058_drl_policy_versions.sql', '0059_seed_drl_policy_2026.sql',
   ]) sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
 
   const prepare = (query: string) => {
@@ -244,18 +243,18 @@ test('ready DRL corpus derives official points and rejects arbitrary or unknown 
     sql.prepare(`INSERT INTO drl_rules(rule_id,section,content,points,event_suitable,active,source_version)
       VALUES ('I_NOT_EVENT','I','Not for events',7,0,1,'fixture')`).run();
     assert.deepEqual(await resolveAdminEventDrlRule({ DB } as never, 'create',
-      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST', drl_academic_year: '2025-2026' }),
-    { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST', drl_academic_year: '2025-2026', criteria: 'I', points: '5', drl_policy_version: 'legacy-workbook' });
+      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST' }),
+    { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST', criteria: 'I', points: '5' });
     await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
-      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST', drl_academic_year: '2025-2026', points: '7' }), AdminEventMutationError);
+      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_TEST', points: '7' }), AdminEventMutationError);
     await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
       { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'INVENTED' }), AdminEventMutationError);
     await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
-      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_NOT_EVENT', drl_academic_year: '2025-2026' }), AdminEventMutationError);
+      { title: 'Event', status: 'Sắp diễn ra', drl_rule_id: 'I_NOT_EVENT' }), AdminEventMutationError);
     await assert.rejects(() => resolveAdminEventDrlRule({ DB } as never, 'create',
       { title: 'Event', status: 'Sắp diễn ra', criteria: 'III', points: '9' }), AdminEventMutationError);
     assert.deepEqual(await resolveAdminEventDrlRule({ DB } as never, 'create',
-      { title: 'Draft', status: 'pending' }), { title: 'Draft', status: 'pending', drl_policy_version: 'hub-drl-2026-5549-v1', drl_academic_year: '2026-2027' });
+      { title: 'Draft', status: 'pending' }), { title: 'Draft', status: 'pending' });
   } finally { sql.close(); }
 });
 
@@ -283,7 +282,7 @@ test('D1 core event create/replay/publish/edit/hide/unhide/delete projection is 
     assert.equal(replay.data[0].id, eventId);
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM admin_events').get()?.n, 1);
 
-    await mutateAdminEvent({ DB }, 'update', { status: 'published', drl_rule_id: 'hub-drl-2026-5549-v1:III:34' }, eventId);
+    await mutateAdminEvent({ DB }, 'update', { status: 'published' }, eventId);
     assert.equal(sql.prepare('SELECT title FROM public_events WHERE id = ?').get(eventId)?.title, 'Sự kiện D1');
     assert.equal(sql.prepare('SELECT view_count FROM public_events WHERE id = ?').get(eventId)?.view_count, 1);
     assert.equal(await incrementPublicEventView({ DB }, eventId), 2);
@@ -314,7 +313,7 @@ test('event banner survives publish and unrelated edit, and explicit replacement
     assert.equal(sql.prepare('SELECT image_url FROM admin_events WHERE id=?').get(eventId)?.image_url, originalBanner);
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM public_events WHERE id=?').get(eventId)?.n, 0);
 
-    await mutateAdminEvent({ DB }, 'update', { status: 'published', drl_rule_id: 'hub-drl-2026-5549-v1:III:34' }, eventId);
+    await mutateAdminEvent({ DB }, 'update', { status: 'published' }, eventId);
     assert.equal(sql.prepare('SELECT image_url FROM public_events WHERE id=?').get(eventId)?.image_url, originalBanner);
     await mutateAdminEvent({ DB }, 'update', { title: 'Banner fixture edited' }, eventId);
     assert.equal(sql.prepare('SELECT image_url FROM admin_events WHERE id=?').get(eventId)?.image_url, originalBanner);

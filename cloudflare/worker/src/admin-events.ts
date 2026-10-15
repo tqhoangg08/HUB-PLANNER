@@ -15,8 +15,6 @@ export interface CoreAdminEventRow {
   criteria: string | null;
   points: string | null;
   drl_rule_id?: string | null;
-  drl_policy_version?: string | null;
-  drl_academic_year?: string | null;
   recognition_type?: string | null;
   recognition_note?: string | null;
   format: string | null;
@@ -74,8 +72,6 @@ export const ADMIN_EVENT_SOURCE_COLUMNS = [
   'criteria',
   'points',
   'drl_rule_id',
-  'drl_policy_version',
-  'drl_academic_year',
   'recognition_type',
   'recognition_note',
   'format',
@@ -110,8 +106,6 @@ const ADMIN_EVENT_RESPONSE_COLUMNS = [
   'criteria',
   'points',
   'drl_rule_id',
-  'drl_policy_version',
-  'drl_academic_year',
   'recognition_type',
   'recognition_note',
   'format',

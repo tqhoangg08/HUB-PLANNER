@@ -85,7 +85,7 @@ Nguồn: tệp Word do chủ dự án cung cấp; SHA-256 `349c6d508db3271c6c105
 
 ## Quyết định kỹ thuật
 
-- Rule IDs gồm phiên bản, mục và số hàng nguồn; không tái sử dụng ID cũ. `source_version` của rule mới là mã quy chế; SHA nguồn nằm ở bảng metadata riêng. `source_version` của corpus vẫn là hash workbook.
+- Rule IDs gồm phiên bản, mục và số hàng nguồn; không tái sử dụng ID cũ. `source_version` của rule mới là mã quy chế; SHA nguồn nằm trong tệp dữ liệu và script kiểm chứng; không thêm bảng metadata. `source_version` của corpus vẫn là hash workbook.
 - Không đưa điểm nền chấp hành, học lực, đề tài/bài viết/bài báo, khuyết tật, chức vụ, thành viên CLB hoặc cộng tác viên vào picker sự kiện. Các thành tích/chứng chỉ chỉ được gắn với điều kiện công nhận và duyệt thủ công.
 - Điểm không có `/lần` hoặc `/hoạt động` được giữ dạng điểm cố định; không suy diễn là điểm mỗi lần. Mục V không tự thêm nhóm điểm trừ không có trong phụ lục.
 
@@ -94,6 +94,6 @@ Nguồn: tệp Word do chủ dự án cung cấp; SHA-256 `349c6d508db3271c6c105
 1. Phạm vi “các hoạt động khác” ở III và IV; căn cứ phân biệt trường hợp chồng lấn. AI không tự suy ra mục từ observed code cũ.
 2. Bảng chi tiết theo năm học do Trung tâm SV&QHDN ban hành (Điều 12): có hướng dẫn bổ sung về cộng dồn, cấp cao nhất, khấu trừ, áp trần hay không. Chưa xây bộ tính tổng tự động.
 3. Nguồn quy chế cũ và thời hạn chính xác: dữ liệu workbook cũ chỉ được ghi nhãn lịch sử chưa xác minh, không tuyên bố là quy chế chính thức theo năm.
-4. Ranh giới học kỳ/năm học của sự kiện kéo dài qua hai năm; chọn năm học rõ ràng thay vì suy ra từ ngày tạo/ngày tổ chức.
+4. Logic trước PR không có ranh giới năm học. Theo yêu cầu cuối cùng, không thêm trường hay luồng chọn năm học; danh mục mới sẽ thay danh mục đang hiển thị khi migration được duyệt và áp dụng.
 5. Chấp thuận phân loại event suitable cho các tiêu chí thành tích/chứng chỉ và quy trình kiểm tra vai trò/cấp tổ chức/minh chứng; dropdown không thay thế xác nhận của Trường.
 6. Xác minh trực quan phụ lục trang 8–10 trước release (nội dung OOXML đủ 71 hàng đã trích).
