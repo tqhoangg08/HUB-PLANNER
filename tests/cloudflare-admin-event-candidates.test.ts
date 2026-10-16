@@ -383,6 +383,90 @@ test('extension ingest persists a full-history DRL prediction without duplicatin
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test('policy-stale candidate suggestions are read-only and cannot be revived by duplicate extension ingest', async () => {
+  for(const role of ['admin','auditor'] as const)for(const historicalRule of ['I_RULE',null]){
+    const env=makeEnv(role);
+    try {
+      seedDrlCorpus(env);
+      seedCandidate(env,{raw_content:'Hội nghị học thuật 2026',post_url:'https://example.test/recurring',review_status:'approved'});
+      env.__sql.prepare(`INSERT INTO event_candidate_drl_predictions
+        (candidate_id,state,fingerprint,rule_id,confidence,confidence_label,reason_code,historical_support_count,closest_matches_json,updated_at)
+        VALUES(?,'completed','old-policy-fingerprint',?,0.95,'high','exact_consensus',2,'[]','2026-01-01')`).run(CANDIDATE_ID,historicalRule);
+      const before=env.__sql.prepare('SELECT * FROM event_candidate_drl_predictions').all();
+      const candidateBefore=env.__sql.prepare('SELECT * FROM event_candidates').all();
+      for(const suffix of [`?id=${CANDIDATE_ID}`,'']){
+        const url=new URL(`${ORIGIN}/api/admin/v1/event-candidates${suffix}`);
+        const response=await handleAdminEventCandidates(new Request(url,{headers:{Cookie:'better-auth.session=opaque'}}),url,env);
+        const prediction=response.candidates[0].drl_prediction;
+        assert.equal(prediction.stale,true);assert.equal(prediction.state,'completed');
+        assert.equal(prediction.rule_id,null);assert.equal(prediction.points,null);assert.equal(prediction.confidence,null);
+      }
+      const deferred:Promise<unknown>[]=[];
+      const duplicate=await handleEventCandidateIngest(ingestRequest(),env,task=>deferred.push(task));
+      assert.equal(duplicate.prediction_status,'completed');assert.equal(deferred.length,0);
+      assert.deepEqual(env.__sql.prepare('SELECT * FROM event_candidate_drl_predictions').all(),before);
+      assert.deepEqual(env.__sql.prepare('SELECT * FROM event_candidates').all(),candidateBefore);
+      const retried=await handleAdminEventCandidates(actionRequest('retry-drl-prediction'),new URL(`${ORIGIN}/api/admin/v1/event-candidates`),env);
+      assert.equal(retried.candidate.drl_prediction.stale,false);
+      assert.notEqual(env.__sql.prepare('SELECT fingerprint FROM event_candidate_drl_predictions').get().fingerprint,'old-policy-fingerprint');
+      assert.deepEqual(env.__sql.prepare('SELECT * FROM event_candidates').all(),candidateBefore,'explicit retry does not re-review');
+    } finally {env.__sql.close();}
+  }
+});
+
+test('new policy fingerprint becomes stale after a catalogue change, even for an abstention', async () => {
+  const env=makeEnv();
+  try {
+    seedDrlCorpus(env);seedCandidate(env,{raw_content:'Unrelated synthetic event'});
+    const url=new URL(`${ORIGIN}/api/admin/v1/event-candidates`);
+    const response=await handleAdminEventCandidates(actionRequest('retry-drl-prediction'),url,env);
+    assert.equal(response.candidate.drl_prediction.stale,false);
+    assert.equal(response.candidate.drl_prediction.rule_id,null);
+    const before=env.__sql.prepare('SELECT * FROM event_candidate_drl_predictions').all();
+    env.__sql.exec("UPDATE drl_rules SET source_version='policy-2026'");
+    const detail=new URL(`${url}?id=${CANDIDATE_ID}`);
+    const current=await handleAdminEventCandidates(new Request(detail,{headers:{Cookie:'better-auth.session=opaque'}}),detail,env);
+    assert.equal(current.candidates[0].drl_prediction.stale,true);
+    assert.deepEqual(env.__sql.prepare('SELECT * FROM event_candidate_drl_predictions').all(),before);
+  } finally {env.__sql.close();}
+});
+
+test('failed manual retry cannot expose the previous rule as an actionable suggestion', async () => {
+  const env=makeEnv('auditor');
+  try {
+    seedDrlCorpus(env);seedCandidate(env);
+    env.__sql.prepare(`INSERT INTO event_candidate_drl_predictions
+      (candidate_id,state,fingerprint,rule_id,confidence,updated_at) VALUES(?,'completed','old','I_RULE',0.9,'old')`).run(CANDIDATE_ID);
+    env.__sql.exec("UPDATE event_drl_corpus SET status='importing'");
+    const result=await handleAdminEventCandidates(actionRequest('retry-drl-prediction'),new URL(`${ORIGIN}/api/admin/v1/event-candidates`),env);
+    assert.equal(result.candidate.drl_prediction.state,'failed');
+    assert.equal(result.candidate.drl_prediction.rule_id,null);assert.equal(result.candidate.drl_prediction.points,null);
+    assert.equal(env.__sql.prepare('SELECT rule_id FROM event_candidate_drl_predictions').get().rule_id,'I_RULE','audit value remains stored');
+  } finally {env.__sql.close();}
+});
+
+test('candidate approval validates current rule and official points for both staff roles; user retry remains forbidden', async () => {
+  for(const role of ['admin','auditor'] as const){
+    const env=makeEnv(role);
+    try {
+      seedDrlCorpus(env);seedCandidate(env);
+      env.__sql.exec("INSERT INTO drl_rules VALUES('OLD','I',NULL,'Historical rule',NULL,5,'lần',1,0,'old')");
+      const url=new URL(`${ORIGIN}/api/admin/v1/event-candidates`);
+      for(const draft of [{title:'Fixture',drl_rule_id:'OLD'},{title:'Fixture',drl_rule_id:'I_RULE',points:'999'}]){
+        await assert.rejects(()=>handleAdminEventCandidates(actionRequest('approve',draft),url,env),e=>e instanceof EventCandidateError&&e.status===400);
+        assert.equal(env.__sql.prepare('SELECT review_status FROM event_candidates').get().review_status,'pending');
+      }
+      const result=await handleAdminEventCandidates(actionRequest('approve',{title:'Fixture',drl_rule_id:'I_RULE'}),url,env);
+      assert.equal(result.event.drl_rule_id,'I_RULE');assert.equal(result.event.points,'5');
+    } finally {env.__sql.close();}
+  }
+  const env=makeEnv('user');seedCandidate(env);
+  try {
+    await assert.rejects(()=>handleAdminEventCandidates(actionRequest('retry-drl-prediction'),new URL(`${ORIGIN}/api/admin/v1/event-candidates`),env),e=>typeof e==='object'&&e!==null&&'status' in e&&e.status===403);
+    assert.equal(env.__sql.prepare('SELECT COUNT(*) n FROM event_candidate_drl_predictions').get().n,0);
+  } finally {env.__sql.close();}
+});
+
 test('duplicate extension URL recovers a missing prediction without changing reviewed candidate or notifying again', async () => {
   for (const reviewStatus of ['pending', 'approved', 'rejected'] as const) {
     const env = makeEnv();

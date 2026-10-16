@@ -3,11 +3,15 @@ import {appendFileSync,readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import ts from 'typescript';
 import {isDeepStrictEqual} from 'node:util';
+import {validateScholarshipReleaseSchema,SCHOLARSHIP_MIGRATIONS,SCHOLARSHIP_SCHEMA_QUERY} from './scholarship-release-schema.mjs';
 const canonicalObservability=o=>({enabled:o?.enabled??false,head_sampling_rate:o?.head_sampling_rate??1,redact_query_string:o?.redact_query_string??false,
   logs:{enabled:o?.logs?.enabled??o?.enabled??false,head_sampling_rate:o?.logs?.head_sampling_rate??o?.head_sampling_rate??1,persist:o?.logs?.persist??true,invocation_logs:o?.logs?.invocation_logs??true},
   traces:{enabled:o?.traces?.enabled??false,head_sampling_rate:o?.traces?.head_sampling_rate??1,persist:o?.traces?.persist??true}});
 export const PUBLIC_RELEASE_ACCOUNT='6cd8bac6009a55f96bdf9df7c2057548';
 export const PUBLIC_RELEASE_DB='88d702e1-60d3-490a-8514-38ef881cf133';
+export const PUBLIC_RELEASE_PREDEPLOY_VERSION='d102b7e6-0a37-448c-acce-5f8e795af13c';
+// One reviewed transition, never a generic missing-binding exception.
+export const SCHOLARSHIP_LIMITER=Object.freeze({name:'SCHOLARSHIP_SEARCH_RATE_LIMIT',namespace_id:'45871912',simple:Object.freeze({limit:60,period:60})});
 // Text-first code release preserves the already deployed V2 100% baseline.
 // Neither phase accepts an old 7% baseline or a dispatcher-selected percentage.
 export const PUBLIC_V2_TRANSITION=Object.freeze({before:'100',after:'100',mode:'canary'});
@@ -32,6 +36,9 @@ export function validatePublicReleaseState(config,settings,schema,phase='predepl
   if(config.vars?.AI_ADVISOR_V2_MODE!==PUBLIC_V2_TRANSITION.mode||config.vars?.AI_ADVISOR_V2_CANARY_PERCENT!==PUBLIC_V2_TRANSITION.after
     ||Object.entries(offFlags).some(([key,value])=>config.vars?.[key]!==value))throw Error('APPROVED_V2_TARGET_REQUIRED');
   const live=settings.bindings,vars=liveVariables(live);
+  const limiter=config.ratelimits?.filter(b=>b.name===SCHOLARSHIP_LIMITER.name);
+  if(limiter?.length!==1||!isDeepStrictEqual(limiter[0],SCHOLARSHIP_LIMITER))throw Error('SCHOLARSHIP_BINDING_CONFIG_REQUIRED');
+  if(phase==='predeploy'&&live.some(b=>b.name===SCHOLARSHIP_LIMITER.name))throw Error('SCHOLARSHIP_PREDEPLOY_BINDING_DRIFT');
   validateRolloutVariables(vars,phase);
   for(const [key,value]of Object.entries(config.vars||{})) {
     if(vars[key]!==(key==='AI_ADVISOR_V2_CANARY_PERCENT'?expectedPercent:value))throw Error('LIVE_VARIABLE_DRIFT');
@@ -39,10 +46,11 @@ export function validatePublicReleaseState(config,settings,schema,phase='predepl
   const expected=[...(config.d1_databases||[]).map(b=>[b.binding,'d1',b.database_id]),...(config.r2_buckets||[]).map(b=>[b.binding,'r2_bucket',b.bucket_name]),
     ...(config.services||[]).map(b=>[b.binding,'service',b.service]),...(config.queues?.producers||[]).map(b=>[b.binding,'queue',b.queue]),
     ...(config.workflows||[]).map(b=>[b.binding,'workflow',b.name]),...(config.ai_search_namespaces||[]).map(b=>[b.binding,'ai_search_namespace',b.namespace]),
-    ...(config.ratelimits||[]).map(b=>[b.name,'ratelimit',b.namespace_id]),[config.assets.binding,'assets'],[config.ai.binding,'ai']];
+    ...(config.ratelimits||[]).filter(b=>phase==='postdeploy'||b.name!==SCHOLARSHIP_LIMITER.name).map(b=>[b.name,'ratelimit',b.namespace_id]),[config.assets.binding,'assets'],[config.ai.binding,'ai']];
   for(const [name,type,identity]of expected) {
     const b=live.find(b=>b.name===name&&b.type===type);
     if(!b||identity!==undefined&&![b.id,b.bucket_name,b.service,b.queue_name,b.workflow_name,b.namespace,b.namespace_id].includes(identity))throw Error('LIVE_BINDING_DRIFT');
+    if(type==='ratelimit'&&!isDeepStrictEqual(b.simple,config.ratelimits.find(r=>r.name===name).simple))throw Error('LIVE_BINDING_DRIFT');
   }
   if(live.some(b=>!['plain_text','secret_text'].includes(b.type)&&!expected.some(([name])=>name===b.name)))throw Error('UNREVIEWED_LIVE_BINDING');
   if(!isDeepStrictEqual(canonicalObservability(settings.observability),canonicalObservability(config.observability)))throw Error('OBSERVABILITY_DRIFT_REQUIRES_REVIEW');
@@ -80,7 +88,7 @@ export async function checkPublicReleaseState(config,{account,token,phase='prede
     ||config.d1_databases[0].database_name!=='hub-planner-public-dev')throw Error('PUBLIC_ONLY_TARGET_REQUIRED');
   if(typeof token!=='string'||!token.trim()||/[\r\n]/.test(token))throw Error('PUBLIC_SCOPED_CREDENTIAL_REQUIRED');
   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
-  if(phase==='postdeploy'&&!uuid.test(beforeVersion||''))throw Error('PREDEPLOY_VERSION_REQUIRED');
+  if(phase==='postdeploy'&&beforeVersion!==PUBLIC_RELEASE_PREDEPLOY_VERSION)throw Error('PREDEPLOY_VERSION_REQUIRED');
   const cf=async(path,body)=>{
     let r,j;
     try{r=await fetchImpl(`https://api.cloudflare.com/client/v4/accounts/${account}/${path}`,{
@@ -101,12 +109,17 @@ export async function checkPublicReleaseState(config,{account,token,phase='prede
   const [ledger]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:"SELECT name FROM d1_migrations WHERE name IN ('0055_ai_document_index_segment_count.sql','0056_ai_text_document_revisions.sql')"});
   for(const result of [objects,ledger])if(!Array.isArray(result?.results)||result.meta?.rows_written>0||result.meta?.changed_db===true)throw Error('READ_ONLY_SCHEMA_UNVERIFIED');
   validateTextFirstReleaseSchema(schema.results,objects.results,ledger.results);
+  const [scholarshipObjects]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:SCHOLARSHIP_SCHEMA_QUERY});
+  const [scholarshipLedger]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:`SELECT name FROM d1_migrations WHERE name IN (${SCHOLARSHIP_MIGRATIONS.map(n=>`'${n}'`).join(',')})`});
+  for(const result of [scholarshipObjects,scholarshipLedger])if(!Array.isArray(result?.results)||result.meta?.rows_written>0||result.meta?.changed_db===true)throw Error('READ_ONLY_SCHEMA_UNVERIFIED');
+  validateScholarshipReleaseSchema(scholarshipObjects.results,scholarshipLedger.results);
   const deployments=await cf(`${worker}/deployments`);
   if(!Array.isArray(deployments.deployments)||!deployments.deployments.length
     ||deployments.deployments.some(d=>!Number.isFinite(Date.parse(d.created_on))))throw Error('TRAFFIC_METADATA_UNVERIFIED');
   const current=[...deployments.deployments].sort((a,b)=>Date.parse(b.created_on)-Date.parse(a.created_on))[0];
   if(current.versions?.length!==1||current.versions[0].percentage!==100||!uuid.test(current.versions[0].version_id||''))throw Error('SINGLE_PUBLIC_VERSION_REQUIRED');
   const versionId=current.versions[0].version_id;
+  if(phase==='predeploy'&&versionId!==PUBLIC_RELEASE_PREDEPLOY_VERSION)throw Error('UNREVIEWED_PREDEPLOY_VERSION');
   if(phase==='postdeploy'&&versionId===beforeVersion)throw Error('NEW_PUBLIC_VERSION_REQUIRED');
   const serving=await cf(`${worker}/versions/${versionId}`);
   if(serving.id!==versionId)throw Error('SERVING_VERSION_UNVERIFIED');

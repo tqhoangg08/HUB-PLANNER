@@ -94,6 +94,9 @@ export const EventDrlRulePicker: React.FC<{
     <select id="event-drl-rule" className={inputClass} value={selectedRuleId} onChange={(event) =>
       onSelect(rules.find((rule) => rule.rule_id === event.target.value) || null)}>
       <option value="">Chọn mục ĐRL</option>
+      {selectedRuleId && !selected && <option value={selectedRuleId} disabled>
+        Giữ mục ĐRL đã lưu (quy tắc cũ hoặc không còn trong danh mục)
+      </option>}
       {['I', 'II', 'III', 'IV', 'V'].map((section) => <optgroup key={section} label={`Mục ${section}`}>
         {rules.filter((rule) => rule.section === section).map((rule) => <option key={rule.rule_id} value={rule.rule_id}>
           {rule.content} · {rule.condition_text || 'Tham gia'} · {rule.points > 0 ? '+' : ''}{rule.points} điểm
