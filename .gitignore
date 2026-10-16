@@ -67,6 +67,13 @@ cloudflare/.dev.vars
 .cache/cloudflare/
 .cache/schedule-reconcile/
 .cache/
+.scholarship-private/
+.scholarship-exports/
+HUB-Scholarship-*.png
+scholarship-qa-state.json
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 
 # Local Cloudflare candidate bundles and browser session profiles
 .candidate-dry-run/

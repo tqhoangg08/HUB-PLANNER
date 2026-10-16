@@ -10,6 +10,7 @@ import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 import { PASSWORD_RECOVERY_ENABLED } from '../utils/rescueMode';
 import type { AuthRefresh } from '../hooks/useUserRole';
 import { getRecoverySession } from '../app/auth/recoveryAuthClient';
+import { scholarshipLoginReturn } from '../utils/scholarshipListModel';
 import {
   beginGoogleStudentAuth,
   getRegistrationStatus,
@@ -45,6 +46,7 @@ const validatePassword = (value: string, confirmation?: string) => {
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onRefreshAuth }) => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const returnPath = scholarshipLoginReturn(params.get('returnTo'));
   const [flow, setFlow] = useState<Flow>(params.get('tab') === 'register' ? 'register' : 'login');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -80,13 +82,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onRefreshAuth }) => {
       if (!current || !session.authenticated) return;
       try {
         const registration = await getRegistrationStatus();
-        navigate(registration.pending ? '/complete-registration' : '/dashboard', { replace: true });
+        navigate(registration.pending ? '/complete-registration' : returnPath, { replace: true });
       } catch {
-        navigate('/dashboard', { replace: true });
+        navigate(returnPath, { replace: true });
       }
     }).catch(() => undefined);
     return () => { current = false; };
-  }, [navigate]);
+  }, [navigate, returnPath]);
 
   useEffect(() => {
     const oauth = params.get('oauth');
@@ -118,7 +120,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onRefreshAuth }) => {
         if (!identity?.current || !identity.authenticated) {
           throw new Error('Đăng nhập thành công nhưng chưa thể đồng bộ tài khoản. Vui lòng thử lại.');
         }
-        navigate('/dashboard', { replace: true });
+        navigate(returnPath, { replace: true });
       } else if (!otpPending) {
         const invalid = validatePassword(password, confirm);
         if (invalid) throw new Error(invalid);

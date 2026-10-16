@@ -51,13 +51,14 @@ test('the unchanged login page dispatches credentials server-side without a brow
   assert.equal(String(captured?.body).includes('role'), false);
 });
 
-test('password login reconciles the existing Better Auth identity state before dashboard navigation', () => {
+test('password login reconciles the existing Better Auth identity state before safe return navigation', () => {
   const login = readFileSync('components/LoginScreen.tsx', 'utf8');
   const roles = readFileSync('hooks/useUserRole.ts', 'utf8');
   const routes = readFileSync('app/routing/AppRoutes.tsx', 'utf8');
   const legacyApp = readFileSync('LegacyApp.tsx', 'utf8');
 
-  assert.match(login, /await signInWithLoginDispatch\([\s\S]*?await onRefreshAuth\?\.\(\{ preserveStateOnError: true \}\)[\s\S]*?navigate\('\/dashboard'/);
+  assert.match(login, /await signInWithLoginDispatch\([\s\S]*?await onRefreshAuth\?\.\(\{ preserveStateOnError: true \}\)[\s\S]*?navigate\(returnPath/);
+  assert.match(login, /scholarshipLoginReturn\(params.get\('returnTo'\)\)/);
   assert.match(login, /!identity\?\.current \|\| !identity\.authenticated/);
   assert.match(roles, /fetchBetterAuthSession\(\)[\s\S]*?setState\(session \? stateForSession\(session\) : anonymousState\)/);
   assert.match(roles, /refreshGenerationRef[\s\S]*?requestGeneration === refreshGenerationRef\.current/);
