@@ -115,6 +115,10 @@ const restoreBetterAuthSession = async (): Promise<AppSession | null> => {
     if (!fallbackEmail) {
       throw new PrivateApiError(503, 'Phản hồi phiên đăng nhập không hợp lệ.');
     }
+    const displayMetadata: AppSession['user']['user_metadata'] = {
+      name: typeof payload.user.name === 'string' ? payload.user.name : undefined,
+      avatar_url: typeof payload.user.image === 'string' ? payload.user.image : undefined,
+    };
     const provisionalSession: AppSession = {
       // A role is never elevated until the authoritative identity bridge has
       // returned it. This keeps a temporary bridge failure least-privileged.
@@ -122,7 +126,7 @@ const restoreBetterAuthSession = async (): Promise<AppSession | null> => {
       user: {
         id: payload.user.id,
         email: fallbackEmail,
-        user_metadata: {},
+        user_metadata: displayMetadata,
         app_metadata: { role: 'user' },
       },
     };
@@ -155,7 +159,7 @@ const restoreBetterAuthSession = async (): Promise<AppSession | null> => {
           user: {
             id: identity.userId,
             email: identity.email,
-            user_metadata: {},
+            user_metadata: displayMetadata,
             app_metadata: { role },
           },
         };
