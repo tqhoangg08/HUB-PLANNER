@@ -15,6 +15,7 @@ interface HistoryRow {
 }
 export interface EventDrlRule {
   rule_id: string;
+  source_version: string;
   section: string;
   rule_group: string | null;
   content: string;
@@ -37,7 +38,9 @@ export interface EventDrlPrediction {
   closest_matches: string[];
   fingerprint: string;
   source_version: string;
+  policy_version: string;
 }
+export interface EventDrlContext { source_version: string; policy_version: string; rules: EventDrlRule[]; }
 interface ScoredMatch { row: HistoryRow; score: number; }
 const MODEL = '@cf/zai-org/glm-4.7-flash';
 const MAX_PROMPT_MATCHES = 30;
@@ -79,6 +82,30 @@ const digest = async (input: string) => {
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
   return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 };
+// The corpus remains historical evidence. Only this active catalogue can supply
+// official rules/points. A new catalogue also invalidates cached abstentions.
+export const loadEventDrlContext = async (env: EventDrlEnv): Promise<EventDrlContext> => {
+  const [metadata, result] = await Promise.all([
+    env.DB.prepare("SELECT source_version FROM event_drl_corpus WHERE status='ready' ORDER BY imported_at DESC LIMIT 1")
+      .first<{ source_version: string }>(),
+    env.DB.prepare('SELECT rule_id,source_version,section,rule_group,content,condition_text,points,unit FROM drl_rules WHERE active=1 AND event_suitable=1 AND points IS NOT NULL ORDER BY rule_id')
+      .all<EventDrlRule>(),
+  ]);
+  if (!metadata) throw new Error('EVENT_DRL_CORPUS_NOT_READY');
+  const rules = result.results || [];
+  // Explicit tuples avoid depending on provider object-property order.
+  const policy_version = await digest(JSON.stringify(rules.map(r => [r.rule_id, r.source_version,
+    r.section, r.rule_group, r.content, r.condition_text, r.points, r.unit])));
+  return { source_version: metadata.source_version, policy_version, rules };
+};
+export const eventDrlFingerprint = (input: EventDrlDraft, context: EventDrlContext) => {
+  const draft = safeDraft(input);
+  return digest(JSON.stringify({
+    algorithm: 'policy-catalog-v2', corpus: context.source_version, policy: context.policy_version,
+    title: normalizeEventDrlText(draft.title), organizer: normalizeEventDrlText(draft.organizer || ''),
+    description: normalizeEventDrlText(draft.description || ''), format: normalizeEventDrlText(draft.format || ''),
+  }));
+};
 export const rankEventDrlHistory = (history: HistoryRow[], draft: EventDrlDraft): ScoredMatch[] => {
   const title = normalizeEventDrlText(draft.title);
   const noYear = normalizeEventDrlNoYear(draft.title);
@@ -112,13 +139,14 @@ const aggregate = (matches: ScoredMatch[]) => {
 const closestTitles = (matches: ScoredMatch[]) => [...new Set(matches.slice(0, 8)
   .map((match) => match.row.title_clean.slice(0, 200)))].slice(0, MAX_CLOSEST_MATCHES);
 const response = (rule: EventDrlRule | null, code: string | null, fingerprint: string,
-  version: string, matches: ScoredMatch[], confidence: number,
+  context: EventDrlContext, matches: ScoredMatch[], confidence: number,
   label: EventDrlPrediction['confidence_label'], reason: EventDrlPrediction['reason_code']): EventDrlPrediction => ({
   rule_id: rule?.rule_id || null, observed_code: code, section: rule?.section || null,
   points: rule?.points ?? null, content: rule?.content || null,
   condition_text: rule?.condition_text || null, confidence, confidence_label: label,
   reason_code: reason, historical_support_count: matches.length,
-  closest_matches: closestTitles(matches), fingerprint, source_version: version,
+  closest_matches: closestTitles(matches), fingerprint, source_version: context.source_version,
+  policy_version: context.policy_version,
 });
 
 const parseAiChoice = (value: unknown): { rule_id: string; confidence: number } | null => {
@@ -188,35 +216,25 @@ export const predictEventDrl = async (env: EventDrlEnv, input: EventDrlDraft): P
   if (!draft.title || new TextEncoder().encode(JSON.stringify(draft)).byteLength > MAX_INPUT_BYTES) {
     throw new Error('INVALID_EVENT_DRL_DRAFT');
   }
-  const metadata = await env.DB.prepare("SELECT source_version FROM event_drl_corpus WHERE status='ready' ORDER BY imported_at DESC LIMIT 1")
-    .first<{ source_version: string }>();
-  if (!metadata) throw new Error('EVENT_DRL_CORPUS_NOT_READY');
-  const fingerprint = await digest(JSON.stringify({
-    v: metadata.source_version, title: normalizeEventDrlText(draft.title),
-    organizer: normalizeEventDrlText(draft.organizer || ''),
-    description: normalizeEventDrlText(draft.description || ''), format: normalizeEventDrlText(draft.format || ''),
-  }));
+  const context = await loadEventDrlContext(env);
+  const { rules } = context;
+  const fingerprint = await eventDrlFingerprint(draft, context);
   const cached = await env.DB.prepare('SELECT * FROM event_drl_prediction_cache WHERE fingerprint=? AND source_version=?')
-    .bind(fingerprint, metadata.source_version).first<{ rule_id: string | null; observed_code: string | null; confidence: number;
+    .bind(fingerprint, context.source_version).first<{ rule_id: string | null; observed_code: string | null; confidence: number;
       confidence_label: EventDrlPrediction['confidence_label']; reason_code: EventDrlPrediction['reason_code'];
       historical_support_count: number; closest_matches_json: string; }>();
   if (cached) {
-    const rule = cached.rule_id ? await env.DB.prepare('SELECT rule_id,section,rule_group,content,condition_text,points,unit FROM drl_rules WHERE rule_id=? AND active=1')
-      .bind(cached.rule_id).first<EventDrlRule>() : null;
+    const rule = rules.find(r => r.rule_id === cached.rule_id) || null;
     if (!cached.rule_id || rule) return {
-      ...response(rule, cached.observed_code, fingerprint, metadata.source_version, [], cached.confidence,
+      ...response(rule, cached.observed_code, fingerprint, context, [], cached.confidence,
         cached.confidence_label, cached.reason_code),
       historical_support_count: cached.historical_support_count,
       closest_matches: JSON.parse(cached.closest_matches_json) as string[],
     };
   }
-  const [historyResult, rulesResult] = await Promise.all([
-    env.DB.prepare('SELECT id,observed_code,title_clean,title_normalized,title_normalized_no_year,organizer_normalized,mapped_rule_id FROM event_drl_history WHERE source_version=? ORDER BY id')
-      .bind(metadata.source_version).all<HistoryRow>(),
-    env.DB.prepare('SELECT rule_id,section,rule_group,content,condition_text,points,unit FROM drl_rules WHERE active=1 AND event_suitable=1 AND points IS NOT NULL')
-      .all<EventDrlRule>(),
-  ]);
-  const history = historyResult.results || [], rules = rulesResult.results || [];
+  const historyResult = await env.DB.prepare('SELECT id,observed_code,title_clean,title_normalized,title_normalized_no_year,organizer_normalized,mapped_rule_id FROM event_drl_history WHERE source_version=? ORDER BY id')
+    .bind(context.source_version).all<HistoryRow>();
+  const history = historyResult.results || [];
   if (!history.length || !rules.length) throw new Error('EVENT_DRL_CORPUS_EMPTY');
   const matches = rankEventDrlHistory(history, draft);
   const strong = strongest(matches), groups = aggregate(strong);
@@ -240,7 +258,7 @@ export const predictEventDrl = async (env: EventDrlEnv, input: EventDrlDraft): P
       reason = 'historical_ai';
     }
   }
-  const result = response(rule, top?.observed_code || null, fingerprint, metadata.source_version,
+  const result = response(rule, top?.observed_code || null, fingerprint, context,
     strong, confidence, label, reason);
   await env.DB.prepare(`INSERT INTO event_drl_prediction_cache
     (fingerprint,source_version,rule_id,observed_code,confidence,confidence_label,reason_code,historical_support_count,closest_matches_json,created_at)
@@ -249,7 +267,7 @@ export const predictEventDrl = async (env: EventDrlEnv, input: EventDrlDraft): P
     confidence_label=excluded.confidence_label,reason_code=excluded.reason_code,
     historical_support_count=excluded.historical_support_count,closest_matches_json=excluded.closest_matches_json,
     created_at=excluded.created_at`)
-    .bind(fingerprint, metadata.source_version, rule?.rule_id || null, top?.observed_code || null, confidence, label, reason,
+    .bind(fingerprint, context.source_version, rule?.rule_id || null, top?.observed_code || null, confidence, label, reason,
       strong.length, JSON.stringify(result.closest_matches), new Date().toISOString()).run();
   return result;
 };

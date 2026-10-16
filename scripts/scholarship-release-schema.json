@@ -1,0 +1,122 @@
+[
+  {
+    "type": "index",
+    "name": "scholarship_batch_payload_idx",
+    "sql": "CREATE UNIQUE INDEX scholarship_batch_payload_idx\r\n  ON scholarship_import_batches(campaign_slug, source_sha256, payload_sha256)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_campaigns_public_idx",
+    "sql": "CREATE INDEX scholarship_campaigns_public_idx\r\n  ON scholarship_campaigns (status, public_data_approved, published_at DESC)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_recipients_award_idx",
+    "sql": "CREATE INDEX scholarship_recipients_award_idx\r\n  ON scholarship_recipients (campaign_slug, award_type)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_recipients_code_idx",
+    "sql": "CREATE INDEX scholarship_recipients_code_idx\r\n  ON scholarship_recipients (campaign_slug, student_code)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_recipients_major_idx",
+    "sql": "CREATE INDEX scholarship_recipients_major_idx\r\n  ON scholarship_recipients (campaign_slug, major)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_recipients_name_idx",
+    "sql": "CREATE INDEX scholarship_recipients_name_idx\r\n  ON scholarship_recipients (campaign_slug, full_name_search)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_award_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_award_idx ON scholarship_snapshot_rows(batch_id, award_type)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_class_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_class_idx ON scholarship_snapshot_rows(batch_id, class_name)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_code_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_code_idx ON scholarship_snapshot_rows(batch_id, student_code)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_cohort_major_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_cohort_major_idx ON scholarship_snapshot_rows(batch_id, cohort, major, class_name)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_major_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_major_idx ON scholarship_snapshot_rows(batch_id, major)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_name_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_name_idx ON scholarship_snapshot_rows(batch_id, full_name_search)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_rank_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_rank_idx ON scholarship_snapshot_rows(batch_id, scholarship_rank)"
+  },
+  {
+    "type": "index",
+    "name": "scholarship_snapshot_type_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_type_idx ON scholarship_snapshot_rows(batch_id, scholarship_type)"
+  },
+  {
+    "type": "table",
+    "name": "scholarship_audit_events",
+    "sql": "CREATE TABLE scholarship_audit_events (\r\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n  campaign_slug TEXT NOT NULL REFERENCES scholarship_campaigns(slug),\r\n  batch_id TEXT REFERENCES scholarship_import_batches(id),\r\n  action TEXT NOT NULL CHECK(action IN ('created','updated','previewed','applied','approved','published','unpublished','rollback','archived')),\r\n  performed_by_user_id TEXT NOT NULL,\r\n  source_sha256 TEXT,\r\n  details_json TEXT NOT NULL DEFAULT '{}',\r\n  created_at TEXT NOT NULL DEFAULT(datetime('now'))\r\n)"
+  },
+  {
+    "type": "table",
+    "name": "scholarship_campaigns",
+    "sql": "CREATE TABLE scholarship_campaigns (\r\n  slug TEXT PRIMARY KEY CHECK (length(slug) BETWEEN 1 AND 64),\r\n  title TEXT NOT NULL,\r\n  school_year TEXT NOT NULL,\r\n  semester TEXT NOT NULL,\r\n  source_title TEXT NOT NULL,\r\n  source_url TEXT,\r\n  source_sha256 TEXT,\r\n  status TEXT NOT NULL DEFAULT 'draft' CHECK (\r\n    status IN ('draft', 'validated', 'approved', 'published', 'archived')\r\n  ),\r\n  public_data_approved INTEGER NOT NULL DEFAULT 0 CHECK (public_data_approved IN (0, 1)),\r\n  public_scores_approved INTEGER NOT NULL DEFAULT 0 CHECK (public_scores_approved IN (0, 1)),\r\n  published_at TEXT,\r\n  created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n  updated_at TEXT NOT NULL DEFAULT (datetime('now')), revision INTEGER NOT NULL DEFAULT 0, candidate_batch_id TEXT REFERENCES scholarship_import_batches(id), active_batch_id TEXT REFERENCES scholarship_import_batches(id),\r\n  CHECK (status <> 'published' OR (public_data_approved = 1 AND published_at IS NOT NULL))\r\n)"
+  },
+  {
+    "type": "table",
+    "name": "scholarship_import_batches",
+    "sql": "CREATE TABLE scholarship_import_batches (\r\n  id TEXT PRIMARY KEY,\r\n  campaign_slug TEXT NOT NULL REFERENCES scholarship_campaigns(slug) ON DELETE RESTRICT,\r\n  source_sha256 TEXT NOT NULL,\r\n  source_filename TEXT NOT NULL,\r\n  expected_rows INTEGER NOT NULL CHECK (expected_rows >= 0),\r\n  accepted_rows INTEGER NOT NULL DEFAULT 0 CHECK (accepted_rows >= 0),\r\n  rejected_rows INTEGER NOT NULL DEFAULT 0 CHECK (rejected_rows >= 0),\r\n  status TEXT NOT NULL CHECK (status IN ('previewed', 'applied', 'rejected')),\r\n  performed_by_user_id TEXT NOT NULL,\r\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n, mapping_json TEXT NOT NULL DEFAULT '{}', payload_sha256 TEXT, approved_fields_json TEXT, approval_document_json TEXT, approved_by TEXT, approved_at TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "scholarship_publication_audit",
+    "sql": "CREATE TABLE scholarship_publication_audit (\r\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n  campaign_slug TEXT NOT NULL REFERENCES scholarship_campaigns(slug) ON DELETE RESTRICT,\r\n  action TEXT NOT NULL CHECK (action IN ('approved', 'published', 'unpublished', 'archived')),\r\n  performed_by_user_id TEXT NOT NULL,\r\n  source_sha256 TEXT,\r\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n)"
+  },
+  {
+    "type": "table",
+    "name": "scholarship_recipients",
+    "sql": "CREATE TABLE scholarship_recipients (\r\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n  campaign_slug TEXT NOT NULL REFERENCES scholarship_campaigns(slug) ON DELETE RESTRICT,\r\n  source_row_number INTEGER NOT NULL CHECK (source_row_number > 0),\r\n  student_code TEXT NOT NULL CHECK (length(student_code) = 12),\r\n  full_name TEXT NOT NULL,\r\n  full_name_search TEXT NOT NULL,\r\n  class_name TEXT,\r\n  major TEXT,\r\n  award_type TEXT NOT NULL,\r\n  gpa REAL CHECK (gpa IS NULL OR (gpa >= 0 AND gpa <= 4.5)),\r\n  training_score REAL CHECK (training_score IS NULL OR (training_score >= 0 AND training_score <= 100)),\r\n  selection_score REAL,\r\n  source_row_sha256 TEXT,\r\n  created_at TEXT NOT NULL DEFAULT (datetime('now')),\r\n  UNIQUE (campaign_slug, source_row_number)\r\n)"
+  },
+  {
+    "type": "table",
+    "name": "scholarship_snapshot_rows",
+    "sql": "CREATE TABLE scholarship_snapshot_rows (\r\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n  batch_id TEXT NOT NULL REFERENCES scholarship_import_batches(id) ON DELETE RESTRICT,\r\n  source_row_number INTEGER NOT NULL CHECK(source_row_number > 0),\r\n  source_identifier TEXT,\r\n  student_code TEXT NOT NULL CHECK(length(student_code)=12 AND student_code NOT GLOB '*[^0-9]*'),\r\n  full_name TEXT NOT NULL,\r\n  full_name_search TEXT NOT NULL,\r\n  class_name TEXT,\r\n  major TEXT,\r\n  award_type TEXT NOT NULL,\r\n  scores_json TEXT NOT NULL CHECK(json_valid(scores_json)),\r\n  source_row_sha256 TEXT NOT NULL, scholarship_type TEXT, scholarship_rank TEXT, cohort TEXT,\r\n  UNIQUE(batch_id, source_row_number)\r\n)"
+  },
+  {
+    "type": "table",
+    "name": "scholarship_transaction_guard",
+    "sql": "CREATE TABLE scholarship_transaction_guard (ok INTEGER NOT NULL CHECK(ok=1))"
+  },
+  {
+    "type": "trigger",
+    "name": "scholarship_snapshot_delete_immutable",
+    "sql": "CREATE TRIGGER scholarship_snapshot_delete_immutable BEFORE DELETE ON scholarship_snapshot_rows\r\n  WHEN (SELECT status FROM scholarship_import_batches WHERE id=OLD.batch_id)='applied'\r\n  BEGIN SELECT RAISE(ABORT, 'SCHOLARSHIP_SNAPSHOT_IMMUTABLE'); END"
+  },
+  {
+    "type": "trigger",
+    "name": "scholarship_snapshot_insert_immutable",
+    "sql": "CREATE TRIGGER scholarship_snapshot_insert_immutable BEFORE INSERT ON scholarship_snapshot_rows\r\n  WHEN (SELECT status FROM scholarship_import_batches WHERE id=NEW.batch_id)='applied'\r\n  BEGIN SELECT RAISE(ABORT, 'SCHOLARSHIP_SNAPSHOT_IMMUTABLE'); END"
+  },
+  {
+    "type": "trigger",
+    "name": "scholarship_snapshot_update_immutable",
+    "sql": "CREATE TRIGGER scholarship_snapshot_update_immutable BEFORE UPDATE ON scholarship_snapshot_rows\r\n  WHEN (SELECT status FROM scholarship_import_batches WHERE id=OLD.batch_id)='applied'\r\n    OR (SELECT status FROM scholarship_import_batches WHERE id=NEW.batch_id)='applied'\r\n  BEGIN SELECT RAISE(ABORT, 'SCHOLARSHIP_SNAPSHOT_IMMUTABLE'); END"
+  }
+]

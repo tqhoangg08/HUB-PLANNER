@@ -1,12 +1,33 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { mkdir, unlink } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { build } from 'esbuild';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { buildAdminEventPayload, createEmptyAdminEventDraft, EVENT_DRAFT_STATUS, EVENT_PUBLIC_STATUS, validateAdminEventDraft } from '../utils/adminEventForm.ts';
 import { AdminEventMutationError, assertAdminEventMutationAllowed, validateAdminEventMutationPayload } from '../cloudflare/worker/src/admin-event-mutations.ts';
 import { EventBannerError, MAX_EVENT_BANNER_BYTES, uploadEventBanner, validateEventBannerBytes } from '../cloudflare/worker/src/event-banner.ts';
 import { BetterAuthIdentityError } from '../cloudflare/worker/src/better-auth-identity.ts';
 
 const validDraft = () => ({ ...createEmptyAdminEventDraft(), title: 'Sự kiện thử nghiệm', organizer: 'Đơn vị tổ chức', link: 'https://example.org/event' });
+
+test('shared rule picker displays a saved inactive ID without offering it to new events or changing it on render', async t => {
+  await mkdir('.cache',{recursive:true});
+  const output=process.cwd()+'/.cache/drl-rule-picker-compat.cjs';
+  await build({entryPoints:['components/EventDrlAssistant.tsx'],bundle:true,platform:'node',format:'cjs',packages:'external',outfile:output,logLevel:'silent'});
+  t.after(()=>unlink(output));
+  const {EventDrlRulePicker}=createRequire(import.meta.url)(output);
+  const rules=[{rule_id:'NEW',section:'III',content:'Current official rule',condition_text:null,points:10,unit:'hoạt động',rule_group:null}];
+  let changes=0;
+  const html=renderToStaticMarkup(React.createElement(EventDrlRulePicker,{rules,selectedRuleId:'OLD',prediction:null,onSelect:()=>changes++}));
+  assert.match(html,/<option[^>]*value="OLD"[^>]*disabled=""[^>]*selected=""/);
+  assert.match(html,/Giữ mục ĐRL đã lưu/);assert.equal(changes,0);
+  const fresh=renderToStaticMarkup(React.createElement(EventDrlRulePicker,{rules,selectedRuleId:'',prediction:null,onSelect:()=>changes++}));
+  assert.doesNotMatch(fresh,/value="OLD"/);assert.match(fresh,/value="NEW"/);
+  assert.equal(changes,0);
+});
 
 test('event create route is explicit before dynamic route and staff only', () => {
   const routes = readFileSync(new URL('../app/routing/ProtectedAppRoutes.tsx', import.meta.url), 'utf8');

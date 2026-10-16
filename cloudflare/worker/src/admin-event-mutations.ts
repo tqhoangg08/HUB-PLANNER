@@ -229,13 +229,32 @@ export const validateAdminEventMutationPayload = (value: unknown, mode: Mutation
 };
 
 export const resolveAdminEventDrlRule = async (env: AdminEventsEnv, mode: MutationMode,
-  payload: AdminEventMutationPayload): Promise<AdminEventMutationPayload> => {
+  payload: AdminEventMutationPayload, eventId?: number): Promise<AdminEventMutationPayload> => {
+  const drlFields = ['drl_rule_id', 'criteria', 'points'] as const;
+  if (mode === 'update') {
+    if (!Number.isSafeInteger(eventId) || Number(eventId) <= 0) throw new AdminEventMutationError(400, 'Mã sự kiện không hợp lệ.');
+    if (!drlFields.some(key => key in payload)) return payload;
+    const stored = await env.DB.prepare('SELECT drl_rule_id,criteria,points FROM admin_events WHERE id=?')
+      .bind(eventId).first<{ drl_rule_id: string | null; criteria: string | null; points: string | null }>();
+    if (!stored) throw new AdminEventMutationError(404, 'Không tìm thấy sự kiện cần cập nhật.');
+    const effective = { ...stored, ...payload };
+    if (drlFields.every(key => String(effective[key] ?? '') === String(stored[key] ?? ''))) {
+      // Only this server-owned event may retain its saved tuple. Omit it from
+      // UPDATE so a concurrent official-rule change cannot be overwritten.
+      const unrelated = { ...payload };
+      for (const key of drlFields) delete unrelated[key];
+      return unrelated;
+    }
+    // A points/section-only edit still belongs to the saved rule. A newly
+    // selected active rule derives omitted section/points from that new rule.
+    payload = { ...payload, drl_rule_id: effective.drl_rule_id };
+  }
   const ready = await env.DB.prepare("SELECT 1 AS ready FROM event_drl_corpus WHERE status='ready' LIMIT 1")
     .first<{ ready: number }>();
-  if (!ready) return payload;
   const chosen = String(payload.drl_rule_id || '').trim();
+  if (!ready && !chosen && mode === 'create') return payload;
   if (!chosen) {
-    if ((mode === 'create' && payload.status !== 'pending') ||
+    if (mode === 'update' || (mode === 'create' && payload.status !== 'pending') ||
         (payload.criteria != null && String(payload.criteria).trim()) ||
         (payload.points != null && String(payload.points).trim())) {
       throw new AdminEventMutationError(400, 'Hãy chọn quy tắc ĐRL chính thức; không thể nhập mục/điểm tùy ý.');
@@ -380,6 +399,12 @@ const createEvent = async (
 };
 
 const updateEvent = async (env: AdminEventsEnv, payload: AdminEventMutationPayload, eventId: number) => {
+  if (!Object.keys(payload).length) {
+    const row = await env.DB.prepare(`SELECT ${ADMIN_EVENT_SOURCE_COLUMNS.join(', ')} FROM admin_events WHERE id=?`)
+      .bind(eventId).first<D1StoredAdminEventRow>();
+    if (!row) throw new AdminEventMutationError(404, 'Không tìm thấy sự kiện cần cập nhật.');
+    return toApiRow(row);
+  }
   const clauses: string[] = [];
   const values: AdminEventMutationValue[] = [];
   for (const [field, value] of Object.entries(payload)) {
@@ -431,7 +456,7 @@ export const mutateAdminEvent = async (
   _fetcher: typeof fetch = fetch,
   createRequest?: { mutationId: string; userId: string }
 ): Promise<AdminEventMutationResult> => {
-  payload = await resolveAdminEventDrlRule(env, mode, payload);
+  payload = await resolveAdminEventDrlRule(env, mode, payload, eventId);
   if (mode === 'update' && (!Number.isSafeInteger(eventId) || Number(eventId) <= 0)) {
     throw new AdminEventMutationError(400, 'Mã sự kiện không hợp lệ.');
   }
