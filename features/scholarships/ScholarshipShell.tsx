@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Award, BookOpen, ChevronLeft, ChevronRight, GraduationCap, ListFilter, Menu, ShieldCheck, X, type LucideIcon } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, GraduationCap, ListFilter, Menu, ShieldCheck, X, type LucideIcon } from 'lucide-react';
 import { useUserRole } from '../../hooks/useUserRole';
 import { useScholarshipMobile } from './useScholarshipMobile';
 import './scholarship.css';
@@ -57,7 +57,6 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
   const navigation: { to: string; label: string; icon: LucideIcon }[] = [
     { to: '/scholarships', label: 'Danh sách & Tra cứu', icon: ListFilter },
     { to: '/scholarships/me', label: 'Học bổng của tôi', icon: GraduationCap },
-    { to: '/scholarships/celebrate', label: 'Vinh danh cá nhân', icon: Award },
     { to: '/handbook/scholarships', label: 'Quy chế học bổng', icon: BookOpen },
     ...(isAdmin ? [{ to: '/admin/scholarships', label: 'Quản trị học bổng', icon: ShieldCheck }] : []),
   ];
