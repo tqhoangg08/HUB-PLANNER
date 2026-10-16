@@ -1,4 +1,4 @@
-import { getSemesterMaxWeek, getWeekNumberForDate } from './academicCalendar';
+import { getSemesterMaxWeek, getWeekNumberForDate } from './academicCalendar.ts';
 
 interface ImportedCourseDateFields {
     weeks?: string;
@@ -7,11 +7,11 @@ interface ImportedCourseDateFields {
     phase?: string | number;
 }
 
-const parseVietnameseDate = (value?: string) => {
+export const parseVietnameseDate = (value?: string) => {
     const match = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (!match) return null;
     const date = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
-    return Number.isNaN(date.getTime()) ? null : date;
+    return date.getFullYear() === Number(match[3]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[1]) ? date : null;
 };
 
 export const normalizeImportedSemester = (rawSemester: unknown, fallback: string) => {

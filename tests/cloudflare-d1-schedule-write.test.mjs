@@ -706,11 +706,12 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
       semester: SEMESTER,
       rows: [{
         course: {
-          course_code: 'PRIVATE101', subject_name: 'Imported private course', credits: 3,
+          course_code: 'PRIVATE101', subject_name: 'Imported private course', credits: 1,
           instructor: 'Teacher',
           scheduleSessions: [
-            { weeks: [1], dayOfWeek: 2, shift: 'S', campus: '', room: 'A.101' },
-            { weeks: [6], dayOfWeek: 4, shift: 'C', campus: '', room: 'B.202' },
+            { weeks: [1], dayOfWeek: 2, shift: 'C', startTime: '13:00', endTime: '15:15', campus: 'TD', room: 'A.101' },
+            { weeks: [1], dayOfWeek: 2, shift: 'C', startTime: '15:50', endTime: '17:05', campus: 'TD', room: 'B.202' },
+            { weeks: [6], dayOfWeek: 4, shift: 'S', startTime: '07:00', endTime: '11:05', isEstimated: true, campus: 'Q1', room: 'C.303' },
           ], phase: '1',
         },
       }],
@@ -738,8 +739,18 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
     const reloaded = JSON.parse(snapshot.course_json);
     assert.deepEqual(
       { weeks: reloaded.weeks, day_of_week: reloaded.day_of_week, shift: reloaded.shift, campus: reloaded.campus, room: reloaded.room },
-      { weeks: '1\n6', day_of_week: '2\n4', shift: 'S\nC', campus: '\n', room: 'A.101\nB.202' },
+      { weeks: '1\n1\n6', day_of_week: '2\n2\n4', shift: '13:00-15:15\n15:50-17:05\n07:00-11:05', campus: 'TD\nTD\nQ1', room: 'A.101\nB.202\nC.303' },
     );
+    assert.deepEqual(reloaded.scheduleSessions, importedBody.rows[0].course.scheduleSessions);
+    // A rejected replacement must leave the previous snapshot and revision intact.
+    const invalidBody = structuredClone(importedBody);
+    invalidBody.rows[0].course.scheduleSessions[1].startTime = '14:00';
+    assert.equal((await replaceSchedule(harness, { body: invalidBody, key: 'pdf-invalid-overlap', revision: 2 })).status, 400);
+    invalidBody.rows[0].course.scheduleSessions[1].startTime = '15:50';
+    invalidBody.rows[0].course.scheduleSessions.pop();
+    assert.equal((await replaceSchedule(harness, { body: invalidBody, key: 'pdf-invalid-count', revision: 2 })).status, 400);
+    const after = (await harness.query(`SELECT course_json FROM user_schedule_course_snapshots WHERE user_id='${USER_A}'`))[0];
+    assert.equal(after.course_json, snapshot.course_json);
   } finally {
     await harness.dispose();
   }
