@@ -30,6 +30,7 @@ import {
   createEmptyScheduleSession,
   formatScheduleSession,
   scheduleSessionsAreValid,
+  scheduleTimeLabelsOverlap,
   type StructuredScheduleSession,
 } from '../utils/scheduleSessions';
 import { normalizeImportedSemester } from '../utils/scheduleImportUtils';
@@ -1004,7 +1005,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
           ['S', 'C'].forEach(testShift => {
              const slot1 = getCourseDetailsForSlot(course, d, w, testShift);
              const slot2 = getCourseDetailsForSlot(existingCourse, d, w, testShift);
-             if (slot1 && slot2) { isConflict = true; conflictDay = d; conflictShiftStr = slot1.shift; }
+             if (slot1 && slot2 && scheduleTimeLabelsOverlap(slot1.shift.split(';').map(getCourseTimeLabel).join(';'), slot2.shift.split(';').map(getCourseTimeLabel).join(';'))) { isConflict = true; conflictDay = d; conflictShiftStr = slot1.shift; }
           });
         }
         if (isConflict) break;

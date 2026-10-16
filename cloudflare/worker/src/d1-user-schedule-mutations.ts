@@ -12,6 +12,7 @@ import {
   serializeStructuredScheduleSessions,
 } from './course-schedule-sessions.ts';
 import type { StructuredScheduleSession } from '../../../utils/scheduleSessions.ts';
+import { getImportedTargetSessionCount } from '../../../utils/scheduleImportSessions.ts';
 
 interface D1UserScheduleMutationEnv { DB: D1Database; }
 type D1ScheduleAction = 'add' | 'delete' | 'update_custom_data' | 'replace_all' | 'pdf_import';
@@ -110,13 +111,15 @@ const parseImportedCourse = (value: unknown, semester: string) => {
     return text;
   };
   const credits = Number(value.credits ?? 0);
-  if (!Number.isInteger(credits) || credits < 0 || credits > 30) throw new UserScheduleError(400, 'Dữ liệu nhập lịch không hợp lệ.');
+  const target = getImportedTargetSessionCount(credits);
+  if (!target) throw new UserScheduleError(400, 'Tín chỉ nhập lịch phải là số nguyên từ 1 đến 4.');
   let scheduleSessions: StructuredScheduleSession[];
-  try { scheduleSessions = parseStructuredScheduleSessions(value.scheduleSessions, semester); }
+  try { scheduleSessions = parseStructuredScheduleSessions(value.scheduleSessions, semester, { preserveCampus: true }); }
   catch (error) {
     if (error instanceof CourseScheduleSessionError) throw new UserScheduleError(400, error.message);
     throw error;
   }
+  if (scheduleSessions.length !== target) throw new UserScheduleError(400, `Cần đúng ${target} buổi theo tín chỉ. Vui lòng kiểm tra lịch.`);
   return {
     course_code: required('course_code', 120),
     subject_name: required('subject_name', 200),
@@ -168,7 +171,7 @@ const parseReplacementItems = async (value: Record<string, unknown>, semester: s
     const imported = parseImportedCourse(row.course, semester);
     const { scheduleSessions, ...course } = imported;
     const courseId = await deterministicImportCourseId(semester, index, course);
-    items.push({ courseId, snapshotKind: 'PRIVATE_IMPORTED', scheduleSessions, snapshotCourse: { id: courseId, semester, is_user_added: true, ...course } });
+    items.push({ courseId, snapshotKind: 'PRIVATE_IMPORTED', scheduleSessions, snapshotCourse: { id: courseId, semester, is_user_added: true, ...course, scheduleSessions } });
   }
   return { action: 'pdf_import' as const, items };
 };

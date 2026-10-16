@@ -5,7 +5,8 @@ import {
   SCHEDULE_SHIFT_OPTIONS,
   createEmptyScheduleSession,
   formatScheduleSession,
-  getDuplicateWeekSessionIndexes,
+  getOverlappingSessionIndexes,
+  inferScheduleShift,
   getScheduleSessionErrors,
   getSemesterWeekOptions,
   type StructuredScheduleSession,
@@ -29,7 +30,7 @@ export const ScheduleSessionsEditor: React.FC<ScheduleSessionsEditorProps> = ({
   showSummary = false,
 }) => {
   const weekOptions = useMemo(() => getSemesterWeekOptions(semester), [semester]);
-  const duplicateWeeks = useMemo(() => getDuplicateWeekSessionIndexes(value), [value]);
+  const overlaps = useMemo(() => getOverlappingSessionIndexes(value), [value]);
   const [bulkDay, setBulkDay] = useState('');
   const [bulkShift, setBulkShift] = useState('');
   const updateSession = (index: number, changes: Partial<StructuredScheduleSession>) => {
@@ -46,11 +47,25 @@ export const ScheduleSessionsEditor: React.FC<ScheduleSessionsEditorProps> = ({
   };
   const applyShiftToAll = () => {
     if (!bulkShift) return;
-    onChange(value.map((session) => ({ ...session, shift: bulkShift as StructuredScheduleSession['shift'] })));
+    onChange(value.map((session) => ({ ...session, ...shiftChanges(session, bulkShift as StructuredScheduleSession['shift']) })));
   };
+  const shiftChanges = (session: StructuredScheduleSession, shift: StructuredScheduleSession['shift']) => ({
+    shift,
+    ...(session.startTime !== undefined && inferScheduleShift(session.startTime, session.endTime) !== shift
+      ? { startTime: shift === 'S' ? '07:00' : shift === 'C' ? '13:00' : '', endTime: shift === 'S' ? '11:05' : shift === 'C' ? '17:05' : '' } : {}),
+  });
+  const timeFields = (session: StructuredScheduleSession, index: number) => (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+      <span>Giờ học:</span>
+      <input type="time" aria-label={`Giờ bắt đầu buổi ${index + 1}`} value={session.startTime || ''} className="min-w-0 rounded border border-slate-200 px-2 py-1" onChange={event => updateSession(index, { startTime: event.target.value, endTime: session.endTime || '', shift: inferScheduleShift(event.target.value, session.endTime) })} />
+      <span>–</span>
+      <input type="time" aria-label={`Giờ kết thúc buổi ${index + 1}`} value={session.endTime || ''} className="min-w-0 rounded border border-slate-200 px-2 py-1" onChange={event => updateSession(index, { endTime: event.target.value, startTime: session.startTime || '', shift: inferScheduleShift(session.startTime, event.target.value) })} />
+      {session.isEstimated && <span className="font-semibold text-amber-700">Lịch dự kiến — vui lòng kiểm tra</span>}
+    </div>
+  );
 
   const sessionFields = (session: StructuredScheduleSession, index: number, mobile = false) => {
-    const errors = getScheduleSessionErrors(session, semester, duplicateWeeks.has(index));
+    const errors = getScheduleSessionErrors(session, semester, overlaps.has(index));
     return <>
       <select aria-label={`Tuần học buổi ${index + 1}`} value={session.weeks[0] ?? ''} onChange={(event) => updateSession(index, { weeks: event.target.value ? [Number(event.target.value)] : [] })} className={fieldClass}>
         <option value="">Chọn tuần *</option>
@@ -60,7 +75,7 @@ export const ScheduleSessionsEditor: React.FC<ScheduleSessionsEditorProps> = ({
         <option value="">Chọn thứ *</option>
         {SCHEDULE_DAY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
-      <select aria-label={`Ca học buổi ${index + 1}`} value={session.shift} onChange={(event) => updateSession(index, { shift: event.target.value as StructuredScheduleSession['shift'] })} className={fieldClass}>
+      <select aria-label={`Ca học buổi ${index + 1}`} value={session.shift} onChange={(event) => updateSession(index, shiftChanges(session, event.target.value as StructuredScheduleSession['shift']))} className={fieldClass}>
         <option value="">Chọn ca *</option>
         {SCHEDULE_SHIFT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
@@ -78,14 +93,14 @@ export const ScheduleSessionsEditor: React.FC<ScheduleSessionsEditorProps> = ({
       <select aria-label="Áp dụng ca cho tất cả buổi" value={bulkShift} onChange={(event) => setBulkShift(event.target.value)} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-[11px] font-semibold text-slate-600"><option value="">Áp dụng ca cho tất cả</option>{SCHEDULE_SHIFT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
       <button type="button" onClick={applyShiftToAll} disabled={!bulkShift || value.length === 0} className="h-8 rounded-md border border-slate-300 px-2 text-[11px] font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Áp dụng</button>
     </div>
-    <div className="hidden overflow-hidden rounded-xl border border-slate-200 md:block">
+    <div className="hidden overflow-hidden rounded-xl border border-slate-200 xl:block">
       <div className="grid grid-cols-[48px_minmax(185px,1.5fr)_110px_minmax(160px,1fr)_minmax(135px,1fr)_92px] gap-2 bg-slate-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-wide text-slate-500"><span>Buổi</span><span>Tuần học</span><span>Thứ</span><span>Ca</span><span>Phòng</span><span>Thao tác</span></div>
       {value.map((session, index) => {
-        const errors = getScheduleSessionErrors(session, semester, duplicateWeeks.has(index));
-        return <div key={index} className="border-t border-slate-100 px-3 py-2"><div className="grid grid-cols-[48px_minmax(185px,1.5fr)_110px_minmax(160px,1fr)_minmax(135px,1fr)_92px] items-center gap-2"><span className="text-xs font-extrabold text-slate-700">{index + 1}</span>{sessionFields(session, index)}<div className="flex items-center gap-1"><button type="button" onClick={() => duplicateSession(index)} className="flex h-9 w-9 items-center justify-center rounded-md text-[#0056C7] hover:bg-blue-50" aria-label={`Nhân bản buổi ${index + 1}`} title="Nhân bản buổi"><Copy size={15} /></button><button type="button" onClick={() => removeSession(index)} disabled={value.length === 1} className="flex h-9 w-9 items-center justify-center rounded-md text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-35" aria-label={`Xóa buổi ${index + 1}`} title="Xóa buổi"><Trash2 size={15} /></button></div></div>{errors.length > 0 && <p className="ml-12 mt-1 text-[11px] font-semibold text-red-600" role="alert">{errors.join(' ')}</p>}</div>;
+        const errors = getScheduleSessionErrors(session, semester, overlaps.has(index));
+        return <div key={index} className="border-t border-slate-100 px-3 py-2"><div className="grid grid-cols-[48px_minmax(185px,1.5fr)_110px_minmax(160px,1fr)_minmax(135px,1fr)_92px] items-center gap-2"><span className="text-xs font-extrabold text-slate-700">{index + 1}</span>{sessionFields(session, index)}<div className="flex items-center gap-1"><button type="button" onClick={() => duplicateSession(index)} className="flex h-9 w-9 items-center justify-center rounded-md text-[#0056C7] hover:bg-blue-50" aria-label={`Nhân bản buổi ${index + 1}`} title="Nhân bản buổi"><Copy size={15} /></button><button type="button" onClick={() => removeSession(index)} disabled={value.length === 1} className="flex h-9 w-9 items-center justify-center rounded-md text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-35" aria-label={`Xóa buổi ${index + 1}`} title="Xóa buổi"><Trash2 size={15} /></button></div></div>{timeFields(session, index)}{errors.length > 0 && <p className="ml-12 mt-1 text-[11px] font-semibold text-red-600" role="alert">{errors.join(' ')}</p>}</div>;
       })}
     </div>
-    <div className="space-y-2 md:hidden">{value.map((session, index) => <div key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-extrabold text-slate-800">Buổi {index + 1}</p><div className="flex gap-1"><button type="button" onClick={() => duplicateSession(index)} className="rounded-md p-1.5 text-[#0056C7] hover:bg-blue-50" aria-label={`Nhân bản buổi ${index + 1}`}><Copy size={15} /></button><button type="button" onClick={() => removeSession(index)} disabled={value.length === 1} className="rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-30" aria-label={`Xóa buổi ${index + 1}`}><Trash2 size={15} /></button></div></div><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{sessionFields(session, index, true)}</div></div>)}</div>
+    <div className="space-y-2 xl:hidden">{value.map((session, index) => <div key={index} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><div className="mb-2 flex items-center justify-between"><p className="text-xs font-extrabold text-slate-800">Buổi {index + 1}</p><div className="flex gap-1"><button type="button" onClick={() => duplicateSession(index)} className="rounded-md p-1.5 text-[#0056C7] hover:bg-blue-50" aria-label={`Nhân bản buổi ${index + 1}`}><Copy size={15} /></button><button type="button" onClick={() => removeSession(index)} disabled={value.length === 1} className="rounded-md p-1.5 text-red-600 hover:bg-red-50 disabled:opacity-30" aria-label={`Xóa buổi ${index + 1}`}><Trash2 size={15} /></button></div></div><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{sessionFields(session, index, true)}</div>{timeFields(session, index)}</div>)}</div>
   </section>;
   if (!showSummary || compact) return editor;
   return <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_225px]">{editor}<aside className="hidden rounded-xl border border-slate-200 bg-slate-50 p-3 xl:block"><p className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Tóm tắt lịch học</p><div className="mt-2 space-y-2">{value.map((session, index) => <div key={index} className="rounded-lg border border-slate-200 bg-white p-2 text-[11px] leading-5 text-slate-600"><p className="font-extrabold text-slate-800">Buổi {index + 1}</p>{formatScheduleSession(session).map((item, itemIndex) => <p key={itemIndex}>{item}</p>)}</div>)}</div></aside></div>;

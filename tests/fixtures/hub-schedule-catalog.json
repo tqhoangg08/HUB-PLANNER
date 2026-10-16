@@ -1,0 +1,21 @@
+[
+  {
+    "id": "1368d47c-f0cb-47da-aa8a-cb650078b2e2",
+    "semester": "HK1_2026_2027",
+    "course_code": "LAW349_2611_1_D01",
+    "subject_name": "Pháp luật đại cương",
+    "credits": 2,
+    "phase": "1",
+    "day_of_week": "6\n7",
+    "shift": "07:00-11:05\n07:00-11:05",
+    "weeks": "2-7",
+    "room": "A101\nA101",
+    "campus": "TD\nTD",
+    "instructor": "Lê Thị Ngọc Trâm",
+    "group_name": "1",
+    "cohort": "41",
+    "major": "Trí tuệ nhân tạo",
+    "academic_program": null,
+    "is_user_added": false
+  }
+]
