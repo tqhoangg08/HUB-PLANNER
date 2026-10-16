@@ -74,7 +74,7 @@ test('additional-topic staging has the existing empty course schema before conte
 test('Public live-state preflight rejects canary drift and missing 0054 without writing anything',()=>{
   const config={name:'hub-planner-public-dev-api',main:'worker/src/index.ts',vars:{AI_ADVISOR_V2_MODE:'canary',AI_ADVISOR_V2_CANARY_PERCENT:'100',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0'},assets:{binding:'ASSETS'},ai:{binding:'AI'},observability:{enabled:true}};
   config.ratelimits=[SCHOLARSHIP_LIMITER];
-  const settings={bindings:[{name:'ASSETS',type:'assets'},{name:'AI',type:'ai'},...Object.entries(config.vars).map(([name,text])=>({name,type:'plain_text',text}))],observability:config.observability};
+  const settings={bindings:[{name:'ASSETS',type:'assets'},{name:'AI',type:'ai'},{...SCHOLARSHIP_LIMITER,type:'ratelimit'},...Object.entries(config.vars).map(([name,text])=>({name,type:'plain_text',text}))],observability:config.observability};
   const schema=['ai_search_status','ai_search_revision','ocr_uncertain_tokens','gemini_indexing_status'].map(name=>({name}));
   assert.equal(validatePublicReleaseState(config,settings,schema),true);
   assert.throws(()=>validatePublicReleaseState(config,settings,[]),/0054/);

@@ -9,8 +9,10 @@ const canonicalObservability=o=>({enabled:o?.enabled??false,head_sampling_rate:o
   traces:{enabled:o?.traces?.enabled??false,head_sampling_rate:o?.traces?.head_sampling_rate??1,persist:o?.traces?.persist??true}});
 export const PUBLIC_RELEASE_ACCOUNT='6cd8bac6009a55f96bdf9df7c2057548';
 export const PUBLIC_RELEASE_DB='88d702e1-60d3-490a-8514-38ef881cf133';
-export const PUBLIC_RELEASE_PREDEPLOY_VERSION='d102b7e6-0a37-448c-acce-5f8e795af13c';
-// One reviewed transition, never a generic missing-binding exception.
+// Read-only verification on 2026-10-16: run 38878522768 uploaded this version
+// despite its later trigger-update failure. Run 38884052106 did not deploy.
+export const PUBLIC_RELEASE_PREDEPLOY_VERSION='9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1';
+// The already-serving limiter is required in BOTH phases of this code release.
 export const SCHOLARSHIP_LIMITER=Object.freeze({name:'SCHOLARSHIP_SEARCH_RATE_LIMIT',namespace_id:'45871912',simple:Object.freeze({limit:60,period:60})});
 // Text-first code release preserves the already deployed V2 100% baseline.
 // Neither phase accepts an old 7% baseline or a dispatcher-selected percentage.
@@ -38,7 +40,6 @@ export function validatePublicReleaseState(config,settings,schema,phase='predepl
   const live=settings.bindings,vars=liveVariables(live);
   const limiter=config.ratelimits?.filter(b=>b.name===SCHOLARSHIP_LIMITER.name);
   if(limiter?.length!==1||!isDeepStrictEqual(limiter[0],SCHOLARSHIP_LIMITER))throw Error('SCHOLARSHIP_BINDING_CONFIG_REQUIRED');
-  if(phase==='predeploy'&&live.some(b=>b.name===SCHOLARSHIP_LIMITER.name))throw Error('SCHOLARSHIP_PREDEPLOY_BINDING_DRIFT');
   validateRolloutVariables(vars,phase);
   for(const [key,value]of Object.entries(config.vars||{})) {
     if(vars[key]!==(key==='AI_ADVISOR_V2_CANARY_PERCENT'?expectedPercent:value))throw Error('LIVE_VARIABLE_DRIFT');
@@ -46,7 +47,7 @@ export function validatePublicReleaseState(config,settings,schema,phase='predepl
   const expected=[...(config.d1_databases||[]).map(b=>[b.binding,'d1',b.database_id]),...(config.r2_buckets||[]).map(b=>[b.binding,'r2_bucket',b.bucket_name]),
     ...(config.services||[]).map(b=>[b.binding,'service',b.service]),...(config.queues?.producers||[]).map(b=>[b.binding,'queue',b.queue]),
     ...(config.workflows||[]).map(b=>[b.binding,'workflow',b.name]),...(config.ai_search_namespaces||[]).map(b=>[b.binding,'ai_search_namespace',b.namespace]),
-    ...(config.ratelimits||[]).filter(b=>phase==='postdeploy'||b.name!==SCHOLARSHIP_LIMITER.name).map(b=>[b.name,'ratelimit',b.namespace_id]),[config.assets.binding,'assets'],[config.ai.binding,'ai']];
+    ...(config.ratelimits||[]).map(b=>[b.name,'ratelimit',b.namespace_id]),[config.assets.binding,'assets'],[config.ai.binding,'ai']];
   for(const [name,type,identity]of expected) {
     const b=live.find(b=>b.name===name&&b.type===type);
     if(!b||identity!==undefined&&![b.id,b.bucket_name,b.service,b.queue_name,b.workflow_name,b.namespace,b.namespace_id].includes(identity))throw Error('LIVE_BINDING_DRIFT');
