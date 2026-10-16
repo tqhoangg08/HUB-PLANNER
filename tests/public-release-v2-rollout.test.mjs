@@ -25,8 +25,7 @@ const settings=(percent,phase='predeploy')=>({observability:config.observability
   ...config.queues.producers.map(b=>({name:b.binding,type:'queue',queue_name:b.queue})),
   ...config.workflows.map(b=>({name:b.binding,type:'workflow',workflow_name:b.name})),
   ...config.ai_search_namespaces.map(b=>({name:b.binding,type:'ai_search_namespace',namespace:b.namespace})),
-  ...config.ratelimits.filter(b=>phase==='postdeploy'||b.name!==SCHOLARSHIP_LIMITER.name)
-    .map(b=>({name:b.name,type:'ratelimit',namespace_id:b.namespace_id,simple:b.simple})),
+  ...config.ratelimits.map(b=>({name:b.name,type:'ratelimit',namespace_id:b.namespace_id,simple:b.simple})),
   {name:'ASSETS',type:'assets'},{name:'AI',type:'ai'},{name:'fixture-secret-name',type:'secret_text'},
 ]});
 const patchVar=(s,name,text)=>({...s,bindings:s.bindings.map(b=>b.name===name?{...b,text}:b)});
@@ -65,18 +64,18 @@ test('other variables, binding identities, observability and migration gates are
   }
 });
 
-test('only the verified old binding set is accepted before deploy, and the complete set afterwards',()=>{
+test('the verified complete binding set is mandatory before and after this code release',()=>{
   const old=settings('100'),next=settings('100','postdeploy');
-  assert.throws(()=>validatePublicReleaseState(config,next,schema,'predeploy'),/SCHOLARSHIP_PREDEPLOY_BINDING_DRIFT/);
-  assert.throws(()=>validatePublicReleaseState(config,old,schema,'postdeploy'),/LIVE_BINDING_DRIFT/);
+  assert.equal(validatePublicReleaseState(config,next,schema,'predeploy'),true);
+  assert.equal(validatePublicReleaseState(config,old,schema,'postdeploy'),true);
   for(const phase of ['predeploy','postdeploy']){
     const s=settings('100',phase);
     for(const b of s.bindings.filter(b=>!['plain_text','secret_text'].includes(b.type))){
       assert.throws(()=>validatePublicReleaseState(config,{...s,bindings:s.bindings.filter(x=>x.name!==b.name)},schema,phase),/LIVE_BINDING_DRIFT/);
     }
   }
-  for(const patch of [{namespace_id:'wrong'},{simple:{limit:61,period:60}},{simple:{limit:60,period:10}},{type:'plain_text'}, {simple:undefined}]){
-    assert.throws(()=>validatePublicReleaseState(config,{...next,bindings:next.bindings.map(b=>b.name===SCHOLARSHIP_LIMITER.name?{...b,...patch}:b)},schema,'postdeploy'),/LIVE_BINDING_DRIFT/);
+  for(const phase of ['predeploy','postdeploy'])for(const patch of [{namespace_id:'wrong'},{simple:{limit:61,period:60}},{simple:{limit:60,period:10}},{type:'plain_text'}, {simple:undefined}]){
+    assert.throws(()=>validatePublicReleaseState(config,{...next,bindings:next.bindings.map(b=>b.name===SCHOLARSHIP_LIMITER.name?{...b,...patch}:b)},schema,phase),/LIVE_BINDING_DRIFT/);
   }
   for(const patch of [{namespace_id:'wrong'},{simple:{limit:61,period:60}}]){
     assert.throws(()=>validatePublicReleaseState({...config,ratelimits:config.ratelimits.map(b=>b.name===SCHOLARSHIP_LIMITER.name?{...b,...patch}:b)},old,schema),/SCHOLARSHIP_BINDING_CONFIG_REQUIRED/);
@@ -184,12 +183,17 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
   }
 });
 
-test('predeploy is pinned to the audited old serving version and checks its bindings too',async()=>{
+test('predeploy is pinned to the audited serving version and rejects the obsolete transition',async()=>{
+  assert.equal(before,'9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1');
   const wrap=result=>({ok:true,json:async()=>({success:true,result})});
   const unknown=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:after,percentage:100}]}]}):undefined);
   await assert.rejects(()=>checkPublicReleaseState(config,opts(unknown)),/UNREVIEWED_PREDEPLOY_VERSION/);
-  const changed=fakeApi('predeploy',url=>url.includes('/versions/')?wrap({id:before,resources:{bindings:settings('100','postdeploy').bindings}}):undefined);
-  await assert.rejects(()=>checkPublicReleaseState(config,opts(changed)),/SCHOLARSHIP_PREDEPLOY_BINDING_DRIFT/);
+  const obsolete=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:'d102b7e6-0a37-448c-acce-5f8e795af13c',percentage:100}]}]}):undefined);
+  await assert.rejects(()=>checkPublicReleaseState(config,opts(obsolete)),/UNREVIEWED_PREDEPLOY_VERSION/);
+  const changed=fakeApi('predeploy',url=>url.includes('/versions/')?wrap({id:before,resources:{bindings:settings('100').bindings.filter(b=>b.name!==SCHOLARSHIP_LIMITER.name)}}):undefined);
+  await assert.rejects(()=>checkPublicReleaseState(config,opts(changed)),/LIVE_BINDING_DRIFT/);
+  const missing=fakeApi('predeploy',url=>url.endsWith('/settings')?wrap({...settings('100'),bindings:settings('100').bindings.filter(b=>b.name!==SCHOLARSHIP_LIMITER.name)}):undefined);
+  await assert.rejects(()=>checkPublicReleaseState(config,opts(missing)),/LIVE_BINDING_DRIFT/);
 });
 
 test('postflight rejects old/split traffic or serving version still at seven despite settings at 100',async()=>{
