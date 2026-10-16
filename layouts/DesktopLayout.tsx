@@ -629,10 +629,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       <Link to="/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#0052cc] rounded-lg transition-colors group">
                                           <div className="bg-[#0052cc]/10 p-1.5 rounded-lg text-[#0052cc] group-hover:bg-[#0052cc] group-hover:text-white transition-colors"><Award size={16} /></div> Tra cứu Học bổng HUB
                                       </Link>
-                                      <Link to="/scholarships" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#0052cc] transition-colors">
-                               <Award size={14} /> Tra cứu Học bổng HUB
-                           </Link>
-                           <Link to="/handbook/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-green-600 rounded-lg transition-colors group">
+                                      <Link to="/handbook/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-green-600 rounded-lg transition-colors group">
                                           <div className="bg-green-100 p-1.5 rounded-lg text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors"><Award size={16} /></div> Học bổng & Quy chế
                                       </Link>
                                       <div className="h-px bg-gray-100 my-1 mx-2"></div>
@@ -1058,6 +1055,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </Link>
                           <Link to="/handbook/clubs" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#990000] transition-colors">
                               <Users size={14} /> CLB - Đội - Nhóm
+                          </Link>
+                          <Link to="/scholarships" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#0052cc] transition-colors">
+                              <Award size={14} /> Tra cứu Học bổng HUB
                           </Link>
                           <Link to="/handbook/scholarships" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-green-600 transition-colors">
                               <Award size={14} /> Học bổng & Quy chế
