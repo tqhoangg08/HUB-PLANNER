@@ -609,10 +609,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <Search size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Tìm đồ thất lạc</span>
                   </NavLink>
-                  <NavLink to="/scholarships" onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive || location.pathname.startsWith('/scholarships') ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
-                      <Award size={20} className="sm:hidden" />
-                      <span className="hidden sm:inline-flex items-center gap-1">Học bổng</span>
-                  </NavLink>
                   <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={handbookMenuRef} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
                       <button ref={(el) => { navRefs.current[4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || location.pathname.includes('/support') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                           <Book size={20} className="sm:hidden" />
@@ -1059,6 +1055,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </Link>
                           <Link to="/handbook/clubs" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#990000] transition-colors">
                               <Users size={14} /> CLB - Đội - Nhóm
+                          </Link>
+                          <Link to="/scholarships" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#0052cc] transition-colors">
+                              <Award size={14} /> Tra cứu Học bổng HUB
                           </Link>
                           <Link to="/handbook/scholarships" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-green-600 transition-colors">
                               <Award size={14} /> Học bổng & Quy chế

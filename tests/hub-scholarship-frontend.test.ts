@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import ts from 'typescript';
 import {
   formatScoreValue,
   mapScholarshipErrorCode,
@@ -16,6 +17,42 @@ import {
 } from '../utils/scholarshipApi.ts';
 import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipLoginReturn, resetScholarshipFilters } from '../utils/scholarshipListModel.ts';
 import { celebrationScoreLines, refreshedOwnAward } from '../utils/scholarshipCelebrationModel.ts';
+
+test('desktop and mobile handbook each contain one scholarship lookup, with no independent top tab', () => {
+  const source = ts.createSourceFile('DesktopLayout.tsx', readFileSync('layouts/DesktopLayout.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const links: ts.JsxElement[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxElement(node) && ['Link', 'NavLink'].includes(node.openingElement.tagName.getText(source))) links.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  const destination = (link: ts.JsxElement) => link.openingElement.attributes.properties.find(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === 'to');
+  const lookup = links.filter(link => destination(link)?.getText(source) === 'to="/scholarships"');
+  assert.equal(lookup.length, 2, 'exactly one lookup in each responsive menu');
+  for (const [state, closeMenu] of [['isHandbookMenuOpen', 'setIsHandbookMenuOpen'], ['isMobileMenuOpen', 'setIsMobileMenuOpen']]) {
+    const inMenu = lookup.filter(link => {
+      for (let node: ts.Node | undefined = link.parent; node; node = node.parent) {
+        if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && node.left.getText(source) === state) return true;
+      }
+      return false;
+    });
+    assert.equal(inMenu.length, 1, `${state} must contain its own lookup`);
+    assert.equal(inMenu[0].openingElement.tagName.getText(source), 'Link', 'lookup must not return as a top-level NavLink');
+    assert.match(inMenu[0].getText(source), /Tra cứu Học bổng HUB/);
+    assert.ok(inMenu[0].getText(source).includes(`${closeMenu}(false)`), 'navigation closes the correct menu');
+  }
+  assert.equal(links.filter(link => destination(link)?.getText(source) === 'to="/handbook/scholarships"' && link.getText(source).includes('Học bổng & Quy chế')).length, 2);
+});
+
+test('scholarship sidebar removes only the duplicate celebration entry and preserves the My Scholarships studio links', () => {
+  const shell = readFileSync('features/scholarships/ScholarshipShell.tsx', 'utf8');
+  const me = readFileSync('features/scholarships/ScholarshipMe.tsx', 'utf8');
+  assert.doesNotMatch(shell, /Vinh danh cá nhân|to: '\/scholarships\/celebrate'/);
+  for (const label of ['Danh sách & Tra cứu', 'Học bổng của tôi', 'Quy chế học bổng', 'Quản trị học bổng']) assert.ok(shell.includes(label));
+  assert.match(shell, /isAdmin \? \[\{ to: '\/admin\/scholarships'/);
+  assert.match(me, /to=\{`\/scholarships\/celebrate\?awardId=\$\{awards\[0\]\.id\}`\}/);
+  assert.match(me, /to=\{`\/scholarships\/celebrate\?awardId=\$\{award\.id\}`\}/);
+});
 
 test('celebration wraps all approved score values without dropping Vietnamese or long source text', () => {
   const parts = ['GPA: 9.5', 'ACADEMICRANK: Giỏi', 'TRAININGSCORE: 90', 'TRAININGRANK: Xuất sắc', 'CREDITS: 18'];
