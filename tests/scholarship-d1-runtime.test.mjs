@@ -5,6 +5,7 @@ import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
 import { handleAdminScholarships } from '../cloudflare/worker/src/scholarship-admin.ts';
 import { handlePublicScholarships } from '../cloudflare/worker/src/scholarships.ts';
+import { validateScholarshipReleaseSchema, SCHOLARSHIP_MIGRATIONS, SCHOLARSHIP_SCHEMA_QUERY } from '../scripts/scholarship-release-schema.mjs';
 
 test('real Worker routing + D1 migrations/JSON chunks/CAS transactions run locally without Auth network', async t => {
   const bundled = await build({ entryPoints: ['cloudflare/worker/src/index.ts'], bundle: true, write: false,
@@ -14,11 +15,16 @@ test('real Worker routing + D1 migrations/JSON chunks/CAS transactions run local
     d1Databases: ['DB'], bindings: { ALLOWED_ORIGINS: 'https://example.test' } });
   t.after(() => mf.dispose());
   const db = await mf.getD1Database('DB');
-  for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql']) {
+  await db.prepare('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE)').run();
+  for (const file of SCHOLARSHIP_MIGRATIONS) {
     const sql = await readFile(new URL('../cloudflare/migrations/' + file, import.meta.url), 'utf8');
     const statements = sql.replace(/--[^\n]*/g, '').match(/CREATE TRIGGER[\s\S]*?END;|(?:CREATE|ALTER)[\s\S]*?;/g);
     await db.batch(statements.filter(s => s.trim()).map(s => db.prepare(s)));
+    await db.prepare('INSERT INTO d1_migrations(name) VALUES(?)').bind(file).run();
   }
+  // Synthetic local D1, including its real ALTER-generated sqlite_schema SQL.
+  assert.equal(validateScholarshipReleaseSchema((await db.prepare(SCHOLARSHIP_SCHEMA_QUERY).all()).results,
+    (await db.prepare('SELECT name FROM d1_migrations').all()).results),true);
   const origin = 'https://example.test';
   const empty = await mf.dispatchFetch(origin + '/api/public/v1/scholarships/campaigns');
   assert.equal(empty.status, 200); assert.equal(empty.headers.get('cache-control'), 'no-store');

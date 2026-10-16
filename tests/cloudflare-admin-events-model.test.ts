@@ -258,6 +258,64 @@ test('ready DRL corpus derives official points and rejects arbitrary or unknown 
   } finally { sql.close(); }
 });
 
+test('editing an inactive historical rule preserves its saved tuple on this event only, including the public projection', async () => {
+  const { sql, DB } = d1Fixture();
+  try {
+    sql.exec(`INSERT INTO event_drl_corpus VALUES('history',2750,'ready','2026-10-15');
+      INSERT INTO drl_rules VALUES('OLD','I',NULL,'Historical fixture',NULL,5,'lần',1,1,'old');
+      INSERT INTO drl_rules VALUES('NEW','III',NULL,'Current fixture',NULL,10,'hoạt động',1,1,'2026');`);
+    const created = await mutateAdminEvent({DB},'create',{title:'Synthetic historical event',status:'Sắp diễn ra',drl_rule_id:'OLD'},undefined,fetch,
+      {mutationId:'f475fdb4-39e1-4a0c-a11f-f4c7e71652f3',userId:'fixture-staff'});
+    const id=Number(created.data[0].id);
+    sql.exec("UPDATE drl_rules SET active=0 WHERE rule_id='OLD'");
+    const tuple={drl_rule_id:'OLD',criteria:'I',points:'5'};
+    const readTuple=(table:string)=>sql.prepare(`SELECT drl_rule_id,criteria,points FROM ${table} WHERE id=?`).get(id);
+    for(const role of ['admin','auditor'] as const){
+      const payload={...tuple,title:`Edited by ${role}`};
+      assert.doesNotThrow(()=>assertAdminEventMutationAllowed(payload,role));
+      assert.deepEqual(await resolveAdminEventDrlRule({DB},'update',payload,id),{title:payload.title});
+      await mutateAdminEvent({DB},'update',payload,id);
+      assert.deepEqual({...readTuple('admin_events')},tuple);
+      assert.deepEqual({...readTuple('public_events')},tuple);
+    }
+    const before=sql.prepare('SELECT * FROM admin_events WHERE id=?').get(id);
+    await mutateAdminEvent({DB},'update',tuple,id);
+    assert.deepEqual(sql.prepare('SELECT * FROM admin_events WHERE id=?').get(id),before,'opening/saving same tuple is a no-op');
+    await mutateAdminEvent({DB},'update',{description:'Unrelated edit'},id);
+    assert.deepEqual({...readTuple('admin_events')},tuple);
+    await assert.rejects(()=>resolveAdminEventDrlRule({DB},'create',{title:'New event',status:'pending',...tuple}),AdminEventMutationError);
+    for(const patch of [{points:'10'},{criteria:'III'},{drl_rule_id:null}]){
+      await assert.rejects(()=>resolveAdminEventDrlRule({DB},'update',patch,id),AdminEventMutationError);
+    }
+    await assert.rejects(()=>resolveAdminEventDrlRule({DB},'update',tuple,id+1),e=>e instanceof AdminEventMutationError&&e.status===404);
+    await assert.rejects(()=>resolveAdminEventDrlRule({DB},'update',tuple),e=>e instanceof AdminEventMutationError&&e.status===400);
+    const next=await mutateAdminEvent({DB},'create',{title:'Different event',status:'pending',drl_rule_id:'NEW'},undefined,fetch,
+      {mutationId:'f475fdb4-39e1-4a0c-a11f-f4c7e71652f4',userId:'fixture-staff'});
+    await assert.rejects(()=>resolveAdminEventDrlRule({DB},'update',tuple,Number(next.data[0].id)),AdminEventMutationError);
+    await mutateAdminEvent({DB},'update',{drl_rule_id:'NEW'},id);
+    assert.deepEqual({...readTuple('admin_events')},{drl_rule_id:'NEW',criteria:'III',points:'10'});
+    assert.deepEqual({...readTuple('public_events')},{drl_rule_id:'NEW',criteria:'III',points:'10'});
+  } finally { sql.close(); }
+});
+
+test('preserving a historical tuple cannot overwrite a concurrent rule change', async () => {
+  const {sql,DB}=d1Fixture();
+  try {
+    sql.exec(`INSERT INTO drl_rules VALUES('OLD','I',NULL,'Historical',NULL,5,'lần',0,1,'old');
+      INSERT INTO drl_rules VALUES('NEW','III',NULL,'Current',NULL,10,'hoạt động',1,1,'2026');
+      INSERT INTO admin_events(id,title,created_at,title_search,organizer_search,drl_rule_id,criteria,points,status)
+      VALUES(99,'Fixture','2026-01-01','fixture','','OLD','I','5','pending');`);
+    const originalBatch=DB.batch.bind(DB);
+    const racingDB={...DB,batch:async(statements: D1PreparedStatement[])=>{
+      sql.exec("UPDATE admin_events SET drl_rule_id='NEW',criteria='III',points='10' WHERE id=99");
+      return originalBatch(statements);
+    }};
+    await mutateAdminEvent({DB:racingDB} as never,'update',{title:'Edited',drl_rule_id:'OLD',criteria:'I',points:'5'},99);
+    assert.deepEqual({...sql.prepare('SELECT drl_rule_id,criteria,points FROM admin_events WHERE id=99').get()},
+      {drl_rule_id:'NEW',criteria:'III',points:'10'});
+  } finally {sql.close();}
+});
+
 test('D1 core event create/replay/publish/edit/hide/unhide/delete projection is atomic', async () => {
   const { sql, DB } = d1Fixture();
   try {

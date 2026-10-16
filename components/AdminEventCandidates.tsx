@@ -48,7 +48,7 @@ interface EventCandidate {
   approved_event_id?: number | null;
   reviewed_at?: string | null;
   created_at?: string | null;
-  drl_prediction?: { state: 'pending' | 'completed' | 'failed'; rule_id: string | null;
+  drl_prediction?: { state: 'pending' | 'completed' | 'failed'; stale?: boolean; rule_id: string | null;
     confidence: number | null; confidence_label: string | null; historical_support_count: number | null;
     section: string | null; content: string | null; condition_text: string | null; points: number | null; } | null;
 }
@@ -440,15 +440,15 @@ const CandidateDetailModal = ({
                     </select>
                   </label>
                   <div className="sm:col-span-2">
-                    {candidate.drl_prediction?.state === 'completed' ? <p className="mb-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-[#003375]">
+                    {candidate.drl_prediction?.stale ? <p className="mb-2 text-xs text-slate-500">Gợi ý ĐRL đã cũ. Cần phân tích lại theo quy tắc hiện hành.</p> : candidate.drl_prediction?.state === 'completed' ? <p className="mb-2 rounded-md border border-blue-200 bg-blue-50 p-2 text-xs text-[#003375]">
                       AI dự kiến: {drlCandidateLabel(candidate)} · {candidate.drl_prediction.historical_support_count || 0} sự kiện lịch sử hỗ trợ
                     </p> : <p className="mb-2 text-xs text-slate-500">Dự đoán ĐRL: {candidate.drl_prediction?.state || 'đang chờ'}</p>}
-                    {candidate.drl_prediction?.state === 'failed' && <button type="button" disabled={retryingDrl}
+                    {(candidate.drl_prediction?.state === 'failed' || candidate.drl_prediction?.stale) && <button type="button" disabled={retryingDrl}
                       className="mb-2 rounded border border-blue-300 px-2 py-1 text-xs font-semibold text-[#0052cc] disabled:opacity-50"
                       onClick={onRetryDrl}>{retryingDrl ? 'Đang thử lại…' : 'Thử lại gợi ý ĐRL'}</button>}
                     <EventDrlRulePicker rules={rules} selectedRuleId={draft.drl_rule_id} prediction={null}
                       onSelect={(rule) => onDraftChange({ ...draft, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' })}/>
-                    {candidate.drl_prediction?.rule_id && rules.some((rule) => rule.rule_id === candidate.drl_prediction?.rule_id) &&
+                    {candidate.drl_prediction?.state === 'completed' && !candidate.drl_prediction.stale && candidate.drl_prediction.rule_id && rules.some((rule) => rule.rule_id === candidate.drl_prediction?.rule_id) &&
                       <button type="button" className="mt-2 rounded border border-blue-300 px-2 py-1 text-xs font-semibold text-[#0052cc]"
                         onClick={() => { const rule = rules.find((item) => item.rule_id === candidate.drl_prediction?.rule_id)!;
                           onDraftChange({ ...draft, drl_rule_id: rule.rule_id, criteria: rule.section, points: String(rule.points) }); }}>Áp dụng gợi ý ĐRL</button>}
