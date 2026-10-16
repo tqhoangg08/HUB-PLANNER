@@ -1,3 +1,5 @@
+import { parseVietnameseDate } from './scheduleImportUtils.ts';
+
 export interface SchedulePdfTextItem {
     text: string;
     x: number;
@@ -307,7 +309,6 @@ const parsePageCourses = (page: SchedulePdfLayoutPage): ImportedScheduleCourse[]
             block.filter(item => item.x >= infoHeader.x - 45 && item.x < instructorHeader.x - 18),
         );
         const meetings = parseMeetings(information);
-        const campuses = [...new Set(meetings.map(meeting => meeting.campus).filter(Boolean))];
 
         return {
             course_code: normalizeText(codeItem.text).replace(/\s+/g, '_'),
@@ -317,7 +318,7 @@ const parsePageCourses = (page: SchedulePdfLayoutPage): ImportedScheduleCourse[]
             day_of_week: meetings.map(meeting => meeting.day).join('\n'),
             shift: meetings.map(meeting => meeting.shift).join('\n'),
             room: meetings.map(meeting => meeting.room).join('\n'),
-            campus: campuses.join('\n') || 'TD',
+            campus: meetings.map(meeting => meeting.campus).join('\n'),
             weeks: '',
             start_date: dates[0] || '',
             end_date: dates[1] || '',
@@ -348,18 +349,22 @@ export const parseHubScheduleLayout = (pages: SchedulePdfLayoutPage[]): HubSched
             sourcePage: page.pageNumber,
         }));
     });
+    const summary = groupIntoLines(stitchedItems).find(line => /^Tổng\s+số\s+tín\s+chỉ/i.test(joinLine(line.items)));
     const courses = parsePageCourses({
         pageNumber: 1,
         width: Math.max(0, ...pages.map(page => page.width)),
         height: pages.reduce((total, page) => total + page.height, 0),
-        items: stitchedItems,
+        // The last row on a headerless page must end at the table summary,
+        // not at a distance inferred from the previous page's row.
+        items: summary ? stitchedItems.filter(item => item.y > summary.y + 2.2) : stitchedItems,
     });
     const completeCourseCount = courses.filter(course => (
         course.course_code
         && course.subject_name
         && course.credits > 0
-        && course.start_date
-        && course.end_date
+        && parseVietnameseDate(course.start_date)
+        && parseVietnameseDate(course.end_date)
+        && parseVietnameseDate(course.start_date)! <= parseVietnameseDate(course.end_date)!
         && course.meetings.length > 0
     )).length;
     const reliable = isHubSchedule
