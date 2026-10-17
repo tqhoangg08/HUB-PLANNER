@@ -5,6 +5,89 @@ import { readFile } from 'node:fs/promises';
 import { handlePublicScholarships, handleMyScholarships, scholarshipErrorStatus } from '../cloudflare/worker/src/scholarships.ts';
 import { handleAdminScholarships, readScholarshipJson } from '../cloudflare/worker/src/scholarship-admin.ts';
 import { normalizeScholarshipName, validateScholarshipImport } from '../shared/scholarship-import.ts';
+import { eligibilityMapping, convertEligibilityImport } from '../shared/scholarship-eligibility.ts';
+import { rankingKeys } from '../shared/scholarship-policy.ts';
+import { syntheticEligibility } from './fixtures/scholarship-eligibility.ts';
+
+test('1059 x 17 eligibility rows: typed conversion, independent own policy, public leakage, AND filters and source order', async t => {
+  const c = await setup(t); await c.create();
+  const data = syntheticEligibility();
+  assert.equal(data.rows.length,1059); assert.equal(Object.keys(data.rows[0].values).length,17);
+  const legacy = structuredClone(data) as any;
+  delete legacy.mapping.sourceOrdinal; delete legacy.mapping.sourceListKind; delete legacy.mapping.trainingProgram; delete legacy.mapping.rankings;
+  legacy.mapping.scores.push({key:'trainingProgram',column:'Chương trình đào tạo',label:'Chương trình đào tạo'},
+    ...eligibilityMapping.rankings!.map(item=>({...item,label:item.column})));
+  const converted = await convertEligibilityImport(legacy);
+  await assert.rejects(c.preview(legacy),{status:400});
+  assert.deepEqual(converted.payload.rows, legacy.rows); assert.equal(converted.validation.errors.length,0);
+  assert.equal(converted.validation.rows[0].studentCode,'000000000001');
+  assert.deepEqual(converted.validation.rows[0].scores,{gpa:3.6,trainingScore:100,credits:17,amountVnd:13926000});
+  assert.equal(converted.validation.rows[0].rankings?.topSchoolPercent,0.0125);
+  const batchId = await c.applied(converted.payload as never);
+  const core = ['fullName','studentCode','awardType'];
+  const detail = ['sourceOrdinal','className','major','cohort','trainingProgram','scholarshipRank','scores.gpa','scores.trainingScore','scores.credits','scores.amountVnd'];
+  const ownFields = [...detail,...rankingKeys.map(key=>'rankings.'+key)];
+  const approval = {batchId,sourceSha256:data.sourceSha256,officialSource:{title:'Synthetic eligibility',reference:'SYNTHETIC ONLY',url:null},republicationConfirmed:true};
+  await assert.rejects(c.transition('approve',{...approval,approvedFields:[...core,'scores.topSchool']}),{status:400});
+  await assert.rejects(c.transition('approve',{...approval,approvedFields:core,ownFields}),{status:400});
+  await c.transition('approve',{...approval,approvedFields:[...core,...detail],ownFields,ownAccessConfirmed:true});
+  await c.transition('publish',{batchId});
+  const response = await c.publicApi(slug+'/recipients?limit=3&page=2') as any;
+  assert.equal(response.total,1059); assert.equal(response.recipients[0].sourceOrdinal,4);
+  assert.equal(response.campaign.sourceListKind,'eligibility');
+  assert.doesNotMatch(JSON.stringify(response),/topSchool|topMajor|topCohort|topClass|rankings/i);
+  const values = {q:'viên kiểm thử',major:'Kế toán',className:'TEST-B',cohort:'K24',scholarshipRank:'Giỏi',trainingProgram:'Chương trình kiểm thử A'};
+  const expected = data.rows.filter(({values:v},i)=>i%2 && i%3 && i%4 && i%5);
+  const query = new URLSearchParams({...values,limit:'3',page:'2'});
+  const filtered = await c.publicApi(slug+'/search?'+query) as any;
+  assert.equal(filtered.total,expected.length);
+  assert.deepEqual(filtered.recipients.map(r=>r.studentCode),expected.slice(3,6).map(r=>r.values.MSSV));
+  const facets = await c.publicApi(slug+'/facets?'+new URLSearchParams(values)) as any;
+  assert.equal(facets.apiVersion,'1.2.0'); assert.ok(facets.supportedFilters.includes('trainingProgram'));
+  assert.doesNotMatch(JSON.stringify(facets),/topSchool|topMajor|topCohort|topClass|rankings/i);
+  assert.equal((await c.publicApi(slug+'/recipients?trainingProgram=unknown')).total,0);
+  const mine = await handleMyScholarships(c.req('/api/me/scholarships'),c.env as never) as any;
+  assert.equal(mine.awards.length,1); assert.equal(mine.awards[0].rankings.topSchoolPercent,0.0125);
+  assert.equal(mine.awards[0].trainingProgram,data.rows[0].values['Chương trình đào tạo']);
+  // Revoke public optional fields, preserving independent own access. Legacy Top aliases cannot bypass policy.
+  c.sqlite.prepare('UPDATE scholarship_import_batches SET approved_fields_json=? WHERE id=?').run(JSON.stringify([...core,'scores.topSchool','rankings.topClass']),batchId);
+  const publicHidden = await c.publicApi(slug+'/recipients') as any;
+  assert.deepEqual(publicHidden.recipients[0].scores,{}); assert.equal(publicHidden.recipients[0].trainingProgram,null);
+  assert.doesNotMatch(JSON.stringify(publicHidden),/topSchool|topClass|rankings/i);
+  assert.equal((await c.publicApi(slug+'/facets')).supportedFilters.length,0);
+  assert.equal((await c.publicApi(slug+'/recipients?trainingProgram='+encodeURIComponent(data.rows[0].values['Chương trình đào tạo']))).total,0);
+  assert.equal((await handleMyScholarships(c.req('/api/me/scholarships'),c.env as never) as any).awards[0].scores.amountVnd,13926000);
+  const otherEnv = {...c.env,AUTH_SERVICE:{fetch:async(request: Request)=>Response.json(new URL(request.url).pathname.startsWith('/internal/')
+    ? {...owner,email:'999999999999@st.buh.edu.vn',role:'user'}
+    : {user:{id:owner.userId,email:'999999999999@st.buh.edu.vn',emailVerified:true}})}};
+  assert.deepEqual((await handleMyScholarships(c.req('/api/me/scholarships'),otherEnv as never)).awards,[]);
+  for (const param of ['studentCode','rankings','topSchool','trainingProgram']) await assert.rejects(handleMyScholarships(c.req('/api/me/scholarships?'+param+'=forged'),c.env as never),{status:400});
+  const plan=c.sqlite.prepare('EXPLAIN QUERY PLAN SELECT id FROM scholarship_snapshot_rows WHERE batch_id=? AND training_program=? AND cohort=?').all(batchId,'x','K24');
+  assert.match(JSON.stringify(plan),/scholarship_snapshot_program_idx/);
+});
+
+test('eligibility rankings retain nulls/numeric strings and reject invalid ratios, ranks and malformed mapping', async () => {
+  const data = syntheticEligibility(1) as any;
+  data.rows[0].values['Tỷ lệ top trường']='0,0125'; data.rows[0].values['Top trường']=null;
+  data.rows[0].values['Top lớp']='001'; data.rows[0].values['Chương trình đào tạo']=null;
+  const valid = await validateScholarshipImport(data);
+  assert.equal(valid.errors.length,0); assert.equal(valid.rows[0].rankings?.topSchoolPercent,'0,0125');
+  assert.equal(valid.rows[0].rankings?.topSchool,null); assert.equal(valid.rows[0].rankings?.topClass,'001');
+  assert.equal(valid.rows[0].trainingProgram,null);
+  for(const value of [-1,1.01,'1,25',Infinity,'bad']) {
+    const invalid=structuredClone(data); invalid.rows[0].values['Tỷ lệ top trường']=value;
+    assert.equal((await validateScholarshipImport(invalid)).rejectedRows,1);
+  }
+  for(const value of [0,-1,1.5,'bad']) {
+    const invalid=structuredClone(data); invalid.rows[0].values['Top lớp']=value;
+    assert.equal((await validateScholarshipImport(invalid)).rejectedRows,1);
+  }
+  for(const key of ['trainingProgram','cohort','gpa','amountVnd','topUnknown']) {
+    await assert.rejects(validateScholarshipImport({...data,mapping:{...data.mapping,rankings:[{key,column:'Top trường'}]}}));
+  }
+  await assert.rejects(validateScholarshipImport({...data,mapping:{...data.mapping,sourceListKind:'official_without_evidence'}}));
+  await assert.rejects(validateScholarshipImport({...data,mapping:{...data.mapping,sourceListKind:undefined}}),/SOURCE_LIST_KIND_REQUIRED/);
+});
 
 const origin = 'https://example.test', slug = 'synthetic-hk2';
 const owner = { userId: '11111111-1111-4111-8111-111111111111', email: '000000000001@st.buh.edu.vn', role: 'admin' };
@@ -39,7 +122,7 @@ const sqliteD1 = (sqlite: DatabaseSync) => {
 const setup = async (t: { after: (fn: () => void) => void }, options: Record<string, unknown> = {}) => {
   const sqlite = new DatabaseSync(':memory:'); t.after(() => sqlite.close());
   sqlite.exec('PRAGMA foreign_keys=ON');
-  for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql'])
+  for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql', '0059_scholarship_personal_details.sql'])
     sqlite.exec(await readFile(new URL('../cloudflare/migrations/' + file, import.meta.url), 'utf8'));
   const DB = sqliteD1(sqlite);
   const env = { DB, AUTH_SERVICE: { fetch: async (request: Request) => {
@@ -333,6 +416,17 @@ test('facets paginate source options without silent truncation and reject abusiv
   await assert.rejects(handlePublicScholarships(req,new URL(req.url),{...c.env,SCHOLARSHIP_SEARCH_RATE_LIMIT:{limit:async()=>({success:false})}} as never),{status:429});
 });
 
+test('training program facets paginate independently while applying the remaining AND filters', async t => {
+  const c=await setup(t);await c.create();const data=syntheticEligibility(51);
+  data.rows.forEach((row,i)=>{row.values['Chương trình đào tạo']='Program '+String(i).padStart(2,'0');row.values['Khóa']='K24';});
+  const batchId=await c.applied(data as never);
+  await c.approved(batchId,['fullName','studentCode','awardType','trainingProgram','cohort']);await c.transition('publish',{batchId});
+  const facets=await c.publicApi(slug+'/facets?cohort=K24&trainingProgram=Program%2001&facetLimit=20&facetPage=3') as any;
+  assert.equal(facets.totalRecipients,1);assert.equal(facets.facets.trainingProgram.total,51);
+  assert.deepEqual(facets.facets.trainingProgram.options,Array.from({length:11},(_,i)=>'Program '+String(i+40).padStart(2,'0')));
+  for(const query of ['trainingProgram=','trainingProgram=A&trainingProgram=B','trainingProgram='+('x'.repeat(161)),'trainingProgram='+encodeURIComponent('a\u007fb')]) await assert.rejects(c.publicApi(slug+'/recipients?'+query),{status:400});
+});
+
 test('new import mapping distinguishes programs without deriving cohort or weakening duplicate detection', async () => {
   const data={...input(),mapping:{...mapping,scholarshipType:'Program',scholarshipRank:'Rank',cohort:'Cohort'},rows:[
     {sourceRowNumber:2,values:{...input().rows[0].values,Program:'A',Rank:'Giỏi',Cohort:null}},
@@ -352,6 +446,7 @@ test('additive 0057 preserves a v1.0 preview checksum and permits later apply', 
   sqlite.prepare("INSERT INTO scholarship_import_batches(id,campaign_slug,source_sha256,source_filename,expected_rows,accepted_rows,rejected_rows,status,performed_by_user_id,mapping_json,payload_sha256) VALUES (?,?,?,?,?,?,0,'previewed',?,?,?)").run(id,slug,data.sourceSha256,data.sourceFilename,3,3,owner.userId,JSON.stringify(data.mapping),data.payloadSha256);
   for(const r of data.rows) sqlite.prepare('INSERT INTO scholarship_snapshot_rows(batch_id,source_row_number,source_identifier,student_code,full_name,full_name_search,class_name,major,award_type,scores_json,source_row_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?)').run(id,r.sourceRowNumber,r.sourceIdentifier,r.studentCode,r.fullName,r.fullNameSearch,r.className,r.major,r.awardType,JSON.stringify(r.scores),r.rowSha256);
   sqlite.exec(await readFile(new URL('../cloudflare/migrations/0057_scholarship_filters.sql',import.meta.url),'utf8'));
+  sqlite.exec(await readFile(new URL('../cloudflare/migrations/0059_scholarship_personal_details.sql',import.meta.url),'utf8'));
   assert.equal(sqlite.prepare('SELECT scholarship_type FROM scholarship_snapshot_rows LIMIT 1').get()?.scholarship_type,null);
   const req=new Request(origin+'/api/admin/v1/scholarships/campaigns/'+slug+'/imports/apply',{method:'POST',headers:{Cookie:'synthetic',Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:0,batchId:id})});
   const result=await handleAdminScholarships(req,new URL(req.url),{DB:sqliteD1(sqlite),AUTH_SERVICE:{fetch:async()=>Response.json(owner)}} as never);
@@ -363,4 +458,21 @@ test('explicit legacy label may reuse one source type or rank column but indepen
   const result=await validateScholarshipImport(base);assert.equal(result.errors.length,0);assert.equal(result.rows[0].scholarshipType,'KKHT');assert.equal(result.rows[0].scholarshipRank,'Giỏi');
   await assert.rejects(validateScholarshipImport({...base,mapping:{...base.mapping,scholarshipType:'Loại'}}),/AMBIGUOUS_COLUMN_MAPPING/);
   await assert.rejects(validateScholarshipImport({...base,mapping:{...base.mapping,cohort:'Loại'}}),/AMBIGUOUS_COLUMN_MAPPING/);
+});
+
+test('0059 upgrades an already applied immutable snapshot without backfilling, rewriting or leaking old private scores', async t => {
+  const sqlite=new DatabaseSync(':memory:');t.after(()=>sqlite.close());
+  for(const file of ['0055_scholarships.sql','0056_scholarship_snapshots.sql','0057_scholarship_filters.sql'])sqlite.exec(await readFile(new URL('../cloudflare/migrations/'+file,import.meta.url),'utf8'));
+  const data=await validateScholarshipImport(input()), id='e'.repeat(64), row=data.rows[0];
+  sqlite.prepare('INSERT INTO scholarship_campaigns(slug,title,school_year,semester,source_title) VALUES (?,?,?,?,?)').run(slug,'Synthetic legacy','2025-2026','HK2','');
+  sqlite.prepare("INSERT INTO scholarship_import_batches(id,campaign_slug,source_sha256,source_filename,expected_rows,accepted_rows,rejected_rows,status,performed_by_user_id,mapping_json,payload_sha256) VALUES (?,?,?,?,1,1,0,'previewed',?,?,?)").run(id,slug,data.sourceSha256,data.sourceFilename,owner.userId,JSON.stringify(data.mapping),data.payloadSha256);
+  sqlite.prepare('INSERT INTO scholarship_snapshot_rows(batch_id,source_row_number,student_code,full_name,full_name_search,award_type,scores_json,source_row_sha256) VALUES (?,?,?,?,?,?,?,?)').run(id,row.sourceRowNumber,row.studentCode,row.fullName,row.fullNameSearch,row.awardType,JSON.stringify(row.scores),row.rowSha256);
+  sqlite.prepare("UPDATE scholarship_import_batches SET status='applied' WHERE id=?").run(id);
+  const columns=sqlite.prepare('PRAGMA table_info(scholarship_snapshot_rows)').all().map(column=>String(column.name)).join(',');
+  const before=sqlite.prepare('SELECT '+columns+' FROM scholarship_snapshot_rows').all();
+  sqlite.exec(await readFile(new URL('../cloudflare/migrations/0059_scholarship_personal_details.sql',import.meta.url),'utf8'));
+  assert.deepEqual(sqlite.prepare('SELECT '+columns+' FROM scholarship_snapshot_rows').all(),before);
+  assert.deepEqual({...sqlite.prepare('SELECT training_program,source_ordinal_json,private_rankings_json FROM scholarship_snapshot_rows').get()},{training_program:null,source_ordinal_json:null,private_rankings_json:null});
+  assert.deepEqual({...sqlite.prepare('SELECT source_list_kind,own_fields_json FROM scholarship_import_batches').get()},{source_list_kind:'unspecified',own_fields_json:null});
+  assert.throws(()=>sqlite.prepare('UPDATE scholarship_snapshot_rows SET private_rankings_json=?').run('{"topSchool":1}'),/immutable/i);
 });

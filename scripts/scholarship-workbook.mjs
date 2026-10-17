@@ -60,7 +60,7 @@ const record = (headers, values, sourceRowNumber) => {
   if (values.length !== headers.length) fail('COLUMN_COUNT_MISMATCH');
   return { sourceRowNumber, values: Object.fromEntries(headers.map((key, i) => [key, values[i]])) };
 };
-export const parseScholarshipFile = async (filename, mapping, { sheetName, delimiter = ',' } = {}) => {
+export const parseScholarshipFile = async (filename, mapping, { sheetName, delimiter = ',', allowCachedFormulas = false } = {}) => {
   if ((await stat(filename)).size > MAX_SOURCE) fail('SOURCE_TOO_LARGE');
   const bytes = await readFile(filename);
   if (bytes.length > MAX_SOURCE || !bytes.length) fail('SOURCE_TOO_LARGE');
@@ -85,7 +85,10 @@ export const parseScholarshipFile = async (filename, mapping, { sheetName, delim
     const scalar = cell => {
       const value = cell.value;
       if (value === null || typeof value === 'string' || typeof value === 'number') return value;
-      // Dates, formula caches, rich text, hyperlinks and merged cells are not guessed.
+      // Explicit offline opt-in only. Never execute a formula or fill a missing cache.
+      if (allowCachedFormulas && typeof value === 'object' && ('formula' in value || 'sharedFormula' in value)
+        && Object.hasOwn(value, 'result') && (typeof value.result === 'string' || typeof value.result === 'number')) return value.result;
+      // Dates, rich text, hyperlinks and merged cells are not guessed.
       fail('UNSUPPORTED_XLSX_CELL');
     };
     const headers = headersFor(Array.from({ length: sheet.columnCount }, (_, i) => scalar(sheet.getRow(1).getCell(i + 1))));

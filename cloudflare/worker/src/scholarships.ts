@@ -1,6 +1,7 @@
 import { requireBetterAuthSession, type BetterAuthIdentityEnv } from './better-auth-identity.ts';
 import { readVerifiedStudentCode, type StudentDirectoryEnv } from './student-directory.ts';
 import { normalizeScholarshipName } from '../../../shared/scholarship-import.ts';
+import { isPublicField, rankingKeys } from '../../../shared/scholarship-policy.ts';
 
 export interface ScholarshipEnv extends BetterAuthIdentityEnv, StudentDirectoryEnv {
   DB?: D1Database;
@@ -37,44 +38,51 @@ interface CampaignRow {
   slug: string; title: string; schoolYear: string; semester: string; publishedAt: string;
   activeBatchId: string; approvedFieldsJson: string; mappingJson: string;
   sourceSha256: string; approvalDocumentJson: string; revision: number;
+  sourceListKind: string; ownFieldsJson: string | null;
 }
 const selectCampaign = `SELECT c.slug, c.title, c.school_year AS schoolYear, c.semester, c.revision,
   c.published_at AS publishedAt, c.active_batch_id AS activeBatchId,
   b.approved_fields_json AS approvedFieldsJson, b.mapping_json AS mappingJson,
-  b.source_sha256 AS sourceSha256, b.approval_document_json AS approvalDocumentJson
+  b.source_sha256 AS sourceSha256, b.approval_document_json AS approvalDocumentJson,
+  b.source_list_kind AS sourceListKind, b.own_fields_json AS ownFieldsJson
   FROM scholarship_campaigns c JOIN scholarship_import_batches b ON b.id=c.active_batch_id AND b.campaign_slug=c.slug
   WHERE c.status='published' AND c.public_data_approved=1 AND b.status='applied'
   AND b.approved_fields_json IS NOT NULL AND b.approval_document_json IS NOT NULL`;
 const campaignView = (row: CampaignRow) => {
   const document = JSON.parse(row.approvalDocumentJson);
-  const approvedFields: string[] = JSON.parse(row.approvedFieldsJson);
+  const approvedFields: string[] = JSON.parse(row.approvedFieldsJson).filter(isPublicField);
   const mapping = JSON.parse(row.mappingJson);
   return { slug: row.slug, title: row.title, schoolYear: row.schoolYear, semester: row.semester,
     sourceTitle: document.title, sourceUrl: document.url, sourceDocument: document.reference,
-    sourceSha256: row.sourceSha256, publishedAt: row.publishedAt, approvedFields,
+    sourceSha256: row.sourceSha256, publishedAt: row.publishedAt, sourceListKind: row.sourceListKind, approvedFields,
     scoreColumns: mapping.scores.filter((s: { key: string }) => approvedFields.includes('scores.' + s.key))
       .map((s: { key: string; label: string }) => ({ key: s.key, label: s.label })) };
 };
 interface RecipientRow {
   id: number; fullName: string; studentCode: string; className: string | null; major: string | null;
   awardType: string; scholarshipType: string | null; scholarshipRank: string | null; cohort: string | null; scoresJson: string;
+  trainingProgram: string | null; sourceOrdinalJson: string | null; rankingsJson?: string | null;
 }
 const recipientSelect = `r.id, r.full_name AS fullName, r.student_code AS studentCode,
   r.class_name AS className, r.major, r.award_type AS awardType,
-  r.scholarship_type AS scholarshipType, r.scholarship_rank AS scholarshipRank, r.cohort, r.scores_json AS scoresJson`;
-const recipientView = (row: RecipientRow, campaign: CampaignRow) => {
-  const fields: string[] = JSON.parse(campaign.approvedFieldsJson);
+  r.scholarship_type AS scholarshipType, r.scholarship_rank AS scholarshipRank, r.cohort, r.scores_json AS scoresJson,
+  r.training_program AS trainingProgram, r.source_ordinal_json AS sourceOrdinalJson`;
+const recipientView = (row: RecipientRow, campaign: CampaignRow, own = false) => {
+  const publicFields: string[] = JSON.parse(campaign.approvedFieldsJson).filter(isPublicField);
+  const fields: string[] = own && campaign.ownFieldsJson !== null ? JSON.parse(campaign.ownFieldsJson) : publicFields;
   const rawScores = JSON.parse(row.scoresJson);
-  const scores = Object.fromEntries(Object.entries(rawScores).filter(([key]) => fields.includes('scores.' + key)));
+  const scores = Object.fromEntries(Object.entries(rawScores).filter(([key]) => isPublicField('scores.' + key) && fields.includes('scores.' + key)));
   return { id: row.id, fullName: row.fullName, studentCode: row.studentCode, awardType: row.awardType,
     className: fields.includes('className') ? row.className : null, major: fields.includes('major') ? row.major : null,
     scholarshipType: fields.includes('scholarshipType') ? row.scholarshipType : null,
     scholarshipRank: fields.includes('scholarshipRank') ? row.scholarshipRank : null,
     cohort: fields.includes('cohort') ? row.cohort : null,
+    trainingProgram: fields.includes('trainingProgram') ? row.trainingProgram : null,
+    sourceOrdinal: fields.includes('sourceOrdinal') && row.sourceOrdinalJson !== null ? JSON.parse(row.sourceOrdinalJson) : null,
     scores, gpa: scores.gpa ?? null, trainingScore: scores.trainingScore ?? null, selectionScore: scores.selectionScore ?? null };
 };
 const filterColumns = { scholarshipType: 'scholarship_type', scholarshipRank: 'scholarship_rank',
-  major: 'major', className: 'class_name', cohort: 'cohort' } as const;
+  major: 'major', className: 'class_name', cohort: 'cohort', trainingProgram: 'training_program' } as const;
 type FilterKey = keyof typeof filterColumns;
 const readFilters = (params: URLSearchParams) => {
   const filters: Partial<Record<FilterKey | 'awardType', string>> = {};
@@ -172,7 +180,7 @@ export const handlePublicScholarships = async (request: Request, url: URL, env: 
       ]);
       return [key, { options: values.results.map(r => r.value), total: total?.total || 0, page: facetPage, limit: facetLimit }];
     })));
-    return { apiVersion: '1.1.0', campaign: campaignView(campaign), supportedFilters, facets, totalRecipients: count?.total || 0 };
+    return { apiVersion: '1.2.0', campaign: campaignView(campaign), supportedFilters, facets, totalRecipients: count?.total || 0 };
   }
   const results = await db.prepare(`SELECT ${recipientSelect} ${query.from} ORDER BY r.source_row_number, r.id LIMIT ? OFFSET ?`)
     .bind(...query.args, limit, (page - 1) * limit).all<RecipientRow>();
@@ -185,10 +193,16 @@ export const handleMyScholarships = async (request: Request, env: ScholarshipEnv
   const studentCode = await readVerifiedStudentCode(request, env, identity);
   if (!studentCode) return { verified: false, awards: [] };
   const db = requireScholarshipDb(env);
-  const rows = await db.prepare(`SELECT ${recipientSelect}, published.* FROM scholarship_snapshot_rows r
+  const rows = await db.prepare(`SELECT ${recipientSelect}, r.private_rankings_json AS rankingsJson, published.* FROM scholarship_snapshot_rows r
     JOIN (${selectCampaign}) published ON published.activeBatchId=r.batch_id WHERE r.student_code=?
     ORDER BY published.publishedAt DESC, published.slug, r.source_row_number, r.id`).bind(studentCode).all<RecipientRow & CampaignRow>();
-  const awards = rows.results.map(row => ({ ...recipientView(row, row), campaignSlug: row.slug,
-    campaignTitle: row.title, schoolYear: row.schoolYear, semester: row.semester }));
+  const awards = rows.results.map(row => {
+    const ownFields: string[] = row.ownFieldsJson === null ? [] : JSON.parse(row.ownFieldsJson);
+    const raw = row.rankingsJson ? JSON.parse(row.rankingsJson) : {};
+    const rankings = Object.fromEntries(rankingKeys.filter(key => ownFields.includes('rankings.' + key)
+      && raw[key] != null).map(key => [key, raw[key]]));
+    return { ...recipientView(row, row, true), rankings, campaignSlug: row.slug, sourceListKind: row.sourceListKind,
+      campaignTitle: row.title, schoolYear: row.schoolYear, semester: row.semester };
+  });
   return { verified: true, awards };
 };

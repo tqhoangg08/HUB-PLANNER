@@ -35,7 +35,7 @@ const mf = new Miniflare({ modules: true, script: bundle.outputFiles[0].text,
   compatibilityDate: '2026-07-29', d1Databases: ['DB'], bindings: { ALLOWED_ORIGINS: `${origin},http://localhost:3000,http://127.0.0.1:3000` },
   serviceBindings: { AUTH_SERVICE: auth }, outboundService: () => Response.json({ error: 'QA outbound disabled' }, { status: 503 }) });
 const db = await mf.getD1Database('DB');
-for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql']) {
+for (const file of ['0055_scholarships.sql', '0056_scholarship_snapshots.sql', '0057_scholarship_filters.sql', '0059_scholarship_personal_details.sql']) {
   const sql = await readFile(new URL('../cloudflare/migrations/' + file, import.meta.url), 'utf8');
   const statements = sql.replace(/--[^\n]*/g, '').match(/CREATE TRIGGER[\s\S]*?END;|(?:CREATE|ALTER)[\s\S]*?;/g);
   await db.batch(statements.map(sql => db.prepare(sql)));

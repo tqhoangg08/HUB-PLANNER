@@ -83,7 +83,7 @@ test('the verified complete binding set is mandatory before and after this code 
 });
 
 test('Scholarship contract matches actual immutable migrations and rejects every missing or altered object',()=>{
-  assert.equal(scholarshipObjects.length,24);
+  assert.equal(scholarshipObjects.length,25);
   assert.equal(validateScholarshipReleaseSchema(scholarshipObjects,scholarshipLedger),true);
   for(const object of scholarshipObjects){
     assert.throws(()=>validateScholarshipReleaseSchema(scholarshipObjects.filter(x=>x!==object),scholarshipLedger),/SCHEMA_DRIFT/);

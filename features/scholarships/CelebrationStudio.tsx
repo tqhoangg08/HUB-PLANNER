@@ -92,6 +92,7 @@ export const CelebrationStudio: React.FC = () => {
 
     try {
       const data = await fetchMyScholarships(controller.signal);
+      data.awards = data.awards.filter(award => award.sourceListKind !== 'eligibility');
       if (controller.signal.aborted) return;
       if (!data.verified || data.awards.length === 0) {
         setAwardError('Bạn chưa có học bổng đã xác minh để tạo ảnh vinh danh.');

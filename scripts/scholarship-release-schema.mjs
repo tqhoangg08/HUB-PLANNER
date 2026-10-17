@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 
 export const SCHOLARSHIP_MIGRATIONS=Object.freeze([
-  '0055_scholarships.sql','0056_scholarship_snapshots.sql','0057_scholarship_filters.sql',
+  '0055_scholarships.sql','0056_scholarship_snapshots.sql','0057_scholarship_filters.sql', '0059_scholarship_personal_details.sql',
 ]);
 export const SCHOLARSHIP_SCHEMA_QUERY="SELECT type,name,sql FROM sqlite_schema WHERE name GLOB 'scholarship_*' ORDER BY type,name";
 // Reviewed final schema contract, not a database dump. Tests build the immutable

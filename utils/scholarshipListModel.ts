@@ -17,7 +17,7 @@ export function updateScholarshipParams(previous: URLSearchParams, changes: Reco
   return next;
 }
 
-export const scholarshipFilterKeys = ['scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort'] as const;
+export const scholarshipFilterKeys = ['scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort', 'trainingProgram'] as const;
 export function resetScholarshipFilters(previous: URLSearchParams): URLSearchParams {
   return updateScholarshipParams(previous, Object.fromEntries(['q', 'category', 'awardType', 'page', ...scholarshipFilterKeys].map(key => [key, ''])));
 }

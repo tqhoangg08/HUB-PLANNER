@@ -8,11 +8,31 @@ import ExcelJS from 'exceljs';
 import { zipSync, strToU8 } from 'fflate';
 import { parseScholarshipFile, checkScholarshipZip } from '../scripts/scholarship-workbook.mjs';
 import { scholarshipSha256 } from '../shared/scholarship-import.ts';
+import { syntheticEligibility } from './fixtures/scholarship-eligibility.ts';
+import { eligibilityMapping } from '../shared/scholarship-eligibility.ts';
 const mapping = { studentCode: 'MSSV', fullName: 'Name', awardType: 'Award', scores: [{ key: 'sourceScore', column: 'Score', label: 'Official source score' }] };
 const temporary = async t => {
   const dir = await mkdtemp(path.join(tmpdir(), 'hub-scholarship-synthetic-'));
   t.after(() => rm(dir, { recursive: true, force: true })); return dir;
 };
+
+test('1059 row 17-column XLSX and explicit formula-cache opt-in retain all source values without evaluating formulas', async t => {
+  const dir=await temporary(t), file=path.join(dir,'synthetic-17.xlsx');
+  const data=syntheticEligibility(), headers=Object.keys(data.rows[0].values);
+  const wb=new ExcelJS.Workbook(), sheet=wb.addWorksheet('DS SV');
+  sheet.addRow(headers); for(const row of data.rows) sheet.addRow(headers.map(key=>row.values[key]));
+  sheet.getCell('F2').value={formula:'"K23"',result:'K23'};
+  sheet.getCell('M2').value={formula:'1/80',result:0.0125};
+  await wb.xlsx.writeFile(file);
+  await assert.rejects(parseScholarshipFile(file,eligibilityMapping,{sheetName:'DS SV'}),/UNSUPPORTED_XLSX_CELL/);
+  const result=await parseScholarshipFile(file,eligibilityMapping,{sheetName:'DS SV',allowCachedFormulas:true});
+  assert.equal(result.validation.valid,true);assert.equal(result.validation.acceptedRows,1059);
+  assert.deepEqual(result.payload.rows,data.rows);assert.equal(result.payload.mapping.sourceListKind,'eligibility');
+  sheet.getCell('M2').value={formula:'1/80'};await wb.xlsx.writeFile(file);
+  await assert.rejects(parseScholarshipFile(file,eligibilityMapping,{sheetName:'DS SV',allowCachedFormulas:true}),/UNSUPPORTED_XLSX_CELL/);
+  sheet.getCell('M2').value={formula:'1/80',result:{error:'#VALUE!'}};await wb.xlsx.writeFile(file);
+  await assert.rejects(parseScholarshipFile(file,eligibilityMapping,{sheetName:'DS SV',allowCachedFormulas:true}),/UNSUPPORTED_XLSX_CELL/);
+});
 test('CSV checksum/text code, quoted fields, explicit mapping and private CLI output', async t => {
   const dir = await temporary(t), file = path.join(dir, 'synthetic.csv');
   const source = '\uFEFFMSSV,Name,Award,Score\r\n000000000001,"Synthetic, Student",Award,"9,5"\r\n';

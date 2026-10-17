@@ -57,6 +57,27 @@
 .scholarship-table tbody tr:nth-child(even) { background:#f8fbff; }
 .scholarship-table tbody tr:hover { background:#f1f6fd; }
 .scholarship-table tbody tr:last-child td { border-bottom:0; }
+.scholarship-table .scholarship-sticky-name { position:sticky; left:0; z-index:1; background:inherit; min-width:160px; }
+.scholarship-table thead .scholarship-sticky-name { background:#f1f6fd; z-index:2; }
+.scholarship-table tbody tr { background:white; }
+.scholarship-personal-card { padding:16px; border:1px solid #e2e8f0; border-radius:8px; background:white; }
+.scholarship-personal-summary { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; }
+.scholarship-personal-summary > div { min-width:0; flex:1 1 240px; overflow-wrap:anywhere; }
+.scholarship-personal-summary h4 { font-size:14px; margin:0 0 4px; }
+.scholarship-personal-summary p { color:#64748b; margin-top:4px; }
+.scholarship-personal-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 16px; margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0; }
+.scholarship-personal-details div { min-width:0; overflow-wrap:anywhere; }
+.scholarship-personal-details :is(dt,dd) { display:inline; }
+.scholarship-personal-details dd { font-weight:500; }
+.scholarship-personal-rankings { margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0; }
+.scholarship-personal-rankings h5 { font-weight:600; font-size:12px; }
+.scholarship-personal-rankings fieldset { margin-top:12px; }
+.scholarship-personal-rankings label { display:inline-flex; align-items:center; gap:8px; padding:4px 12px 4px 0; }
+.scholarship-rank-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin-top:12px; }
+.scholarship-rank-grid > div { padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; }
+.scholarship-rank-grid p { color:#64748b; font-size:11px; margin-bottom:4px; }
+.scholarship-rank-grid strong { font-size:16px; font-weight:500; }
+@media (max-width:480px) { .scholarship-personal-details { grid-template-columns:1fr; } }
 .scholarship-table .scholarship-number { text-align:right; font-variant-numeric:tabular-nums; }
 .scholarship-pager { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid #e2e8f0; color:#475569; font-size:11px; }
 .scholarship-pager-controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
@@ -129,6 +150,7 @@
   .scholarship-filter-scholarshipRank { order:2; }
   .scholarship-filter-major { order:3; }
   .scholarship-filter-cohort { order:4; }
+  .scholarship-filter-trainingProgram { order:5; grid-column:1 / -1; }
   .scholarship-mobile-results { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:12px 0 8px; }
   .scholarship-shell .scholarship-mobile-results h2 { font-size:12px; }
   .scholarship-mobile-results > span { color:#64748b; font-size:10px; }

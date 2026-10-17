@@ -9,6 +9,8 @@ import {
 } from '../../utils/scholarshipApi';
 import { scholarshipPage, updateScholarshipParams, scholarshipFilterKeys, resetScholarshipFilters } from '../../utils/scholarshipListModel';
 
+import { publicTableColumns, detailValue } from '../../utils/scholarshipDetailsModel';
+
 const errorText = (error: unknown) => error instanceof ScholarshipApiError
   ? error.message : 'Không thể kết nối đến hệ thống học bổng. Vui lòng thử lại.';
 
@@ -45,9 +47,7 @@ export const ScholarshipList: React.FC = () => {
   const pendingInput = input.trim().normalize('NFC') !== query;
   const shortQuery = query.length === 1;
   const visibleData = !pendingInput && !shortQuery && dataKey === requestKey ? data : null;
-  const detailColumns = (['cohort'] as const).filter(key => visibleData?.campaign.approvedFields.includes(key));
-  const hasRank = visibleData?.campaign.approvedFields.includes('scholarshipRank');
-  const detailLabels = { cohort: 'Khóa' };
+  const columns = visibleData ? publicTableColumns(visibleData.campaign) : [];
   const total = visibleData?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const cooldown = Math.max(0, Math.ceil((retryAt - now) / 1000));
@@ -126,7 +126,7 @@ export const ScholarshipList: React.FC = () => {
   const renderSearchInput = (compact = false) => <input id={`${id}-${compact ? 'compact-query' : 'query'}`} aria-label={compact ? 'Họ tên / MSSV' : undefined} className="scholarship-input" type="search" autoComplete="off" maxLength={80} placeholder="Nhập mã sinh viên hoặc họ tên..." value={input} disabled={disabled} onChange={e => setInput(e.target.value)} />;
   const renderFilter = (key: ScholarshipFilterKey, label: string, emptyLabel: string) => {
     const supported = facets?.supportedFilters.includes(key);
-    const values = facets?.facets[key].options || [];
+    const values = facets?.facets[key]?.options || [];
     const value = filters[key] || '';
     return <div className={`scholarship-field scholarship-filter-${key}`} key={key}><label htmlFor={`${id}-${key}`}>{label}</label>
       <select id={`${id}-${key}`} className="scholarship-input" value={value} disabled={disabled || loadingFacets || !supported} onChange={e => update({ [key]: e.target.value, page: '' })}>
@@ -136,14 +136,14 @@ export const ScholarshipList: React.FC = () => {
       </select>
     </div>;
   };
-  const filterLabels = { major: ['Ngành học', 'Tất cả ngành'], className: ['Lớp', 'Tất cả lớp'], scholarshipRank: ['Xếp loại học bổng', 'Tất cả xếp loại'], cohort: ['Khóa', 'Tất cả khóa'] } as const;
-  const filterOrder: (keyof typeof filterLabels)[] = mobile ? ['className', 'scholarshipRank', 'major', 'cohort'] : ['major', 'className', 'scholarshipRank', 'cohort'];
+  const filterLabels = { major: ['Ngành học', 'Tất cả ngành'], className: ['Lớp', 'Tất cả lớp'], scholarshipRank: ['Xếp loại học bổng', 'Tất cả xếp loại'], cohort: ['Khóa', 'Tất cả khóa'], trainingProgram: ['Chương trình đào tạo', 'Tất cả chương trình'] } as const;
+  const filterOrder: (keyof typeof filterLabels)[] = mobile ? ['className', 'scholarshipRank', 'major', 'cohort', 'trainingProgram'] : ['major', 'className', 'trainingProgram', 'scholarshipRank', 'cohort'];
   const filterActions = <>
     <button type="button" className="scholarship-filter-reset scholarship-button" onClick={() => { setInput(''); setParams(previous => resetScholarshipFilters(previous)); }}>Xóa bộ lọc</button>
     <button type="button" className="scholarship-filter-toggle scholarship-button" aria-expanded={!filtersCollapsed} aria-controls={`${id}-filters`} aria-label={filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn bộ lọc'} onClick={() => setFiltersCollapsed(collapsed => !collapsed)}><span className="scholarship-desktop-text">{filtersCollapsed ? 'Mở bộ lọc' : 'Thu gọn'}</span><span className="scholarship-mobile-text">{filtersCollapsed ? 'Mở rộng' : 'Thu gọn'}</span>{filtersCollapsed ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}</button>
   </>;
   return (
-    <ScholarshipShell title="Danh sách sinh viên nhận học bổng" mobileTitle="Danh sách học bổng" subtitle="Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ." headerActions={
+    <ScholarshipShell title={selected?.sourceListKind === 'eligibility' ? 'Danh sách đủ điều kiện xét học bổng' : selected?.sourceListKind === 'award_decision' ? 'Danh sách sinh viên nhận học bổng' : 'Danh sách học bổng'} mobileTitle={selected?.sourceListKind === 'eligibility' ? 'Danh sách xét học bổng' : 'Danh sách học bổng'} subtitle="Tra cứu kết quả học bổng theo từng học kỳ." headerActions={
       <div className="scholarship-field scholarship-term"><label htmlFor={`${id}-term`}>Học kỳ / Năm học</label>
         <select id={`${id}-term`} className="scholarship-input" value={slugParam || slug} disabled={loadingCampaigns || !campaigns.length} onChange={e => { const campaign = e.target.value; setInput(''); setParams(previous => { const next = resetScholarshipFilters(previous); next.set('campaign', campaign); return next; }); }}>
           {!campaigns.length && <option value="">{loadingCampaigns ? 'Đang tải học kỳ...' : campaignError ? 'Không tải được học kỳ' : 'Chưa có đợt công bố'}</option>}
@@ -152,7 +152,7 @@ export const ScholarshipList: React.FC = () => {
         </select>
       </div>
     }>
-      <section aria-label="Tra cứu sinh viên nhận học bổng">
+      <section aria-label="Tra cứu học bổng">
         <div className={`scholarship-surface scholarship-filters${filtersCollapsed ? ' is-collapsed' : ''}`}>
           <div className="scholarship-filter-heading">
             <div className="scholarship-filter-heading-main">
@@ -180,20 +180,15 @@ export const ScholarshipList: React.FC = () => {
             : busy ? <div className="scholarship-skeleton" role="status"><span className="sr-only">Đang tải danh sách học bổng...</span><div aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <div className="scholarship-skeleton-row" key={i}>{Array.from({ length: 4 }, (_, j) => <span key={j} />)}</div>)}</div></div>
             : !campaigns.length ? <div className="scholarship-status" role="status">Chưa có danh sách học bổng được công bố.</div>
             : shortQuery ? <div className="scholarship-status" role="status">Nhập ít nhất 2 ký tự để tra cứu.</div>
-            : visibleData && !total ? <div className="scholarship-status" role="status">{query || category || Object.values(filters).some(Boolean) ? 'Không tìm thấy sinh viên phù hợp với bộ lọc.' : 'Đợt công bố này chưa có sinh viên nhận học bổng.'}</div>
+            : visibleData && !total ? <div className="scholarship-status" role="status">{query || category || Object.values(filters).some(Boolean) ? 'Không tìm thấy sinh viên phù hợp với bộ lọc.' : 'Đợt công bố này chưa có kết quả học bổng.'}</div>
             : visibleData && <>
-              <div className="scholarship-table-scroll" tabIndex={0} role="region" aria-label="Bảng sinh viên nhận học bổng">
-                <table className="scholarship-table"><caption className="sr-only">Danh sách sinh viên nhận học bổng — {visibleData.campaign.title}</caption><thead><tr>
-                  <th scope="col" className="scholarship-mobile-cell">Họ tên / MSSV</th>
-                  {['STT', 'MSSV', 'Họ và tên'].map(label => <th scope="col" className="scholarship-desktop-cell" key={label}>{label}</th>)}
-                  {['Mã lớp SV', 'Ngành học'].map(label => <th scope="col" key={label}>{label}</th>)}
-                  {detailColumns.map(key => <th scope="col" key={key}>{detailLabels[key]}</th>)}
-                  <th scope="col">{hasRank ? 'Xếp loại HB' : 'Kết quả học bổng'}</th>
+              <div className="scholarship-table-scroll" tabIndex={0} role="region" aria-label="Bảng kết quả học bổng">
+                <table className="scholarship-table"><caption className="sr-only">Kết quả học bổng — {visibleData.campaign.title}</caption><thead><tr>
+                  {columns.map(([key, label]) => <th scope="col" className={key === 'fullName' ? 'scholarship-sticky-name' : undefined} key={key}>{label}</th>)}
                 </tr></thead><tbody>{visibleData.recipients.map((r, i) => <tr key={r.id}>
-                  <td className="scholarship-mobile-cell scholarship-student"><span>{r.fullName}</span><small>{r.studentCode || '—'}</small></td>
-                  <td className="scholarship-number scholarship-desktop-cell">{(page - 1) * limit + i + 1}</td><td className="scholarship-desktop-cell">{r.studentCode}</td><td className="scholarship-desktop-cell">{r.fullName}</td><td>{r.className || '—'}</td><td>{r.major || '—'}</td>
-                  {detailColumns.map(key => <td key={key}>{r[key] || '—'}</td>)}
-                  <td>{hasRank ? r.scholarshipRank || '—' : r.awardType}</td>
+                  {columns.map(([key]) => <td key={key} className={key === 'fullName' ? 'scholarship-sticky-name' : key.startsWith('scores.') || key === 'sourceOrdinal' ? 'scholarship-number' : undefined}>
+                    {key === 'sourceOrdinal' ? r.sourceOrdinal ?? (page - 1) * limit + i + 1 : detailValue(r, key) ?? '—'}
+                  </td>)}
                 </tr>)}</tbody></table>
               </div>
             </>}
@@ -205,7 +200,7 @@ export const ScholarshipList: React.FC = () => {
             </div>
           </div>}
         </div>
-        {visibleData && <p className="scholarship-source">Nguồn văn bản quyết định: {visibleData.campaign.sourceUrl ? <a href={visibleData.campaign.sourceUrl} target="_blank" rel="noopener noreferrer">{visibleData.campaign.sourceTitle}</a> : visibleData.campaign.sourceTitle} · {visibleData.campaign.sourceDocument}</p>}
+        {visibleData && <p className="scholarship-source">Nguồn tài liệu: {visibleData.campaign.sourceUrl ? <a href={visibleData.campaign.sourceUrl} target="_blank" rel="noopener noreferrer">{visibleData.campaign.sourceTitle}</a> : visibleData.campaign.sourceTitle} · {visibleData.campaign.sourceDocument}</p>}
       </section>
     </ScholarshipShell>
   );

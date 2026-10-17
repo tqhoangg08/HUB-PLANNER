@@ -7,14 +7,14 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { ScholarshipShell } from './ScholarshipShell';
-import { ScholarshipBadge } from './ScholarshipBadge';
+import { PersonalAwardCard } from './PersonalAwardCard';
 import { useUserRole } from '../../hooks/useUserRole';
 import {
   fetchMyScholarships,
   type OwnAward,
   ScholarshipApiError,
 } from '../../utils/scholarshipApi';
-import { personalAwardDetails } from '../../utils/scholarshipMeModel';
+import { readRankingPreferences } from '../../utils/scholarshipDetailsModel';
 import { playClick } from '../../utils/audio';
 
 export const ScholarshipMe: React.FC = () => {
@@ -25,6 +25,8 @@ export const ScholarshipMe: React.FC = () => {
   const [awards, setAwards] = useState<OwnAward[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [selectedRankings, setSelectedRankings] = useState(readRankingPreferences);
   const requestRef = useRef<AbortController | null>(null);
 
   const loadMyAwards = async () => {
@@ -71,7 +73,7 @@ export const ScholarshipMe: React.FC = () => {
   return (
     <ScholarshipShell
       title="Học bổng của tôi"
-      subtitle="Thành tích học bổng chính thức gắn với tài khoản sinh viên HUB đã xác thực."
+      subtitle="Kết quả học bổng gắn với tài khoản sinh viên HUB đã xác thực."
     >
       {bootstrapUnavailable && <p role="alert" className="scholarship-status">Chưa thể kết nối hệ thống xác thực. Vui lòng thử lại sau.</p>}
 
@@ -179,7 +181,7 @@ export const ScholarshipMe: React.FC = () => {
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-gray-900">Không tìm thấy hồ sơ học bổng</h2>
               <p className="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
-                Hệ thống chưa tìm thấy hồ sơ học bổng nào thuộc mã sinh viên của bạn trong các đợt đã công bố chính thức.
+                Hệ thống chưa tìm thấy hồ sơ học bổng nào thuộc mã sinh viên của bạn trong các đợt đã công bố.
               </p>
             </div>
 
@@ -248,43 +250,11 @@ export const ScholarshipMe: React.FC = () => {
                 Chi tiết học bổng ({awards.length})
               </h3>
 
-              {awards.map((award) => {
-                const details = personalAwardDetails(award.scores);
-                return (
-                  <div
-                    key={award.id}
-                    className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shadow-xs space-y-3"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ScholarshipBadge awardType={award.awardType} size="sm" />
-                        <span className="text-xs text-gray-600">MSSV: {award.studentCode}</span>
-                        <span className="text-xs text-gray-500">
-                          Học kỳ {award.semester} • {award.schoolYear}
-                        </span>
-                      </div>
-                      <h4 className="text-base font-semibold text-gray-900 pt-0.5">
-                        {award.campaignTitle}
-                      </h4>
-                      <div className="text-xs text-gray-600 flex flex-wrap gap-x-3 gap-y-0.5">
-                        {award.className && <span>Lớp: <strong>{award.className}</strong></span>}
-                        {award.major && <span>Ngành: <strong>{award.major}</strong></span>}
-                      </div>
-                    </div>
-
-                    {/* Approved scores */}
-                    {details.length > 0 && (
-                      <dl className="pt-2 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-700">
-                        {details.map(({ key, label, value }) => (
-                          <div key={key} className="min-w-0 break-words">
-                            <dt className="inline">{label}: </dt>
-                            <dd className="inline font-semibold">{value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                  </div>
-                );
+              {awards.map(award => {
+                const key = award.campaignSlug + ':' + award.id;
+                return <PersonalAwardCard key={key} award={award} expanded={Boolean(expanded[key])}
+                  onToggle={() => setExpanded(previous => ({...previous, [key]: !previous[key]}))}
+                  selected={selectedRankings} onSelection={setSelectedRankings} />;
               })}
             </div>
           </div>

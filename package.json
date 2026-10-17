@@ -62,6 +62,7 @@
     "test:scholarships": "node --test --experimental-strip-types tests/cloudflare-scholarships.test.ts tests/scholarship-workbook.test.mjs tests/scholarship-d1-runtime.test.mjs",
     "dev:scholarships:local": "node --experimental-strip-types scripts/dev-scholarships-local.mjs",
     "test:scholarships:frontend": "node --test --experimental-strip-types tests/hub-scholarship-frontend.test.ts tests/dev-api-bridge.test.ts tests/scholarship-hardening.test.ts",
+    "test:scholarships:browser": "node --test --test-concurrency=1 --experimental-strip-types tests/scholarship-list.browser.test.ts tests/scholarship-me.browser.test.ts",
     "test:schedule-import": "node --test --experimental-strip-types tests/hub-schedule-extraction.test.ts tests/schedule-pdf-orchestration.test.ts tests/schedule-import-preview.test.ts tests/schedule-import-persistence.test.ts tests/schedule-import-generation.test.ts tests/schedule-import-shifts.test.ts tests/schedule-import-conflicts.test.ts tests/structured-schedule-sessions.test.ts tests/structured-schedule-ui.test.ts tests/cloudflare-course-schedule-sessions.test.ts",
     "test:schedule-import:browser": "node --test --experimental-strip-types tests/schedule-import.browser.test.ts"
   },

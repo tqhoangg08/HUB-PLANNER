@@ -18,6 +18,36 @@ import {
 import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipLoginReturn, resetScholarshipFilters } from '../utils/scholarshipListModel.ts';
 import { celebrationScoreLines, refreshedOwnAward } from '../utils/scholarshipCelebrationModel.ts';
 import { personalAwardDetails } from '../utils/scholarshipMeModel.ts';
+import { scholarshipColumns, publicTableColumns, ownDetails, formatRanking, readRankingPreferences, rankingPreferenceKey } from '../utils/scholarshipDetailsModel.ts';
+
+test('12 source columns are ordered, individually approved and never include private rankings', () => {
+  assert.deepEqual(scholarshipColumns.map(([,label])=>label),['STT','MSSV','Họ tên','Mã Lớp SV','Ngành học','Khóa','Chương trình đào tạo','Điểm TB HB','Điểm RL','Số TC','Xếp loại HB','Thành tiền']);
+  const campaign = {approvedFields:scholarshipColumns.map(([key])=>key),scoreColumns:[{key:'gpa'},{key:'trainingScore'},{key:'credits'},{key:'amountVnd'}]} as Campaign;
+  assert.equal(publicTableColumns(campaign).length,12);
+  assert.equal(publicTableColumns({...campaign,approvedFields:['studentCode','fullName']}).length,3);
+  assert.doesNotMatch(JSON.stringify(publicTableColumns(campaign)),/top|academicRank|trainingRank/);
+  assert.equal(publicTableColumns({...campaign,scoreColumns:[]}).length,8);
+});
+
+test('own details omit absent values and legacy aliases, rankings format ratios exactly once, UI storage contains only known keys', () => {
+  const award={studentCode:'000000000001',fullName:'Synthetic',className:null,major:null,cohort:null,trainingProgram:'Program',scholarshipRank:'Giỏi',scores:{gpa:'9,7',trainingScore:100,credits:17,amountVnd:13926000},gpa:999} as OwnAward;
+  assert.deepEqual(ownDetails(award).map(row=>row.label),['MSSV','Họ tên','Chương trình đào tạo','Điểm TB HB','Điểm RL','Số TC','Xếp loại HB','Thành tiền']);
+  assert.equal(ownDetails(award).at(-1)?.value,'13.926.000đ');
+  assert.equal(ownDetails({...award,scores:{gpa:null,amountVnd:null}}).some(row=>row.key.startsWith('scores.')),false);
+  assert.equal(ownDetails({...award,sourceListKind:'eligibility',scores:{gpa:3.6,academicRank:'OLD',trainingRank:'OLD'}}).some(row=>row.label.includes('Xếp loại HT')||row.label.includes('Xếp loại RL')),false);
+  assert.equal(ownDetails({...award,sourceListKind:'award_decision',scores:{academicRank:'Giỏi'}}).find(row=>row.key==='scores.academicRank')?.value,'Giỏi','preserve an actually returned approved legacy field');
+  assert.equal(refreshedOwnAward({verified:true,awards:[{...award,sourceListKind:'eligibility'}]},award),null,'eligibility cannot be promoted to a celebration award during re-verification');
+  assert.equal(formatRanking('topSchoolPercent',0.0125),'1,25%'); assert.equal(formatRanking('topSchoolPercent','0,0125'),'1,25%');
+  assert.equal(formatRanking('topSchoolPercent',1),'100%'); assert.equal(formatRanking('topSchoolPercent',0),'0%');
+  for(const value of [null,-1,1.01,'bad']) assert.equal(formatRanking('topSchoolPercent',value),null);
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+  try {
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>{assert.equal(key,rankingPreferenceKey);return '["topCohort"]';}}});
+    assert.deepEqual(readRankingPreferences(),['topCohort']);
+    Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>'{"studentCode":"private"}'}});
+    assert.deepEqual(readRankingPreferences(),['topSchool','topMajor','topClass']);
+  } finally { if(previous)Object.defineProperty(globalThis,'localStorage',previous);else delete (globalThis as any).localStorage; }
+});
 
 test('desktop and mobile handbook each contain one scholarship lookup, with no independent top tab', () => {
   const source = ts.createSourceFile('DesktopLayout.tsx', readFileSync('layouts/DesktopLayout.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -52,7 +82,7 @@ test('My Scholarships removes celebration entry points while preserving sidebar 
   for (const label of ['Danh sách & Tra cứu', 'Học bổng của tôi', 'Quy chế học bổng', 'Quản trị học bổng']) assert.ok(shell.includes(label));
   assert.match(shell, /isAdmin \? \[\{ to: '\/admin\/scholarships'/);
   assert.doesNotMatch(me, /\/scholarships\/celebrate|Vinh danh|vinh danh|Sparkles|ArrowRight/);
-  assert.match(me, /personalAwardDetails\(award\.scores\)/);
+  assert.match(me, /PersonalAwardCard/);
 });
 
 test('personal award details use Vietnamese labels and VND without changing source scores', () => {
@@ -120,7 +150,9 @@ test('ScholarshipApiError accurately maps standard contract error codes to clear
   assert.match(mapScholarshipErrorCode('CAMPAIGN_NOT_FOUND', 404), /Không tìm thấy chiến dịch/);
   assert.match(mapScholarshipErrorCode('REVISION_OR_STATE_CONFLICT', 409), /Xung đột phiên bản/);
   assert.match(mapScholarshipErrorCode('BODY_TOO_LARGE', 413), /Kích thước tệp vượt quá/);
-  assert.match(mapScholarshipErrorCode('OFFICIAL_SOURCE_REQUIRED', 400), /nguồn văn bản quyết định/);
+  assert.match(mapScholarshipErrorCode('OFFICIAL_SOURCE_REQUIRED', 400), /tài liệu nguồn/);
+  assert.match(mapScholarshipErrorCode('OWN_ACCESS_CONFIRMATION_REQUIRED',400), /chính chủ/);
+  assert.match(mapScholarshipErrorCode('EXPLICIT_PUBLIC_FIELDS_REQUIRED',400), /không được công khai/);
   assert.match(mapScholarshipErrorCode('RATE_LIMIT', 429), /giới hạn tra cứu/);
 });
 
@@ -158,12 +190,12 @@ test('Scholarship routes are registered in AppRoutes.tsx with /scholarships as d
   assert.ok(scholarshipPos > 0 && catchAllPos > 0 && scholarshipPos < catchAllPos, 'Scholarships must precede catch-all route');
 });
 
-test('Canva list preserves exact names and scholarship rank without the retired academic score columns', () => {
+test('Canva list uses approved source columns and training program filtering without inventing ranks', () => {
   const listPage = readFileSync('features/scholarships/ScholarshipList.tsx', 'utf8');
 
   // 1 & 2: Title & One-sentence description
   assert.match(listPage, /Danh sách sinh viên nhận học bổng/);
-  assert.match(listPage, /Tra cứu danh sách sinh viên nhận học bổng theo từng học kỳ/);
+  assert.match(listPage, /Tra cứu kết quả học bổng theo từng học kỳ/);
 
   // 3: Search input
   assert.match(listPage, /placeholder="Nhập mã sinh viên hoặc họ tên\.\.\."/);
@@ -178,24 +210,23 @@ test('Canva list preserves exact names and scholarship rank without the retired 
 
   // 4: Filters
   assert.match(listPage, /Học kỳ \/ Năm học/);
-  assert.match(listPage, /Họ và tên/);
+  assert.match(listPage, /publicTableColumns/);
   assert.doesNotMatch(listPage, /ScholarshipBadge|ScoreBadges|ConfettiOverlay/);
 
   // 5: Result count
   assert.match(listPage, /total\.toLocaleString\('vi-VN'\)/);
 
-  // Current official list no longer includes academic/training scores or credits.
-  assert.doesNotMatch(listPage, /scoreColumns|r\.scores|formatScoreValue/);
-  assert.match(listPage, /r\.scholarshipRank/);
+  assert.match(listPage, /detailValue\(r, key\)/);
+  assert.doesNotMatch(listPage, /academicRank|trainingRank/);
   const controls = listPage.match(/const filterLabels = (.*);/)?.[1] || '';
   assert.doesNotMatch(controls, /scholarshipType/);
-  for (const key of ['major', 'className', 'scholarshipRank', 'cohort']) assert.match(controls, new RegExp(key));
+  for (const key of ['major', 'className', 'scholarshipRank', 'cohort', 'trainingProgram']) assert.match(controls, new RegExp(key));
 
   // 7: Pagination
   assert.match(listPage, /totalPages/);
 
   // 8: Official provenance
-  assert.match(listPage, /Nguồn văn bản quyết định/);
+  assert.match(listPage, /Nguồn tài liệu/);
   assert.match(listPage, /sourceDocument/);
   assert.match(listPage, /sourceUrl/);
 });

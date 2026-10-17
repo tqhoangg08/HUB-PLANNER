@@ -1,3 +1,4 @@
+import { rankingKeys, sourceNumber, type RankingKey, type PersonalRankings, type SourceListKind } from './scholarship-policy.ts';
 /** Shared by trusted offline parser and Worker. Never infer source score scales. */
 export const SCHOLARSHIP_MAX_ROWS = 2000;
 export const SCHOLARSHIP_MAX_BODY = 1024 * 1024;
@@ -12,6 +13,8 @@ export interface ScholarshipMapping {
   studentCode: string; fullName: string; awardType: string;
   className?: string; major?: string; sourceIdentifier?: string;
   scholarshipType?: string; scholarshipRank?: string; cohort?: string;
+  trainingProgram?: string; sourceOrdinal?: string; sourceListKind?: SourceListKind;
+  rankings?: Array<{ key: RankingKey; column: string }>;
   scores: Array<{ key: string; column: string; label: string }>;
 }
 export interface ScholarshipImportRow { sourceRowNumber: number; values: Record<string, string | number | null>; }
@@ -19,6 +22,7 @@ export interface ScholarshipCanonicalRow {
   sourceRowNumber: number; sourceIdentifier: string | null; studentCode: string;
   fullName: string; fullNameSearch: string; className: string | null; major: string | null;
   awardType: string; scholarshipType?: string | null; scholarshipRank?: string | null; cohort?: string | null;
+  trainingProgram?: string | null; sourceOrdinal?: number | string | null; rankings?: PersonalRankings;
   scores: Record<string, string | number | null>; rowSha256: string;
 }
 export class ScholarshipValidationError extends Error { readonly status = 400; }
@@ -42,13 +46,30 @@ export const validateScholarshipImport = async (raw: unknown) => {
   if (/[\\/]/.test(sourceFilename)) return fail('INVALID_FILENAME');
   const m = raw.mapping;
   if (!scholarshipRecord(m)) return fail('INVALID_MAPPING');
-  strictKeys(m, ['studentCode', 'fullName', 'awardType', 'className', 'major', 'sourceIdentifier', 'scholarshipType', 'scholarshipRank', 'cohort', 'scores']);
+  strictKeys(m, ['studentCode', 'fullName', 'awardType', 'className', 'major', 'sourceIdentifier', 'scholarshipType', 'scholarshipRank', 'cohort', 'scores', 'trainingProgram', 'sourceOrdinal', 'sourceListKind', 'rankings']);
   const mapping: ScholarshipMapping = {
     studentCode: scholarshipText(m.studentCode, 120), fullName: scholarshipText(m.fullName, 120),
     awardType: scholarshipText(m.awardType, 120), scores: [],
   };
-  for (const field of ['className', 'major', 'sourceIdentifier', 'scholarshipType', 'scholarshipRank', 'cohort'] as const)
+  for (const field of ['className', 'major', 'sourceIdentifier', 'scholarshipType', 'scholarshipRank', 'cohort', 'trainingProgram', 'sourceOrdinal'] as const)
     if (m[field] !== undefined) mapping[field] = scholarshipText(m[field], 120);
+  if (m.sourceListKind !== undefined) {
+    if (!['eligibility', 'award_decision', 'unspecified'].includes(String(m.sourceListKind))) return fail('INVALID_SOURCE_LIST_KIND');
+    mapping.sourceListKind = m.sourceListKind as SourceListKind;
+  }
+  if (m.rankings !== undefined) {
+    if (!Array.isArray(m.rankings) || m.rankings.length > rankingKeys.length) return fail('INVALID_RANKING_MAPPING');
+    mapping.rankings = [];
+    for (const item of m.rankings) {
+      if (!scholarshipRecord(item)) return fail('INVALID_RANKING_MAPPING');
+      strictKeys(item, ['key', 'column']);
+      const key = item.key as RankingKey;
+      if (!rankingKeys.includes(key) || mapping.rankings.some(r => r.key === key)) return fail('INVALID_RANKING_MAPPING');
+      mapping.rankings.push({ key, column: scholarshipText(item.column, 120) });
+    }
+  }
+  if ((mapping.trainingProgram || mapping.sourceOrdinal || mapping.rankings) &&
+    !['eligibility', 'award_decision'].includes(mapping.sourceListKind ?? '')) return fail('SOURCE_LIST_KIND_REQUIRED');
   if (!Array.isArray(m.scores) || m.scores.length > 16) return fail('INVALID_SCORE_MAPPING');
   for (const score of m.scores) {
     if (!scholarshipRecord(score)) return fail('INVALID_SCORE_MAPPING');
@@ -58,7 +79,7 @@ export const validateScholarshipImport = async (raw: unknown) => {
     mapping.scores.push({ key, column: scholarshipText(score.column, 120), label: scholarshipText(score.label, 120) });
   }
   const columns = [mapping.studentCode, mapping.fullName, mapping.awardType,
-    ...[mapping.className, mapping.major, mapping.sourceIdentifier, mapping.scholarshipType, mapping.scholarshipRank, mapping.cohort].filter((v): v is string => Boolean(v)), ...mapping.scores.map(s => s.column)];
+    ...[mapping.className, mapping.major, mapping.sourceIdentifier, mapping.scholarshipType, mapping.scholarshipRank, mapping.cohort, mapping.trainingProgram, mapping.sourceOrdinal].filter((v): v is string => Boolean(v)), ...mapping.scores.map(s => s.column), ...(mapping.rankings ?? []).map(s => s.column)];
   const independentColumns = mapping.awardType === mapping.scholarshipType || mapping.awardType === mapping.scholarshipRank
     ? columns.filter((_, index) => index !== 2) : columns;
   if (new Set(independentColumns).size !== independentColumns.length) return fail('AMBIGUOUS_COLUMN_MAPPING');
@@ -107,8 +128,23 @@ export const validateScholarshipImport = async (raw: unknown) => {
       }
       const optional = (key: 'className' | 'major') => mapping[key] && values[mapping[key]] !== null
         ? scholarshipText(values[mapping[key]], 160, false) || null : null;
+      const extension: Pick<ScholarshipCanonicalRow, 'trainingProgram' | 'sourceOrdinal' | 'rankings'> = {};
+      if (mapping.trainingProgram) extension.trainingProgram = values[mapping.trainingProgram] == null ? null : scholarshipText(values[mapping.trainingProgram], 160, false) || null;
+      if (mapping.sourceOrdinal) {
+        const value = values[mapping.sourceOrdinal];
+        if (value !== null && !sourceNumber(value)) fail('INVALID_SOURCE_ORDINAL');
+        extension.sourceOrdinal = value;
+      }
+      if (mapping.rankings) {
+        extension.rankings = {};
+        for (const metric of mapping.rankings) {
+          const value = values[metric.column];
+          if (value !== null && value !== '' && !sourceNumber(value, metric.key === 'topSchoolPercent')) fail('INVALID_PERSONAL_RANKING');
+          extension.rankings[metric.key] = value === '' ? null : value;
+        }
+      }
       const row = { sourceRowNumber: n, sourceIdentifier, studentCode, fullName, fullNameSearch,
-        className: optional('className'), major: optional('major'), awardType, ...additional, scores };
+        className: optional('className'), major: optional('major'), awardType, ...additional, scores, ...extension };
       rows.push({ ...row, rowSha256: await scholarshipSha256(JSON.stringify(row)) });
     } catch (error) {
       if (!(error instanceof ScholarshipValidationError)) throw error;

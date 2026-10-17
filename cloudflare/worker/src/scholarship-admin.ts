@@ -1,6 +1,7 @@
 import { requireBetterAuthStaff } from './better-auth-identity.ts';
 import { requireScholarshipDb, readScholarshipSlug, scholarshipPagination, ScholarshipError, type ScholarshipEnv } from './scholarships.ts';
 import { SCHOLARSHIP_MAX_BODY, scholarshipRecord, scholarshipText, scholarshipSha256, validateScholarshipImport, type ScholarshipMapping } from '../../../shared/scholarship-import.ts';
+import { isPublicField, rankingKeys } from '../../../shared/scholarship-policy.ts';
 
 interface AdminCampaign {
   slug: string; title: string; school_year: string; semester: string; status: string;
@@ -12,6 +13,7 @@ interface ImportBatch {
   approved_fields_json: string | null; approval_document_json: string | null;
   source_filename: string; performed_by_user_id: string; created_at: string;
   approved_by: string | null; approved_at: string | null;
+  source_list_kind: string; own_fields_json: string | null;
 }
 const adminCampaignView = (c: AdminCampaign) => ({ slug: c.slug, title: c.title, schoolYear: c.school_year,
   semester: c.semester, status: c.status, revision: c.revision, candidateBatchId: c.candidate_batch_id, activeBatchId: c.active_batch_id });
@@ -45,7 +47,7 @@ const revision = (body: Record<string, unknown>) => {
 };
 const receipt = (batch: ImportBatch) => ({ batchId: batch.id, campaignSlug: batch.campaign_slug,
   status: batch.status, sourceSha256: batch.source_sha256, payloadSha256: batch.payload_sha256,
-  expectedRows: batch.expected_rows, acceptedRows: batch.accepted_rows, rejectedRows: batch.rejected_rows });
+  expectedRows: batch.expected_rows, acceptedRows: batch.accepted_rows, rejectedRows: batch.rejected_rows, sourceListKind: batch.source_list_kind });
 const readCampaign = async (db: D1Database, slug: string) => {
   const row = await db.prepare(`SELECT slug,title,school_year,semester,status,revision,candidate_batch_id,active_batch_id
     FROM scholarship_campaigns WHERE slug=?`).bind(slug).first<AdminCampaign>();
@@ -143,11 +145,13 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
       const batch = await readBatch(db, slug, action!.split('/')[1]);
       const rows = await db.prepare(`SELECT id,source_row_number AS sourceRowNumber,source_identifier AS sourceIdentifier,
         student_code AS studentCode,full_name AS fullName,class_name AS className,major,award_type AS awardType,
-        scholarship_type AS scholarshipType,scholarship_rank AS scholarshipRank,cohort,
+        scholarship_type AS scholarshipType,scholarship_rank AS scholarshipRank,cohort,training_program AS trainingProgram,
+        source_ordinal_json AS sourceOrdinalJson,private_rankings_json AS rankingsJson,
         scores_json AS scoresJson,source_row_sha256 AS rowSha256 FROM scholarship_snapshot_rows WHERE batch_id=?
         ORDER BY source_row_number,id LIMIT ? OFFSET ?`).bind(batch.id, limit, (page - 1) * limit).all<{scoresJson: string}>();
       return { receipt: receipt(batch), mapping: JSON.parse(batch.mapping_json), rows: rows.results.map(row => {
-        const { scoresJson, ...values } = row; return { ...values, scores: JSON.parse(scoresJson) };
+        const { scoresJson, sourceOrdinalJson, rankingsJson, ...values } = row as typeof row & {sourceOrdinalJson: string | null; rankingsJson: string | null};
+        return { ...values, scores: JSON.parse(scoresJson), sourceOrdinal: sourceOrdinalJson ? JSON.parse(sourceOrdinalJson) : null, rankings: rankingsJson ? JSON.parse(rankingsJson) : {} };
       }), total: batch.status === 'rejected' ? 0 : batch.accepted_rows, page, limit };
     }
     const table = action === 'audit' ? 'scholarship_audit_events' : 'scholarship_import_batches';
@@ -158,6 +162,7 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
       batchId: row.batch_id, action: row.action, actorUserId: row.performed_by_user_id, sourceSha256: row.source_sha256,
       details: JSON.parse(String(row.details_json)), createdAt: row.created_at })) : result.results.map(row => ({ ...receipt(row),
         sourceFilename: row.source_filename, mapping: JSON.parse(row.mapping_json), approvedFields: row.approved_fields_json ? JSON.parse(row.approved_fields_json) : null,
+        ownFields: row.own_fields_json ? JSON.parse(row.own_fields_json) : null,
         officialSource: row.approval_document_json ? JSON.parse(row.approval_document_json) : null,
         actorUserId: row.performed_by_user_id, createdAt: row.created_at, approvedBy: row.approved_by, approvedAt: row.approved_at }));
     return { [action!]: items, total: count?.total || 0, page, limit };
@@ -166,6 +171,8 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
   if (action === 'imports/preview') {
     if (campaign.status === 'archived') return error(409, 'CAMPAIGN_ARCHIVED');
     const dataset = await validateScholarshipImport(body);
+    if (dataset.mapping.scores.some(score => score.key === 'trainingProgram' || rankingKeys.some(key => key === score.key)))
+      return error(400, 'ELIGIBILITY_MAPPING_CONVERSION_REQUIRED');
     if (dataset.errors.length) {
       const payloadHash = await scholarshipSha256(JSON.stringify(body));
       const id = await scholarshipSha256(JSON.stringify([slug, dataset.sourceSha256, payloadHash, 'rejected']));
@@ -189,17 +196,19 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
     const prior = await db.prepare('SELECT * FROM scholarship_import_batches WHERE id=?').bind(id).first<ImportBatch>();
     if (prior) return { valid: true, receipt: receipt(prior), idempotent: true, revision: campaign.revision };
     const statements = [db.prepare(`INSERT INTO scholarship_import_batches
-      (id,campaign_slug,source_sha256,source_filename,expected_rows,accepted_rows,rejected_rows,status,performed_by_user_id,mapping_json,payload_sha256)
-      VALUES (?,?,?,?,?,?,0,'previewed',?,?,?)`).bind(id, slug, dataset.sourceSha256, dataset.sourceFilename,
-        dataset.expectedRows, dataset.acceptedRows, identity.userId, JSON.stringify(dataset.mapping), dataset.payloadSha256)];
+      (id,campaign_slug,source_sha256,source_filename,expected_rows,accepted_rows,rejected_rows,status,performed_by_user_id,mapping_json,payload_sha256,source_list_kind)
+      VALUES (?,?,?,?,?,?,0,'previewed',?,?,?,?)`).bind(id, slug, dataset.sourceSha256, dataset.sourceFilename,
+        dataset.expectedRows, dataset.acceptedRows, identity.userId, JSON.stringify(dataset.mapping), dataset.payloadSha256, dataset.mapping.sourceListKind ?? 'unspecified')];
     // Small JSON chunks bound SQL variables and size while a single batch is atomic.
     for (let offset = 0; offset < dataset.rows.length; offset += 50) {
       statements.push(db.prepare(`INSERT INTO scholarship_snapshot_rows
-        (batch_id,source_row_number,source_identifier,student_code,full_name,full_name_search,class_name,major,award_type,scholarship_type,scholarship_rank,cohort,scores_json,source_row_sha256)
+        (batch_id,source_row_number,source_identifier,student_code,full_name,full_name_search,class_name,major,award_type,scholarship_type,scholarship_rank,cohort,scores_json,source_row_sha256,training_program,source_ordinal_json,private_rankings_json)
         SELECT ?,json_extract(value,'$.sourceRowNumber'),json_extract(value,'$.sourceIdentifier'),json_extract(value,'$.studentCode'),
           json_extract(value,'$.fullName'),json_extract(value,'$.fullNameSearch'),json_extract(value,'$.className'),json_extract(value,'$.major'),
           json_extract(value,'$.awardType'),json_extract(value,'$.scholarshipType'),json_extract(value,'$.scholarshipRank'),json_extract(value,'$.cohort'),
-          json_extract(value,'$.scores'),json_extract(value,'$.rowSha256') FROM json_each(?)`)
+          json_extract(value,'$.scores'),json_extract(value,'$.rowSha256'),json_extract(value,'$.trainingProgram'),
+          CASE WHEN json_type(value,'$.sourceOrdinal') IS NOT NULL THEN json_quote(json_extract(value,'$.sourceOrdinal')) END,
+          json_extract(value,'$.rankings') FROM json_each(?)`)
         .bind(id, JSON.stringify(dataset.rows.slice(offset, offset + 50))));
     }
     statements.push(audit(db, slug, id, 'previewed', identity.userId, dataset.sourceSha256,
@@ -235,18 +244,24 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
     const stored = await db.prepare(`SELECT source_row_number AS sourceRowNumber,source_identifier AS sourceIdentifier,
       student_code AS studentCode,full_name AS fullName,full_name_search AS fullNameSearch,class_name AS className,
       major,award_type AS awardType,scholarship_type AS scholarshipType,scholarship_rank AS scholarshipRank,cohort,
-      scores_json AS scoresJson,source_row_sha256 AS rowSha256
+      scores_json AS scoresJson,source_row_sha256 AS rowSha256,training_program AS trainingProgram,
+      source_ordinal_json AS sourceOrdinalJson,private_rankings_json AS rankingsJson
       FROM scholarship_snapshot_rows WHERE batch_id=? ORDER BY source_row_number`).bind(batch.id)
       .all<{ sourceRowNumber: number; sourceIdentifier: string | null; studentCode: string; fullName: string; fullNameSearch: string;
         className: string | null; major: string | null; awardType: string; scholarshipType?: string | null;
-        scholarshipRank?: string | null; cohort?: string | null; scoresJson: string; rowSha256: string }>();
+        scholarshipRank?: string | null; cohort?: string | null; scoresJson: string; rowSha256: string;
+        trainingProgram: string | null; sourceOrdinalJson: string | null; rankingsJson: string | null }>();
     const mapping: ScholarshipMapping = JSON.parse(batch.mapping_json);
     const canonical = [];
+    if ((mapping.sourceListKind ?? 'unspecified') !== batch.source_list_kind) return error(409, 'CORRUPT_BATCH');
     for (const storedRow of stored.results) {
-      const { scoresJson, rowSha256, ...row } = storedRow;
+      const { scoresJson, rowSha256, trainingProgram, sourceOrdinalJson, rankingsJson, ...row } = storedRow;
       for (const key of ['scholarshipType', 'scholarshipRank', 'cohort'] as const)
         if (!mapping[key]) delete row[key];
-      const content = { ...row, scores: JSON.parse(scoresJson) };
+      const content = { ...row, scores: JSON.parse(scoresJson),
+        ...(mapping.trainingProgram ? {trainingProgram} : {}),
+        ...(mapping.sourceOrdinal ? {sourceOrdinal: JSON.parse(sourceOrdinalJson!)} : {}),
+        ...(mapping.rankings ? {rankings: JSON.parse(rankingsJson!)} : {}) };
       if (await scholarshipSha256(JSON.stringify(content)) !== rowSha256) return error(409, 'CORRUPT_BATCH');
       canonical.push({ ...content, rowSha256 });
     }
@@ -257,7 +272,7 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
         audit(db, slug, batch.id, 'applied', identity.userId, batch.source_sha256)]);
     return { campaign: adminCampaignView(await readCampaign(db, slug)), receipt: receipt(await readBatch(db, slug, batch.id)), idempotent: false };
   } else if (action === 'approve') {
-    keys(body, ['expectedRevision', 'batchId', 'sourceSha256', 'officialSource', 'approvedFields', 'republicationConfirmed']);
+    keys(body, ['expectedRevision', 'batchId', 'sourceSha256', 'officialSource', 'approvedFields', 'republicationConfirmed', 'ownFields', 'ownAccessConfirmed']);
     const batch = await readBatch(db, slug, body.batchId);
     if (campaign.status !== 'validated' || campaign.candidate_batch_id !== batch.id || batch.status !== 'applied') return error(409, 'VALIDATED_BATCH_REQUIRED');
     if (body.sourceSha256 !== batch.source_sha256 || body.republicationConfirmed !== true) return error(400, 'REPUBLICATION_CONFIRMATION_REQUIRED');
@@ -265,17 +280,22 @@ export const handleAdminScholarships = async (request: Request, url: URL, env: S
     const mapping: ScholarshipMapping = JSON.parse(batch.mapping_json);
     const allowed = ['fullName', 'studentCode', 'awardType', ...(mapping.className ? ['className'] : []),
       ...(mapping.major ? ['major'] : []),
-      ...(['scholarshipType', 'scholarshipRank', 'cohort'] as const).filter(key => mapping[key]),
+      ...(['scholarshipType', 'scholarshipRank', 'cohort', 'trainingProgram', 'sourceOrdinal'] as const).filter(key => mapping[key]),
       ...mapping.scores.map(s => 'scores.' + s.key)];
     const approvedFields = body.approvedFields;
-    if (!Array.isArray(approvedFields) || approvedFields.some(f => typeof f !== 'string' || !allowed.includes(f)) ||
+    if (!Array.isArray(approvedFields) || approvedFields.some(f => typeof f !== 'string' || !allowed.includes(f) || !isPublicField(f)) ||
       new Set(approvedFields).size !== approvedFields.length ||
       ['fullName', 'studentCode', 'awardType'].some(f => !approvedFields.includes(f))) return error(400, 'EXPLICIT_PUBLIC_FIELDS_REQUIRED');
     const fields = JSON.stringify([...approvedFields].sort());
+    const ownAllowed = [...allowed.filter(isPublicField), ...(mapping.rankings ?? []).map(r => 'rankings.' + r.key)];
+    const ownFields = body.ownFields === undefined ? approvedFields : body.ownFields;
+    if (!Array.isArray(ownFields) || ownFields.some(f => typeof f !== 'string' || !ownAllowed.includes(f)) || new Set(ownFields).size !== ownFields.length)
+      return error(400, 'EXPLICIT_OWN_FIELDS_REQUIRED');
+    if (body.ownFields !== undefined && body.ownAccessConfirmed !== true) return error(400, 'OWN_ACCESS_CONFIRMATION_REQUIRED');
     await transact(db, mutate(db, slug, expected, "status='approved',public_data_approved=1,source_title=?,source_url=?,source_sha256=?", [document.title, document.url, batch.source_sha256]),
-      [db.prepare(`UPDATE scholarship_import_batches SET approved_fields_json=?,approval_document_json=?,approved_by=?,approved_at=datetime('now') WHERE id=?`)
-        .bind(fields, JSON.stringify(document), identity.userId, batch.id),
-        audit(db, slug, batch.id, 'approved', identity.userId, batch.source_sha256, { document, approvedFields: body.approvedFields })]);
+      [db.prepare(`UPDATE scholarship_import_batches SET approved_fields_json=?,approval_document_json=?,approved_by=?,own_fields_json=?,approved_at=datetime('now') WHERE id=?`)
+        .bind(fields, JSON.stringify(document), identity.userId, JSON.stringify([...ownFields].sort()), batch.id),
+        audit(db, slug, batch.id, 'approved', identity.userId, batch.source_sha256, { document, approvedFields, ownFields, sourceListKind: batch.source_list_kind })]);
   } else if (action === 'publish' || action === 'rollback') {
     keys(body, ['expectedRevision', 'batchId']);
     const batch = await readBatch(db, slug, body.batchId);

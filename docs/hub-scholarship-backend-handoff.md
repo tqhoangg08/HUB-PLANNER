@@ -1,3 +1,33 @@
+# Current extension — v1.2.0 (2026-10-17)
+
+The current implementation is on codex/scholarship-private-rankings, based on main a4230c4. See [current API contract](hub-scholarship-api-contract.md) for typed eligibility conversion, independent own/public approval, trainingProgram filtering, private rankings and migration 0059. All earlier readiness/test counts below are historical. The real Excel/JSON were read and compared offline only; 1,059 × 17 cells match, no real snapshot was written. Source cache freshness and university authorization remain owner review items. No deployment, remote migration, R2/secret/Auth changes are authorized by this handoff.
+
+Current verification (2026-10-17):
+
+| Command / check | Result |
+| --- | --- |
+| npm run typecheck | PASS |
+| npm run cf:typecheck | PASS |
+| npm run test:scholarships (also in full suite) | 40/40 PASS |
+| npm run test:scholarships:frontend (also in full suite) | 38/38 PASS |
+| npm test | 1,032/1,032 PASS; zero failed/skipped/cancelled |
+| npm run build | PASS; existing large-chunk warning remains |
+| npm run cf:check | PASS, deploy --dry-run only |
+| node --test tests/public-release-v2-rollout.test.mjs | 16/16 PASS; old/missing/drifted schema rejected |
+| npm run test:scholarships:browser | 2/2 acceptance suites PASS; real Chrome at 360, 390, 768, 1280, 1440px |
+| npm run cf:d1:migrate:local | PASS; 61 migrations, 0059 recorded once, zero public campaigns and zero FK violations |
+
+Browser coverage includes a real list/API/SQLite round trip, 12 approved columns, source STT, Vietnamese AND filters, program facets, URL/page reset, loading, empty/error states, reset/collapse and mobile drawer. Me covers nine payload/auth states per size, independent expansion and refresh, VNĐ/percent, Top customization and key-only storage. Synthetic Admin browser cases at 390/1440px verify unchecked own permissions, separate confirmations and the exact approval payload. Authentication is synthetic/local; Google/email/OTP login was not tested live.
+
+Regression tests also upgrade a pre-0059 applied immutable snapshot and a v1.0 preview, retaining old content/checksums; real Miniflare D1 round-trips typed rankings, numeric strings and nulls. No old migration was edited. package-lock.json, production configuration, baseline pin and Auth Worker remain unchanged. The primary dirty worktree's tracked diff SHA-256 is unchanged.
+
+Minimal synthetic screenshots, inspected after browser capture:
+
+- [List desktop](screenshots/hub-scholarship/v1.2-list-1440.png), [list mobile](screenshots/hub-scholarship/v1.2-list-390.png).
+- [Me desktop](screenshots/hub-scholarship/v1.2-me-1440.png), [Me mobile](screenshots/hub-scholarship/v1.2-me-390.png).
+
+Technical readiness: READY FOR OWNER REVIEW. Real-data ingestion/publication: BLOCKED pending documented public/own field authorization, review of the source formula caches and separate operational approval. Migration 0059 is local-only; the release gate deliberately blocks a database still on the old schema. Existing backup containment/operations requirements are not cleared by this work. No production action or PR merge was performed.
+
 # HUB Scholarship backend handoff — v1.1.0
 
 ## ANTIGRAVITY_READY = YES

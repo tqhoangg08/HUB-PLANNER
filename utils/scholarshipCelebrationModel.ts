@@ -1,9 +1,9 @@
 import type { MyScholarshipsResponse, OwnAward } from './scholarshipApi';
 
 export function refreshedOwnAward(response: MyScholarshipsResponse, selected: OwnAward): OwnAward | null {
-  if (!response.verified) return null;
+  if (!response.verified || selected.sourceListKind === 'eligibility') return null;
   return response.awards.find(award => award.id === selected.id && award.campaignSlug === selected.campaignSlug
-    && award.studentCode === selected.studentCode) || null;
+    && award.studentCode === selected.studentCode && award.sourceListKind !== 'eligibility') || null;
 }
 
 export function celebrationScoreLines(parts: string[], measure: (text: string) => number, maxWidth: number): string[] {
