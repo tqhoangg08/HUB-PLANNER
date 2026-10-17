@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ScholarshipShell } from './ScholarshipShell';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -51,6 +51,12 @@ export const ScholarshipList: React.FC = () => {
   const total = visibleData?.total || 0;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const cooldown = Math.max(0, Math.ceil((retryAt - now) / 1000));
+  const rememberRateLimit = useCallback((error: unknown) => {
+    if (error instanceof ScholarshipApiError && error.status === 429) {
+      setRetryAt(Date.now() + (error.retryAfter || 60) * 1000);
+      setNow(Date.now());
+    }
+  }, []);
 
   const update = (changes: Record<string, string>, replace = false) => {
     setParams(previous => updateScholarshipParams(previous, changes), { replace });
@@ -66,52 +72,59 @@ export const ScholarshipList: React.FC = () => {
 
   useEffect(() => {
     const controller = new AbortController();
+    if (Date.now() < retryAt) { setLoadingCampaigns(false); return () => controller.abort(); }
     setLoadingCampaigns(true); setCampaignError('');
     fetchAllPublicCampaigns(controller.signal).then(result => {
       if (!controller.signal.aborted) setCampaigns(result);
     }).catch(err => {
-      if (!controller.signal.aborted) { setCampaigns([]); setCampaignError(errorText(err)); }
+      if (!controller.signal.aborted) { setCampaigns([]); setCampaignError(errorText(err)); rememberRateLimit(err); }
     }).finally(() => { if (!controller.signal.aborted) setLoadingCampaigns(false); });
     return () => controller.abort();
-  }, [retry]);
+  }, [retry, retryAt, rememberRateLimit]);
 
   useEffect(() => {
     const controller = new AbortController();
+    if (Date.now() < retryAt) { setLoadingFacets(false); return () => controller.abort(); }
     setFacets(null); setFacetError(''); setLoadingFacets(false);
-    if (!slug || pendingInput || shortQuery || loadingCampaigns) return () => controller.abort();
+    if (!slug || shortQuery || loadingCampaigns) return () => controller.abort();
     setLoadingFacets(true);
-    fetchCampaignFacets(slug, { ...JSON.parse(filterKey), q: query || undefined, awardType: category || undefined }, controller.signal).then(result => {
-      if (!controller.signal.aborted) setFacets(result);
-    }).catch(err => { if (!controller.signal.aborted) setFacetError(errorText(err)); })
-      .finally(() => { if (!controller.signal.aborted) setLoadingFacets(false); });
-    return () => controller.abort();
-  }, [slug, filterKey, query, category, pendingInput, shortQuery, loadingCampaigns, retry]);
+    // Coalesce rapid committed filter changes. Draft keystrokes do not restart
+    // an unchanged request, and recipient pagination never re-fetches facets.
+    const timer = window.setTimeout(() => {
+      fetchCampaignFacets(slug, { ...JSON.parse(filterKey), q: query || undefined, awardType: category || undefined }, controller.signal).then(result => {
+        if (!controller.signal.aborted) setFacets(result);
+      }).catch(err => { if (!controller.signal.aborted) { setFacetError(errorText(err)); rememberRateLimit(err); } })
+        .finally(() => { if (!controller.signal.aborted) setLoadingFacets(false); });
+    }, 100);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [slug, filterKey, query, category, shortQuery, loadingCampaigns, retry, retryAt, rememberRateLimit]);
 
   useEffect(() => {
     const controller = new AbortController();
+    if (Date.now() < retryAt) { setLoading(false); return () => controller.abort(); }
     setData(null); setError(''); setLoading(false);
-    if (!slug || shortQuery || pendingInput || loadingCampaigns) return () => controller.abort();
+    if (!slug || shortQuery || loadingCampaigns) return () => controller.abort();
     setLoading(true);
     const options = { ...JSON.parse(filterKey), page, limit, awardType: category || undefined };
-    const promise = query ? searchCampaignRecipients(slug, { ...options, q: query }, controller.signal)
-      : fetchCampaignRecipients(slug, options, controller.signal);
-    promise.then(result => {
-      if (controller.signal.aborted) return;
-      const lastPage = Math.max(1, Math.ceil(result.total / limit));
-      if (page > lastPage) {
-        setParams(previous => updateScholarshipParams(previous, { page: String(lastPage) }), { replace: true });
-        return;
-      }
-      setData(result); setDataKey(requestKey);
-    }).catch(err => {
-      if (controller.signal.aborted) return;
-      setError(errorText(err));
-      if (err instanceof ScholarshipApiError && err.status === 429) {
-        setRetryAt(Date.now() + (err.retryAfter || 60) * 1000); setNow(Date.now());
-      }
-    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
-  }, [slug, query, category, filterKey, page, limit, shortQuery, pendingInput, loadingCampaigns, retry, requestKey, setParams]);
+    const timer = window.setTimeout(() => {
+      const promise = query ? searchCampaignRecipients(slug, { ...options, q: query }, controller.signal)
+        : fetchCampaignRecipients(slug, options, controller.signal);
+      promise.then(result => {
+        if (controller.signal.aborted) return;
+        const lastPage = Math.max(1, Math.ceil(result.total / limit));
+        if (page > lastPage) {
+          setParams(previous => updateScholarshipParams(previous, { page: String(lastPage) }), { replace: true });
+          return;
+        }
+        setData(result); setDataKey(requestKey);
+      }).catch(err => {
+        if (controller.signal.aborted) return;
+        setError(errorText(err));
+        rememberRateLimit(err);
+      }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    }, 100);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [slug, query, category, filterKey, page, limit, shortQuery, loadingCampaigns, retry, retryAt, requestKey, setParams, rememberRateLimit]);
 
   useEffect(() => {
     if (retryAt <= Date.now()) return;
@@ -169,7 +182,7 @@ export const ScholarshipList: React.FC = () => {
                 </div>
                 {filterOrder.map(key => renderFilter(key, filterLabels[key][0], filterLabels[key][1]))}
               </div>
-              {facetError && <p role="status" className="scholarship-note">Không tải được danh mục bộ lọc. <button className="scholarship-button" onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
+              {facetError && <p role="status" className="scholarship-note">Không tải được danh mục bộ lọc. <button className="scholarship-button" disabled={cooldown > 0} onClick={() => setRetry(n => n + 1)}>Thử lại</button></p>}
             </div>
           </div>
           <div className="scholarship-filter-actions scholarship-filter-actions-mobile">{filterActions}</div>
