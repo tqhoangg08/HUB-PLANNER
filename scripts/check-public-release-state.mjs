@@ -9,9 +9,9 @@ const canonicalObservability=o=>({enabled:o?.enabled??false,head_sampling_rate:o
   traces:{enabled:o?.traces?.enabled??false,head_sampling_rate:o?.traces?.head_sampling_rate??1,persist:o?.traces?.persist??true}});
 export const PUBLIC_RELEASE_ACCOUNT='6cd8bac6009a55f96bdf9df7c2057548';
 export const PUBLIC_RELEASE_DB='88d702e1-60d3-490a-8514-38ef881cf133';
-// Read-only verification on 2026-10-16: run 38878522768 uploaded this version
-// despite its later trigger-update failure. Run 38884052106 did not deploy.
-export const PUBLIC_RELEASE_PREDEPLOY_VERSION='9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1';
+// Reverified read-only on 2026-10-17: owner-approved run 38923977060 deployed
+// this single 100% version and passed postflight on main ed8a795cbf83834608d4a8fefc1a8b4ded84ed9b.
+export const PUBLIC_RELEASE_PREDEPLOY_VERSION='6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6';
 // The already-serving limiter is required in BOTH phases of this code release.
 export const SCHOLARSHIP_LIMITER=Object.freeze({name:'SCHOLARSHIP_SEARCH_RATE_LIMIT',namespace_id:'45871912',simple:Object.freeze({limit:60,period:60})});
 // Text-first code release preserves the already deployed V2 100% baseline.
