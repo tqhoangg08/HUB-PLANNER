@@ -9,9 +9,9 @@ const canonicalObservability=o=>({enabled:o?.enabled??false,head_sampling_rate:o
   traces:{enabled:o?.traces?.enabled??false,head_sampling_rate:o?.traces?.head_sampling_rate??1,persist:o?.traces?.persist??true}});
 export const PUBLIC_RELEASE_ACCOUNT='6cd8bac6009a55f96bdf9df7c2057548';
 export const PUBLIC_RELEASE_DB='88d702e1-60d3-490a-8514-38ef881cf133';
-// Reverified read-only on 2026-10-17: owner-approved run 38923977060 deployed
-// this single 100% version and passed postflight on main ed8a795cbf83834608d4a8fefc1a8b4ded84ed9b.
-export const PUBLIC_RELEASE_PREDEPLOY_VERSION='6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6';
+// Reverified read-only on 2026-10-17: owner-approved run 39024862262 deployed
+// this single 100% version and passed postflight on main a4230c45004a8b9deda88747a03c3490d7f40ef4.
+export const PUBLIC_RELEASE_PREDEPLOY_VERSION='799042c2-47a2-471c-80dc-e13c42e237ef';
 // The already-serving limiter is required in BOTH phases of this code release.
 export const SCHOLARSHIP_LIMITER=Object.freeze({name:'SCHOLARSHIP_SEARCH_RATE_LIMIT',namespace_id:'45871912',simple:Object.freeze({limit:60,period:60})});
 // Text-first code release preserves the already deployed V2 100% baseline.

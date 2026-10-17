@@ -1,5 +1,51 @@
 # Public release: verified production baseline and remaining gates
 
+## Current verification — 2026-10-17, Scholarship v1.2 preparation
+
+This section supersedes the historical baseline below. Public Worker currently serves
+`799042c2-47a2-471c-80dc-e13c42e237ef` at 100%; deployment
+`92b7cd69-06c1-45ef-8398-a0e690cbac3b`, created 2026-10-17T10:34:03.989629Z.
+Owner-dispatched [run 39024862262](https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39024862262)
+on main `a4230c45004a8b9deda88747a03c3490d7f40ef4` passed preflight,
+the final solo-owner/exact-SHA guard, deployment and postflight. Cloudflare's serving
+version and deployment timestamps independently match that run. The new reviewed
+pin is exact: previous `6ff2cbdb...`, earlier baselines, unknown versions, split traffic,
+binding/schema/AI drift remain rejected. No accept-latest or gate bypass is added.
+
+Read-only live/serving binding checks and Text-first schema checks PASS. Scholarship
+D1 lacks exactly `0059_scholarship_personal_details.sql`; the v1.2 exact schema/ledger
+gate correctly blocks release until a separately approved migration. No remote DDL
+was executed during this preparation. PR #109 was merged under owner instruction;
+merging code does not dispatch the production workflow.
+
+The live pre-0059 Scholarship schema matches the previously reviewed contract;
+aggregate metadata shows one existing campaign, currently published. This is not
+an empty-data deployment. Do not unpublish, replace/import data, infer source kind
+for old rows or change approval policy as an operational shortcut. Recovery rehearsal
+must preserve the existing snapshot and publication pointer. No recipient data was
+read as part of this metadata check.
+
+Backup status has changed since the earlier audit: the shared bucket's managed
+public development access is now disabled, and anonymous HEAD checks of the three
+previously identified backup aliases return HTTP 401. No backup bodies or URLs were
+downloaded, logged or committed. This does not prove all origins are inaccessible,
+that historical exposure did not occur, or that a backup can be restored. A current
+D1 Time Travel bookmark can be read, but a private export/checksum/isolated restore
+receipt remains required before the remote migration. Prior recovery/containment
+plans stay private outside Git; no bucket/secret/traffic changes were made here.
+
+Next owner approval is the bounded recovery/migration package: privately export the
+Public D1 only, checksum it outside Git/public storage, rehearse restore in an isolated
+local database, and only after PASS apply the reviewed 0059 migration once with its
+exact ledger entry. Abort on schema/baseline drift or failed recovery verification;
+do not run all pending migrations, import real students or publish a campaign. After
+verification, owner must separately authorize the exact-main production workflow
+using the existing SHA/run approval mechanism. Existing deployment protections,
+wait timer, exact-main CI and postflight remain mandatory. No production release
+or owner approval variable has been written by this preparation.
+
+## Historical baseline review
+
 Source baseline: main `c7c8de7db91dbe4aa26f355e3a2cebd26f4aa6d2` (PR #107).
 This repair changes the reviewed release baseline only. It does not deploy, migrate, change
 token permissions, write owner approvals or change Auth/AI/student data.
