@@ -17,6 +17,7 @@ import {
 } from '../utils/scholarshipApi.ts';
 import { approvedScoreColumns, scholarshipPage, updateScholarshipParams, scholarshipLoginReturn, resetScholarshipFilters } from '../utils/scholarshipListModel.ts';
 import { celebrationScoreLines, refreshedOwnAward } from '../utils/scholarshipCelebrationModel.ts';
+import { personalAwardDetails } from '../utils/scholarshipMeModel.ts';
 
 test('desktop and mobile handbook each contain one scholarship lookup, with no independent top tab', () => {
   const source = ts.createSourceFile('DesktopLayout.tsx', readFileSync('layouts/DesktopLayout.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -44,14 +45,39 @@ test('desktop and mobile handbook each contain one scholarship lookup, with no i
   assert.equal(links.filter(link => destination(link)?.getText(source) === 'to="/handbook/scholarships"' && link.getText(source).includes('Học bổng & Quy chế')).length, 2);
 });
 
-test('scholarship sidebar removes only the duplicate celebration entry and preserves the My Scholarships studio links', () => {
+test('My Scholarships removes celebration entry points while preserving sidebar permissions and other routes', () => {
   const shell = readFileSync('features/scholarships/ScholarshipShell.tsx', 'utf8');
   const me = readFileSync('features/scholarships/ScholarshipMe.tsx', 'utf8');
   assert.doesNotMatch(shell, /Vinh danh cá nhân|to: '\/scholarships\/celebrate'/);
   for (const label of ['Danh sách & Tra cứu', 'Học bổng của tôi', 'Quy chế học bổng', 'Quản trị học bổng']) assert.ok(shell.includes(label));
   assert.match(shell, /isAdmin \? \[\{ to: '\/admin\/scholarships'/);
-  assert.match(me, /to=\{`\/scholarships\/celebrate\?awardId=\$\{awards\[0\]\.id\}`\}/);
-  assert.match(me, /to=\{`\/scholarships\/celebrate\?awardId=\$\{award\.id\}`\}/);
+  assert.doesNotMatch(me, /\/scholarships\/celebrate|Vinh danh|vinh danh|Sparkles|ArrowRight/);
+  assert.match(me, /personalAwardDetails\(award\.scores\)/);
+});
+
+test('personal award details use Vietnamese labels and VND without changing source scores', () => {
+  assert.deepEqual(personalAwardDetails({ gpa: 3.6, academicRank: 'Xuất sắc', trainingScore: 100, trainingRank: 'Xuất sắc', credits: 17, amountVnd: 13926000 }), [
+    { key: 'gpa', label: 'Điểm TB HB', value: '3.6' },
+    { key: 'academicRank', label: 'Xếp loại HT', value: 'Xuất sắc' },
+    { key: 'trainingScore', label: 'Điểm RL', value: '100' },
+    { key: 'trainingRank', label: 'Xếp loại RL', value: 'Xuất sắc' },
+    { key: 'credits', label: 'Số TC', value: '17' },
+    { key: 'amountVnd', label: 'Thành tiền', value: '13.926.000đ' },
+  ]);
+  assert.equal(personalAwardDetails({ amountVnd: '13926000' })[0].value, '13.926.000đ');
+  assert.equal(personalAwardDetails({ amountVnd: 0 })[0].value, '0đ');
+  assert.equal(personalAwardDetails({ gpa: '9,7' })[0].value, '9,7');
+  assert.equal(personalAwardDetails({ selectionScore: 0 })[0].label, 'Điểm xét học bổng');
+});
+
+test('personal award details hide absent, null, unknown and malformed fields without legacy fallbacks', () => {
+  for (const scores of [undefined, null, {}, { amountVnd: null, gpa: null }, { credits: '', trainingRank: '  ', customRawKey: 50 }, { gpa: NaN, trainingScore: Infinity }, JSON.parse('{"constructor": 42,"__proto__": "hidden"}')]) {
+    assert.deepEqual(personalAwardDetails(scores), []);
+  }
+  assert.equal(personalAwardDetails({ amountVnd: '13.926.000đ' })[0].value, '13.926.000đ', 'preserve already formatted source text without guessing currency separators');
+  const award = { scores: {}, gpa: 4, amountVnd: 13926000 };
+  assert.deepEqual(personalAwardDetails(award.scores), [], 'top-level legacy values must not bypass server-filtered scores');
+  assert.deepEqual(personalAwardDetails({ credits: 0 }), [{ key: 'credits', label: 'Số TC', value: '0' }]);
 });
 
 test('celebration wraps all approved score values without dropping Vietnamese or long source text', () => {
