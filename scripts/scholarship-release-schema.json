@@ -61,6 +61,11 @@
   },
   {
     "type": "index",
+    "name": "scholarship_snapshot_program_idx",
+    "sql": "CREATE INDEX scholarship_snapshot_program_idx ON scholarship_snapshot_rows(batch_id, training_program, cohort, major, class_name)"
+  },
+  {
+    "type": "index",
     "name": "scholarship_snapshot_rank_idx",
     "sql": "CREATE INDEX scholarship_snapshot_rank_idx ON scholarship_snapshot_rows(batch_id, scholarship_rank)"
   },
@@ -82,7 +87,7 @@
   {
     "type": "table",
     "name": "scholarship_import_batches",
-    "sql": "CREATE TABLE scholarship_import_batches (\r\n  id TEXT PRIMARY KEY,\r\n  campaign_slug TEXT NOT NULL REFERENCES scholarship_campaigns(slug) ON DELETE RESTRICT,\r\n  source_sha256 TEXT NOT NULL,\r\n  source_filename TEXT NOT NULL,\r\n  expected_rows INTEGER NOT NULL CHECK (expected_rows >= 0),\r\n  accepted_rows INTEGER NOT NULL DEFAULT 0 CHECK (accepted_rows >= 0),\r\n  rejected_rows INTEGER NOT NULL DEFAULT 0 CHECK (rejected_rows >= 0),\r\n  status TEXT NOT NULL CHECK (status IN ('previewed', 'applied', 'rejected')),\r\n  performed_by_user_id TEXT NOT NULL,\r\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n, mapping_json TEXT NOT NULL DEFAULT '{}', payload_sha256 TEXT, approved_fields_json TEXT, approval_document_json TEXT, approved_by TEXT, approved_at TEXT)"
+    "sql": "CREATE TABLE scholarship_import_batches (\r\n  id TEXT PRIMARY KEY,\r\n  campaign_slug TEXT NOT NULL REFERENCES scholarship_campaigns(slug) ON DELETE RESTRICT,\r\n  source_sha256 TEXT NOT NULL,\r\n  source_filename TEXT NOT NULL,\r\n  expected_rows INTEGER NOT NULL CHECK (expected_rows >= 0),\r\n  accepted_rows INTEGER NOT NULL DEFAULT 0 CHECK (accepted_rows >= 0),\r\n  rejected_rows INTEGER NOT NULL DEFAULT 0 CHECK (rejected_rows >= 0),\r\n  status TEXT NOT NULL CHECK (status IN ('previewed', 'applied', 'rejected')),\r\n  performed_by_user_id TEXT NOT NULL,\r\n  created_at TEXT NOT NULL DEFAULT (datetime('now'))\r\n, mapping_json TEXT NOT NULL DEFAULT '{}', payload_sha256 TEXT, approved_fields_json TEXT, approval_document_json TEXT, approved_by TEXT, approved_at TEXT, source_list_kind TEXT NOT NULL DEFAULT 'unspecified' CHECK (source_list_kind IN ('unspecified','eligibility','award_decision')), own_fields_json TEXT CHECK (own_fields_json IS NULL OR (json_valid(own_fields_json) AND json_type(own_fields_json)='array')))"
   },
   {
     "type": "table",
@@ -97,7 +102,7 @@
   {
     "type": "table",
     "name": "scholarship_snapshot_rows",
-    "sql": "CREATE TABLE scholarship_snapshot_rows (\r\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n  batch_id TEXT NOT NULL REFERENCES scholarship_import_batches(id) ON DELETE RESTRICT,\r\n  source_row_number INTEGER NOT NULL CHECK(source_row_number > 0),\r\n  source_identifier TEXT,\r\n  student_code TEXT NOT NULL CHECK(length(student_code)=12 AND student_code NOT GLOB '*[^0-9]*'),\r\n  full_name TEXT NOT NULL,\r\n  full_name_search TEXT NOT NULL,\r\n  class_name TEXT,\r\n  major TEXT,\r\n  award_type TEXT NOT NULL,\r\n  scores_json TEXT NOT NULL CHECK(json_valid(scores_json)),\r\n  source_row_sha256 TEXT NOT NULL, scholarship_type TEXT, scholarship_rank TEXT, cohort TEXT,\r\n  UNIQUE(batch_id, source_row_number)\r\n)"
+    "sql": "CREATE TABLE scholarship_snapshot_rows (\r\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\r\n  batch_id TEXT NOT NULL REFERENCES scholarship_import_batches(id) ON DELETE RESTRICT,\r\n  source_row_number INTEGER NOT NULL CHECK(source_row_number > 0),\r\n  source_identifier TEXT,\r\n  student_code TEXT NOT NULL CHECK(length(student_code)=12 AND student_code NOT GLOB '*[^0-9]*'),\r\n  full_name TEXT NOT NULL,\r\n  full_name_search TEXT NOT NULL,\r\n  class_name TEXT,\r\n  major TEXT,\r\n  award_type TEXT NOT NULL,\r\n  scores_json TEXT NOT NULL CHECK(json_valid(scores_json)),\r\n  source_row_sha256 TEXT NOT NULL, scholarship_type TEXT, scholarship_rank TEXT, cohort TEXT, training_program TEXT, source_ordinal_json TEXT CHECK (source_ordinal_json IS NULL OR json_valid(source_ordinal_json)), private_rankings_json TEXT CHECK (private_rankings_json IS NULL OR (json_valid(private_rankings_json) AND json_type(private_rankings_json)='object')),\r\n  UNIQUE(batch_id, source_row_number)\r\n)"
   },
   {
     "type": "table",

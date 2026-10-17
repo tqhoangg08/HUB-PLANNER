@@ -68,6 +68,9 @@ cloudflare/.dev.vars
 .cache/schedule-reconcile/
 .cache/
 .scholarship-private/
+*-PRIVATE.json
+*.private.json
+*.private.xlsx
 .scholarship-exports/
 HUB-Scholarship-*.png
 scholarship-qa-state.json

@@ -6,6 +6,7 @@ import { Miniflare } from 'miniflare';
 import { handleAdminScholarships } from '../cloudflare/worker/src/scholarship-admin.ts';
 import { handlePublicScholarships } from '../cloudflare/worker/src/scholarships.ts';
 import { validateScholarshipReleaseSchema, SCHOLARSHIP_MIGRATIONS, SCHOLARSHIP_SCHEMA_QUERY } from '../scripts/scholarship-release-schema.mjs';
+import {syntheticEligibility} from './fixtures/scholarship-eligibility.ts';
 
 test('real Worker routing + D1 migrations/JSON chunks/CAS transactions run locally without Auth network', async t => {
   const bundled = await build({ entryPoints: ['cloudflare/worker/src/index.ts'], bundle: true, write: false,
@@ -118,5 +119,20 @@ test('real Worker routing + D1 migrations/JSON chunks/CAS transactions run local
     assert.equal(rows.total,21); assert.equal(rows.rows.length,1); assert.equal(rows.rows[0].studentCode,'000000000021');
     const audit=await getAdmin('/synthetic/audit?page=2&limit=20'); assert.ok(audit.total>20); assert.ok(audit.audit.length>0);
     const empty=await getAdmin('/synthetic/imports?page=100&limit=20'); assert.equal(empty.total,23); assert.equal(empty.imports.length,0);
+  });
+  await t.test('typed eligibility JSON round-trips in real D1 without altering old applied snapshots', async () => {
+    const old=await db.prepare('SELECT * FROM scholarship_snapshot_rows WHERE batch_id=?').bind(batchId).all();
+    const data=syntheticEligibility(2);
+    data.rows[0].values['Tỷ lệ top trường']='0,0125'; data.rows[0].values['Top lớp']='001';
+    data.rows[1].values['Top trường']=null;
+    await admin('',{slug:'typed-eligibility',title:'Synthetic eligibility',schoolYear:'2026',semester:'HK2'});
+    const preview=await admin('/typed-eligibility/imports/preview',data);
+    await admin('/typed-eligibility/imports/apply',{batchId:preview.receipt.batchId,expectedRevision:0});
+    const rows=await getAdmin('/typed-eligibility/imports/'+preview.receipt.batchId+'/rows');
+    assert.equal(rows.rows[0].rankings.topSchoolPercent,'0,0125');assert.equal(rows.rows[0].rankings.topClass,'001');
+    assert.equal(rows.rows[1].rankings.topSchool,null);assert.equal(rows.rows[0].sourceOrdinal,1);
+    assert.equal(rows.receipt.sourceListKind,'eligibility');
+    assert.deepEqual((await db.prepare('SELECT * FROM scholarship_snapshot_rows WHERE batch_id=?').bind(batchId).all()).results,old.results);
+    await assert.rejects(db.prepare('UPDATE scholarship_snapshot_rows SET training_program=? WHERE batch_id=?').bind('forbidden',batchId).run());
   });
 });

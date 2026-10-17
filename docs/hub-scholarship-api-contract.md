@@ -1,21 +1,21 @@
-# HUB Scholarship — API Contract v1.1.0
+# HUB Scholarship — API Contract v1.2.0
 
-Backward-compatible extension for Antigravity, 2026-10-14. Branch: `feature/hub-scholarship-foundation`.
+Eligibility/personal-detail extension, 2026-10-17. Branch: `codex/scholarship-private-rankings`, based on main `a4230c4`. Historical v1.1 references below record prior implementation only.
 Initial v1.1.0 implementation/test commit: `270d0c8914e8269de9223b7c7c620bd2b4646943`; final hardening regression: `251c0b45bea58f297cf1f2d1dc551f5399ddcc61`.
 Source of truth: `cloudflare/worker/src/scholarships.ts`, `scholarship-admin.ts`,
-`shared/scholarship-import.ts`, migrations `0055`, `0056` and additive filter extension `0057`.
+`shared/scholarship-import.ts`, migrations `0055`–`0057` and additive `0059_scholarship_personal_details.sql`.
 
 ## Release status and publication rules
 
 Backend implemented and locally tested. This is a frontend integration handoff, not production verification or release approval.
 No deployment, remote migration, merge, official student import or Auth Worker change has been performed.
-The official award file and school authorization to republish each field are still required before real ingestion/publication.
+The privately supplied source is eligibility data, not an award decision. School authorization for public/own fields and separate ingestion/publication approval remain required. An official award decision is needed before labeling a future batch award_decision.
 Public clients see an empty campaign list until an Admin explicitly applies, approves and publishes a snapshot.
 
 Migration 0056 is additive to 0055 and preserves old tables/rows. The old recipient table and aggregate score flags do not authorize publication in v1.0.
 Only `scholarship_snapshot_rows` belonging to the campaign's **active approved batch** can be read publicly or through the verified-own API.
 Preview rows, inactive snapshots and guessed batch IDs confer no public access. Applied snapshot rows are immutable through SQL triggers.
-Awards are official source decisions; no GPA, ranking, directory record or forecast can produce an award.
+The source kind is independent of campaign status: publishing an eligibility list does not turn it into an award decision. No GPA, ranking, directory record or forecast can produce an award.
 
 All scholarship responses use `Cache-Control: no-store` (Admin and own use `private, no-store`).
 Recipient/search data is not cached, so unpublish takes effect on subsequent reads. A previously delivered response cannot be revoked from a user's device.
@@ -48,6 +48,7 @@ The implementation never logs search text, row cells, names or student codes.
   slug: string; title: string; schoolYear: string; semester: string;
   sourceTitle: string; sourceUrl: string | null; sourceDocument: string;
   sourceSha256: string; publishedAt: string;
+  sourceListKind: 'eligibility' | 'award_decision' | 'unspecified';
   approvedFields: string[];
   scoreColumns: { key: string; label: string }[];
 }
@@ -60,6 +61,7 @@ The implementation never logs search text, row cells, names or student codes.
   id: number; fullName: string; studentCode: string; awardType: string;
   className: string | null; major: string | null;
   scholarshipType: string | null; scholarshipRank: string | null; cohort: string | null;
+  trainingProgram: string | null; sourceOrdinal: number | string | null;
   scores: Record<string, number | string | null>;
   gpa: number | string | null;
   trainingScore: number | string | null;
@@ -68,14 +70,14 @@ The implementation never logs search text, row cells, names or student codes.
 ```
 
 `fullName`, `studentCode`, `awardType` require explicit approval before publication.
-Unapproved class/major become null. `scores` contains **only explicitly approved individual keys**.
+Unapproved class/major become null. `scores` contains **only explicitly approved individual keys** from the public-safe allowlist: gpa, academicRank, trainingScore, trainingRank, credits, amountVnd, selectionScore. Unknown legacy score keys remain stored but are not serialized. In particular trainingProgram and every Top alias in legacy scores are excluded.
 The three legacy score properties alias `scores.gpa`, `scores.trainingScore`, `scores.selectionScore`, or null if absent/unapproved.
 They are not inferred or coerced. Historical/private score views use `scoreColumns` and `scores`: the source may use a different scale or textual value such as `"9,7"`.
 Null means missing or not approved; never substitute zero, assume GPA /4, or derive an award.
 Raw source row numbers, source identifiers, private score columns, filename, mapping and actor IDs are Admin-only.
 Recipient IDs identify immutable snapshot rows; they may change across replacement imports and are never proof of ownership.
 
-Current public table policy (2026-10-15): identity, approved class/major/cohort and scholarship rank only. It omits academic/training score and credit columns, and the program/type column. The lookup UI omits the program/type dropdown; API scholarshipType mapping/filter/approval and historical URLs remain compatible. Removing a UI column does not revoke stored field approval or change the API response.
+Current public table policy (2026-10-17): STT, MSSV, Họ tên, Mã Lớp SV, Ngành học, Khóa, Chương trình đào tạo, Điểm TB HB, Điểm RL, Số TC, Xếp loại HB, Thành tiền, in this order. Optional fields require server public approval; scores also require corresponding scoreColumns. Unapproved columns are omitted. No academicRank/trainingRank or Top column is added. STT uses approved sourceOrdinal when provided, otherwise the page position in immutable source order. scholarshipType remains a supported API/historical URL field; its dropdown and table column remain absent. trainingProgram is independent of scholarshipType.
 
 ## Public endpoints (no login)
 
@@ -94,7 +96,7 @@ Counts only the active published snapshot. A student with two awards contributes
 
 ### `GET /api/public/v1/scholarships/:slug/recipients`
 
-Query: `page`, `limit`, optional `q`, legacy exact `awardType` (max 120), and exact `scholarshipType`, `scholarshipRank`, `major`, `className`, `cohort` (max 160 each). All conditions combine with AND.
+Query: `page`, `limit`, optional `q`, legacy exact `awardType` (max 120), and exact `scholarshipType`, `scholarshipRank`, `major`, `className`, `cohort`, `trainingProgram` (max 160 each). All conditions combine with AND.
 Response: `{ campaign: Campaign, recipients: Recipient[], total: number, page: number, limit: number }`.
 Order: original source row number ascending, recipient ID ascending. No score/name sorting.
 
@@ -124,16 +126,18 @@ Response: `{ verified: boolean, awards: OwnAward[] }`, where:
 ```ts
 type OwnAward = Recipient & {
   campaignSlug: string; campaignTitle: string; schoolYear: string; semester: string;
+  sourceListKind: 'eligibility' | 'award_decision' | 'unspecified';
+  rankings: Partial<Record<'topSchoolPercent'|'topSchool'|'topMajor'|'topCohort'|'topClass', number|string|null>>;
 };
 ```
 
 All matching published awards across campaigns are returned; there is no silent 100-award cutoff.
-Individual score approval gates also apply to this endpoint.
+Own optional fields and scores use the batch ownFields policy, independent of approvedFields. NULL own_fields_json on an old approval falls back only to public-safe approved fields; [] grants no own optional fields. Typed rankings require explicit rankings.<key> own approval, never public approval. Legacy Top score aliases are never returned, even here: convert/reimport and review a new typed batch. Own API stays private, no-store, including errors.
 
 - HTTP 401: login needed or session expired.
 - `verified:false, awards:[]`: authenticated account lacks a verified student email/code.
-- `verified:true, awards:[]`: verified student has no matching officially published award.
-- `verified:true` with awards: frontend may select one of these records for personal celebration.
+- `verified:true, awards:[]`: verified student has no matching published snapshot.
+- `verified:true` with awards: records include sourceListKind. Eligibility records are for viewing only and are excluded from Studio selection and export re-verification.
 - HTTP 503: service/identity failure, not a no-award state.
 
 The celebration UI must re-use these server records, preserve identity/category, and prohibit public-search ownership claims.
@@ -179,7 +183,8 @@ Retries of the currently applied candidate return `idempotent:true` even with a 
 
 ```ts
 { batchId:string; campaignSlug:string; status:'previewed'|'applied'|'rejected';
-  sourceSha256:string; payloadSha256:string; expectedRows:number; acceptedRows:number; rejectedRows:number }
+  sourceSha256:string; payloadSha256:string; expectedRows:number; acceptedRows:number; rejectedRows:number;
+  sourceListKind:'eligibility'|'award_decision'|'unspecified' }
 ```
 
 ### Campaign CRUD and inspection
@@ -196,9 +201,9 @@ Retries of the currently applied candidate return `idempotent:true` even with a 
 
 Title max 240; schoolYear/semester max 80; all required text is nonempty, NFC-trimmed and control-free.
 No hard-delete endpoint; archive is the supported removal path.
-Private rows: `{id,sourceRowNumber,sourceIdentifier,studentCode,fullName,className,major,awardType,scholarshipType,scholarshipRank,cohort,scores,rowSha256}`.
+Private rows: `{id,sourceRowNumber,sourceIdentifier,studentCode,fullName,className,major,awardType,scholarshipType,scholarshipRank,cohort,trainingProgram,sourceOrdinal,rankings,scores,rowSha256}`.
 Rejected receipts have no stored recipient rows and rows total 0.
-`ImportMetadata` adds to Receipt: `{sourceFilename,mapping,approvedFields:string[]|null,officialSource:OfficialSource|null,
+`ImportMetadata` adds to Receipt: `{sourceFilename,mapping,approvedFields:string[]|null,ownFields:string[]|null,officialSource:OfficialSource|null,
 actorUserId,createdAt,approvedBy:string|null,approvedAt:string|null}`.
 `AuditEvent`: `{id,campaignSlug,batchId:string|null,action,actorUserId,sourceSha256:string|null,details:object,createdAt}`.
 Audit/import lists order createdAt descending then ID descending. Audit details hold checksums, source approval fields or row-number/error codes, never row cell values.
@@ -215,6 +220,9 @@ Input (trusted offline XLSX/CSV preparation output):
     studentCode:string; fullName:string; awardType:string;
     className?:string; major?:string; sourceIdentifier?:string;
     scholarshipType?:string; scholarshipRank?:string; cohort?:string;
+    trainingProgram?:string; sourceOrdinal?:string;
+    sourceListKind?:'eligibility'|'award_decision'|'unspecified';
+    rankings?:{key:'topSchoolPercent'|'topSchool'|'topMajor'|'topCohort'|'topClass',column:string}[];
     scores:{key:string,column:string,label:string}[];
   };
   rows:{sourceRowNumber:number,values:Record<string,string|number|null>}[];
@@ -262,13 +270,16 @@ Approval body:
   expectedRevision:number; batchId:string; sourceSha256:string;
   officialSource:{title:string,url:string|null,reference:string};
   approvedFields:string[]; republicationConfirmed:true;
+  ownFields?:string[]; ownAccessConfirmed?:true;
 }
 ```
 
 Official source title/reference: nonempty <=240 characters; url: explicit null or HTTPS <=1000, no embedded credentials.
 `sourceSha256` must exactly match the candidate receipt.
 `approvedFields` must explicitly include `fullName`, `studentCode`, `awardType`.
-Optional approved fields: individually mapped `className`, `major`, `cohort`, `scholarshipType`, `scholarshipRank`, and each mapped `scores.<key>` separately.
+Optional public fields: individually mapped className, major, cohort, scholarshipType, scholarshipRank, trainingProgram, sourceOrdinal and each mapped public-safe scores.<key> separately. rankings.<key> and legacy scores.top* are rejected as public approvals.
+
+Explicit ownFields requires ownAccessConfirmed:true and accepts mapped public-safe fields plus mapped rankings.<key>. It does not depend on which optional fields are public; [] is valid. Old clients omitting ownFields receive a stored public-safe copy of their approvedFields for compatibility, with no Top permission. The Admin UI starts own permissions unchecked and requires separate confirmation; switching batch clears both checklists/confirmations.
 No wildcard/all-scores approval, duplicate fields, unknown score or source identifier approval. `republicationConfirmed` must be literal true.
 Batch IDs are lowercase 64 hex and must belong to this campaign. Publish only the approved candidate.
 
@@ -290,7 +301,7 @@ then separately apply, explicitly approve the school-authorized fields and publi
 Limits: source <=4 MiB; mapping <=16 KiB; JSON <=1 MiB; 2000 rows; 40 columns. Oversized datasets fail; there is no silent truncation/chunk append.
 CSV requires UTF-8, explicit delimiter (comma default; semicolon/tab supported), unique headers, consistent cell counts,
 valid quoting, no internal blank records. Record positions preserve source order; multiline mapped values fail control-character validation.
-XLSX requires explicit sheet when multiple sheets exist; rejects merged cells, formula/cache values, dates, rich text and hyperlink objects.
+XLSX requires explicit sheet when multiple sheets exist; rejects merged cells, formulas by default, dates, rich text and hyperlink objects. An explicit offline --cached-formulas option reads existing finite numeric/string formula caches only, including shared formulas. Missing/error caches fail; no formula is executed or recomputed. The owner must separately verify cache freshness.
 Numerical MSSV cells are rejected. ZIP inspection checks member CRC/actual expansion, <=128 members, <=4 MiB per member,
 <=16 MiB total expansion, bounded compression ratio, no ZIP64/multipart/encryption/path traversal/macros/external links.
 Unsupported XLS/XLSM is rejected. This conservative parser may require a reviewed clean source export; it does not invent missing semantics.
@@ -328,7 +339,7 @@ Frontend integration v1.1.0 (2026-10-14):
 ## ANTIGRAVITY_READY
 
 See `docs/hub-scholarship-backend-handoff.md` for the final test ledger and readiness verdict.
-Backend implementation and tests: `c78ab17c1115059b1c547e1e7ebad942901ede53`; v1.0 baseline; extended contract: **v1.1.0**.
+Backend implementation and tests: `c78ab17c1115059b1c547e1e7ebad942901ede53`; v1.0 baseline; current extension: **v1.2.0**.
 This handoff permits frontend integration with empty production data and synthetic local fixtures only.
 Production remains unverified; real source, field authorization and a separately approved release are outstanding.
 
@@ -339,21 +350,21 @@ Implementation references: [D1 transactional batch](https://developers.cloudflar
 
 Migration **0057** adds nullable scholarship_type, scholarship_rank and cohort columns plus snapshot indexes. No backfill or parsing of legacy values. Existing applied snapshots and old preview row/payload checksums remain unchanged. Optional importer mappings have separate source columns; ambiguous mapping is rejected. The offline CSV/XLSX preparer uses the same validator. When independent program/rank fields distinguish two source awards, duplicates are validated using those fields as well as legacy category and source identifier.
 
-`awardType` remains the mandatory v1.0 legacy source label. Its old filter/summary semantics are unchanged. It is **never** used to fill either new field. No cohort inference from MSSV/class name, and no classification from GPA. New imports may include the separate mappings only when the source explicitly contains them. Existing clients remain usable; new clients must not label the legacy field as both type and rank. No real official file was supplied or imported.
+`awardType` remains the mandatory v1.0 legacy source label. Its old filter/summary semantics are unchanged. It is **never** used to fill either new field. No cohort inference from MSSV/class name, and no classification from GPA. New imports may include the separate mappings only when the source explicitly contains them. Existing clients remain usable; new clients must not label the legacy field as both type and rank. Historical v1.1 work had no source file. On 2026-10-17 the privately supplied eligibility workbook and JSON were compared offline only; no import/preview API or database write used those rows.
 
-Optional fields are public (including own awards) only if individually approved. Unmapped/unapproved fields serialize as null. Filtering an unapproved/unmapped field yields zero results, never a private-field match. Empty or repeated filter parameters, unknown keys, controls including DEL and oversized values give 400. Exact filters are NFC-trimmed and case/diacritic-sensitive; q retains Vietnamese-normalized substring/code-prefix semantics and is 2–80 characters when nonempty. No client-selectable campaign/batch IDs: campaignSlug comes solely from the route.
+Optional public fields require approvedFields. Own optional fields require the separate ownFields policy described above. Unmapped/unapproved fields serialize as null. Filtering an unapproved/unmapped field yields zero results, never a private-field match. Empty or repeated filter parameters, unknown keys, controls including DEL and oversized values give 400. Exact filters are NFC-trimmed and case/diacritic-sensitive; q retains Vietnamese-normalized substring/code-prefix semantics and is 2–80 characters when nonempty. No client-selectable campaign/batch IDs: campaignSlug comes solely from the route.
 
 ### GET /api/public/v1/scholarships/:slug/facets
 
-Same publication/approval/revision gates as recipients. Queries: q, legacy awardType, scholarshipType, scholarshipRank, major, className, cohort, facetPage (1–2000, default 1), facetLimit (1–200, default 100). Recipient page/limit are not accepted here.
+Same publication/approval/revision gates as recipients. Queries: q, legacy awardType, scholarshipType, scholarshipRank, major, className, cohort, trainingProgram, facetPage (1–2000, default 1), facetLimit (1–200, default 100). Recipient page/limit are not accepted here.
 
 Response:
 
 ```ts
 {
-  apiVersion: '1.1.0'; campaign: Campaign; totalRecipients: number;
-  supportedFilters: ('scholarshipType'|'scholarshipRank'|'major'|'className'|'cohort')[];
-  facets: Record<'scholarshipType'|'scholarshipRank'|'major'|'className'|'cohort', {
+  apiVersion: '1.2.0'; campaign: Campaign; totalRecipients: number;
+  supportedFilters: ('scholarshipType'|'scholarshipRank'|'major'|'className'|'cohort'|'trainingProgram')[];
+  facets: Record<'scholarshipType'|'scholarshipRank'|'major'|'className'|'cohort'|'trainingProgram', {
     options: string[]; total: number; page: number; limit: number;
   }>;
 }
@@ -361,7 +372,7 @@ Response:
 
 supportedFilters requires both source mapping and approval. Options are DISTINCT nonempty approved values, sorted by SQLite BINARY, paginated independently per facet with a common page/limit request. There is no hard-coded catalog or silent truncation. Each facet ignores only its **own** selected filter and applies q plus every other condition. Thus class options depend on selected major/cohort/type/rank. totalRecipients uses **all** selected filters, exactly like recipients/search. Null values are excluded from options but retained as null in recipients.
 
-Maximum source snapshot remains 2000 rows; options therefore have at most 2000 distinct values per field. Metadata returns strings only, not recipient rows. At most eleven bounded result/option SQL statements per supported facets call (one count plus two per facet), plus one publication lookup; unapproved facets execute no option query. Snapshot-first indexes bound scans; cohort/major/class has a composite index. q substring scans stay bounded to the active snapshot. Filter/facets requests share the existing 60/minute/IP binding; 429 preserves Retry-After. No raw filters/PII are logged.
+Maximum source snapshot remains 2000 rows; options therefore have at most 2000 distinct values per field. Metadata returns strings only, not recipient rows. At most thirteen bounded result/option SQL statements per supported facets call (one count plus two per facet), plus one publication lookup; unapproved facets execute no option query. Snapshot-first indexes bound scans; cohort/major/class has a composite index. q substring scans stay bounded to the active snapshot. Filter/facets requests share the existing 60/minute/IP binding; 429 preserves Retry-After. No raw filters/PII are logged.
 
 Frontend should fetch all metadata pages if needed, cancel stale requests, disable controls until metadata is loaded, preserve selected values if the new conjunction has no results, and show zero results rather than clear another condition silently. Reset recipient page on filter changes; preserve unrelated URL parameters. Fetch recipients page-by-page, never load the whole recipient dataset for filtering.
 
@@ -372,3 +383,27 @@ Validation and readiness for this extension are recorded in docs/hub-scholarship
 Campaign PATCH remains draft-only, requires the originally displayed expectedRevision, and validates title (1–240), schoolYear/semester (1–80), NFC-trimmed text with no controls. A 409 never authorizes an automatic retry: reload current details and explicitly review before resubmission. Validated/approved/published/archived campaigns cannot be edited by this endpoint. Every request still verifies the server Admin role and same-origin mutation checks.
 
 Campaigns, imports, immutable batch rows and audit all retain server page/limit/total pagination (limit <=50). Admin UI uses independent 20-row pages, resets on campaign/batch change and cancels stale reads. A service/session/permission failure is an error, not an empty result. Frontend requests time out after 20 seconds, including response body reads; mutation completion can be unknown after timeout, so refresh state before retrying. No automatic mutation retry, approval or republication confirmation is added.
+
+## v1.2 eligibility source and private ranking storage
+
+0059 adds nullable training_program, source_ordinal_json and private_rankings_json to immutable rows, plus source_list_kind and own_fields_json to batches and a batch/program/cohort/major/class index. No backfill, checksum rewrite, migration renaming or data deletion. Typed ranking keys are allowlisted; topSchoolPercent must be 0–1, positions positive safe integers, null/empty absent. Numeric source strings retain their original comma/dot representation. JSON is stored as D1 TEXT with JSON checks ([D1 JSON API](https://developers.cloudflare.com/d1/sql-api/query-json/)); runtime validation enforces key types/ranges. The source cells themselves remain unchanged in offline payloads. Old batches default to unspecified source kind; publication never upgrades an eligibility list into an award decision. Rollback restores the source kind and both policies of the chosen historical batch.
+
+Use shared/scholarship-eligibility.ts eligibilityMapping for the exact 17 source headers (including Đểm TB HB). It maps only four scores and five private rankings; no academic/training classifications are fabricated, no old-batch values are merged. Existing private JSON with scores.trainingProgram/top* can be converted offline:
+
+```powershell
+node --experimental-strip-types scripts/convert-scholarship-eligibility.mjs C:\private\input-PRIVATE.json C:\private\converted-PRIVATE.json
+```
+
+This explicitly marks the new payload eligibility, moves those mappings to trainingProgram/rankings, maps STT to sourceOrdinal when present, revalidates, and writes exclusively (no overwrite). It preserves all rows/cells and source checksum. It never changes stored old batches or grants approval. Do not call production preview merely to validate: preview writes a private snapshot.
+
+New mappings using trainingProgram/sourceOrdinal/rankings require an explicit eligibility or award_decision kind. Admin preview rejects legacy scores.trainingProgram/top* mappings with ELIGIBILITY_MAPPING_CONVERSION_REQUIRED before writing anything; use the offline converter first. Previously stored immutable batches remain unchanged. Source kind is checksum-bound through the mapping and checked again on apply.
+
+The private source workbook and existing JSON were checked offline: 1,059 accepted rows × 17 cells, all source cells equal, source checksum matches. Workbook caches were read with explicit opt-in; freshness is not certified. Real files, student data and generated private payloads are not committed. Only synthetic fixtures drive tests.
+
+Me cards start collapsed. Expansion is independent per campaign/row ID and survives refresh; details use only server-returned fields. The neutral ranking section says “Thứ hạng trong danh sách xét”; default keys are topSchool/topMajor/topClass. Customization stores only a list of five known UI keys under hub-scholarship-ranking-ui-v1, never an ID, student value or API payload. vi-VN percent formatting consumes the 0–1 ratio once.
+
+Eligibility cards never display academicRank/trainingRank. Historical non-eligibility cards can retain those fields only when actually present in their own-approved payload; no cross-batch backfill is performed.
+
+Release requires separately reviewed local-to-remote migration/rollback planning and owner authorization; this PR does not migrate/deploy. The release schema gate now requires 0059 and the exact 25-object schema, so an old production schema is rejected rather than bypassed. University authorization for public fields and own access is still required; supplying a workbook is not publication permission. Existing backup containment/operations blockers remain independent.
+
+Rollback planning: retain 0059 (additive columns/index are safe for older SQL readers); do not drop tables/columns or rewrite migration history. Before an owner-approved rollback to a pre-v1.2 UI/Worker, unpublish any eligibility campaign so old wording cannot misrepresent it as an official award. Restore only a previously published and properly approved batch through the existing revision-checked rollback flow. All of these production actions require separate authorization and were not executed here.

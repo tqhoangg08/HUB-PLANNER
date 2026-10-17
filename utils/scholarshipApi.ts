@@ -1,5 +1,5 @@
 /**
- * HUB Scholarship — Client API & Types (v1.1.0)
+ * HUB Scholarship — Client API & Types (v1.2.0)
  * Compliant with docs/hub-scholarship-api-contract.md
  */
 
@@ -7,6 +7,7 @@
 // Public & Core Scholarship Types
 // ============================================================================
 
+import type { PersonalRankings, SourceListKind } from '../shared/scholarship-policy';
 export interface ScoreColumn {
   key: string;
   label: string;
@@ -31,6 +32,7 @@ export interface Campaign {
   publishedAt: string;
   approvedFields: string[];
   scoreColumns: ScoreColumn[];
+  sourceListKind?: SourceListKind;
 }
 
 export interface Recipient {
@@ -43,6 +45,8 @@ export interface Recipient {
   scholarshipType: string | null;
   scholarshipRank: string | null;
   cohort: string | null;
+  trainingProgram?: string | null;
+  sourceOrdinal?: number | string | null;
   scores: Record<string, number | string | null>;
   gpa: number | string | null;
   trainingScore: number | string | null;
@@ -72,6 +76,8 @@ export interface PaginatedRecipients {
 }
 
 export interface OwnAward extends Recipient {
+  rankings?: PersonalRankings;
+  sourceListKind?: SourceListKind;
   campaignSlug: string;
   campaignTitle: string;
   schoolYear: string;
@@ -106,6 +112,7 @@ export interface PaginatedAdminCampaigns {
 }
 
 export interface Receipt {
+  sourceListKind?: SourceListKind;
   batchId: string;
   campaignSlug: string;
   status: 'previewed' | 'applied' | 'rejected';
@@ -145,6 +152,7 @@ export interface ImportMetadata extends Receipt {
   sourceFilename: string;
   mapping: ImportMapping;
   approvedFields: string[] | null;
+  ownFields?: string[] | null;
   officialSource: OfficialSource | null;
   actorUserId: string;
   createdAt: string;
@@ -188,6 +196,8 @@ export interface ImportMapping {
   studentCode: string; fullName: string; awardType: string;
   className?: string; major?: string; sourceIdentifier?: string;
   scholarshipType?: string; scholarshipRank?: string; cohort?: string;
+  trainingProgram?: string; sourceOrdinal?: string; sourceListKind?: SourceListKind;
+  rankings?: Array<{key: keyof PersonalRankings; column: string}>;
   scores: { key: string; column: string; label: string }[];
 }
 
@@ -288,7 +298,15 @@ export const mapScholarshipErrorCode = (code: string, status: number): string =>
     BODY_TOO_LARGE: 'Kích thước tệp vượt quá giới hạn cho phép (1 MB).',
     JSON_REQUIRED: 'Yêu cầu định dạng application/json.',
     EXPECTED_REVISION_REQUIRED: 'Thiếu thông tin phiên bản kiểm soát (revision).',
-    OFFICIAL_SOURCE_REQUIRED: 'Vui lòng cung cấp đầy đủ thông tin nguồn văn bản quyết định chính thức.',
+    OFFICIAL_SOURCE_REQUIRED: 'Vui lòng cung cấp đầy đủ thông tin tài liệu nguồn.',
+    EXPLICIT_PUBLIC_FIELDS_REQUIRED: 'Kiểm tra lại các trường được phép công bố. Thứ hạng cá nhân không được công khai.',
+    EXPLICIT_OWN_FIELDS_REQUIRED: 'Kiểm tra lại các trường cho phép chính chủ xem.',
+    OWN_ACCESS_CONFIRMATION_REQUIRED: 'Cần xác nhận căn cứ cho phép chính chủ xem các trường đã chọn.',
+    REPUBLICATION_CONFIRMATION_REQUIRED: 'Cần kiểm tra nguồn và xác nhận quyền công bố từng trường.',
+    INVALID_RANKING_MAPPING: 'Ánh xạ chỉ số thứ hạng không hợp lệ.',
+    INVALID_SOURCE_LIST_KIND: 'Loại danh sách nguồn không hợp lệ.',
+    SOURCE_LIST_KIND_REQUIRED: 'Cần xác định danh sách xét hay quyết định trao trong ánh xạ nguồn.',
+    ELIGIBILITY_MAPPING_CONVERSION_REQUIRED: 'Cần chuyển đổi JSON sang ánh xạ chương trình và thứ hạng riêng trước khi nạp.',
     INVALID_SOURCE_URL: 'Đường dẫn nguồn phải là URL HTTPS hợp lệ.',
     INVALID_BATCH_ID: 'Mã đợt dữ liệu không hợp lệ.',
     INVALID_SOURCE_CHECKSUM: 'Mã băm SHA-256 của tệp nguồn không khớp.',
@@ -360,14 +378,14 @@ export const fetchCampaignSummary = async (
   return response.json();
 };
 
-export type ScholarshipFilterKey = 'scholarshipType' | 'scholarshipRank' | 'major' | 'className' | 'cohort';
+export type ScholarshipFilterKey = 'scholarshipType' | 'scholarshipRank' | 'major' | 'className' | 'cohort' | 'trainingProgram';
 export type ScholarshipFilters = Partial<Record<ScholarshipFilterKey | 'q' | 'awardType', string>>;
 export interface CampaignFacets {
-  apiVersion: '1.1.0'; campaign: Campaign; supportedFilters: ScholarshipFilterKey[]; totalRecipients: number;
+  apiVersion: '1.1.0' | '1.2.0'; campaign: Campaign; supportedFilters: ScholarshipFilterKey[]; totalRecipients: number;
   facets: Record<ScholarshipFilterKey, { options: string[]; total: number; page: number; limit: number }>;
 }
 const appendScholarshipFilters = (params: URLSearchParams, filters: ScholarshipFilters) => {
-  for (const key of ['q', 'awardType', 'scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort'] as const)
+  for (const key of ['q', 'awardType', 'scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort', 'trainingProgram'] as const)
     if (filters[key]) params.set(key, filters[key]);
 };
 export const fetchCampaignFacets = async (slug: string, filters: ScholarshipFilters = {}, signal?: AbortSignal): Promise<CampaignFacets> => {
@@ -378,8 +396,8 @@ export const fetchCampaignFacets = async (slug: string, filters: ScholarshipFilt
     const response = await scholarshipFetch('/api/public/v1/scholarships/' + encodeURIComponent(slug) + '/facets?' + params, { headers: { Accept: 'application/json' }, signal });
     if (!response.ok) throw await parseErrorResponse(response);
     const result: CampaignFacets = await response.json();
-    if (result.apiVersion !== '1.1.0') throw new ScholarshipApiError(503, 'Bộ lọc học bổng chưa sẵn sàng.');
-    const keys: ScholarshipFilterKey[] = ['scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort'];
+    if (!['1.1.0', '1.2.0'].includes(result.apiVersion)) throw new ScholarshipApiError(503, 'Bộ lọc học bổng chưa sẵn sàng.');
+    const keys: ScholarshipFilterKey[] = ['scholarshipType', 'scholarshipRank', 'major', 'className', 'cohort', ...(result.apiVersion === '1.2.0' ? ['trainingProgram' as const] : [])];
     if (!Array.isArray(result.supportedFilters) || result.supportedFilters.some(key => !keys.includes(key)) || !result.facets ||
       keys.some(key => !result.facets[key])) throw new ScholarshipApiError(503, 'Danh mục bộ lọc không hợp lệ.');
     if (Object.values(result.facets).some(f => !Number.isSafeInteger(f.total) || f.limit !== 200 || f.page !== page || f.total > 2000 || f.total < 0 ||
@@ -651,6 +669,8 @@ export const approveAdminCampaign = async (
     sourceSha256: string;
     officialSource: OfficialSource;
     approvedFields: string[];
+    ownFields?: string[];
+    ownAccessConfirmed?: true;
     republicationConfirmed: true;
   },
   signal?: AbortSignal,

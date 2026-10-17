@@ -12,7 +12,7 @@ try {
   const mapping = JSON.parse(mappingBytes.toString('utf8'));
   const delimiter = { comma: ',', semicolon: ';', tab: '\t' }[option('--delimiter') || 'comma'];
   if (!delimiter) throw Error('INVALID_DELIMITER');
-  const { payload, validation } = await parseScholarshipFile(option('--file'), mapping, { sheetName: option('--sheet'), delimiter });
+  const { payload, validation } = await parseScholarshipFile(option('--file'), mapping, { sheetName: option('--sheet'), delimiter, allowCachedFormulas: args.includes('--cached-formulas') });
   if (validation.valid && option('--output')) await writeFile(option('--output'), JSON.stringify(payload), { mode: 0o600, flag: 'wx' });
   console.log(JSON.stringify(validation)); // Row numbers + codes only; no cell/name/MSSV values.
   if (!validation.valid) process.exitCode = 1;

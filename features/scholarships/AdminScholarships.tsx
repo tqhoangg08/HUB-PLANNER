@@ -1,3 +1,5 @@
+import { isPublicField } from '../../shared/scholarship-policy';
+import { scholarshipColumns, rankingLabels } from '../../utils/scholarshipDetailsModel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -87,6 +89,8 @@ export const AdminScholarships: React.FC = () => {
   const [approvalTitle, setApprovalTitle] = useState('');
   const [approvalRef, setApprovalRef] = useState('');
   const [approvalUrl, setApprovalUrl] = useState('');
+  const [ownFields, setOwnFields] = useState<Set<string>>(new Set());
+  const [ownAccessConfirmed, setOwnAccessConfirmed] = useState(false);
   const [republicationConfirmed, setRepublicationConfirmed] = useState(false);
   const [approvedFields, setApprovedFields] = useState<Set<string>>(
     new Set(['fullName', 'studentCode', 'awardType']),
@@ -95,6 +99,10 @@ export const AdminScholarships: React.FC = () => {
   // History & Audit State
 
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  useEffect(() => {
+    setApprovedFields(new Set(['fullName', 'studentCode', 'awardType']));
+    setOwnFields(new Set()); setOwnAccessConfirmed(false); setRepublicationConfirmed(false);
+  }, [selectedBatchId, activeCampaign?.candidateBatchId]);
   const campaignList = useScholarshipAdminPage('campaigns', !authLoading && isAdmin,
     useCallback((page, signal) => fetchAdminCampaigns({page, limit: adminPageSize}, signal), []));
   const imports = useScholarshipAdminPage(selectedSlug || '', isAdmin && !!selectedSlug && activeTab === 'history',
@@ -129,7 +137,7 @@ export const AdminScholarships: React.FC = () => {
     detailRequest.current?.abort(); uploadReader.current?.abort();
     setActiveCampaign(null); setCandidate(null); setPreviewResult(null); setSelectedBatchId(null);
     setJsonFileContent(null); setJsonFileName(''); setActionError(null); setActionConfirm(null); setShowEditModal(false);
-    setApprovalTitle(''); setApprovalRef(''); setApprovalUrl(''); setRepublicationConfirmed(false);
+    setApprovalTitle(''); setApprovalRef(''); setApprovalUrl(''); setRepublicationConfirmed(false); setOwnFields(new Set()); setOwnAccessConfirmed(false);
     setApprovedFields(new Set(['fullName', 'studentCode', 'awardType']));
     if (selectedSlug && isAdmin) void loadSelectedCampaign(selectedSlug);
     return () => detailRequest.current?.abort();
@@ -264,6 +272,8 @@ export const AdminScholarships: React.FC = () => {
           url: approvalUrl.trim() || null,
         },
         approvedFields: Array.from(approvedFields),
+        ownFields: Array.from(ownFields),
+        ownAccessConfirmed: ownAccessConfirmed ? true : undefined,
         republicationConfirmed: true,
       });
 
@@ -783,23 +793,23 @@ export const AdminScholarships: React.FC = () => {
                   <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-xs space-y-6">
                     <div>
                       <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                        <span>Phê duyệt thông tin & Quyết định chính thức</span>
+                        <span>Phê duyệt quyền truy cập dữ liệu</span>
                       </h3>
                       <p className="text-xs text-slate-500 mt-1">
-                        Chỉ những trường và cột điểm được đánh dấu phê duyệt tại đây mới được xuất hiện công khai trên API và giao diện sinh viên.
+                        Quyền công bố công khai và quyền xem chính chủ được xét duyệt độc lập theo nguồn dữ liệu.
                       </p>
                     </div>
 
                     {/* Official Document Inputs */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                       <div className="space-y-1">
-                        <label className="font-semibold text-slate-700">Tên quyết định / Nguồn ban hành:</label>
+                        <label className="font-semibold text-slate-700">Tên tài liệu / Nguồn ban hành:</label>
                         <input
                           type="text"
-                          aria-label="Tên quyết định"
+                          aria-label="Tên tài liệu nguồn"
                           value={approvalTitle}
                           onChange={(e) => setApprovalTitle(e.target.value)}
-                          placeholder="VD: Quyết định trao học bổng KKHT HK1 2025-2026"
+                          placeholder="VD: Danh sách đủ điều kiện xét học bổng HK2 2025-2026"
                           className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold outline-none focus:border-blue-600"
                         />
                       </div>
@@ -851,9 +861,9 @@ export const AdminScholarships: React.FC = () => {
                         {[
                           ...(candidate?.mapping.className ? ['className'] : []),
                           ...(candidate?.mapping.major ? ['major'] : []),
-                          ...(['scholarshipType', 'scholarshipRank', 'cohort'] as const).filter(key => candidate?.mapping[key]),
+                          ...(['scholarshipType', 'scholarshipRank', 'cohort', 'trainingProgram', 'sourceOrdinal'] as const).filter(key => candidate?.mapping[key]),
                           ...(candidate?.mapping.scores.map(score => `scores.${score.key}`) || []),
-                        ].map((field) => (
+                        ].filter(isPublicField).map((field) => (
                           <label
                             key={field}
                             className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 cursor-pointer"
@@ -869,11 +879,29 @@ export const AdminScholarships: React.FC = () => {
                               }}
                               className="accent-blue-600"
                             />
-                            <span className="font-semibold text-slate-800">{field}</span>
+                            <span className="font-semibold text-slate-800">{scholarshipColumns.find(([key]) => key === field)?.[1] || field}</span>
                           </label>
                         ))}
                       </div>
                     </div>
+
+                    <fieldset className="space-y-3 pt-2 border-t border-slate-100 text-xs">
+                      <legend className="font-semibold">Các trường cho phép chính chủ đã xác thực xem</legend>
+                      <p>Loại nguồn: {candidate?.receipt.sourceListKind === 'eligibility' ? 'Danh sách đủ điều kiện xét' : candidate?.receipt.sourceListKind === 'award_decision' ? 'Quyết định trao học bổng' : 'Chưa xác định'}. Phê duyệt không thay đổi loại nguồn.</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {[
+                          ...(['className', 'major', 'scholarshipType', 'scholarshipRank', 'cohort', 'trainingProgram', 'sourceOrdinal'] as const).filter(key => candidate?.mapping[key]),
+                          ...(candidate?.mapping.scores.map(score => 'scores.' + score.key).filter(isPublicField) || []),
+                          ...(candidate?.mapping.rankings?.map(metric => 'rankings.' + metric.key) || []),
+                        ].map(field => <label key={field} className="flex items-center gap-2">
+                          <input type="checkbox" checked={ownFields.has(field)} onChange={event => setOwnFields(previous => {
+                            const next = new Set(previous); if (event.target.checked) next.add(field); else next.delete(field); return next;
+                          })} />
+                          {scholarshipColumns.find(([key]) => key === field)?.[1] || rankingLabels[field.replace('rankings.', '') as keyof typeof rankingLabels] || field}
+                        </label>)}
+                      </div>
+                      <label className="flex items-start gap-2"><input type="checkbox" checked={ownAccessConfirmed} onChange={event => setOwnAccessConfirmed(event.target.checked)} />Tôi đã xác minh căn cứ cho phép chính chủ xem các trường đã chọn, bao gồm thứ hạng trong danh sách xét.</label>
+                    </fieldset>
 
                     {/* Republication confirmation */}
                     <div className="pt-2 border-t border-slate-100">
@@ -894,7 +922,7 @@ export const AdminScholarships: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleSubmitApproval}
-                        disabled={actionLoading || !republicationConfirmed || !candidate || activeCampaign.status !== 'validated'}
+                        disabled={actionLoading || !republicationConfirmed || !ownAccessConfirmed || !candidate || activeCampaign.status !== 'validated'}
                         className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                       >
                         {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
