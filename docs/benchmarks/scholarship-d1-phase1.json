@@ -1,0 +1,130 @@
+{
+  "baselineRef": "a746e7f73e366e383b19cc1027442ff83c5034e7",
+  "rows": 1060,
+  "benchmark": {
+    "cold-page-one": {
+      "before": {
+        "sql": 14,
+        "rowsRead": 13418,
+        "rowsWritten": 0
+      },
+      "after": {
+        "sql": 9,
+        "rowsRead": 8151,
+        "rowsWritten": 0
+      }
+    },
+    "continuation-page-two": {
+      "before": {
+        "sql": 14,
+        "rowsRead": 13633,
+        "rowsWritten": 0
+      },
+      "after": {
+        "sql": 3,
+        "rowsRead": 1815,
+        "rowsWritten": 0
+      }
+    },
+    "warm-page-one": {
+      "before": {
+        "sql": 14,
+        "rowsRead": 13418,
+        "rowsWritten": 0
+      },
+      "after": {
+        "sql": 2,
+        "rowsRead": 4,
+        "rowsWritten": 0
+      }
+    },
+    "high-cardinality-cold": {
+      "before": {
+        "sql": 14,
+        "rowsRead": 12773,
+        "rowsWritten": 0
+      },
+      "after": {
+        "sql": 9,
+        "rowsRead": 10581,
+        "rowsWritten": 0
+      }
+    }
+  },
+  "runtime": {
+    "node": "24.12.0",
+    "miniflare": "4.20260722.1",
+    "compatibilityDate": "2026-07-29"
+  },
+  "scope": "synthetic local D1 requests; includes both publication gates; excludes fixture/admin setup",
+  "validation": {
+    "fullTests": {
+      "command": "npm test",
+      "exitCode": 0,
+      "reportedTests": 1036,
+      "reportedPasses": 1036,
+      "groups": 13,
+      "failures": 0
+    },
+    "frontendTargeted": {
+      "command": "npm run test:scholarships:frontend",
+      "pass": 38
+    },
+    "browser": {
+      "command": "node --test --experimental-strip-types tests/scholarship-list.browser.test.ts tests/hub-scholarship-frontend.test.ts",
+      "pass": 26
+    },
+    "typecheck": "PASS",
+    "cloudflareTypecheck": "PASS",
+    "build": "PASS",
+    "diffCheck": "PASS",
+    "productionModified": false,
+    "deployed": false,
+    "cloudflareDryRun": "PASS"
+  },
+  "sourceSha256": {
+    "cloudflare/worker/src/scholarships.ts": "d3a99354385c3344ef1a62bc401cafaa974797a8636dec107b5e5c56b369f9db",
+    "cloudflare/worker/src/scholarship-facet-cache.ts": "4de9b98da0b8bc9df1e80b6f752d3eef122ef4fd2902567999f812cb8c0b6d1a",
+    "features/scholarships/ScholarshipList.tsx": "93e3e99dcd01b77e657a430365a743e4d9c3f87be609f0680c0218ff91b33248"
+  },
+  "finalReview": {
+    "checkedAt": "2026-10-17T17:06:35.115Z",
+    "localDate": "2026-10-18",
+    "timezone": "Asia/Saigon",
+    "originMain": "a746e7f73e366e383b19cc1027442ff83c5034e7",
+    "sourceModifiedDuringReview": false,
+    "scholarshipTargeted": {
+      "command": "npm run test:scholarships (inside npm test)",
+      "pass": 44
+    },
+    "fullSuiteRerun": {
+      "exitCode": 0,
+      "tests": 1036,
+      "pass": 1036,
+      "fail": 0,
+      "skipped": 0
+    },
+    "frontendTargetedRerun": {
+      "exitCode": 0,
+      "pass": 38
+    },
+    "browserRerun": {
+      "exitCode": 0,
+      "pass": 26
+    },
+    "typecheckExitCode": 0,
+    "cloudflareTypecheckExitCode": 0,
+    "buildExitCode": 0,
+    "cloudflareDryRunExitCode": 0,
+    "workflowSafety": "Production release workflow is manual/main-only; push/PR has no production deploy trigger",
+    "logSha256": {
+      "full-tests.log": "e3154aa251b30ea43c0ec14f34bb8556db08c13129aa42d9bbf725c2f1eabc06",
+      "frontend-targeted.log": "676a3257892fd630cd2fd33dbcaecaa1f66a2dd7b47191cec7e2e09ca7764b3e",
+      "browser.log": "4c7dc1238e28c3a29f645be5503890b7aa07e485457395b56b970cad9441012a",
+      "typecheck.log": "83bcd50bd91bf130b724e4f4f9d35bd8852893fb09a77d63696746df32fd4a7d",
+      "cf-typecheck.log": "4ca5985cb5706941dea2341d5abfc35579968c1d48fb3cb8cdfbfebc527a9988",
+      "build.log": "81300640387020362d49c47d96d778833340fda73b9f4a39376a2ef504c17958",
+      "cf-check.log": "b949e25d25736513f70c8f637e1a7a37a4afa702ac73d256e4d89eb7c0f46111"
+    }
+  }
+}

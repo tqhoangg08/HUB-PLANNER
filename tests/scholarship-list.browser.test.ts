@@ -37,10 +37,13 @@ test('actual list browser + SQLite API: 12 approved columns, AND program filter,
   const bundled=await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter} from 'react-router-dom';import {ScholarshipList} from './features/scholarships/ScholarshipList';createRoot(document.getElementById('root')).render(<BrowserRouter><ScholarshipList/></BrowserRouter>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,format:'esm',platform:'browser',jsx:'automatic',outdir:'.cache/scholarship-list/browser',plugins:[{name:'synthetic-anonymous',setup(builder){builder.onResolve({filter:/hooks\/useUserRole$/},()=>({path:'role',namespace:'fixture'}));builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export function useUserRole(){return {session:null,isAdmin:false,loading:false,bootstrapUnavailable:false};}'}));}}]});
   const javascript=bundled.outputFiles.find(file=>file.path.endsWith('.js'))!;
   const css=Buffer.concat(readdirSync('dist/assets').filter(name=>name.endsWith('.css')).map(name=>readFileSync('dist/assets/'+name)));
-  let unavailable=false, paused=false;
+  let unavailable=false, paused=false, rateLimited=false;
+  const publicRequests: string[] = [];
   const server=createServer(async(req,res)=>{
     const url=new URL(req.url!,'http://localhost');
     if(url.pathname.startsWith('/api/')) {
+      publicRequests.push(url.pathname + url.search);
+      if(rateLimited){res.writeHead(429,{'Content-Type':'application/json','Retry-After':'1'});res.end(JSON.stringify({error:'RATE_LIMITED'}));return;}
       if(unavailable){res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Dịch vụ học bổng chưa sẵn sàng.'}));return;}
       if(paused) await new Promise(resolve=>setTimeout(resolve,350));
       try {const request=new Request(url.href);const result=await handlePublicScholarships(request,url,env as never);res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));}
@@ -70,9 +73,23 @@ test('actual list browser + SQLite API: 12 approved columns, AND program filter,
       await page.evaluate(()=>document.fonts.ready);
       assert.equal(await page.evaluate(()=>document.fonts.check('12px Inter')),true);
       assert.equal(await page.locator('tbody tr').count(),20);
+      const facetCount=()=>publicRequests.filter(path=>path.includes('/facets?')).length;
+      const readCount=()=>publicRequests.length;
+      if(width===1280) {
+        // Reverting draft keystrokes before debounce must not restart either
+        // unchanged public read (the previous pendingInput dependency did).
+        await page.waitForTimeout(250);
+        const before=readCount();
+        const search=page.getByRole('searchbox',{name:'Họ tên / MSSV',exact:true});
+        await search.fill('ng'); await search.fill('');
+        await page.waitForTimeout(500);
+        assert.equal(readCount(),before,'draft-only input should not dispatch SQL-generating requests');
+      }
+      const facetsBeforePage=facetCount();
       await page.getByRole('button',{name:'Sau',exact:true}).click();
       await page.getByText('Trang 2 / 53',{exact:true}).waitFor();
       assert.equal(await page.locator('tbody tr').first().locator('td').first().innerText(),'21');
+      assert.equal(facetCount(),facetsBeforePage,'recipient pagination must not reload facets');
       if(width<=780) await page.getByRole('button',{name:'Mở bộ lọc',exact:true}).click();
       paused=true;
       await page.getByLabel('Chương trình đào tạo',{exact:true}).selectOption('Chương trình kiểm thử A');
@@ -103,6 +120,20 @@ test('actual list browser + SQLite API: 12 approved columns, AND program filter,
       unavailable=true;await page.reload();await page.getByRole('button',{name:'Thử lại',exact:true}).waitFor();
       assert.doesNotMatch(await page.locator('main').innerText(),/Chưa có danh sách học bổng được công bố/);
       unavailable=false;await page.getByRole('button',{name:'Thử lại',exact:true}).click();await page.getByText('Tổng số: 1.059 kết quả',{exact:true}).waitFor();
+      if(width===1280) {
+        rateLimited=true;
+        const search=page.getByRole('searchbox',{name:'Họ tên / MSSV',exact:true});
+        await search.fill('nguyen');
+        await page.getByRole('button',{name:/^Thử lại/}).first().waitFor();
+        const blockedCount=readCount();
+        await search.fill('');
+        await page.waitForTimeout(450);
+        assert.equal(readCount(),blockedCount,'Retry-After suppresses additional reads during cooldown');
+        rateLimited=false;
+        await page.waitForTimeout(1100);
+        await page.getByRole('button',{name:'Thử lại',exact:true}).first().click();
+        await page.getByText('Tổng số: 1.059 kết quả',{exact:true}).waitFor();
+      }
       assert.deepEqual(errors,[]);await context.close();
     }
   } finally {await browser?.close();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));sqlite.close();}
