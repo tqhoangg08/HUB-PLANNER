@@ -2,11 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   AlertCircle,
-  ArrowRight,
   HelpCircle,
   RefreshCw,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import { ScholarshipShell } from './ScholarshipShell';
 import { ScholarshipBadge } from './ScholarshipBadge';
@@ -15,8 +13,8 @@ import {
   fetchMyScholarships,
   type OwnAward,
   ScholarshipApiError,
-  formatScoreValue,
 } from '../../utils/scholarshipApi';
+import { personalAwardDetails } from '../../utils/scholarshipMeModel';
 import { playClick } from '../../utils/audio';
 
 export const ScholarshipMe: React.FC = () => {
@@ -209,14 +207,14 @@ export const ScholarshipMe: React.FC = () => {
         {!loading && !error && session && verified === true && awards.length > 0 && (
           <div className="space-y-4">
             {/* Header notification card */}
-            <div className="bg-white border border-gray-200 border-l-4 border-l-[#0052cc] rounded-lg p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
+            <div className="bg-white border border-gray-200 border-l-4 border-l-[#0052cc] rounded-lg p-5 shadow-xs flex items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-medium border border-emerald-200">
                     <ShieldCheck size={13} />
                     <span>Đã xác thực chính chủ</span>
                   </span>
-                  <span className="text-xs text-gray-500 ">
+                  <span className="text-xs text-gray-500 break-all">
                     {session.user.email}
                   </span>
                 </div>
@@ -241,14 +239,6 @@ export const ScholarshipMe: React.FC = () => {
                 >
                   <RefreshCw size={16} />
                 </button>
-                <Link
-                  to={`/scholarships/celebrate?awardId=${awards[0].id}`}
-                  onClick={playClick}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-[#0052cc] text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs"
-                >
-                  <Sparkles size={14} />
-                  <span>Mở Studio Vinh danh</span>
-                </Link>
               </div>
             </div>
 
@@ -258,12 +248,13 @@ export const ScholarshipMe: React.FC = () => {
                 Chi tiết học bổng ({awards.length})
               </h3>
 
-              {awards.map((award) => (
-                <div
-                  key={award.id}
-                  className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shadow-xs space-y-3"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              {awards.map((award) => {
+                const details = personalAwardDetails(award.scores);
+                return (
+                  <div
+                    key={award.id}
+                    className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 shadow-xs space-y-3"
+                  >
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <ScholarshipBadge awardType={award.awardType} size="sm" />
@@ -281,31 +272,20 @@ export const ScholarshipMe: React.FC = () => {
                       </div>
                     </div>
 
-                    <Link
-                      to={`/scholarships/celebrate?awardId=${award.id}`}
-                      onClick={playClick}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-[#0052cc] hover:underline shrink-0"
-                    >
-                      <span>Tạo ảnh vinh danh</span>
-                      <ArrowRight size={13} />
-                    </Link>
+                    {/* Approved scores */}
+                    {details.length > 0 && (
+                      <dl className="pt-2 border-t border-gray-100 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-700">
+                        {details.map(({ key, label, value }) => (
+                          <div key={key} className="min-w-0 break-words">
+                            <dt className="inline">{label}: </dt>
+                            <dd className="inline font-semibold">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
                   </div>
-
-                  {/* Approved scores */}
-                  {award.scores && Object.keys(award.scores).length > 0 && (
-                    <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-2 text-xs">
-                      {Object.entries(award.scores).map(([k, val]) => (
-                        <span
-                          key={k}
-                          className="px-2 py-0.5 rounded bg-gray-50 border border-gray-200 text-gray-700 text-xs"
-                        >
-                          {k}: <strong>{formatScoreValue(val)}</strong>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
