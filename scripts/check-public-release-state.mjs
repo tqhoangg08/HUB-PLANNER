@@ -9,9 +9,9 @@ const canonicalObservability=o=>({enabled:o?.enabled??false,head_sampling_rate:o
   traces:{enabled:o?.traces?.enabled??false,head_sampling_rate:o?.traces?.head_sampling_rate??1,persist:o?.traces?.persist??true}});
 export const PUBLIC_RELEASE_ACCOUNT='6cd8bac6009a55f96bdf9df7c2057548';
 export const PUBLIC_RELEASE_DB='88d702e1-60d3-490a-8514-38ef881cf133';
-// Reverified read-only on 2026-10-18: owner-approved run 39032492435 deployed
-// this single 100% version and passed postflight on main a746e7f73e366e383b19cc1027442ff83c5034e7.
-export const PUBLIC_RELEASE_PREDEPLOY_VERSION='8869278a-e66b-4edb-84a0-5c653e64e2db';
+// Reviewed release baseline evidence: run 39087831056, exact SHA 6a4970df8484aa6154035d506fe98077f2c21a9d.
+// See docs/public-release-baseline-evidence.json; single serving version at 100% verified read-only.
+export const PUBLIC_RELEASE_PREDEPLOY_VERSION='e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3';
 // The already-serving limiter is required in BOTH phases of this code release.
 export const SCHOLARSHIP_LIMITER=Object.freeze({name:'SCHOLARSHIP_SEARCH_RATE_LIMIT',namespace_id:'45871912',simple:Object.freeze({limit:60,period:60})});
 // Text-first code release preserves the already deployed V2 100% baseline.
