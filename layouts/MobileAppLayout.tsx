@@ -139,7 +139,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 
   return (
     <div className={`mobile-app-root app-root platform-${platform} ${isLearningPath ? 'mobile-route-learning' : ''} flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F8FAFC] pb-safe relative z-10`}>
-      <main ref={mainRef} className="mobile-main custom-scrollbar relative w-full flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC]">
+      <main data-overlay-scroll-root ref={mainRef} className="mobile-main custom-scrollbar relative w-full flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC]">
         <div key={location.pathname} className={`flex min-h-0 w-full flex-col animate-${slideDirection}`}>
           {children}
           <footer className="px-5 pb-[calc(126px+env(safe-area-inset-bottom))] pt-2 text-center text-[10px] font-medium leading-5 text-[#64748B]">

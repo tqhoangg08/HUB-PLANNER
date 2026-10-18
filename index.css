@@ -3299,20 +3299,6 @@ html.mobile-browser .mobile-browser-drawer-scroll {
   padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important;
 }
 
-html.mobile-menu-open,
-body.mobile-menu-open {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-}
-
-html.mobile-menu-open .app-shell,
-html.mobile-menu-open .desktop-page-scroll,
-html.mobile-menu-open .desktop-page-main,
-html.mobile-menu-open main {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-}
-
 @keyframes mobileMenuPanelIn {
   from {
     transform: translateX(-100%);

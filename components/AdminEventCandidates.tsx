@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRef } from 'react';
@@ -244,7 +245,7 @@ const CandidateDetailModal = ({
   const aiResult = normalizeAiResult(candidate);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100000] bg-black/70 flex items-center justify-center p-2 sm:p-4">
+    <Overlay className="fixed inset-0 z-[100000] bg-black/70 flex items-center justify-center p-2 sm:p-4">
       <div className="w-full max-w-5xl max-h-[90vh] overflow-hidden bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col">
         <div className="bg-[#003375] text-white px-4 sm:px-5 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -604,7 +605,7 @@ const CandidateDetailModal = ({
           </div>
         </div>
       </div>
-    </div>,
+    </Overlay>,
     document.body
   );
 };

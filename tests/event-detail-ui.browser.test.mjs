@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
 import { chromium } from 'playwright-core';
 import { readFileSync } from 'node:fs';
 
-const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+const server = await createServer({ configFile: false, plugins: [react()], cacheDir: 'node_modules/.vite-event-detail-tests', optimizeDeps: { entries: ['tests/event-detail-harness.html'] }, server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
 await server.listen();
+await server.warmupRequest('/tests/event-detail-harness.tsx');
+await server.warmupRequest('/index.css');
 const browser = await chromium.launch({ executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', headless: true });
 const base = `${server.resolvedUrls.local[0]}tests/event-detail-harness.html`;
 test.after(async () => { await browser.close(); await server.close(); });

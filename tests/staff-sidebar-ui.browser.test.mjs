@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
 import { chromium } from 'playwright-core';
 
-const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+const server = await createServer({ configFile: false, plugins: [react()], cacheDir: 'node_modules/.vite-staff-sidebar-tests', optimizeDeps: { entries: ['tests/staff-sidebar-harness.html'] }, server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
 await server.listen();
+await server.warmupRequest('/tests/staff-sidebar-harness.tsx');
+await server.warmupRequest('/index.css');
 const browser = await chromium.launch({ executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', headless: true });
 const base = `${server.resolvedUrls.local[0]}tests/staff-sidebar-harness.html`;
 test.after(async () => { await browser.close(); await server.close(); });

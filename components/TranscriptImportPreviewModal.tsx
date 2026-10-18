@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useMemo } from 'react';
 import { AlertTriangle, Check, Trash2, X } from 'lucide-react';
 import type { Semester, Subject } from '../types';
@@ -69,7 +70,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
   };
 
   return (
-    <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">
+    <Overlay className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">
       <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
           <div>
@@ -203,6 +204,6 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
           </div>
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 };

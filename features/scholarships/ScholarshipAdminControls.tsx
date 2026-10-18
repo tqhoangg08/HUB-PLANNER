@@ -1,3 +1,4 @@
+import { Overlay } from '../../components/Overlay';
 import React, { useEffect, useRef } from 'react';
 
 export function AdminErrorNotice({message, retry}: {message?: string | null; retry?: () => void}) {
@@ -27,7 +28,7 @@ export function AdminModal({title, busy, close, children}: {
     ref.current?.focus();
     return () => { if (opener?.isConnected) opener.focus(); };
   }, []);
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={e => { if (e.target === e.currentTarget && !busy) close(); }}>
+  return <Overlay className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onMouseDown={e => { if (e.target === e.currentTarget && !busy) close(); }}>
     <div ref={ref} role="dialog" aria-modal="true" aria-label={title} aria-busy={busy} tabIndex={-1}
       className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 text-xs shadow-xl"
       onKeyDown={e => {
@@ -42,5 +43,5 @@ export function AdminModal({title, busy, close, children}: {
       }}>
       <h2 className="text-base font-semibold">{title}</h2>{children}
     </div>
-  </div>;
+  </Overlay>;
 }

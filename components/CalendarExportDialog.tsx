@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useMemo, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { CalendarPlus, CheckCircle2, Clock3, FileDown, MapPin, UserRound, X } from 'lucide-react';
@@ -100,7 +101,7 @@ export const CalendarExportDialog: React.FC<CalendarExportDialogProps> = ({ open
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4" onClick={handleClose}>
+    <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4" onClick={handleClose}>
       <section
         role="dialog"
         aria-modal="true"
@@ -146,7 +147,7 @@ export const CalendarExportDialog: React.FC<CalendarExportDialogProps> = ({ open
           <button type="button" disabled={!preview?.events.length || isExporting} onClick={handleExport} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#003375] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-slate-300"><FileDown size={16} /> Thêm toàn bộ vào lịch</button>
         </footer>
       </section>
-    </div>,
+    </Overlay>,
     document.body,
   );
 };

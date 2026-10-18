@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Download, Smartphone, X } from 'lucide-react';
 import { canPromptPwaInstall, requestPwaInstall } from '../utils/pwaInstallPrompt';
@@ -45,7 +46,7 @@ export const CalendarImportGuideDialog: React.FC<CalendarImportGuideDialogProps>
   };
 
   return (
-    <div className="fixed inset-0 z-[100001] flex items-end justify-center bg-black/55 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4" onClick={onClose}>
+    <Overlay className="fixed inset-0 z-[100001] flex items-end justify-center bg-black/55 p-0 pb-[env(safe-area-inset-bottom)] sm:items-center sm:p-4" onClick={onClose}>
       <section role="dialog" aria-modal="true" aria-labelledby="calendar-import-guide-title" className="max-h-[92dvh] w-full max-w-full overflow-y-auto overflow-x-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl" onClick={event => event.stopPropagation()}>
         <header className="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50 px-5 py-4">
           <div className="min-w-0">
@@ -85,6 +86,6 @@ export const CalendarImportGuideDialog: React.FC<CalendarImportGuideDialogProps>
           <button type="button" onClick={onClose} className="min-h-11 w-full rounded-lg bg-[#003375] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#002855]">Đóng</button>
         </footer>
       </section>
-    </div>
+    </Overlay>
   );
 };

@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -622,7 +623,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                         </div>
 
                         {isCanvaModalOpen && (
-                            <div className="fixed inset-0 z-[1000] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:px-4 sm:py-6">
+                            <Overlay className="fixed inset-0 z-[1000] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:px-4 sm:py-6">
                                 <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl sm:max-w-lg sm:rounded-2xl">
                                     <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
                                         <div>
@@ -680,7 +681,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            </Overlay>
                         )}
 
                         <div className="bg-white p-4 rounded-2xl border border-gray-300">

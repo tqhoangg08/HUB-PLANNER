@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -2468,7 +2469,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
         {showScheduleUpdateNotice && (
-            <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" onClick={handleCloseScheduleUpdateNotice}>
+            <Overlay className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" onClick={handleCloseScheduleUpdateNotice}>
                 <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-300 bg-white animate-scaleIn" onClick={(e) => e.stopPropagation()}>
                     <div className="relative border-b border-gray-100 bg-gray-50 px-5 py-4">
                         <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-300 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Đóng thông báo">
@@ -2517,7 +2518,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </Overlay>
         )}
 
 
@@ -3426,7 +3427,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         )}
 
         {isFilterExpanded && !isAdminView && createPortal(
-            <div className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/20 backdrop-blur-[1px]" onMouseDown={() => setIsFilterExpanded(false)}>
+            <Overlay className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/20 backdrop-blur-[1px]" onMouseDown={() => setIsFilterExpanded(false)}>
                 <section
                     className="flex h-full w-full max-w-[850px] flex-col border-l border-gray-300 bg-[#FBFCFF] animate-slideInRight"
                     onMouseDown={(event) => event.stopPropagation()}
@@ -3568,12 +3569,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                     </footer>
                 </section>
-            </div>,
+            </Overlay>,
             document.body
         )}
 
         {isCourseResultsOpen && !isAdminView && createPortal(
-            <div className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/25 backdrop-blur-[1px]" onMouseDown={() => setIsCourseResultsOpen(false)}>
+            <Overlay className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/25 backdrop-blur-[1px]" onMouseDown={() => setIsCourseResultsOpen(false)}>
                 <section className="flex h-full w-full max-w-[620px] flex-col border-l border-gray-300 bg-[#F8FAFC] animate-slideInRight" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Kết quả lớp học phù hợp">
                     <header className="flex items-start justify-between border-b border-gray-300 bg-white px-5 py-5 sm:px-6">
                         <div className="flex items-start gap-3">
@@ -3657,7 +3658,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </footer>
                     )}
                 </section>
-            </div>,
+            </Overlay>,
             document.body
         )}
 
@@ -3747,7 +3748,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             };
 
             return createPortal(
-                <div className="fixed inset-0 bg-black/55 z-[100000] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
+                <Overlay className="fixed inset-0 bg-black/55 z-[100000] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
                     <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] border border-gray-300 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 relative bg-gray-50 shrink-0">
                             <button onClick={() => setSelectedCourseInfo(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300"><X size={16}/></button>
@@ -3947,14 +3948,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             )}
                         </div>
                     </div>
-                </div>,
+                </Overlay>,
                 document.body
             );
         })()}
 
         {/* MODAL DANH SÁCH MÔN ĐÃ LƯU */}
         {isMyScheduleModalOpen && (
-            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-md border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="bg-gray-50 border-b border-gray-100 p-4 flex items-center justify-between shrink-0">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> {isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Môn học đã lưu'} ({displayedScheduleCount})</h2>
@@ -3984,12 +3985,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         )}
                     </div>
                 </div>
-            </div>
+            </Overlay>
         )}
 
         {/* MODAL BÁO LỖI */}
         {isReportModalOpen && (
-            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-300 overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-red-50 text-red-700">
                         <h2 className="font-bold text-base flex items-center gap-2"><AlertTriangle size={18}/> Báo lỗi môn học</h2>
@@ -4003,12 +4004,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <button type="submit" className="w-full py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors ">Tạo ticket hỗ trợ</button>
                     </form>
                 </div>
-            </div>
+            </Overlay>
         )}
 
         {/* MODAL THÊM MÔN MỚI DÀNH CHO USER */}
         {isCreateCourseModalOpen && (
-            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-3 md:p-6" onClick={() => setIsCreateCourseModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-3 md:p-6" onClick={() => setIsCreateCourseModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-[min(96vw,1280px)] border border-gray-300 overflow-hidden flex max-h-[94vh] flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-[#f8fafc]">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
@@ -4026,7 +4027,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <button type="submit" disabled={isSubmittingCourse || !newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)} className="mt-5 w-full py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-colors disabled:bg-slate-300">{isSubmittingCourse ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
                     </form>
                 </div>
-            </div>
+            </Overlay>
         )}
 
         <CalendarExportDialog
@@ -4038,7 +4039,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* ✨ MODAL GẮN NHÃN NHANH (QUICK TAG) ✨ */}
         {quickTagCourse && (
-            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setQuickTagCourse(null)}>
+            <Overlay className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setQuickTagCourse(null)}>
                 <div className="bg-white rounded-2xl w-full max-w-sm border-2 border-gray-100 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18} /> Gắn nhãn nhanh</h2>
@@ -4125,12 +4126,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </button>
                     </div>
                 </div>
-            </div>
+            </Overlay>
         )}
 
         {/* MODAL SINH VIÊN SỬA MÔN CÁ NHÂN VÀ GẮN NHÃN CHUNG (BẢNG LỚN) */}
         {isStudentEditModalOpen && (
-            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> Tùy chỉnh môn học cá nhân</h2>
@@ -4215,11 +4216,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </button>
                     </div>
                 </div>
-            </div>
+            </Overlay>
         )}
 
         {selectedChangedCourse && (
-            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={closeChangedCourseModal}>
+            <Overlay className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={closeChangedCourseModal}>
                 <div className="bg-white rounded-2xl w-full max-w-5xl border border-gray-300 flex flex-col max-h-[82vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-start gap-4 shrink-0">
                         <div>
@@ -4286,12 +4287,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </Overlay>
         )}
 
         {/* MODAL ADMIN: THÊM / SỬA MÔN HỌC */}
         {isAdminEditModalOpen && (
-            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }}>
+            <Overlay className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }}>
                 <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> {activeCourseRequest ? 'Sửa yêu cầu và thêm môn chính thức' : adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
@@ -4356,7 +4357,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </button>
                     </div>
                 </div>
-            </div>
+            </Overlay>
         )}
 
         {isPdfGuideOpen && (

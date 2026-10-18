@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import { Overlay } from './Overlay';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { Trophy, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -9,16 +10,9 @@ interface SubjectRankingModalProps {
 }
 
 export const SubjectRankingModal: React.FC<SubjectRankingModalProps> = ({ subjects, onClose }) => {
-    // Lock scroll when mounted
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => {
-            document.body.style.overflow = 'unset';
-        };
-    }, []);
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 animate-fadeIn p-4">
+        <Overlay className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 animate-fadeIn p-4">
             <div className="bg-white rounded-xl w-full max-w-5xl shadow-2xl flex flex-col h-[90vh] animate-scaleIn border border-gray-200 overflow-hidden relative">
                 <div className="p-4 border-b bg-[#003375] text-white rounded-t-xl flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-xl flex items-center gap-2">
@@ -92,7 +86,7 @@ export const SubjectRankingModal: React.FC<SubjectRankingModalProps> = ({ subjec
                     Hiển thị {subjects.length} môn học đã có điểm tổng kết
                 </div>
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };

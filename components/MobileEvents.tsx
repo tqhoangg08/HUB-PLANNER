@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import { EventContributionTimeFields } from './EventContributionTimeFields';
 import { DrlScoreGuideModal as ScoreGuideModal } from './DrlScoreGuide';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
@@ -118,7 +119,7 @@ const DragHandle = () => (
 const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     if (!isOpen) return null;
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn sm:p-4" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn sm:p-4" onClick={onClose}>
             <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl animate-slideUp overflow-hidden" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
@@ -144,7 +145,7 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
                     </div>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -247,7 +248,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-t-3xl w-full h-[90vh] flex flex-col overflow-hidden animate-slideUp relative shadow-2xl" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="px-5 pb-3 pt-2 flex justify-between items-center bg-white shrink-0 border-b border-gray-100">
@@ -345,7 +346,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                     </form>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -398,7 +399,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-t-3xl w-full flex flex-col shadow-2xl animate-slideUp overflow-hidden" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="px-5 pt-2 pb-3 flex justify-between items-center bg-white shrink-0 border-b border-gray-100">
@@ -431,7 +432,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                     </form>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -1329,7 +1330,7 @@ return (
       <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />
       <ReportEventModal isOpen={!!reportingEvent} onClose={() => setReportingEvent(null)} event={reportingEvent} onShowToast={showToast} />
       {(editingEvent || Object.keys(eventEditData).length > 0) && createPortal(
-          <div className="fixed inset-0 bg-black/60 z-[100000] flex items-end justify-center animate-fadeIn" onClick={closeEventEditor}>
+          <Overlay className="fixed inset-0 bg-black/60 z-[100000] flex items-end justify-center animate-fadeIn" onClick={closeEventEditor}>
               <div className="bg-white rounded-t-3xl w-full max-h-[90vh] flex flex-col shadow-2xl animate-slideUp overflow-hidden" onClick={e => e.stopPropagation()}>
                   <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-1 shrink-0" />
                   <div className="px-4 pt-2 pb-3 border-b border-gray-100 flex items-center justify-between">
@@ -1369,7 +1370,7 @@ return (
                       </button>
                   </form>
               </div>
-          </div>, document.body
+          </Overlay>, document.body
       )}
     </div>
   );

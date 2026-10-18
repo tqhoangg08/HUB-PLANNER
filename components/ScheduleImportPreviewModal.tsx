@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, Lock, Trash2, X } from 'lucide-react';
@@ -42,7 +43,7 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
   };
 
   const content = (
-    <div className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">
+    <Overlay className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">
       <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-6">
           <div>
@@ -223,7 +224,7 @@ export const ScheduleImportPreviewModal: React.FC<ScheduleImportPreviewModalProp
           </div>
         </footer>
       </div>
-    </div>
+    </Overlay>
   );
 
   return typeof document === 'undefined' ? null : createPortal(content, document.body);

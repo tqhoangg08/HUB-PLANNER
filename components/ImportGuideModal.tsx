@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Chrome, FileUp, Globe, HelpCircle, Monitor, Smartphone, X } from 'lucide-react';
@@ -99,7 +100,7 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
     const activeGuide = guides[activeTab];
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
             <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl animate-scaleIn">
                 <div className="flex shrink-0 items-center justify-between bg-[#003375] p-4 text-white">
                     <div className="flex items-center gap-2">
@@ -181,7 +182,7 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
                     </div>
                 </div>
             </div>
-        </div>,
+        </Overlay>,
         document.body,
     );
 };

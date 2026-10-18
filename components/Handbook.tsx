@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom'; 
 import {
@@ -626,7 +627,7 @@ const renderContent = () => {
                         </div>
 
                         {isCanvaModalOpen && (
-                            <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/50 px-4 py-6">
+                            <Overlay className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/50 px-4 py-6">
                                 <div className="max-h-[calc(100dvh-48px)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
                                     <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
                                         <div>
@@ -689,7 +690,7 @@ const renderContent = () => {
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            </Overlay>
                         )}
 
                         <div className="bg-white p-5 rounded-xl border border-gray-300">

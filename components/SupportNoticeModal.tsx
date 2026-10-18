@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Heart, X } from 'lucide-react';
@@ -29,7 +30,7 @@ export const SupportNoticeModal: React.FC = () => {
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/65 p-4 sm:p-5 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/65 p-4 sm:p-5 animate-fadeIn">
             <div
                 className="relative flex max-h-[82dvh] w-full max-w-[340px] flex-col overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-2xl animate-scaleIn sm:max-h-[88dvh] sm:max-w-3xl sm:rounded-[24px] lg:max-w-4xl"
                 onClick={(event) => event.stopPropagation()}
@@ -120,7 +121,7 @@ export const SupportNoticeModal: React.FC = () => {
                     </button>
                 </div>
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };

@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, Flag } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -162,7 +163,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn">
                 <div className={`p-4 text-white flex justify-between items-center shrink-0 ${type === 'FOUND' ? 'bg-[#003375]' : 'bg-[#990000]'}`}>
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -229,7 +230,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                     </button>
                 </form>
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };
@@ -245,7 +246,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onDele
     const isResolved = item.status === 'resolved';
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative animate-scaleIn">
                 <button onClick={() => { playClick(); onClose(); }} className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors active:scale-90"><X size={20} /></button>
                 <div className="w-full bg-gray-50 flex flex-col border-b border-gray-200 overflow-y-auto custom-scrollbar">
@@ -300,7 +301,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onDele
                     </div>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -387,7 +388,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                 : 'VD: lộ thông tin cá nhân, nội dung sai sự thật, spam, mạo danh, yêu cầu chuyển khoản...';
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scaleIn">
                 <div className="flex items-center justify-between bg-red-600 px-4 py-3 text-white">
                     <h3 className="font-bold flex items-center gap-2"><Flag size={18} /> {title}</h3>
@@ -431,7 +432,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                     </button>
                 </form>
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };

@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarRange, ChevronDown, FileSpreadsheet, GraduationCap, KeyRound, Loader2, Mail, X } from 'lucide-react';
 import { Semester } from '../types';
@@ -371,7 +372,7 @@ export const AdminStudentExcelExportModal: React.FC<AdminStudentExcelExportModal
     const selectClassName = 'h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 pr-9 text-sm font-bold text-slate-700 outline-none transition focus:border-[#0052CC] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-400';
 
     return (
-        <div
+        <Overlay
             className="fixed inset-0 z-[100000] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
             onMouseDown={() => !exporting && !sendingOtp && onClose()}
         >
@@ -531,6 +532,6 @@ export const AdminStudentExcelExportModal: React.FC<AdminStudentExcelExportModal
                     </button>
                 </div>
             </div>
-        </div>
+        </Overlay>
     );
 };

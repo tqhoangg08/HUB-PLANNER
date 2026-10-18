@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
@@ -45,7 +46,7 @@ interface MobileLearningProps {
 }
 
 const FailedSubjectsNativeModal = ({ subjects, onClose }: { subjects: Subject[]; onClose: () => void }) => (
-    <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/35 px-4 pb-4">
+    <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/35 px-4 pb-4">
         <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
@@ -82,7 +83,7 @@ const FailedSubjectsNativeModal = ({ subjects, onClose }: { subjects: Subject[];
                 </div>
             )}
         </div>
-    </div>
+    </Overlay>
 );
 
 export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
@@ -352,7 +353,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 isImporting={props.isImporting}
             />
             {pendingTab && (
-                <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/40 px-4 pb-5">
+                <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/40 px-4 pb-5">
                     <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 shadow-2xl">
                         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
                             <X size={22} />
@@ -378,7 +379,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </Overlay>
             )}
 
             <SemesterLookbackModal
@@ -388,7 +389,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 onClose={semesterLookback.close}
             />
             {FEATURE_FORECAST_TOOLS && showTargetModal && (
-                <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/35 px-3 pb-[calc(92px+env(safe-area-inset-bottom))] animate-fadeIn" onClick={() => setShowTargetModal(false)}>
+                <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/35 px-3 pb-[calc(92px+env(safe-area-inset-bottom))] animate-fadeIn" onClick={() => setShowTargetModal(false)}>
                     <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 pb-6 shadow-2xl animate-slideUp" onClick={(event) => event.stopPropagation()}>
                         <div className="-mt-1 mb-3 flex justify-center">
                             <div className="h-1.5 w-12 rounded-full bg-[#D1D7E3]" />
@@ -458,7 +459,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                             </p>
                         </div>
                     </div>
-                </div>
+                </Overlay>
             )}
             {showRankingModal && <SubjectRankingModal subjects={validSubjects} onClose={() => setShowRankingModal(false)} />}
             {showFailedModal && <FailedSubjectsNativeModal subjects={failedSubjects} onClose={() => setShowFailedModal(false)} />}

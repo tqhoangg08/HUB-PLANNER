@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building } from 'lucide-react';
@@ -79,17 +80,6 @@ const SchoolAnnouncements = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-
-  useEffect(() => {
-    if (isModalOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isModalOpen]);
 
   // 1. FETCH 10 TIN MỚI NHẤT CHO WIDGET BÊN NGOÀI
   useEffect(() => {
@@ -270,7 +260,7 @@ const SchoolAnnouncements = () => {
       </div>
 
       {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 pt-16 lg:p-10" onClick={() => setIsModalOpen(false)}>
+        <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 pt-16 lg:p-10" onClick={() => setIsModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Header Modal */}
@@ -463,7 +453,7 @@ const SchoolAnnouncements = () => {
             </div>
 
           </div>
-        </div>,
+        </Overlay>,
         document.body
       )}
     </>

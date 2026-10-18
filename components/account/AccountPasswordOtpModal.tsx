@@ -1,3 +1,4 @@
+import { Overlay } from '../Overlay';
 import React from 'react';
 import { Eye, EyeOff, Lock, X } from 'lucide-react';
 
@@ -46,7 +47,7 @@ export const AccountPasswordOtpModal: React.FC<AccountPasswordOtpModalProps> = (
     if (!open) return null;
 
     return (
-        <div
+        <Overlay
             className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
             onClick={onClose}
         >
@@ -176,6 +177,6 @@ export const AccountPasswordOtpModal: React.FC<AccountPasswordOtpModalProps> = (
                     </div>
                 </form>
             </div>
-        </div>
+        </Overlay>
     );
 };

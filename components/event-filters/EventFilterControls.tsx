@@ -1,3 +1,4 @@
+import { Overlay } from '../Overlay';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -127,11 +128,8 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
       }
     };
     document.addEventListener('keydown', onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
     };
   }, [drawerOpen]);
 
@@ -219,7 +217,7 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
       )}
 
       {drawerOpen && createPortal(
-        <div className="fixed inset-0 z-[1000]" role="presentation">
+        <Overlay className="fixed inset-0 z-[1000]" role="presentation">
           <button type="button" aria-label="Đóng bộ lọc" onClick={closeDrawer} className="absolute inset-0 cursor-default bg-slate-950/25" />
           <div ref={drawerRef} role="dialog" aria-modal="true" aria-labelledby="event-filter-title" className="absolute inset-x-0 bottom-0 flex max-h-[94dvh] flex-col rounded-t-2xl bg-white shadow-[-10px_0_30px_rgba(15,35,65,0.14)] sm:inset-y-0 sm:left-auto sm:w-[min(400px,88vw)] sm:max-h-none sm:rounded-none">
             <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#E3E8F0] px-5">
@@ -277,7 +275,7 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
             <button type="button" onClick={applyDraft} disabled={loading} className={`${controlClass} flex items-center justify-center gap-2 !border-[#1769E0] !bg-[#1769E0] px-4 !text-white hover:!bg-[#0F5BC5] disabled:opacity-60`}>{loading ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Áp dụng bộ lọc</button>
             </footer>
           </div>
-        </div>, document.body
+        </Overlay>, document.body
       )}
     </>
   );

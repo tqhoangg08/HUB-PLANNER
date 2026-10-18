@@ -1,3 +1,4 @@
+import { useOverlayScrollLock } from '../../hooks/useOverlayScrollLock';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { BookOpen, ChevronLeft, ChevronRight, GraduationCap, ListFilter, Menu, ShieldCheck, X, type LucideIcon } from 'lucide-react';
@@ -21,11 +22,10 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
   const menuButton = useRef<HTMLButtonElement>(null);
   const drawer = useRef<HTMLElement>(null);
   const drawerOpen = mobile && menuOpen;
+  useOverlayScrollLock(drawer, drawerOpen);
   useEffect(() => { if (!mobile) setMenuOpen(false); }, [mobile]);
   useEffect(() => {
     if (!drawerOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     const focusFrame = requestAnimationFrame(() => drawer.current?.querySelector<HTMLButtonElement>('.scholarship-drawer-close')?.focus());
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); setMenuOpen(false); }
@@ -39,7 +39,6 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
     document.addEventListener('keydown', handleKey);
     return () => {
       cancelAnimationFrame(focusFrame);
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleKey);
       if (window.matchMedia('(max-width:780px)').matches && menuButton.current?.isConnected) menuButton.current.focus();
     };

@@ -1,3 +1,4 @@
+import { Overlay } from '../Overlay';
 import React from 'react';
 import { ArrowLeft, HeartCrack, Loader2, Mail, ShieldAlert, X } from 'lucide-react';
 import type { DeleteAccountStep } from '../../hooks/useDeleteAccount';
@@ -49,7 +50,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <Overlay className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
                 {step === 1 ? (
                     <div className="p-8 sm:p-10 animate-fadeIn text-center relative">
@@ -225,6 +226,6 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                     </div>
                 )}
             </div>
-        </div>
+        </Overlay>
     );
 };

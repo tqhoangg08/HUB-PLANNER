@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
 import { chromium } from 'playwright-core';
 
 const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const server = await createServer({ server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
+const server = await createServer({ configFile: false, plugins: [react()], cacheDir: 'node_modules/.vite-calendar-guide-tests', optimizeDeps: { entries: ['tests/calendar-guide-harness.html'] }, server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' });
 await server.listen();
+await server.warmupRequest('/tests/calendar-guide-harness.tsx');
 const baseUrl = server.resolvedUrls.local[0];
 const browser = await chromium.launch({ executablePath: chromePath, headless: true });
 
@@ -44,7 +46,9 @@ const assertDownloadGuide = async (settings, expectedTitle) => {
     assert.equal(await guide.evaluate(node => node.parentElement?.parentElement === document.body), true);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     assert.equal(await page.locator('[aria-labelledby="calendar-export-title"]').count(), 0);
-    await page.getByRole('button', { name: 'Unmount export' }).click();
+    // The guide is modal: pointer input must not reach the background fixture button.
+    // Simulate an external owner/route unmount directly, retaining the lifecycle assertion.
+    await page.getByRole('button', { name: 'Unmount export' }).evaluate(button => button.click());
     assert.equal(await guide.isVisible(), true);
     await page.reload();
     await guide.waitFor();

@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
@@ -40,7 +41,7 @@ export const DataIncidentNoticeModal: React.FC<DataIncidentNoticeModalProps> = (
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/65 p-4 sm:p-5 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/65 p-4 sm:p-5 animate-fadeIn">
             <div
                 className="relative flex max-h-[86dvh] w-full max-w-[350px] flex-col overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-2xl animate-scaleIn sm:max-w-2xl sm:rounded-[24px]"
                 onClick={(event) => event.stopPropagation()}
@@ -105,7 +106,7 @@ export const DataIncidentNoticeModal: React.FC<DataIncidentNoticeModalProps> = (
                     </button>
                 </div>
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };

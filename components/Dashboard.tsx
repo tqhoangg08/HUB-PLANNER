@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -178,7 +179,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md p-0 overflow-hidden animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -222,7 +223,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                     </form>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -231,7 +232,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 // ============================================================================
 const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClose: () => void }) => {
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col animate-scaleIn overflow-hidden border border-gray-300 shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
@@ -264,7 +265,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
                     <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm border border-gray-300 hover:bg-gray-200 transition-colors">Đóng</button>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -273,7 +274,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
 // ============================================================================
 const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => void }) => {
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col animate-scaleIn overflow-hidden border border-gray-300 shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
@@ -324,7 +325,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                     <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -363,7 +364,7 @@ const PdfExportModal = ({
     if (!isOpen) return null;
 
     return createPortal(
-        <div
+        <Overlay
             className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn"
             onClick={() => {
                 if (!isExporting) onClose();
@@ -487,7 +488,7 @@ const PdfExportModal = ({
                     </button>
                 </div>
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };
@@ -952,7 +953,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       </div>
 
       {showRankMenu && hasData && isValidFormat && createPortal(
-        <div
+        <Overlay
           className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/55 px-3 py-4 sm:px-6"
           onClick={() => { setShowRankMenu(false); setIsSemesterChooserOpen(false); resetSemesterRanks(); resetResult(); }}
         >
@@ -1123,7 +1124,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
               </section>
             </div>
           </div>
-        </div>,
+        </Overlay>,
         document.body
       )}
 
@@ -2863,7 +2864,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         />
         {showReportModal && <ReportErrorModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />}
         {pendingNavigation && (
-            <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/55 p-4">
+            <Overlay className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/55 p-4">
                 <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-5 shadow-2xl">
                     <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
                         <AlertTriangle size={24} />
@@ -2889,7 +2890,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </button>
                     </div>
                 </div>
-            </div>
+            </Overlay>
         )}
             <PushNotificationPrompt />
     </div>
