@@ -186,7 +186,7 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
 });
 
 test('predeploy is pinned to the audited serving version and rejects the obsolete transition',async()=>{
-  assert.equal(before,'8869278a-e66b-4edb-84a0-5c653e64e2db');
+  assert.equal(before,'e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3');
   const wrap=result=>({ok:true,json:async()=>({success:true,result})});
   const reviewed=fakeApi('predeploy');
   assert.equal((await checkPublicReleaseState(config,opts(reviewed))).versionId,before);
