@@ -145,6 +145,7 @@ test('state reader uses only Public metadata GETs and the fixed read-only schema
 
 test('wrong account, Auth DB, absent previous version or invalid phase fail before network access',async()=>{
   for(const patch of [{account:'wrong'},{token:''},{phase:'skip'},{phase:'postdeploy',beforeVersion:undefined},{phase:'postdeploy',beforeVersion:after},
+    {phase:'postdeploy',beforeVersion:'799042c2-47a2-471c-80dc-e13c42e237ef'},
     {phase:'postdeploy',beforeVersion:'9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1'}]){
     const api=fakeApi();await assert.rejects(()=>checkPublicReleaseState(config,{...opts(api),...patch}));assert.equal(api.calls.length,0);
   }
@@ -185,13 +186,13 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
 });
 
 test('predeploy is pinned to the audited serving version and rejects the obsolete transition',async()=>{
-  assert.equal(before,'799042c2-47a2-471c-80dc-e13c42e237ef');
+  assert.equal(before,'8869278a-e66b-4edb-84a0-5c653e64e2db');
   const wrap=result=>({ok:true,json:async()=>({success:true,result})});
   const reviewed=fakeApi('predeploy');
   assert.equal((await checkPublicReleaseState(config,opts(reviewed))).versionId,before);
   const unknown=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:after,percentage:100}]}]}):undefined);
   await assert.rejects(()=>checkPublicReleaseState(config,opts(unknown)),/UNREVIEWED_PREDEPLOY_VERSION/);
-  for(const obsoleteVersion of ['6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
+  for(const obsoleteVersion of ['799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
     const obsolete=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:obsoleteVersion,percentage:100}]}]}):undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(obsolete)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!obsolete.calls.some(c=>c.url.includes('/versions/')));

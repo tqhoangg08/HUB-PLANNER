@@ -14,7 +14,7 @@ test('PR CI uses no owner/Cloudflare secrets and remains read-only validation, n
   assert.match(ci,/pull_request:/);
   assert.match(ci,/contents: read/);
   assert.match(ci,/persist-credentials: false/);
-  assert.match(ci,/fetch-depth: 2/); // HEAD^ must exist for the diff check.
+  assert.match(ci,/fetch-depth: 0/); // Preserve HEAD^ and the pinned historical scholarship golden oracle.
   assert.doesNotMatch(ci,/pull_request_target|workflow_run|secrets\.|wrangler|--remote|deploy-cloudflare-production|setup-advisor-app-staging/);
   for(const command of ['npm ci','npm run test:advisor','npm run typecheck','npm run cf:typecheck','npm run build','npm test'])assert.ok(ci.includes(command));
 });
