@@ -1,0 +1,25 @@
+{
+  "base": "4e6c13cdc24a22a1c30dfc484abd953549b682a4",
+  "guardLogicIdenticalExceptReviewedPinAndComment": true,
+  "previousVersionExplicitlyRejected": true,
+  "productionWorkerConfigAuthAndMigrationsUnchanged": true,
+  "tests": {
+    "releaseAssistant": "PASS 229 reported tests",
+    "safetyAndMetadataProbe": "PASS 93 reported tests",
+    "workerDryRun": "PASS, no deployment",
+    "diffCheck": "PASS"
+  },
+  "initialFailure": "First safety/probe run timed out in the existing offline Wrangler mock before issuing any mock requests while other checks ran concurrently. The unchanged suite passed sequentially (93/93); no timeout/guard was relaxed.",
+  "logSha256": {
+    "release-tests.log": "be5c1f052ee79ee84d9a5b4dd17e117784d1db3bed4b0e5a069a79e21da28de8",
+    "guard-tests-retry.log": "110ef1bd4e23dadf4c828ffe6e3299f85c3fe0c12b7678340991b75fba48982e",
+    "worker-dry-run.log": "e5b1ac7790f471f24ef70fde6ddd7661ebd5b2750a49ec7e1a84661a36d28140"
+  },
+  "notPerformed": [
+    "remote live-state guard or D1 SQL",
+    "production deployment",
+    "workflow dispatch",
+    "environment/protection/credential changes",
+    "exact-final-main independent CI (requires Owner baseline merge first)"
+  ]
+}

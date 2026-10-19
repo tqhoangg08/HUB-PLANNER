@@ -1,43 +1,44 @@
 {
-  "verifiedAt": "2026-10-18T11:31:19.109Z",
-  "previousVersion": "8869278a-e66b-4edb-84a0-5c653e64e2db",
-  "version": "e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3",
+  "verifiedAt": "2026-10-19T07:18:06Z",
+  "metadataObservedAt": "2026-10-19T07:18:06Z",
+  "finalBrowserRecheck": {
+    "status": "NOT_VERIFIED_WORK_SETTINGS_DISABLED",
+    "error": "Local browser use is disabled in Work settings",
+    "ownerAction": "Restore permitted Browser Use and recheck live version/traffic before release; do not bypass permissions."
+  },
+  "previousVersion": "e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3",
+  "version": "77374643-bb94-420a-ab4c-fd456fca516d",
   "worker": "hub-planner-public-dev-api",
-  "runId": "39087831056",
-  "sha": "6a4970df8484aa6154035d506fe98077f2c21a9d",
-  "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39087831056",
-  "deploymentId": "227afc51-7cd4-4289-b493-b57c2182ecdd",
-  "deploymentCreatedOn": "2026-10-18T01:57:19.2934Z",
-  "versionCreatedOn": "2026-10-18T01:57:18.593032Z",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "runId": "39129116442",
+  "sha": "cc7c8222d7c039912bb6b882b0ea5372cb645c6e",
+  "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39129116442",
+  "deploymentId": "285670d3-1fd6-46c6-b81d-1566e194440a",
+  "deploymentCreatedOn": "2026-10-18T13:01:06.700755Z",
+  "versionCreatedOn": "2026-10-18T13:01:05.7517Z",
   "releaseJob": {
-    "id": 117558498747,
-    "startedAt": "2026-10-18T01:56:40Z",
-    "completedAt": "2026-10-18T01:57:27Z"
+    "id": 117681032735,
+    "startedAt": "2026-10-18T13:00:29Z",
+    "completedAt": "2026-10-18T13:01:15Z"
   },
   "traffic": [
     {
-      "versionId": "e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3",
+      "versionId": "77374643-bb94-420a-ab4c-fd456fca516d",
       "percentage": 100
     }
   ],
-  "verificationMethod": "Authenticated Cloudflare dashboard response metadata and read-only D1 Console results; GitHub Actions API and job logs. No local Owner token or new tool was provisioned.",
+  "verificationMethod": "Existing authenticated Chrome Dashboard; UI-rendered active deployment and Dashboard-issued deployments/versions response bodies; GitHub GET run/job metadata and successful approval/deploy/postflight log receipts. No API replay, SQL, credentials extraction or OAuth refresh.",
   "checks": {
     "ownerReleaseReceipt": true,
     "releaseShaAncestorOfMain": true,
     "singleVersion100Percent": true,
     "creationWithinSuccessfulReleaseJob": true,
-    "liveVarsBindingsObservability": true,
-    "textFirstSchemaAndLedger": true,
-    "scholarshipSchemaAndLedger": true
+    "liveVarsBindingsObservability": "NOT_REVERIFIED_IN_THIS_BASELINE_PREPARATION",
+    "textFirstSchemaAndLedger": "NOT_REVERIFIED_NO_D1_SQL",
+    "scholarshipSchemaAndLedger": "NOT_REVERIFIED_NO_D1_SQL"
   },
-  "schemaRead": {
-    "queries": 5,
-    "rowsRead": 697,
-    "rowsWritten": 0,
-    "changedDatabase": false,
-    "metadataOnly": true
-  },
-  "metadataObservedAt": "2026-10-18T11:26:58.178Z",
-  "bindingMetadataSha256": "18df76d1b1b2978ccafa678c2641d65eaffabf7842dfc2038f814b4475d17195",
-  "scope": "Baseline pin and its regression assertion only; all production approval, drift, schema and provenance guard logic is unchanged. Fresh exact-main validation and separate Owner run confirmation remain mandatory before deployment."
+  "historicalPostflight": "PUBLIC_LIVE_STATE_GATE=PASS at 2026-10-18T13:01:13.3726498Z; historical receipt, not a claim of fresh schema/binding verification",
+  "artifacts": "docs/evidence/public-release-baseline-77374643/",
+  "mainAtPreparation": "4e6c13cdc24a22a1c30dfc484abd953549b682a4",
+  "scope": "Reviewed pin/comment and regression assertion only; previous pin explicitly rejected. All production approval, drift, schema, bindings, limiter and provenance guard logic is unchanged. Fresh exact-final-main independent CI and separate Owner release confirmations remain mandatory. This baseline PR does not certify release readiness."
 }
