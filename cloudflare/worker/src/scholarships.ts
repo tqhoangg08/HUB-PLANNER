@@ -3,6 +3,7 @@ import { readVerifiedStudentCode, type StudentDirectoryEnv } from './student-dir
 import { normalizeScholarshipName } from '../../../shared/scholarship-import.ts';
 import { isPublicField, rankingKeys } from '../../../shared/scholarship-policy.ts';
 import { scholarshipFacetCache, type CachedScholarshipFacets } from './scholarship-facet-cache.ts';
+import { scholarshipFacetQuery } from './scholarship-facet-query.ts';
 
 export interface ScholarshipEnv extends BetterAuthIdentityEnv, StudentDirectoryEnv {
   DB?: D1Database;
@@ -166,59 +167,78 @@ export const handlePublicScholarships = async (request: Request, url: URL, env: 
     return { campaign: campaignView(campaign), totalRecipients: stats?.totalRecipients || 0, totalStudents: stats?.totalStudents || 0, awards: awards.results };
   }
   const query = rowQuery(slug, campaign, q, filters);
+  // Publication is read on every request, before cache access and after all
+  // asynchronous reads. Exact policy text also invalidates without a revision bump.
+  const cache = scholarshipFacetCache(db);
+  const keyFor = (policy: CampaignRow, scope = filters) => JSON.stringify([slug, policy.activeBatchId, policy.revision,
+    policy.approvedFieldsJson, policy.mappingJson, policy.sourceSha256,
+    policy.approvalDocumentJson, q, Object.entries(scope).sort(([a], [b]) => a.localeCompare(b))]);
+  const policyKey = keyFor(campaign);
+  const writes: Array<[string, CachedScholarshipFacets]> = [];
+  const fence = async () => {
+    const current = await db.prepare(`${selectCampaign} AND c.slug=? LIMIT 1`).bind(slug).first<CampaignRow>();
+    if (!current) throw new ScholarshipError(404, 'Đợt học bổng chưa được công bố.');
+    if (keyFor(current) !== policyKey) throw new ScholarshipError(409, 'Đợt công bố đã thay đổi. Vui lòng thử lại.');
+  };
+  const readTotal = async () => {
+    const key = 'count:' + policyKey;
+    const cached = cache.get(key);
+    if (cached) return cached.totalRecipients;
+    const aggregate = await cache.coalesce(key, async () => {
+      const count = await db.prepare(`SELECT COUNT(*) AS total ${query.from}`).bind(...query.args).first<{total: number}>();
+      return { totalRecipients: count?.total || 0, facets: {} } satisfies CachedScholarshipFacets;
+    });
+    writes.push([key, aggregate]);
+    return aggregate.totalRecipients;
+  };
   if (match[2] === 'facets') {
     const facetPage = boundedInteger(params.get('facetPage'), 1, 2000);
     const facetLimit = boundedInteger(params.get('facetLimit'), 100, 200);
     const fields: string[] = JSON.parse(campaign.approvedFieldsJson), mapping = JSON.parse(campaign.mappingJson);
     const supportedFilters = (Object.keys(filterColumns) as FilterKey[]).filter(key => fields.includes(key) && mapping[key]);
-    // selectCampaign above must run before EVERY hit. Policy text supplements
-    // revision so even field revocation without a revision bump invalidates it.
-    const cache = scholarshipFacetCache(db);
-    const keyFor = (policy: CampaignRow) => JSON.stringify([slug, policy.activeBatchId, policy.revision,
-      policy.approvedFieldsJson, policy.mappingJson, policy.sourceSha256,
-      policy.approvalDocumentJson, q, Object.entries(filters).sort(([a], [b]) => a.localeCompare(b))]);
-    const cacheKey = keyFor(campaign);
-    let aggregate = cache.get(cacheKey);
-    if (!aggregate) {
-      const count = await db.prepare(`SELECT COUNT(*) AS total ${query.from}`).bind(...query.args).first<{total: number}>();
-      aggregate = { totalRecipients: count?.total || 0, facets: {} } satisfies CachedScholarshipFacets;
-    }
-    const snapshot = aggregate;
+    const totalRecipients = await readTotal();
     const offset = (facetPage - 1) * facetLimit;
     const pageKey = facetLimit + ':' + facetPage;
-    const facets = Object.fromEntries(await Promise.all((Object.keys(filterColumns) as FilterKey[]).map(async key => {
+    const computed = await Promise.allSettled((Object.keys(filterColumns) as FilterKey[]).map(async key => {
       if (!supportedFilters.includes(key)) return [key, { options: [], total: 0, page: facetPage, limit: facetLimit }];
-      const cached = snapshot.facets[key];
+      // A facet excludes its own filter from both SQL and cache identity.
+      const scope = Object.fromEntries(Object.entries(filters).filter(([name]) => name !== key));
+      const facetKey = 'facet:' + keyFor(campaign, scope) + ':' + key;
+      const cached = cache.get(facetKey)?.facets[key];
       // Completed facets require neither COUNT nor DISTINCT on later pages.
       if (cached && (offset >= cached.total || cached.pages[pageKey])) {
         return [key, { options: offset >= cached.total ? [] : cached.pages[pageKey],
           total: cached.total, page: facetPage, limit: facetLimit }];
       }
-      const scoped = rowQuery(slug, campaign, q, filters, key), column = filterColumns[key];
-      const distinct = `SELECT DISTINCT r.${column} AS value ${scoped.from} AND r.${column} IS NOT NULL AND r.${column}<>''`;
-      // Materialize DISTINCT once; return a total even for out-of-range pages.
-      const values = await db.prepare(`WITH facet_values AS MATERIALIZED (${distinct})
-        SELECT (SELECT COUNT(*) FROM facet_values) AS total,
-          (SELECT json_group_array(value) FROM
-            (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson`)
-        .bind(...scoped.args, facetLimit, offset).first<{total: number; optionsJson: string}>();
-      const options = JSON.parse(values?.optionsJson || '[]') as string[];
-      const total = values?.total || 0;
-      snapshot.facets[key] = { total, pages: { ...cached?.pages, [pageKey]: options } };
+      const value = await cache.coalesce(facetKey + ':' + pageKey, async () => {
+        const scoped = rowQuery(slug, campaign, q, filters, key), column = filterColumns[key];
+        const seek = !q && Object.keys(scope).length === 0 && totalRecipients >= 1024
+          && (!cached || cached.total < 16);
+        const args = seek ? [...scoped.args, ...scoped.args, ...scoped.args] : scoped.args;
+        const values = await db.prepare(scholarshipFacetQuery(scoped.from, column, seek))
+          .bind(...args, facetLimit, offset).first<{total: number; optionsJson: string}>();
+        return { options: JSON.parse(values?.optionsJson || '[]') as string[], total: values?.total || 0 };
+      });
+      const { options, total } = value;
+      writes.push([facetKey, { totalRecipients: 0, facets: { [key]: {
+        total, pages: { ...cached?.pages, [pageKey]: options },
+      } } }]);
       return [key, { options, total, page: facetPage, limit: facetLimit }];
-    })));
-    // Fence a revocation/replacement racing the asynchronous facet queries.
-    // Never publish a mixed policy/snapshot result (nor seed its cache).
-    const current = await db.prepare(`${selectCampaign} AND c.slug=? LIMIT 1`).bind(slug).first<CampaignRow>();
-    if (!current) throw new ScholarshipError(404, 'Đợt học bổng chưa được công bố.');
-    if (keyFor(current) !== cacheKey) throw new ScholarshipError(409, 'Đợt công bố đã thay đổi. Vui lòng thử lại.');
-    cache.put(cacheKey, snapshot);
-    return { apiVersion: '1.2.0', campaign: campaignView(campaign), supportedFilters, facets, totalRecipients: snapshot.totalRecipients };
+    }));
+    // An initiating request must keep awaiting all of its D1 work even when
+    // one facet fails: another request may still be awaiting a shared result.
+    for (const result of computed) if (result.status === 'rejected') throw result.reason;
+    const facets = Object.fromEntries(computed.flatMap(result => result.status === 'fulfilled' ? [result.value] : []));
+    await fence();
+    for (const [key, aggregate] of writes) cache.put(key, aggregate);
+    return { apiVersion: '1.2.0', campaign: campaignView(campaign), supportedFilters, facets, totalRecipients };
   }
-  const count = await db.prepare(`SELECT COUNT(*) AS total ${query.from}`).bind(...query.args).first<{total: number}>();
+  const total = await readTotal();
   const results = await db.prepare(`SELECT ${recipientSelect} ${query.from} ORDER BY r.source_row_number, r.id LIMIT ? OFFSET ?`)
     .bind(...query.args, limit, (page - 1) * limit).all<RecipientRow>();
-  return { campaign: campaignView(campaign), recipients: results.results.map(row => recipientView(row, campaign)), total: count?.total || 0, page, limit };
+  await fence();
+  for (const [key, aggregate] of writes) cache.put(key, aggregate);
+  return { campaign: campaignView(campaign), recipients: results.results.map(row => recipientView(row, campaign)), total, page, limit };
 };
 export const handleMyScholarships = async (request: Request, env: ScholarshipEnv) => {
   if (request.method !== 'GET') throw new ScholarshipError(405, 'Chỉ hỗ trợ GET.');

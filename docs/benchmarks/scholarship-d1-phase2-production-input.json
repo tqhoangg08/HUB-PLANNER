@@ -1,0 +1,190 @@
+{
+  "sourceArtifacts": [
+    {
+      "path": "docs/evidence/d1-quota-v2-2026-10-18/public-2026-10-18-module-attribution.json",
+      "sha256": "403e532b2523092238164a4ab5b9f198b0d50aeffb86644dfbc321e560badb68"
+    },
+    {
+      "path": "REPORT-D1-QUOTA-INCIDENT-V2-2026-10-18.md",
+      "sha256": "059372077333f4f697b01aea7d2e159b4b95517d5b587fe47553c02b9d53c022"
+    }
+  ],
+  "window": "2026-10-18 UTC",
+  "dataset": "Dashboard d1QueriesAdaptiveGroups; distinct from Row Metrics",
+  "module": {
+    "rowsRead": 3121000,
+    "executions": 5005,
+    "rowsWritten": 0,
+    "fingerprints": 86
+  },
+  "facetCte": {
+    "rowsRead": 2155379,
+    "executions": 1964
+  },
+  "countStatsRowsRead": 582605,
+  "recipientPageRowsRead": 259733,
+  "limitations": "No bound parameters, HTTP correlation or cache hit/miss telemetry; production fixture distribution unknown. This extract contains SQL templates only.",
+  "rows": [
+    {
+      "count": 210,
+      "dimensions": {
+        "query": "WITH facet_values AS MATERIALIZED (SELECT DISTINCT r.class_name AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.class_name IS NOT NULL AND r.class_name<>'')\n        SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n          (SELECT json_group_array(value) FROM\n            (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.77,
+        "queryDurationMsP99": 4.35
+      },
+      "sum": {
+        "queryDurationMs": 265.3268,
+        "rowsRead": 351750,
+        "rowsReturned": 210,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 281,
+      "dimensions": {
+        "query": "SELECT COUNT(*) AS total FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=?"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.41,
+        "queryDurationMsP99": 0.65
+      },
+      "sum": {
+        "queryDurationMs": 123.39789999999999,
+        "rowsRead": 297860,
+        "rowsReturned": 281,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 190,
+      "dimensions": {
+        "query": "WITH facet_values AS MATERIALIZED (SELECT DISTINCT r.major AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.major IS NOT NULL AND r.major<>'')\n        SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n          (SELECT json_group_array(value) FROM\n            (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.63,
+        "queryDurationMsP99": 1.44
+      },
+      "sum": {
+        "queryDurationMs": 129.54980000000003,
+        "rowsRead": 210520,
+        "rowsReturned": 190,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 123,
+      "dimensions": {
+        "query": "SELECT COUNT(*) AS total FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND r.student_code LIKE ? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=?"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.62,
+        "queryDurationMsP99": 1.21
+      },
+      "sum": {
+        "queryDurationMs": 84.3515,
+        "rowsRead": 130380,
+        "rowsReturned": 123,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 118,
+      "dimensions": {
+        "query": "SELECT COUNT(*) AS total FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND r.full_name_search LIKE ? ESCAPE '\\' AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=?"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.53,
+        "queryDurationMsP99": 1.84
+      },
+      "sum": {
+        "queryDurationMs": 65.9928,
+        "rowsRead": 125080,
+        "rowsReturned": 118,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 116,
+      "dimensions": {
+        "query": "WITH facet_values AS MATERIALIZED (SELECT DISTINCT r.training_program AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND r.full_name_search LIKE ? ESCAPE '\\' AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.training_program IS NOT NULL AND r.training_program<>'')\n        SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n          (SELECT json_group_array(value) FROM\n            (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 1.47,
+        "queryDurationMsP99": 2.72
+      },
+      "sum": {
+        "queryDurationMs": 171.88079999999997,
+        "rowsRead": 123461,
+        "rowsReturned": 116,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 105,
+      "dimensions": {
+        "query": "WITH facet_values AS MATERIALIZED (SELECT DISTINCT r.training_program AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.training_program IS NOT NULL AND r.training_program<>'')\n        SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n          (SELECT json_group_array(value) FROM\n            (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.75,
+        "queryDurationMsP99": 1.69
+      },
+      "sum": {
+        "queryDurationMs": 85.7171,
+        "rowsRead": 112560,
+        "rowsReturned": 105,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 103,
+      "dimensions": {
+        "query": "WITH facet_values AS MATERIALIZED (SELECT DISTINCT r.cohort AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND r.student_code LIKE ? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.cohort IS NOT NULL AND r.cohort<>'')\n        SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n          (SELECT json_group_array(value) FROM\n            (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 1.21,
+        "queryDurationMsP99": 1.73
+      },
+      "sum": {
+        "queryDurationMs": 118.1985,
+        "rowsRead": 109993,
+        "rowsReturned": 103,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 99,
+      "dimensions": {
+        "query": "WITH facet_values AS MATERIALIZED (SELECT DISTINCT r.cohort AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.cohort IS NOT NULL AND r.cohort<>'')\n        SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n          (SELECT json_group_array(value) FROM\n            (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.63,
+        "queryDurationMsP99": 0.83
+      },
+      "sum": {
+        "queryDurationMs": 63.0318,
+        "rowsRead": 107613,
+        "rowsReturned": 99,
+        "rowsWritten": 0
+      }
+    },
+    {
+      "count": 116,
+      "dimensions": {
+        "query": "SELECT r.id, r.full_name AS fullName, r.student_code AS studentCode,\n  r.class_name AS className, r.major, r.award_type AS awardType,\n  r.scholarship_type AS scholarshipType, r.scholarship_rank AS scholarshipRank, r.cohort, r.scores_json AS scoresJson,\n  r.training_program AS trainingProgram, r.source_ordinal_json AS sourceOrdinalJson FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND r.full_name_search LIKE ? ESCAPE '\\' AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? ORDER BY r.source_row_number, r.id LIMIT ? OFFSET ?"
+      },
+      "quantiles": {
+        "queryDurationMsP50": 0.89,
+        "queryDurationMsP99": 2.94
+      },
+      "sum": {
+        "queryDurationMs": 167.0965,
+        "rowsRead": 106638,
+        "rowsReturned": 762,
+        "rowsWritten": 0
+      }
+    }
+  ],
+  "selection": "Top 10 Scholarship snapshot SQL templates by sum rows read; complete source hash above"
+}
