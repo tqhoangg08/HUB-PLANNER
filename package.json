@@ -72,7 +72,8 @@
     "release:baseline": "node scripts/release-assistant.mjs baseline",
     "test:release-assistant": "node --test tests/release-assistant.test.mjs tests/public-release-solo-owner.test.mjs tests/public-release-v2-rollout.test.mjs",
     "test:overlay": "node --test --experimental-strip-types tests/overlay-scroll-lock.test.ts",
-    "test:overlay:browser": "node --test tests/overlay-scroll-lock.browser.test.mjs"
+    "test:overlay:browser": "node --test tests/overlay-scroll-lock.browser.test.mjs",
+    "test:overlay:mobile": "node --test tests/mobile-overlay-acceptance.browser.test.mjs"
   },
   "dependencies": {
     "@axiomhq/winston": "^1.4.0",

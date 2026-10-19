@@ -10,7 +10,11 @@ export function attachOverlayViewport(element: HTMLElement | null) {
   const panels = Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && child.tagName !== 'BUTTON');
   const originalMax = panels.map(panel => [panel.style.getPropertyValue('max-height'), panel.style.getPropertyPriority('max-height')]);
   const originalOverflow = panels.map(panel => [panel.style.getPropertyValue('overflow-y'), panel.style.getPropertyPriority('overflow-y')]);
+  const originalPosition = panels.map(panel => [panel.style.getPropertyValue('position'), panel.style.getPropertyPriority('position')]);
   panels.forEach(panel => {
+    // Contain absolutely positioned descendants (including sr-only table heads)
+    // within the panel's clipping/scrolling box rather than the outer backdrop.
+    if (getComputedStyle(panel).position === 'static') panel.style.position = 'relative';
     if (getComputedStyle(panel).overflowY === 'visible') panel.style.overflowY = 'auto';
   });
   const update = () => {
@@ -43,6 +47,9 @@ export function attachOverlayViewport(element: HTMLElement | null) {
       const [overflow, overflowPriority] = originalOverflow[index];
       if (overflow) panel.style.setProperty('overflow-y', overflow, overflowPriority);
       else panel.style.removeProperty('overflow-y');
+      const [position, positionPriority] = originalPosition[index];
+      if (position) panel.style.setProperty('position', position, positionPriority);
+      else panel.style.removeProperty('position');
     });
   };
 }

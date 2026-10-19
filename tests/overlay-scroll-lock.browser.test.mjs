@@ -28,6 +28,31 @@ async function fixture({ internal = false, ios = true, keyboard = false, android
   return { context, page, before, errors };
 }
 const position = page => page.evaluate(() => ({ document: scrollY, internal: document.querySelector('main').scrollTop }));
+
+test('mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads', async () => {
+  const { context, page, before } = await fixture();
+  try {
+    await page.locator('#open-guide').click();
+    const guide = page.getByRole('dialog');
+    const root = page.locator('[data-overlay-root]');
+    assert.equal(await guide.locator('header').evaluate(n => getComputedStyle(n).backgroundColor), 'rgb(0, 51, 117)');
+    assert.equal(await root.evaluate(n => n.scrollHeight <= n.clientHeight + 1), true);
+    await guide.locator('.overflow-y-auto').evaluate(n => { n.scrollTop = n.scrollHeight; });
+    assert.equal(await root.evaluate(n => n.scrollHeight <= n.clientHeight + 1), true);
+    await page.getByRole('button', { name: 'Đóng phụ lục' }).click();
+    await restored(page, before);
+    assert.deepEqual(await page.evaluate(async () => {
+      const { attachOverlayViewport } = await import('/utils/overlayViewport.ts');
+      const root = document.createElement('div'), panel = document.createElement('section');
+      panel.style.setProperty('position', 'static', 'important'); root.append(panel); document.body.append(root);
+      const cleanup = attachOverlayViewport(root);
+      const during = getComputedStyle(panel).position;
+      cleanup();
+      const after = [panel.style.position, panel.style.getPropertyPriority('position')];
+      root.remove(); return { during, after };
+    }), { during: 'relative', after: ['static', 'important'] });
+  } finally { await context.close(); }
+});
 const locked = page => page.evaluate(() => getComputedStyle(document.body).overflowY === 'hidden' && getComputedStyle(document.querySelector('main')).overflowY === 'hidden');
 async function restored(page, before) {
   assert.equal(await page.evaluate(() => document.body.style.getPropertyValue('overflow-y')), 'auto');

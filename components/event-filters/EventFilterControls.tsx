@@ -103,7 +103,7 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
 
   const closeDrawer = () => {
     setDrawerOpen(false);
-    window.setTimeout(() => triggerRef.current?.focus(), 0);
+    window.setTimeout(() => triggerRef.current?.focus({ preventScroll: true }), 0);
   };
 
   useEffect(() => {

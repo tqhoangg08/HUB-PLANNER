@@ -20,7 +20,7 @@ export const DrlScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
       } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('keydown', onKey); previous?.focus(); };
+    return () => { document.removeEventListener('keydown', onKey); previous?.focus({ preventScroll: true }); };
   }, [isOpen, onClose]);
   if (!isOpen) return null;
   return createPortal(<Overlay className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-2 sm:p-5" onClick={onClose}>

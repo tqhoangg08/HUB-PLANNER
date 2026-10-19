@@ -40,7 +40,7 @@ export const ScholarshipShell: React.FC<ScholarshipShellProps> = ({ children, ti
     return () => {
       cancelAnimationFrame(focusFrame);
       document.removeEventListener('keydown', handleKey);
-      if (window.matchMedia('(max-width:780px)').matches && menuButton.current?.isConnected) menuButton.current.focus();
+      if (window.matchMedia('(max-width:780px)').matches && menuButton.current?.isConnected) menuButton.current.focus({ preventScroll: true });
     };
   }, [drawerOpen]);
   const [collapsed, setCollapsed] = useState(() => {
