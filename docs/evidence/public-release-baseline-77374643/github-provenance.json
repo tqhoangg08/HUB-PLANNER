@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-10-19T07:18:06Z",
+  "repository": "tqhoangg08/HUB-PLANNER",
+  "runId": "39129116442",
+  "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39129116442",
+  "workflow": ".github/workflows/deploy-cloudflare-production.yml",
+  "event": "workflow_dispatch",
+  "headBranch": "main",
+  "sha": "cc7c8222d7c039912bb6b882b0ea5372cb645c6e",
+  "actor": "tqhoangg08",
+  "triggeringActor": "tqhoangg08",
+  "attempt": 1,
+  "conclusion": "success",
+  "releaseJob": {
+    "id": 117681032735,
+    "conclusion": "success",
+    "startedAt": "2026-10-18T13:00:29Z",
+    "completedAt": "2026-10-18T13:01:15Z"
+  },
+  "logEvidence": [
+    "2026-10-18T13:00:57.2450071Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3",
+    "2026-10-18T13:00:58.8171252Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+    "2026-10-18T13:01:10.9614663Z Current Version ID: 77374643-bb94-420a-ab4c-fd456fca516d",
+    "2026-10-18T13:01:11.0494033Z   PUBLIC_RELEASE_VERSION_BEFORE: e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3",
+    "2026-10-18T13:01:13.3726498Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=77374643-bb94-420a-ab4c-fd456fca516d"
+  ],
+  "independentCiAtPreparation": {
+    "mainSha": "4e6c13cdc24a22a1c30dfc484abd953549b682a4",
+    "checkRuns": 0,
+    "matchingRunInLatest30": 0,
+    "pr117Ci": {
+      "runId": 39194778767,
+      "headSha": "c92d75e5f2222f168fb698686a594cd5ac55a7ba",
+      "conclusion": "success",
+      "qualifiesAsExactMainCi": false
+    }
+  },
+  "scope": "GitHub GET metadata and job logs only; no workflow dispatch, merge or approval changes."
+}
