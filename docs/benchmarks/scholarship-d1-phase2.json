@@ -1,0 +1,2003 @@
+{
+  "base": "cc7c8222d7c039912bb6b882b0ea5372cb645c6e",
+  "runtime": "v24.12.0",
+  "versions": {
+    "miniflare": "4.20260722.1",
+    "wrangler": "4.115.0",
+    "esbuild": "0.25.12"
+  },
+  "compatibilityDate": "2026-07-29",
+  "localOnly": true,
+  "measurements": {
+    "SMALL": {
+      "size": 13,
+      "classes": 2,
+      "scenarios": {
+        "cold": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 158,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 9,
+            "rowsRead": 158,
+            "rowsWritten": 0
+          }
+        },
+        "warm": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "continuation": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "recipient-after-facets": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 30,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 18,
+            "rowsWritten": 0
+          }
+        },
+        "cold-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 30,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 4,
+            "rowsRead": 32,
+            "rowsWritten": 0
+          }
+        },
+        "warm-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 30,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 18,
+            "rowsWritten": 0
+          }
+        },
+        "self-excluding-reuse": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 127,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 8,
+            "rowsRead": 96,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-same-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 1264,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 23,
+            "rowsRead": 186,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-different-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 872,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 65,
+            "rowsRead": 732,
+            "rowsWritten": 0
+          }
+        }
+      },
+      "cache": {
+        "entries": 109,
+        "characters": 82430,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 32,
+        "misses": 109,
+        "joined": 7
+      },
+      "concurrencyCache": {
+        "entries": 7,
+        "characters": 5293,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 0,
+        "misses": 56,
+        "joined": 49
+      }
+    },
+    "MEDIUM": {
+      "size": 128,
+      "classes": 16,
+      "scenarios": {
+        "cold": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 997,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 9,
+            "rowsRead": 997,
+            "rowsWritten": 0
+          }
+        },
+        "warm": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "continuation": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "recipient-after-facets": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 152,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "cold-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 152,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 4,
+            "rowsRead": 154,
+            "rowsWritten": 0
+          }
+        },
+        "warm-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 152,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "self-excluding-reuse": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 848,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 8,
+            "rowsRead": 710,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-same-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 7976,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 23,
+            "rowsRead": 1025,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-different-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 6664,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 65,
+            "rowsRead": 5425,
+            "rowsWritten": 0
+          }
+        }
+      },
+      "cache": {
+        "entries": 109,
+        "characters": 82833,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 32,
+        "misses": 109,
+        "joined": 7
+      },
+      "concurrencyCache": {
+        "entries": 7,
+        "characters": 5455,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 0,
+        "misses": 56,
+        "joined": 49
+      }
+    },
+    "PRODUCTION_SIZE": {
+      "size": 1060,
+      "classes": 250,
+      "scenarios": {
+        "cold": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 8151,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 9,
+            "rowsRead": 3167,
+            "rowsWritten": 0
+          }
+        },
+        "warm": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "continuation": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1815,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 1815,
+            "rowsWritten": 0
+          }
+        },
+        "recipient-after-facets": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1084,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "cold-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1084,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 4,
+            "rowsRead": 1086,
+            "rowsWritten": 0
+          }
+        },
+        "warm-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1084,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "self-excluding-reuse": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 6844,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 8,
+            "rowsRead": 5846,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-same-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 65208,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 23,
+            "rowsRead": 3195,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-different-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 56440,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 65,
+            "rowsRead": 43763,
+            "rowsWritten": 0
+          }
+        }
+      },
+      "cache": {
+        "entries": 224,
+        "characters": 170942,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 63,
+        "misses": 302,
+        "joined": 7
+      },
+      "concurrencyCache": {
+        "entries": 7,
+        "characters": 7819,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 0,
+        "misses": 56,
+        "joined": 49
+      }
+    },
+    "queryPlans": [
+      {
+        "sql": "WITH RECURSIVE facet_probe(value, step) AS (\n    SELECT (SELECT MIN(r.scholarship_type) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.scholarship_type>''), 1\n    UNION ALL\n    SELECT (SELECT MIN(r.scholarship_type) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.scholarship_type>p.value), step+1\n      FROM facet_probe p WHERE value IS NOT NULL AND step<16\n  ), facet_values AS MATERIALIZED (\n    SELECT value FROM facet_probe WHERE value IS NOT NULL\n      AND NOT EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n    UNION ALL\n    SELECT DISTINCT r.scholarship_type AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.scholarship_type IS NOT NULL AND r.scholarship_type<>'' AND EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n  )\n    SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n      (SELECT json_group_array(value) FROM\n        (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson",
+        "plan": [
+          {
+            "id": 1,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 4,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 9"
+          },
+          {
+            "id": 8,
+            "parent": 4,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_values"
+          },
+          {
+            "id": 10,
+            "parent": 8,
+            "notused": 0,
+            "detail": "COMPOUND QUERY"
+          },
+          {
+            "id": 11,
+            "parent": 10,
+            "notused": 0,
+            "detail": "LEFT-MOST SUBQUERY"
+          },
+          {
+            "id": 14,
+            "parent": 11,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_probe"
+          },
+          {
+            "id": 18,
+            "parent": 14,
+            "notused": 0,
+            "detail": "SETUP"
+          },
+          {
+            "id": 19,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 22,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 1"
+          },
+          {
+            "id": 29,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 46,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_type_idx (batch_id=? AND scholarship_type>?)"
+          },
+          {
+            "id": 76,
+            "parent": 14,
+            "notused": 0,
+            "detail": "RECURSIVE STEP"
+          },
+          {
+            "id": 77,
+            "parent": 76,
+            "notused": 216,
+            "detail": "SCAN p"
+          },
+          {
+            "id": 83,
+            "parent": 76,
+            "notused": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 90,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 107,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_type_idx (batch_id=? AND scholarship_type>?)"
+          },
+          {
+            "id": 134,
+            "parent": 11,
+            "notused": 214,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 140,
+            "parent": 11,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 147,
+            "parent": 140,
+            "notused": 0,
+            "detail": "BLOOM FILTER ON facet_probe (step=?)"
+          },
+          {
+            "id": 161,
+            "parent": 140,
+            "notused": 53,
+            "detail": "SEARCH facet_probe USING AUTOMATIC PARTIAL COVERING INDEX (step=?)"
+          },
+          {
+            "id": 178,
+            "parent": 10,
+            "notused": 0,
+            "detail": "UNION ALL"
+          },
+          {
+            "id": 183,
+            "parent": 178,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 202,
+            "parent": 178,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 7"
+          },
+          {
+            "id": 207,
+            "parent": 202,
+            "notused": 216,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 218,
+            "parent": 178,
+            "notused": 53,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_type_idx (batch_id=? AND scholarship_type>?)"
+          },
+          {
+            "id": 239,
+            "parent": 4,
+            "notused": 213,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 250,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 11"
+          },
+          {
+            "id": 253,
+            "parent": 250,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-10)"
+          },
+          {
+            "id": 263,
+            "parent": 253,
+            "notused": 216,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 275,
+            "parent": 253,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          },
+          {
+            "id": 285,
+            "parent": 250,
+            "notused": 216,
+            "detail": "SCAN (subquery-10)"
+          }
+        ]
+      },
+      {
+        "sql": "WITH RECURSIVE facet_probe(value, step) AS (\n    SELECT (SELECT MIN(r.training_program) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.training_program>''), 1\n    UNION ALL\n    SELECT (SELECT MIN(r.training_program) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.training_program>p.value), step+1\n      FROM facet_probe p WHERE value IS NOT NULL AND step<16\n  ), facet_values AS MATERIALIZED (\n    SELECT value FROM facet_probe WHERE value IS NOT NULL\n      AND NOT EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n    UNION ALL\n    SELECT DISTINCT r.training_program AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.training_program IS NOT NULL AND r.training_program<>'' AND EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n  )\n    SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n      (SELECT json_group_array(value) FROM\n        (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson",
+        "plan": [
+          {
+            "id": 1,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 4,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 9"
+          },
+          {
+            "id": 8,
+            "parent": 4,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_values"
+          },
+          {
+            "id": 10,
+            "parent": 8,
+            "notused": 0,
+            "detail": "COMPOUND QUERY"
+          },
+          {
+            "id": 11,
+            "parent": 10,
+            "notused": 0,
+            "detail": "LEFT-MOST SUBQUERY"
+          },
+          {
+            "id": 14,
+            "parent": 11,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_probe"
+          },
+          {
+            "id": 18,
+            "parent": 14,
+            "notused": 0,
+            "detail": "SETUP"
+          },
+          {
+            "id": 19,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 22,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 1"
+          },
+          {
+            "id": 29,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 46,
+            "parent": 22,
+            "notused": 47,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_program_idx (batch_id=? AND training_program>?)"
+          },
+          {
+            "id": 76,
+            "parent": 14,
+            "notused": 0,
+            "detail": "RECURSIVE STEP"
+          },
+          {
+            "id": 77,
+            "parent": 76,
+            "notused": 216,
+            "detail": "SCAN p"
+          },
+          {
+            "id": 83,
+            "parent": 76,
+            "notused": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 90,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 107,
+            "parent": 83,
+            "notused": 47,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_program_idx (batch_id=? AND training_program>?)"
+          },
+          {
+            "id": 134,
+            "parent": 11,
+            "notused": 214,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 140,
+            "parent": 11,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 147,
+            "parent": 140,
+            "notused": 0,
+            "detail": "BLOOM FILTER ON facet_probe (step=?)"
+          },
+          {
+            "id": 161,
+            "parent": 140,
+            "notused": 53,
+            "detail": "SEARCH facet_probe USING AUTOMATIC PARTIAL COVERING INDEX (step=?)"
+          },
+          {
+            "id": 178,
+            "parent": 10,
+            "notused": 0,
+            "detail": "UNION ALL"
+          },
+          {
+            "id": 183,
+            "parent": 178,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 202,
+            "parent": 178,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 7"
+          },
+          {
+            "id": 207,
+            "parent": 202,
+            "notused": 216,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 218,
+            "parent": 178,
+            "notused": 54,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_program_idx (batch_id=? AND training_program>?)"
+          },
+          {
+            "id": 239,
+            "parent": 4,
+            "notused": 213,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 250,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 11"
+          },
+          {
+            "id": 253,
+            "parent": 250,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-10)"
+          },
+          {
+            "id": 263,
+            "parent": 253,
+            "notused": 216,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 275,
+            "parent": 253,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          },
+          {
+            "id": 285,
+            "parent": 250,
+            "notused": 216,
+            "detail": "SCAN (subquery-10)"
+          }
+        ]
+      },
+      {
+        "sql": "WITH RECURSIVE facet_probe(value, step) AS (\n    SELECT (SELECT MIN(r.scholarship_rank) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.scholarship_rank>''), 1\n    UNION ALL\n    SELECT (SELECT MIN(r.scholarship_rank) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.scholarship_rank>p.value), step+1\n      FROM facet_probe p WHERE value IS NOT NULL AND step<16\n  ), facet_values AS MATERIALIZED (\n    SELECT value FROM facet_probe WHERE value IS NOT NULL\n      AND NOT EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n    UNION ALL\n    SELECT DISTINCT r.scholarship_rank AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.scholarship_rank IS NOT NULL AND r.scholarship_rank<>'' AND EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n  )\n    SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n      (SELECT json_group_array(value) FROM\n        (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson",
+        "plan": [
+          {
+            "id": 1,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 4,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 9"
+          },
+          {
+            "id": 8,
+            "parent": 4,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_values"
+          },
+          {
+            "id": 10,
+            "parent": 8,
+            "notused": 0,
+            "detail": "COMPOUND QUERY"
+          },
+          {
+            "id": 11,
+            "parent": 10,
+            "notused": 0,
+            "detail": "LEFT-MOST SUBQUERY"
+          },
+          {
+            "id": 14,
+            "parent": 11,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_probe"
+          },
+          {
+            "id": 18,
+            "parent": 14,
+            "notused": 0,
+            "detail": "SETUP"
+          },
+          {
+            "id": 19,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 22,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 1"
+          },
+          {
+            "id": 29,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 46,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_rank_idx (batch_id=? AND scholarship_rank>?)"
+          },
+          {
+            "id": 76,
+            "parent": 14,
+            "notused": 0,
+            "detail": "RECURSIVE STEP"
+          },
+          {
+            "id": 77,
+            "parent": 76,
+            "notused": 216,
+            "detail": "SCAN p"
+          },
+          {
+            "id": 83,
+            "parent": 76,
+            "notused": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 90,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 107,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_rank_idx (batch_id=? AND scholarship_rank>?)"
+          },
+          {
+            "id": 134,
+            "parent": 11,
+            "notused": 214,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 140,
+            "parent": 11,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 147,
+            "parent": 140,
+            "notused": 0,
+            "detail": "BLOOM FILTER ON facet_probe (step=?)"
+          },
+          {
+            "id": 161,
+            "parent": 140,
+            "notused": 53,
+            "detail": "SEARCH facet_probe USING AUTOMATIC PARTIAL COVERING INDEX (step=?)"
+          },
+          {
+            "id": 178,
+            "parent": 10,
+            "notused": 0,
+            "detail": "UNION ALL"
+          },
+          {
+            "id": 183,
+            "parent": 178,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 202,
+            "parent": 178,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 7"
+          },
+          {
+            "id": 207,
+            "parent": 202,
+            "notused": 216,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 218,
+            "parent": 178,
+            "notused": 53,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_rank_idx (batch_id=? AND scholarship_rank>?)"
+          },
+          {
+            "id": 239,
+            "parent": 4,
+            "notused": 213,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 250,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 11"
+          },
+          {
+            "id": 253,
+            "parent": 250,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-10)"
+          },
+          {
+            "id": 263,
+            "parent": 253,
+            "notused": 216,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 275,
+            "parent": 253,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          },
+          {
+            "id": 285,
+            "parent": 250,
+            "notused": 216,
+            "detail": "SCAN (subquery-10)"
+          }
+        ]
+      },
+      {
+        "sql": "WITH RECURSIVE facet_probe(value, step) AS (\n    SELECT (SELECT MIN(r.major) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.major>''), 1\n    UNION ALL\n    SELECT (SELECT MIN(r.major) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.major>p.value), step+1\n      FROM facet_probe p WHERE value IS NOT NULL AND step<16\n  ), facet_values AS MATERIALIZED (\n    SELECT value FROM facet_probe WHERE value IS NOT NULL\n      AND NOT EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n    UNION ALL\n    SELECT DISTINCT r.major AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.major IS NOT NULL AND r.major<>'' AND EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n  )\n    SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n      (SELECT json_group_array(value) FROM\n        (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson",
+        "plan": [
+          {
+            "id": 1,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 4,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 9"
+          },
+          {
+            "id": 8,
+            "parent": 4,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_values"
+          },
+          {
+            "id": 10,
+            "parent": 8,
+            "notused": 0,
+            "detail": "COMPOUND QUERY"
+          },
+          {
+            "id": 11,
+            "parent": 10,
+            "notused": 0,
+            "detail": "LEFT-MOST SUBQUERY"
+          },
+          {
+            "id": 14,
+            "parent": 11,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_probe"
+          },
+          {
+            "id": 18,
+            "parent": 14,
+            "notused": 0,
+            "detail": "SETUP"
+          },
+          {
+            "id": 19,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 22,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 1"
+          },
+          {
+            "id": 29,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 46,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_major_idx (batch_id=? AND major>?)"
+          },
+          {
+            "id": 76,
+            "parent": 14,
+            "notused": 0,
+            "detail": "RECURSIVE STEP"
+          },
+          {
+            "id": 77,
+            "parent": 76,
+            "notused": 216,
+            "detail": "SCAN p"
+          },
+          {
+            "id": 83,
+            "parent": 76,
+            "notused": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 90,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 107,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_major_idx (batch_id=? AND major>?)"
+          },
+          {
+            "id": 134,
+            "parent": 11,
+            "notused": 214,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 140,
+            "parent": 11,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 147,
+            "parent": 140,
+            "notused": 0,
+            "detail": "BLOOM FILTER ON facet_probe (step=?)"
+          },
+          {
+            "id": 161,
+            "parent": 140,
+            "notused": 53,
+            "detail": "SEARCH facet_probe USING AUTOMATIC PARTIAL COVERING INDEX (step=?)"
+          },
+          {
+            "id": 178,
+            "parent": 10,
+            "notused": 0,
+            "detail": "UNION ALL"
+          },
+          {
+            "id": 183,
+            "parent": 178,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 202,
+            "parent": 178,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 7"
+          },
+          {
+            "id": 207,
+            "parent": 202,
+            "notused": 216,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 218,
+            "parent": 178,
+            "notused": 53,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_major_idx (batch_id=? AND major>?)"
+          },
+          {
+            "id": 239,
+            "parent": 4,
+            "notused": 213,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 250,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 11"
+          },
+          {
+            "id": 253,
+            "parent": 250,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-10)"
+          },
+          {
+            "id": 263,
+            "parent": 253,
+            "notused": 216,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 275,
+            "parent": 253,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          },
+          {
+            "id": 285,
+            "parent": 250,
+            "notused": 216,
+            "detail": "SCAN (subquery-10)"
+          }
+        ]
+      },
+      {
+        "sql": "WITH RECURSIVE facet_probe(value, step) AS (\n    SELECT (SELECT MIN(r.class_name) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.class_name>''), 1\n    UNION ALL\n    SELECT (SELECT MIN(r.class_name) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.class_name>p.value), step+1\n      FROM facet_probe p WHERE value IS NOT NULL AND step<16\n  ), facet_values AS MATERIALIZED (\n    SELECT value FROM facet_probe WHERE value IS NOT NULL\n      AND NOT EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n    UNION ALL\n    SELECT DISTINCT r.class_name AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.class_name IS NOT NULL AND r.class_name<>'' AND EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n  )\n    SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n      (SELECT json_group_array(value) FROM\n        (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson",
+        "plan": [
+          {
+            "id": 1,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 4,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 9"
+          },
+          {
+            "id": 8,
+            "parent": 4,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_values"
+          },
+          {
+            "id": 10,
+            "parent": 8,
+            "notused": 0,
+            "detail": "COMPOUND QUERY"
+          },
+          {
+            "id": 11,
+            "parent": 10,
+            "notused": 0,
+            "detail": "LEFT-MOST SUBQUERY"
+          },
+          {
+            "id": 14,
+            "parent": 11,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_probe"
+          },
+          {
+            "id": 18,
+            "parent": 14,
+            "notused": 0,
+            "detail": "SETUP"
+          },
+          {
+            "id": 19,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 22,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 1"
+          },
+          {
+            "id": 29,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 46,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_class_idx (batch_id=? AND class_name>?)"
+          },
+          {
+            "id": 76,
+            "parent": 14,
+            "notused": 0,
+            "detail": "RECURSIVE STEP"
+          },
+          {
+            "id": 77,
+            "parent": 76,
+            "notused": 216,
+            "detail": "SCAN p"
+          },
+          {
+            "id": 83,
+            "parent": 76,
+            "notused": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 90,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 107,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_class_idx (batch_id=? AND class_name>?)"
+          },
+          {
+            "id": 134,
+            "parent": 11,
+            "notused": 214,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 140,
+            "parent": 11,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 147,
+            "parent": 140,
+            "notused": 0,
+            "detail": "BLOOM FILTER ON facet_probe (step=?)"
+          },
+          {
+            "id": 161,
+            "parent": 140,
+            "notused": 53,
+            "detail": "SEARCH facet_probe USING AUTOMATIC PARTIAL COVERING INDEX (step=?)"
+          },
+          {
+            "id": 178,
+            "parent": 10,
+            "notused": 0,
+            "detail": "UNION ALL"
+          },
+          {
+            "id": 183,
+            "parent": 178,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 202,
+            "parent": 178,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 7"
+          },
+          {
+            "id": 207,
+            "parent": 202,
+            "notused": 216,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 218,
+            "parent": 178,
+            "notused": 53,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_class_idx (batch_id=? AND class_name>?)"
+          },
+          {
+            "id": 239,
+            "parent": 4,
+            "notused": 213,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 250,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 11"
+          },
+          {
+            "id": 253,
+            "parent": 250,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-10)"
+          },
+          {
+            "id": 263,
+            "parent": 253,
+            "notused": 216,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 275,
+            "parent": 253,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          },
+          {
+            "id": 285,
+            "parent": 250,
+            "notused": 216,
+            "detail": "SCAN (subquery-10)"
+          }
+        ]
+      },
+      {
+        "sql": "WITH RECURSIVE facet_probe(value, step) AS (\n    SELECT (SELECT MIN(r.cohort) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.cohort>''), 1\n    UNION ALL\n    SELECT (SELECT MIN(r.cohort) FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.cohort>p.value), step+1\n      FROM facet_probe p WHERE value IS NOT NULL AND step<16\n  ), facet_values AS MATERIALIZED (\n    SELECT value FROM facet_probe WHERE value IS NOT NULL\n      AND NOT EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n    UNION ALL\n    SELECT DISTINCT r.cohort AS value FROM scholarship_snapshot_rows r JOIN scholarship_campaigns c ON c.slug=? WHERE r.batch_id=? AND c.status='published' AND c.public_data_approved=1 AND c.active_batch_id=r.batch_id AND c.revision=? AND r.cohort IS NOT NULL AND r.cohort<>'' AND EXISTS(SELECT 1 FROM facet_probe WHERE step=16 AND value IS NOT NULL)\n  )\n    SELECT (SELECT COUNT(*) FROM facet_values) AS total,\n      (SELECT json_group_array(value) FROM\n        (SELECT value FROM facet_values ORDER BY value COLLATE BINARY LIMIT ? OFFSET ?)) AS optionsJson",
+        "plan": [
+          {
+            "id": 1,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 4,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 9"
+          },
+          {
+            "id": 8,
+            "parent": 4,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_values"
+          },
+          {
+            "id": 10,
+            "parent": 8,
+            "notused": 0,
+            "detail": "COMPOUND QUERY"
+          },
+          {
+            "id": 11,
+            "parent": 10,
+            "notused": 0,
+            "detail": "LEFT-MOST SUBQUERY"
+          },
+          {
+            "id": 14,
+            "parent": 11,
+            "notused": 0,
+            "detail": "MATERIALIZE facet_probe"
+          },
+          {
+            "id": 18,
+            "parent": 14,
+            "notused": 0,
+            "detail": "SETUP"
+          },
+          {
+            "id": 19,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCAN CONSTANT ROW"
+          },
+          {
+            "id": 22,
+            "parent": 18,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 1"
+          },
+          {
+            "id": 29,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 46,
+            "parent": 22,
+            "notused": 47,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_cohort_major_idx (batch_id=? AND cohort>?)"
+          },
+          {
+            "id": 76,
+            "parent": 14,
+            "notused": 0,
+            "detail": "RECURSIVE STEP"
+          },
+          {
+            "id": 77,
+            "parent": 76,
+            "notused": 216,
+            "detail": "SCAN p"
+          },
+          {
+            "id": 83,
+            "parent": 76,
+            "notused": 0,
+            "detail": "CORRELATED SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 90,
+            "parent": 83,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 107,
+            "parent": 83,
+            "notused": 47,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_cohort_major_idx (batch_id=? AND cohort>?)"
+          },
+          {
+            "id": 134,
+            "parent": 11,
+            "notused": 214,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 140,
+            "parent": 11,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 147,
+            "parent": 140,
+            "notused": 0,
+            "detail": "BLOOM FILTER ON facet_probe (step=?)"
+          },
+          {
+            "id": 161,
+            "parent": 140,
+            "notused": 53,
+            "detail": "SEARCH facet_probe USING AUTOMATIC PARTIAL COVERING INDEX (step=?)"
+          },
+          {
+            "id": 178,
+            "parent": 10,
+            "notused": 0,
+            "detail": "UNION ALL"
+          },
+          {
+            "id": 183,
+            "parent": 178,
+            "notused": 46,
+            "detail": "SEARCH c USING INDEX sqlite_autoindex_scholarship_campaigns_1 (slug=?)"
+          },
+          {
+            "id": 202,
+            "parent": 178,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 7"
+          },
+          {
+            "id": 207,
+            "parent": 202,
+            "notused": 216,
+            "detail": "SCAN facet_probe"
+          },
+          {
+            "id": 218,
+            "parent": 178,
+            "notused": 54,
+            "detail": "SEARCH r USING COVERING INDEX scholarship_snapshot_cohort_major_idx (batch_id=? AND cohort>?)"
+          },
+          {
+            "id": 239,
+            "parent": 4,
+            "notused": 213,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 250,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 11"
+          },
+          {
+            "id": 253,
+            "parent": 250,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-10)"
+          },
+          {
+            "id": 263,
+            "parent": 253,
+            "notused": 216,
+            "detail": "SCAN facet_values"
+          },
+          {
+            "id": 275,
+            "parent": 253,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          },
+          {
+            "id": 285,
+            "parent": 250,
+            "notused": 216,
+            "detail": "SCAN (subquery-10)"
+          }
+        ]
+      }
+    ],
+    "precomputeExperiment": {
+      "buildCost": {
+        "sql": 7,
+        "rowsRead": 7340,
+        "rowsWritten": 535
+      },
+      "unfilteredRequestReadLowerBound": {
+        "sql": 9,
+        "rowsRead": 1078,
+        "rowsWritten": 0
+      },
+      "excludes": "policy/revision storage, publication-time validation and filtered scopes; extra safety metadata can add cost",
+      "decision": "design only; not needed for measured no-migration improvement; do not ship this experimental table"
+    },
+    "LARGE": {
+      "size": 10000,
+      "classes": 250,
+      "scenarios": {
+        "cold": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 70043,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 9,
+            "rowsRead": 21047,
+            "rowsWritten": 0
+          }
+        },
+        "warm": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "continuation": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 10755,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 10755,
+            "rowsWritten": 0
+          }
+        },
+        "recipient-after-facets": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 10024,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "cold-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 10024,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 4,
+            "rowsRead": 10026,
+            "rowsWritten": 0
+          }
+        },
+        "warm-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 10024,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "self-excluding-reuse": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 61189,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 8,
+            "rowsRead": 51939,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-same-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 560344,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 23,
+            "rowsRead": 21075,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-different-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 480056,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 65,
+            "rowsRead": 404799,
+            "rowsWritten": 0
+          }
+        }
+      },
+      "cache": {
+        "entries": 109,
+        "characters": 88392,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 32,
+        "misses": 109,
+        "joined": 7
+      },
+      "concurrencyCache": {
+        "entries": 7,
+        "characters": 7820,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 0,
+        "misses": 56,
+        "joined": 49
+      }
+    },
+    "HIGH": {
+      "size": 1060,
+      "classes": 1060,
+      "scenarios": {
+        "cold": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 10581,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 9,
+            "rowsRead": 5597,
+            "rowsWritten": 0
+          }
+        },
+        "warm": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "continuation": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 4245,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 4245,
+            "rowsWritten": 0
+          }
+        },
+        "recipient-after-facets": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1084,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "cold-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1084,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 4,
+            "rowsRead": 1086,
+            "rowsWritten": 0
+          }
+        },
+        "warm-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1084,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "self-excluding-reuse": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 6976,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 8,
+            "rowsRead": 5978,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-same-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 84648,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 23,
+            "rowsRead": 5625,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-different-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 75880,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 65,
+            "rowsRead": 46193,
+            "rowsWritten": 0
+          }
+        }
+      },
+      "cache": {
+        "entries": 109,
+        "characters": 91076,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 32,
+        "misses": 109,
+        "joined": 7
+      },
+      "concurrencyCache": {
+        "entries": 7,
+        "characters": 7917,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 0,
+        "misses": 56,
+        "joined": 49
+      }
+    },
+    "ALL_HIGH": {
+      "size": 1024,
+      "classes": 1024,
+      "scenarios": {
+        "cold": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 25119,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 9,
+            "rowsRead": 25707,
+            "rowsWritten": 0
+          }
+        },
+        "warm": {
+          "phase1": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 2,
+            "rowsRead": 4,
+            "rowsWritten": 0
+          }
+        },
+        "continuation": {
+          "phase1": {
+            "sql": 8,
+            "rowsRead": 24094,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 8,
+            "rowsRead": 24094,
+            "rowsWritten": 0
+          }
+        },
+        "recipient-after-facets": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1048,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "cold-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1048,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 4,
+            "rowsRead": 1050,
+            "rowsWritten": 0
+          }
+        },
+        "warm-recipient": {
+          "phase1": {
+            "sql": 3,
+            "rowsRead": 1048,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 3,
+            "rowsRead": 25,
+            "rowsWritten": 0
+          }
+        },
+        "self-excluding-reuse": {
+          "phase1": {
+            "sql": 9,
+            "rowsRead": 8932,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 8,
+            "rowsRead": 5147,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-same-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 200952,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 23,
+            "rowsRead": 25735,
+            "rowsWritten": 0
+          }
+        },
+        "concurrent-different-key-8": {
+          "phase1": {
+            "sql": 72,
+            "rowsRead": 73312,
+            "rowsWritten": 0
+          },
+          "phase2": {
+            "sql": 65,
+            "rowsRead": 44633,
+            "rowsWritten": 0
+          }
+        }
+      },
+      "cache": {
+        "entries": 224,
+        "characters": 170969,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 63,
+        "misses": 302,
+        "joined": 7
+      },
+      "concurrencyCache": {
+        "entries": 7,
+        "characters": 18155,
+        "pending": 0,
+        "pendingCharacters": 0,
+        "hits": 0,
+        "misses": 56,
+        "joined": 49
+      }
+    }
+  },
+  "validation": {
+    "tests": 1276,
+    "allPassed": true,
+    "commands": [
+      "diff-check",
+      "full-test-final",
+      "browser",
+      "typecheck",
+      "cf-typecheck",
+      "cf-types",
+      "build",
+      "worker-dry-run"
+    ],
+    "logSha256": {
+      "full-test-final.log": "87b5e6c0bd444458623ca9060c45ef41389df8082da9bb46f76de7f7dfd0e23b",
+      "browser.log": "398a0d4084cc64d0a335d999a4abae6ff5d4b2693277b5e0202a1b50d3b7706e",
+      "typecheck-final.log": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa",
+      "cf-typecheck-verified.log": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35",
+      "cf-types-final.log": "75edf35a186fe1cebc5ea0a28e3df658e950733993abe0f98c4410da5b258ab9",
+      "build.log": "8aa7320f5554fe40acb21fc66129784eb4cb72bc182d26334c22fab2af70eb9a",
+      "worker-dry-run-verified.log": "99f9220c48f0296829fca13b328e09b83c4ee5f228dc89dfef6816bd019f263f"
+    },
+    "sourceSha256": {
+      "cloudflare/worker/src/scholarships.ts": "075c376b1a2af94b65e640055fdb9eca08120ef37788a0d54dc2896e9d311498",
+      "cloudflare/worker/src/scholarship-facet-cache.ts": "444ad0698046848370c156de59b6907940d0570bf61eabfe8eccca2930c9a118",
+      "cloudflare/worker/src/scholarship-facet-query.ts": "dcffa3c0c5a79888514b201869c8a9d567ea595d0f2106c65fec02333db29511"
+    },
+    "sourceHashEncoding": "UTF-8 with LF line endings; logs hashed as exact bytes",
+    "notes": [
+      "An initial benchmark run timed out at 300 seconds; the expanded multi-fixture test now has a 900-second budget.",
+      "An initial real-request overlap assertion failed because local D1 finished before requests overlapped; a test-only delayed-count binding now makes overlap deterministic.",
+      "Generated Worker types were initially missing/outdated in the new worktree; local types generation matched the tracked HEAD bytes, followed by successful check/typecheck. No types/config change is included.",
+      "The unrelated DRL generated SQL fixture was verified identical to HEAD modulo Windows line endings, then restored to exact HEAD bytes before the full-suite assertion; it has no Git diff.",
+      "Cache metadata/serialized-size bounds were measured; Worker heap peak and production cache hit rate were not measured."
+    ]
+  }
+}

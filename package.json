@@ -60,7 +60,7 @@
     "ocr:notifications": "node scripts/ocr_need_review_notifications.js",
     "preview": "vite preview",
     "test:dependency-security": "node --test tests/dependency-security-runtime.test.mjs",
-    "test:scholarships": "node --test --experimental-strip-types tests/cloudflare-scholarships.test.ts tests/scholarship-workbook.test.mjs tests/scholarship-d1-runtime.test.mjs tests/scholarship-facets-optimization.test.ts",
+    "test:scholarships": "node --test --experimental-strip-types tests/cloudflare-scholarships.test.ts tests/scholarship-workbook.test.mjs tests/scholarship-d1-runtime.test.mjs && npm run test:scholarships:performance",
     "dev:scholarships:local": "node --experimental-strip-types scripts/dev-scholarships-local.mjs",
     "test:scholarships:frontend": "node --test --experimental-strip-types tests/hub-scholarship-frontend.test.ts tests/dev-api-bridge.test.ts tests/scholarship-hardening.test.ts",
     "test:scholarships:browser": "node --test --test-concurrency=1 --experimental-strip-types tests/scholarship-list.browser.test.ts tests/scholarship-me.browser.test.ts",
@@ -73,7 +73,8 @@
     "test:release-assistant": "node --test tests/release-assistant.test.mjs tests/public-release-solo-owner.test.mjs tests/public-release-v2-rollout.test.mjs",
     "test:overlay": "node --test --experimental-strip-types tests/overlay-scroll-lock.test.ts",
     "test:overlay:browser": "node --test tests/overlay-scroll-lock.browser.test.mjs",
-    "test:overlay:mobile": "node --test tests/mobile-overlay-acceptance.browser.test.mjs"
+    "test:overlay:mobile": "node --test tests/mobile-overlay-acceptance.browser.test.mjs",
+    "test:scholarships:performance": "node --test --test-concurrency=1 --experimental-strip-types tests/scholarship-facets-optimization.test.ts tests/scholarship-phase2.test.ts"
   },
   "dependencies": {
     "@axiomhq/winston": "^1.4.0",

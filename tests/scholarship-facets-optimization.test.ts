@@ -106,7 +106,7 @@ test('Miniflare golden results, query/row costs, cache fencing and isolation', {
     assert.ok(b.cost.sql < a.cost.sql); assert.ok(b.cost.rowsRead < a.cost.rowsRead);
     benchmark[label] = { before: a.cost, after: b.cost };
     if (label === 'continuation-page-two') {
-      assert.equal(after.queries.filter(sql => sql.startsWith('WITH facet_values')).length, 1,
+      assert.equal(after.queries.filter(sql => sql.includes('facet_values AS MATERIALIZED')).length, 1,
         'only the unfinished class facet is queried again');
       assert.equal(after.queries.filter(sql => sql.startsWith('SELECT COUNT')).length, 0);
     }
@@ -248,7 +248,7 @@ test('aggregate cache expires, is bounded, and does not share mutable results', 
   result.facets.major.pages['200:1'][0] = 'changed again';
   assert.equal(cache.get('a', 2)!.facets.major.pages['200:1'][0], 'Public');
   assert.equal(cache.get('a', 30_000), undefined);
-  for (let i = 0; i < 33; i++) cache.put('scope' + i, value, 0);
+  for (let i = 0; i < 225; i++) cache.put('scope' + i, value, 0);
   assert.equal(cache.get('scope0', 1), undefined);
   cache.put('oversize', { totalRecipients: 0, facets: { major: { total: 1, pages: { '1:1': ['x'.repeat(1_000_001)] } } } }, 0);
   assert.equal(cache.get('oversize', 1), undefined);
