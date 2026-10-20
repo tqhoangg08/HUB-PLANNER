@@ -1,0 +1,45 @@
+{
+  "verifiedAt": "2026-10-20T07:44:27.298Z",
+  "previousVersion": "77374643-bb94-420a-ab4c-fd456fca516d",
+  "version": "cf44c795-ddf0-4f56-b55c-6100029d6d3e",
+  "worker": "hub-planner-public-dev-api",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "runId": "39219603848",
+  "sha": "a330d5d9e86fc02083f494bdf833288d79f21f3c",
+  "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39219603848",
+  "deploymentId": "1d030acc-35e0-40c9-b5aa-ae27ace93393",
+  "deploymentCreatedOn": "2026-10-19T08:08:39.183596Z",
+  "versionCreatedOn": "2026-10-19T08:08:38.327299Z",
+  "traffic": [
+    {
+      "versionId": "cf44c795-ddf0-4f56-b55c-6100029d6d3e",
+      "percentage": 100
+    }
+  ],
+  "releaseJob": {
+    "id": 117952753687,
+    "startedAt": "2026-10-19T08:07:48Z",
+    "completedAt": "2026-10-19T08:08:47Z",
+    "conclusion": "success",
+    "ownerGuardConclusion": "success"
+  },
+  "provenance": {
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "releaseShaAncestorOfMain": true,
+    "creationWithinSuccessfulReleaseJob": true
+  },
+  "mainAtPreparation": "dc21aeda40db7f05ee96a860363afe4cf5647f74",
+  "verificationMethod": "Read-only Cloudflare deployments/version GETs using an existing local Wrangler credential; public GitHub run/job GETs and connector job-log reads. Only allowlisted metadata/receipt lines persisted; no credential values, SQL, deployment or configuration writes.",
+  "versionReceipts": [
+    "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=77374643-bb94-420a-ab4c-fd456fca516d",
+    "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=cf44c795-ddf0-4f56-b55c-6100029d6d3e"
+  ],
+  "historicalEvidence": "docs/public-release-baseline-evidence.json",
+  "scope": "Strict predeploy pin/comment and focused regression refresh only. Existing historical evidence remains unchanged. Owner approval, exact-main CI, 100% traffic, drift, bindings and schema guards remain mandatory. This evidence does not approve a release."
+}
