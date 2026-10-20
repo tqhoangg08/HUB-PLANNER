@@ -1,0 +1,420 @@
+{
+  "base": "29a45995bad29b54bb5d0eff1f4f5890a42f851e",
+  "acceptance": "automated emulation only",
+  "before": [
+    {
+      "engine": "chromium",
+      "closed": 0,
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "initial": {
+        "viewport": [
+          375,
+          667
+        ],
+        "header": {
+          "y": 26.6875,
+          "height": 58
+        },
+        "button": {
+          "y": 40.6875,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 0,
+        "focus": "DIV"
+      },
+      "beforeRerender": {
+        "viewport": [
+          375,
+          667
+        ],
+        "header": {
+          "y": 26.6875,
+          "height": 58
+        },
+        "button": {
+          "y": 40.6875,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 3915,
+        "focus": "SUMMARY"
+      },
+      "afterRerender": {
+        "viewport": [
+          375,
+          667
+        ],
+        "header": {
+          "y": 26.6875,
+          "height": 58
+        },
+        "button": {
+          "y": 40.6875,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 3915,
+        "focus": "DIV"
+      },
+      "compact": {
+        "viewport": [
+          375,
+          240
+        ],
+        "header": {
+          "y": 9.59375,
+          "height": 58
+        },
+        "button": {
+          "y": 23.59375,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 3915,
+        "focus": "DIV"
+      },
+      "errors": []
+    },
+    {
+      "engine": "webkit",
+      "closed": 0,
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "initial": {
+        "viewport": [
+          375,
+          667
+        ],
+        "header": {
+          "y": 26.6875,
+          "height": 58
+        },
+        "button": {
+          "y": 40.6875,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 0,
+        "focus": "DIV"
+      },
+      "beforeRerender": {
+        "viewport": [
+          375,
+          667
+        ],
+        "header": {
+          "y": 26.6875,
+          "height": 58
+        },
+        "button": {
+          "y": 40.6875,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 3915,
+        "focus": "SUMMARY"
+      },
+      "afterRerender": {
+        "viewport": [
+          375,
+          667
+        ],
+        "header": {
+          "y": 26.6875,
+          "height": 58
+        },
+        "button": {
+          "y": 40.6875,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 3915,
+        "focus": "DIV"
+      },
+      "compact": {
+        "viewport": [
+          375,
+          240
+        ],
+        "header": {
+          "y": 9.59375,
+          "height": 58
+        },
+        "button": {
+          "y": 23.59375,
+          "height": 30,
+          "width": 58.546875
+        },
+        "scroll": 3915,
+        "focus": "DIV"
+      },
+      "errors": []
+    }
+  ],
+  "after": [
+    {
+      "engine": "chromium",
+      "name": "desktop",
+      "width": 1440,
+      "height": 900,
+      "portrait": {
+        "headerTop": 36,
+        "headerBottom": 108,
+        "closeTop": 50,
+        "closeBottom": 94,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 900,
+        "bodyHeight": 756,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 44,
+        "headerBottom": 116,
+        "closeTop": 58,
+        "closeBottom": 102,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 899,
+        "bodyHeight": 749,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "engine": "chromium",
+      "name": "iphone-13",
+      "width": 390,
+      "height": 844,
+      "portrait": {
+        "headerTop": 33.765625,
+        "headerBottom": 105.765625,
+        "closeTop": 47.765625,
+        "closeBottom": 91.765625,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 844,
+        "bodyHeight": 704,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 44,
+        "headerBottom": 116,
+        "closeTop": 58,
+        "closeBottom": 102,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 843,
+        "bodyHeight": 693,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "engine": "chromium",
+      "name": "iphone-se",
+      "width": 375,
+      "height": 667,
+      "portrait": {
+        "headerTop": 26.6875,
+        "headerBottom": 98.6875,
+        "closeTop": 40.6875,
+        "closeBottom": 84.6875,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 667,
+        "bodyHeight": 542,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 44,
+        "headerBottom": 116,
+        "closeTop": 58,
+        "closeBottom": 102,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 666,
+        "bodyHeight": 516,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "engine": "chromium",
+      "name": "small-360",
+      "width": 360,
+      "height": 640,
+      "portrait": {
+        "headerTop": 25.59375,
+        "headerBottom": 97.59375,
+        "closeTop": 39.59375,
+        "closeBottom": 83.59375,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 640,
+        "bodyHeight": 517,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 44,
+        "headerBottom": 116,
+        "closeTop": 58,
+        "closeBottom": 102,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 639,
+        "bodyHeight": 489,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "engine": "webkit",
+      "name": "desktop",
+      "width": 1440,
+      "height": 900,
+      "portrait": {
+        "headerTop": 36,
+        "headerBottom": 108,
+        "closeTop": 50,
+        "closeBottom": 94,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 900,
+        "bodyHeight": 756,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 41,
+        "headerBottom": 113,
+        "closeTop": 55,
+        "closeBottom": 99,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 899,
+        "bodyHeight": 756,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "engine": "webkit",
+      "name": "iphone-13",
+      "width": 390,
+      "height": 844,
+      "portrait": {
+        "headerTop": 33.765625,
+        "headerBottom": 105.765625,
+        "closeTop": 47.765625,
+        "closeBottom": 91.765625,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 844,
+        "bodyHeight": 704,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 38.765625,
+        "headerBottom": 110.765625,
+        "closeTop": 52.765625,
+        "closeBottom": 96.765625,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 843,
+        "bodyHeight": 704,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "engine": "webkit",
+      "name": "iphone-se",
+      "width": 375,
+      "height": 667,
+      "portrait": {
+        "headerTop": 26.6875,
+        "headerBottom": 98.6875,
+        "closeTop": 40.6875,
+        "closeBottom": 84.6875,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 667,
+        "bodyHeight": 542,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 31.6875,
+        "headerBottom": 103.6875,
+        "closeTop": 45.6875,
+        "closeBottom": 89.6875,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 666,
+        "bodyHeight": 542,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "engine": "webkit",
+      "name": "small-360",
+      "width": 360,
+      "height": 640,
+      "portrait": {
+        "headerTop": 25.59375,
+        "headerBottom": 97.59375,
+        "closeTop": 39.59375,
+        "closeBottom": 83.59375,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 640,
+        "bodyHeight": 517,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "contentHash": "094c51d315b7f44787e91bdb34fbe84870821eed75389664610c8c05e3b7df50",
+      "insets": {
+        "headerTop": 30.609375,
+        "headerBottom": 102.609375,
+        "closeTop": 44.609375,
+        "closeBottom": 88.609375,
+        "closeWidth": 64,
+        "closeHeight": 44,
+        "viewport": 639,
+        "bodyHeight": 517,
+        "overflow": false,
+        "documentOverflow": false
+      },
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}

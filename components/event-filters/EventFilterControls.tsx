@@ -47,7 +47,7 @@ interface EventFilterControlsProps {
 
 const controlClass = 'h-11 rounded-lg border border-[#D8E0EC] bg-white text-[13px] font-semibold text-[#243653] outline-none transition focus:border-[#1769E0] focus:ring-2 focus:ring-blue-100';
 
-const IconButton = ({ label, onClick, children, loading }: { label: string; onClick: () => void; children: React.ReactNode; loading?: boolean }) => (
+const IconButton = ({ label, onClick, children, loading }: { label: string; onClick: React.MouseEventHandler<HTMLButtonElement>; children: React.ReactNode; loading?: boolean }) => (
   <button type="button" aria-label={label} title={label} onClick={onClick} disabled={loading} className={`${controlClass} flex w-11 shrink-0 items-center justify-center hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60`}>
     {children}
   </button>
@@ -193,7 +193,12 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
         </label>
         <div className={`${compact ? 'col-span-2' : 'col-span-2 xl:col-span-1'} flex items-center justify-end gap-2`}>
           <IconButton label="Làm mới dữ liệu" onClick={onRefresh} loading={loading}><RefreshCw size={17} className={loading ? 'animate-spin' : ''} /></IconButton>
-          <IconButton label="Xem hướng dẫn điểm rèn luyện" onClick={onOpenGuide}><FileText size={17} /></IconButton>
+          <IconButton label="Xem hướng dẫn điểm rèn luyện" onClick={(event) => {
+            // Safari does not focus clicked buttons. Give the guide a stable
+            // return target before its focus lifecycle starts, without scrolling.
+            event.currentTarget.focus({ preventScroll: true });
+            onOpenGuide();
+          }}><FileText size={17} /></IconButton>
           {extraActions}
           {onPrimaryAction && (
             <button type="button" onClick={onPrimaryAction} className={`${controlClass} flex items-center justify-center gap-2 !border-[#003375] !bg-[#003375] px-4 !text-white hover:!bg-[#002855]`}>
