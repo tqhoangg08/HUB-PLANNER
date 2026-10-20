@@ -1,0 +1,65 @@
+{
+  "recordedAt": "2026-10-20T14:26:33.282Z",
+  "observedDuring": "2026-10-20, during this task, before 2026-10-20T14:17:26Z",
+  "exactObservationTimestamp": "NOT_CAPTURED_BY_BROWSER_TOOL",
+  "method": "Authorized Chrome extension via cua_repl; existing Cloudflare session; Dashboard Overview then Deployments",
+  "worker": "hub-planner-public-dev-api",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "url": "https://dash.cloudflare.com/6cd8bac6009a55f96bdf9df7c2057548/workers/services/view/hub-planner-public-dev-api/production/deployments",
+  "activeDeployment": {
+    "displayedVersion": "3e7f80ec",
+    "displayedTraffic": "100%",
+    "ready": true,
+    "source": "Wrangler",
+    "triggeredBy": "API token",
+    "displayedAge": "4 hours ago",
+    "otherActiveVersionsDisplayed": 0
+  },
+  "sanitizedVisibleText": [
+    "hub-planner-public-dev-api",
+    "Production",
+    "Active deployment",
+    "Version ID Deployed Traffic %",
+    "3e7f80ec",
+    "4 hours ago",
+    "100%",
+    "3e7f80ec Copy Manually deployed 100% Ready Wrangler by API token 4h ago More options"
+  ],
+  "fullUuidReadFromDashboard": "VERIFIED_FROM_ALREADY_LOADED_DASHBOARD_GET_RESPONSE",
+  "screenshotSaved": false,
+  "limitations": [
+    "No screenshot was saved; initial input/DOM/screenshot and tab recovery attempts timed out. A new tab in the same authorized Chrome recovered read-only metadata access.",
+    "Current commit SHA annotation, complete live settings/binding/schema/ledger inventory were not rechecked."
+  ],
+  "ownerSuppliedObservation": {
+    "claimedVersion": "3e7f80ec-e268-4869-976a-6e26c38244b0",
+    "trafficPercent": 100,
+    "ready": true,
+    "source": "User message describing an Owner Dashboard screenshot dated 2026-10-20",
+    "imageInspected": false,
+    "independentEvidence": false
+  },
+  "safety": {
+    "oauthRefreshed": false,
+    "credentialsRead": false,
+    "permissionsChanged": false,
+    "cloudflareMutations": false,
+    "productionSql": false,
+    "productionTestTraffic": false
+  },
+  "initialObservationRecordedAt": "2026-10-20T14:19:57Z",
+  "initialLimitations": [
+    "Copy action/read returned an empty string, not a UUID.",
+    "Subsequent Playwright input/DOM queries and screenshot/tab recovery timed out; no replacement screenshot was obtained.",
+    "No deployment ID, exact version/deployment created_on, current SHA annotation or complete live variable/binding/schema inventory was captured."
+  ],
+  "recovery": {
+    "method": "Authorized Chrome Dashboard Refresh; browser-provided CDP read of already-loaded Worker metadata GET responses only",
+    "recordedAt": "2026-10-20T14:26:33.282Z",
+    "evidence": "dashboard-metadata.json",
+    "fullVersionId": "3e7f80ec-e268-4869-976a-6e26c38244b0",
+    "trafficPercent": 100,
+    "singleActiveVersion": true,
+    "resourceCreatedOnVerified": true
+  }
+}

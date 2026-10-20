@@ -1,0 +1,110 @@
+{
+  "recordedAt": "2026-10-20T14:41:49.917Z",
+  "mainBaseSha": "29a45995bad29b54bb5d0eff1f4f5890a42f851e",
+  "newBaselineVersion": "3e7f80ec-e268-4869-976a-6e26c38244b0",
+  "nodeVersion": "v24.12.0",
+  "platform": "win32",
+  "wranglerVersion": "4.115.0",
+  "commands": [
+    {
+      "command": "npm ci --ignore-scripts --prefer-offline",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".baseline-npm-install.log",
+      "logSha256": "9189080842a886e49490e3985323b47b5baadb91c03c7f1f0a2244beda179c77"
+    },
+    {
+      "command": "npm run test:release-assistant",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".baseline-release-security.log",
+      "logSha256": "357ac5b23ad287cddb5b517997282c45a92ea7a344b1e100ae3a27d60dafdc25",
+      "reportedTests": 229,
+      "pass": 229,
+      "skipped": 0
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".baseline-typecheck.log",
+      "logSha256": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa"
+    },
+    {
+      "command": "npm run cf:typecheck",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".baseline-cf-typecheck.log",
+      "logSha256": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35"
+    },
+    {
+      "command": "npm run build",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".baseline-build.log",
+      "logSha256": "8c7d01522050ab5724d51114c11b7a3e3f7b78752a673c7e2a11bc2948836a3c"
+    },
+    {
+      "command": "npm test",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".baseline-full-tests.log",
+      "logSha256": "779b30ec8180704a80df038b146f9fa1a726bb59572f1203595ce5ad8daf885a",
+      "reportedTests": 1284,
+      "pass": 1284,
+      "skipped": 0
+    },
+    {
+      "command": "git diff --check; strict pin-only logic equivalence; protected scope/history audit",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --cached --check; staged protected-scope and credential-pattern scan",
+      "status": "PASS",
+      "exitCode": 0
+    }
+  ],
+  "releaseGuardLogicEquivalentExceptStrictPinAndEvidenceComments": true,
+  "historicalEvidenceUnchanged": true,
+  "releaseShaAncestorOfMain": true,
+  "scope": {
+    "trackedSourceChanges": [
+      "scripts/check-public-release-state.mjs",
+      "tests/public-release-v2-rollout.test.mjs"
+    ],
+    "productionWorkflowChanged": false,
+    "ownerApprovalGatesChanged": false,
+    "exactShaCiChecksChanged": false,
+    "authWorkerChanged": false,
+    "configurationChanged": false,
+    "d1SchemaOrMigrationChanged": false,
+    "rateLimiterChanged": false,
+    "billingChanged": false,
+    "secretsChanged": false,
+    "permissionsChanged": false,
+    "remoteSql": false,
+    "productionTestTraffic": false,
+    "merged": false,
+    "deployed": false,
+    "changedFiles": [
+      "docs/evidence/public-release-baseline-3e7f80ec/README.md",
+      "docs/evidence/public-release-baseline-3e7f80ec/SHA256SUMS.txt",
+      "docs/evidence/public-release-baseline-3e7f80ec/dashboard-metadata.json",
+      "docs/evidence/public-release-baseline-3e7f80ec/dashboard-observation.json",
+      "docs/evidence/public-release-baseline-3e7f80ec/github-provenance.json",
+      "docs/evidence/public-release-baseline-3e7f80ec/release-receipts.txt",
+      "docs/evidence/public-release-baseline-3e7f80ec/validation.json",
+      "docs/public-release-baseline-3e7f80ec.json",
+      "docs/public-release-baseline-3e7f80ec.md",
+      "scripts/check-public-release-state.mjs",
+      "tests/public-release-v2-rollout.test.mjs"
+    ]
+  },
+  "localPreparation": [
+    "Restored the existing DRL seed checkout to canonical Git LF bytes for its byte-equality test; no migration content diff.",
+    "Generated local Worker declarations before Cloudflare typecheck; canonical declaration bytes unchanged, no config diff."
+  ],
+  "liveEvidence": "Read-only authorized Chrome Dashboard metadata GET responses; full UUID/single 100% verified. Initial UI/clipboard/screenshot timeouts and successful fresh-tab recovery retained; no screenshot saved.",
+  "ownerHandoff": "Review/merge baseline PR, then rerun independent CI on the new exact main merge SHA before the existing protected Public-only release. No dispatch or deployment by this task."
+}
