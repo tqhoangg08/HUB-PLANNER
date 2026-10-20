@@ -178,7 +178,10 @@ test('HK2 benchmark API uses Better Auth identity for class and major, never MSS
             ? { class_name: 'K27CNTT1', major_name: 'Công nghệ thông tin' } : null;
         }
         if (sql.includes('FROM semester_exact_rankings')) {
-          return sql.includes('class_code = ?')
+          return sql.includes('class_total')
+            ? { total: 10478, outranking: 324, class_total: 40, class_outranking: 2,
+              major_total: 100, major_outranking: 11 }
+            : sql.includes('class_code = ?')
             ? { total: 40, outranking: 2 }
             : sql.includes('major = ?')
               ? { total: 100, outranking: 11 }
@@ -223,6 +226,53 @@ test('HK2 missing personal metrics returns forecast no-data without MSSV lookup'
     found: false, totalStudents: 10478,
   } });
   assert.equal(calls.some((sql) => /FROM user_profiles|FROM semester_exact_rankings/.test(sql)), false);
+});
+
+test('imported benchmark rechecks session on every request, including Auth denial after success', async () => {
+  let authCalls = 0, dbCalls = 0;
+  const env = createEnv(() => {
+    authCalls++;
+    return authCalls === 1 ? Response.json(authIdentity(USER_A))
+      : Response.json({ error: 'student access revoked' }, { status: 403 });
+  }, { prepare(sql: string) {
+    dbCalls++;
+    return { bind() { return this; }, async first() {
+      if (sql.includes('semester_exact_ranking_datasets')) return {
+        semester: EXACT_SEMESTER, total_students: 10478,
+        source_sha256: 'source-v1', imported_at: '2026-10-19',
+      };
+      if (sql.includes('FROM user_profiles')) return { class_name: 'CLASS_A', major_name: 'MAJOR_A' };
+      assert.match(sql, /FROM semester_exact_rankings/);
+      return { total: 10478, outranking: 3, class_total: 40, class_outranking: 1,
+        major_total: 100, major_outranking: 2 };
+    } };
+  } });
+  const body = { semester: EXACT_SEMESTER, gpa: 3.5, trainingScore: 90, credits: 18 };
+  const first = await worker.fetch(importedRequest(body), env, {} as never);
+  assert.equal(first.status, 200);
+  assert.equal((await first.json() as { data: { rank: number } }).data.rank, 4);
+  const denied = await worker.fetch(importedRequest(body), env, {} as never);
+  assert.equal(denied.status, 403);
+  assert.equal(authCalls, 2); assert.equal(dbCalls, 4);
+  assert.doesNotMatch(await denied.text(), /student access revoked|source-v1|totalStudents/);
+});
+
+test('imported benchmark session errors never reach D1 or expose cached private data', async () => {
+  for (const response of [
+    () => Response.json({ error: 'expired' }, { status: 401 }),
+    () => Response.json({ error: 'unverified student' }, { status: 403 }),
+    () => Response.json({ ...authIdentity(), role: 'owner' }),
+    () => { throw new Error('private service error'); },
+  ]) {
+    let dbCalls = 0;
+    const result = await worker.fetch(importedRequest({ semester: EXACT_SEMESTER,
+      gpa: 3.5, trainingScore: 90, credits: 18 }), createEnv(response, {
+      prepare() { dbCalls++; throw new Error('unexpected D1 access'); },
+    }), {} as never);
+    assert.ok([401, 403, 503].includes(result.status));
+    assert.equal(dbCalls, 0);
+    assert.doesNotMatch(await result.text(), /expired|unverified student|private service error|rankInClass/);
+  }
 });
 
 test('no cookie and bearer-only requests cannot authenticate', async () => {

@@ -29,9 +29,18 @@ interface ExactRankingDatasetRow {
   total_students: number;
 }
 
+interface ImportedRankingDatasetRow extends ExactRankingDatasetRow {
+  source_sha256: string;
+  imported_at: string;
+}
+
 interface ImportedBenchmarkScopeRow {
   total: number;
   outranking: number;
+  class_total: number;
+  class_outranking: number;
+  major_total: number;
+  major_outranking: number;
 }
 
 interface RankingProfileRow {
@@ -371,36 +380,50 @@ export const readOwnRanking = async (
 const OUTRANKS = `(gpa > ? OR (gpa = ? AND training_score > ?)
   OR (gpa = ? AND training_score = ? AND credits > ?))`;
 
-const readImportedScope = async (
+const readImportedScopes = async (
   env: RankingsEnv,
   input: ImportedBenchmarkInput,
-  scope: 'school' | 'class' | 'major',
-  scopeValue?: string,
+  classCode: string | null,
+  major: string | null,
 ) => {
-  const column = scope === 'class' ? 'class_code' : scope === 'major' ? 'major' : null;
+  // All three exact scopes share one semester scan. Keep the original SQL
+  // comparator (including NULL/REAL behavior); official order and rounded
+  // legacy score keys are not substitutes for this forecast.
+  const tuple = [input.gpa, input.gpa, input.trainingScore,
+    input.gpa, input.trainingScore, input.credits];
   const row = await env.DB.prepare(
     `SELECT COUNT(*) AS total,
-            COALESCE(SUM(CASE WHEN ${OUTRANKS} THEN 1 ELSE 0 END), 0) AS outranking
+            COALESCE(SUM(CASE WHEN ${OUTRANKS} THEN 1 ELSE 0 END), 0) AS outranking,
+            COUNT(CASE WHEN class_code = ? THEN 1 END) AS class_total,
+            COALESCE(SUM(CASE WHEN class_code = ? AND ${OUTRANKS} THEN 1 ELSE 0 END), 0) AS class_outranking,
+            COUNT(CASE WHEN major = ? THEN 1 END) AS major_total,
+            COALESCE(SUM(CASE WHEN major = ? AND ${OUTRANKS} THEN 1 ELSE 0 END), 0) AS major_outranking
        FROM semester_exact_rankings
-      WHERE semester = ?${column ? ` AND ${column} = ?` : ''}`
+      WHERE semester = ?`
   ).bind(
-    input.gpa, input.gpa, input.trainingScore,
-    input.gpa, input.trainingScore, input.credits,
-    input.semester, ...(column ? [scopeValue] : []),
+    ...tuple, classCode, classCode, ...tuple, major, major, ...tuple, input.semester,
   ).first<ImportedBenchmarkScopeRow>();
-  const total = Number(row?.total ?? 0);
-  return { rank: total ? Number(row?.outranking ?? 0) + 1 : null, total };
+  const scope = (total: number, outranking: number) => ({
+    rank: total ? outranking + 1 : null, total,
+  });
+  return {
+    school: scope(Number(row?.total ?? 0), Number(row?.outranking ?? 0)),
+    classRank: scope(Number(row?.class_total ?? 0), Number(row?.class_outranking ?? 0)),
+    majorRank: scope(Number(row?.major_total ?? 0), Number(row?.major_outranking ?? 0)),
+  };
 };
+
+const readImportedDataset = (env: RankingsEnv, semester: string) => env.DB.prepare(
+  `SELECT semester, total_students, source_sha256, imported_at FROM semester_exact_ranking_datasets
+    WHERE semester = ? AND status = 'ready' LIMIT 1`
+).bind(semester).first<ImportedRankingDatasetRow>();
 
 export const forecastOwnImportedRanking = async (
   env: RankingsEnv,
   userId: string,
   input: ImportedBenchmarkInput,
 ) => {
-  const dataset = await env.DB.prepare(
-    `SELECT semester, total_students FROM semester_exact_ranking_datasets
-      WHERE semester = ? AND status = 'ready' LIMIT 1`
-  ).bind(input.semester).first<ExactRankingDatasetRow>();
+  const dataset = await readImportedDataset(env, input.semester);
   if (!dataset) throw new RankingError(503, 'Dữ liệu học kỳ trên Cloudflare chưa được khởi tạo.');
 
   const base = {
@@ -422,24 +445,28 @@ export const forecastOwnImportedRanking = async (
   ).bind(userId).first<RankingProfileRow>();
   const classCode = profile?.class_name?.trim() || null;
   const major = profile?.major_name?.trim() || null;
-  const school = await readImportedScope(env, input, 'school');
+  const { school, classRank, majorRank } = await readImportedScopes(env, input, classCode, major);
   if (school.total !== Number(dataset.total_students)) {
     throw new RankingError(503, 'Dữ liệu xếp hạng tạm thời chưa nhất quán.');
   }
-  const [classRank, majorRank] = await Promise.all([
-    classCode ? readImportedScope(env, input, 'class', classCode) : null,
-    major ? readImportedScope(env, input, 'major', major) : null,
-  ]);
+  // Reimports mark the semester non-ready before replacing its rows. Fence the
+  // result with that readiness and revision; never cache private responses or
+  // carry an aggregate across requests/datasets.
+  const current = await readImportedDataset(env, input.semester);
+  if (!current || current.total_students !== dataset.total_students ||
+      current.source_sha256 !== dataset.source_sha256 || current.imported_at !== dataset.imported_at) {
+    throw new RankingError(503, 'Dữ liệu xếp hạng tạm thời chưa nhất quán.');
+  }
   return {
     success: true,
     data: {
       ...base,
       found: true,
       rank: school.rank,
-      rankInClass: classRank?.rank ?? null,
-      totalInClass: classRank?.total ?? null,
-      rankInMajor: majorRank?.rank ?? null,
-      totalInMajor: majorRank?.total ?? null,
+      rankInClass: classCode ? classRank.rank : null,
+      totalInClass: classCode ? classRank.total : null,
+      rankInMajor: major ? majorRank.rank : null,
+      totalInMajor: major ? majorRank.total : null,
       classCode,
       major,
     },

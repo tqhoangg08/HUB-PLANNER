@@ -1,0 +1,20 @@
+{
+  "browserInventory": {
+    "apps": [],
+    "browsers": [],
+    "error": "Local browser use is disabled in Work settings"
+  },
+  "todayD1Usage": "NOT_VERIFIED_NEW_SNAPSHOT",
+  "newQuotaErrors": "NOT_VERIFIED",
+  "newLoginErrorsAfterReset": "NOT_VERIFIED",
+  "hourlyTrend": "NOT_VERIFIED_NEW_WINDOW",
+  "lastVerified": {
+    "observedAt": "2026-10-20T03:09:09.512Z",
+    "readsDisplay": "129.69k / 5M",
+    "approxReadsRemaining": 4870310,
+    "rowsWritten": 477
+  },
+  "safety": "No retry through OAuth, credentials extraction, permission changes or alternate bypass; no production requests or SQL.",
+  "recordedAt": "2026-10-20T07:24:16.518Z",
+  "timeNote": "recordedAt is evidence-file creation time; browser restriction was returned earlier during this Phase 3 task"
+}

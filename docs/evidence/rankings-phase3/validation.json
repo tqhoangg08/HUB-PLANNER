@@ -1,0 +1,131 @@
+{
+  "recordedAt": "2026-10-20T08:15:44.312Z",
+  "mainBaseSha": "dc21aeda40db7f05ee96a860363afe4cf5647f74",
+  "productionBaselineSha": "a330d5d9e86fc02083f494bdf833288d79f21f3c",
+  "runtime": {
+    "node": "v24.12.0",
+    "miniflare": "4.20260722.1",
+    "wrangler": "4.115.0",
+    "platform": "win32"
+  },
+  "commands": [
+    {
+      "command": "npm test",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".full-tests-phase3-retry.log",
+      "logSha256": "016c61347f6da40795f39248fdda9865fcf2884684bc0c47220c2d4400885f9e",
+      "reportedTests": 1284,
+      "passed": 1284,
+      "skipped": 0
+    },
+    {
+      "command": "npm run test:unit (additional diagnostic run)",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".unit-phase3.log",
+      "logSha256": "8c355047b5fbe8a1ef6b9c698f38b0788d03280743f512daaabbdb067408f6a4",
+      "reportedTests": 346,
+      "passed": 346,
+      "skipped": 0
+    },
+    {
+      "command": "node --test --experimental-strip-types scripts/hub-roster-parser.test.mjs tools/hub-devtools-snippets/hk1-course-schedule-audit.test.mjs tests/public-release-metadata-probe.test.mjs tests/ai-text-documents.test.ts",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".ci-extra-phase3.log",
+      "logSha256": "a61c759d5b248f218d762cc65ed87757ba580f2afbf89f57a39eb8bf466761da",
+      "reportedTests": 78,
+      "passed": 78,
+      "skipped": 0
+    },
+    {
+      "command": "npm run typecheck",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".typecheck-phase3.log",
+      "logSha256": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa"
+    },
+    {
+      "command": "npm run cf:typecheck",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".cf-typecheck-final-phase3.log",
+      "logSha256": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35"
+    },
+    {
+      "command": "npm run cf:types:check",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".cf-types-check-phase3.log",
+      "logSha256": "e891f2918eaa4be779b8fccb25514bf60263912ba598ed9c56817d4022b13196"
+    },
+    {
+      "command": "npm run build",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".build-phase3.log",
+      "logSha256": "ecdd5c60cc2b739add308dc36de1e3313f4ea18336475b0fc9f451188926469d"
+    },
+    {
+      "command": "npm run cf:check (Wrangler deploy --dry-run)",
+      "status": "PASS",
+      "exitCode": 0,
+      "localLog": ".worker-dry-run-phase3.log",
+      "logSha256": "693229d2a563bc121ee08446c088b1c82433ab519e05505148b4e0d0eb2aa0dd"
+    },
+    {
+      "command": "git diff --check",
+      "status": "PASS",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --cached --check; production scope audit",
+      "status": "PASS",
+      "exitCode": 0
+    }
+  ],
+  "initialFailures": [
+    {
+      "command": "npm run cf:types:check",
+      "reason": "Generated local declaration line endings; local regeneration then check PASS, no canonical Git content change."
+    },
+    {
+      "command": "npm test (initial run)",
+      "reason": "Unmodified DRL SQL checkout CRLF differed from LF generator; canonical main blob equals generator. Restore local LF, no migration diff; focused 13/13 and complete rerun PASS.",
+      "evidence": "local-line-ending-diagnostic.json"
+    }
+  ],
+  "scope": {
+    "authWorkerModified": false,
+    "releaseGuardsModified": false,
+    "configurationModified": false,
+    "migrationRequired": false,
+    "remoteSql": false,
+    "productionTestTraffic": false,
+    "deployed": false,
+    "merged": false,
+    "dependenciesChanged": false,
+    "changedFiles": [
+      "cloudflare/worker/src/rankings.ts",
+      "docs/evidence/rankings-phase3/README.md",
+      "docs/evidence/rankings-phase3/SHA256SUMS.txt",
+      "docs/evidence/rankings-phase3/baseline-provenance.json",
+      "docs/evidence/rankings-phase3/benchmark.json",
+      "docs/evidence/rankings-phase3/current-quota-access.json",
+      "docs/evidence/rankings-phase3/local-line-ending-diagnostic.json",
+      "docs/evidence/rankings-phase3/production-query-insights.json",
+      "docs/evidence/rankings-phase3/validation.json",
+      "docs/rankings-d1-phase3.md",
+      "docs/rankings-precompute-proposal.md",
+      "package.json",
+      "tests/cloudflare-private-exact-ranking-auth.test.ts",
+      "tests/cloudflare-rankings-model.test.ts",
+      "tests/fixtures/rankings-performance.ts",
+      "tests/rankings-phase3.test.ts"
+    ]
+  },
+  "measurementBoundary": "Synthetic local Public D1 handler costs after route auth; not Auth Worker D1, HTTP middleware or observed production savings.",
+  "currentQuota": "NOT_VERIFIED; Local browser use is disabled in Work settings. Historical usage only in current-quota-access.json.",
+  "ci": "Local validation only. Independent PR CI must be checked against the pushed head revision separately."
+}

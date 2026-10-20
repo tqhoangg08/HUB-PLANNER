@@ -1,0 +1,23 @@
+{
+  "workingCRLF": true,
+  "canonicalMatchesGenerated": true,
+  "workingMatchesAfterEolNormalization": true,
+  "unmodifiedDependencies": [
+    {
+      "path": "tests/event-drl-policy.test.ts",
+      "canonicalSameAsMain": true
+    },
+    {
+      "path": "scripts/build-drl-policy-seed.mjs",
+      "canonicalSameAsMain": true
+    },
+    {
+      "path": "utils/drlPolicy2026.ts",
+      "canonicalSameAsMain": true
+    },
+    {
+      "path": "cloudflare/migrations/0058_seed_drl_catalog_2026.sql",
+      "canonicalSameAsMain": true
+    }
+  ]
+}

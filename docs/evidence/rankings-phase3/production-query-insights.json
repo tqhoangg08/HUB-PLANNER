@@ -1,0 +1,43 @@
+{
+  "source": "Cloudflare Dashboard evidence collected 2026-10-20; historical, not a fresh quota measurement",
+  "sourceFile": "phase2Day19-module-attribution.json",
+  "sourceSha256": "7fdbbcc1f91c2afe212a5f6c81f31abd3be003948e90b35b45d5dcc40c779dcc",
+  "windowUTC": [
+    "2026-10-19T08:15:00.000Z",
+    "2026-10-19T23:57:00.000Z"
+  ],
+  "observedAt": "2026-10-20T02:52:56.879Z",
+  "requestId": "16292.1691",
+  "rankingsTotalReads": 1299535,
+  "aggregateRowsRead": 1299272,
+  "aggregateExecutions": 124,
+  "fingerprints": [
+    {
+      "fingerprintSha256": "5de96e6a220eea9cc238ed218a5b443e6de8aa27c238eb914fe6a1ed885dfdd4",
+      "module": "Rankings",
+      "sql": "SELECT COUNT(*) AS total,\n            COALESCE(SUM(CASE WHEN (gpa > ? OR (gpa = ? AND training_score > ?)\n  OR (gpa = ? AND training_score = ? AND credits > ?)) THEN 1 ELSE 0 END), 0) AS outranking\n       FROM semester_exact_rankings\n      WHERE semester = ?",
+      "executions": 51,
+      "rowsRead": 534378,
+      "rowsWritten": 0,
+      "averageRowsRead": 10478
+    },
+    {
+      "fingerprintSha256": "f7b568aa26a9bfc0b940cb4f5264712a54a6c776066d5a30c215e28e8b7a8b29",
+      "module": "Rankings",
+      "sql": "SELECT COUNT(*) AS total,\n            COALESCE(SUM(CASE WHEN (gpa > ? OR (gpa = ? AND training_score > ?)\n  OR (gpa = ? AND training_score = ? AND credits > ?)) THEN 1 ELSE 0 END), 0) AS outranking\n       FROM semester_exact_rankings\n      WHERE semester = ? AND major = ?",
+      "executions": 39,
+      "rowsRead": 408642,
+      "rowsWritten": 0,
+      "averageRowsRead": 10478
+    },
+    {
+      "fingerprintSha256": "62941096d21a9818d1da727e2a9ba3cdee908adf4a4ea1a4d93d4276fe752109",
+      "module": "Rankings",
+      "sql": "SELECT COUNT(*) AS total,\n            COALESCE(SUM(CASE WHEN (gpa > ? OR (gpa = ? AND training_score > ?)\n  OR (gpa = ? AND training_score = ? AND credits > ?)) THEN 1 ELSE 0 END), 0) AS outranking\n       FROM semester_exact_rankings\n      WHERE semester = ? AND class_code = ?",
+      "executions": 34,
+      "rowsRead": 356252,
+      "rowsWritten": 0,
+      "averageRowsRead": 10478
+    }
+  ]
+}

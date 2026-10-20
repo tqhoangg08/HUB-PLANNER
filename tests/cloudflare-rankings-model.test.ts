@@ -227,7 +227,8 @@ test('imported benchmark parser accepts incomplete personal inputs but rejects i
 test('imported HK2 comparator gives best tie rank and respects GPA, training, credits, class and major', async () => {
   const sql = new DatabaseSync(':memory:');
   try {
-    sql.exec(`CREATE TABLE semester_exact_ranking_datasets (semester TEXT, total_students INTEGER, status TEXT);
+    sql.exec(`CREATE TABLE semester_exact_ranking_datasets (semester TEXT, total_students INTEGER, status TEXT,
+      source_sha256 TEXT, imported_at TEXT);
       CREATE TABLE semester_exact_rankings (semester TEXT, student_code TEXT, rank INTEGER, gpa REAL,
         training_score INTEGER, credits INTEGER, class_code TEXT, major TEXT);
       CREATE TABLE user_profiles (user_id TEXT, student_code TEXT, class_name TEXT);
@@ -244,7 +245,7 @@ test('imported HK2 comparator gives best tie rank and respects GPA, training, cr
     }
     insert.run('000000000103', 103, 3.6, 89, 30, 'CLASS_B', 'MAJOR_B');
     insert.run('000000000104', 104, 3.5, 100, 30, 'CLASS_B', 'MAJOR_B');
-    sql.prepare(`INSERT INTO semester_exact_ranking_datasets VALUES ('2025-2026_HK2',104,'ready')`).run();
+    sql.prepare(`INSERT INTO semester_exact_ranking_datasets VALUES ('2025-2026_HK2',104,'ready','source-v1','2026-09-28')`).run();
     sql.prepare(`INSERT INTO user_profiles VALUES (?,?,?)`).run(USER_ID, '000000000100', 'CLASS_A');
     sql.prepare(`INSERT INTO user_profile_private VALUES (?,?)`).run(USER_ID, 'MAJOR_A');
     const otherUser = '57768d5d-e2a7-49c3-92a5-3956cd05de69';
