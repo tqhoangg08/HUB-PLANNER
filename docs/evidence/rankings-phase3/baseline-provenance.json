@@ -1,0 +1,20 @@
+{
+  "mainBase": "dc21aeda40db7f05ee96a860363afe4cf5647f74",
+  "productionRelease": 39219603848,
+  "productionSha": "a330d5d9e86fc02083f494bdf833288d79f21f3c",
+  "scope": "Pinned source/schema, historical release; current serving version NOT_RECHECKED",
+  "files": [
+    {
+      "path": "cloudflare/worker/src/rankings.ts",
+      "productionSha256": "8dbb6d596145224cba20692673e88c033671fabeb90e6714a238c70b26ae4e73",
+      "mainBaseSha256": "8dbb6d596145224cba20692673e88c033671fabeb90e6714a238c70b26ae4e73",
+      "equal": true
+    },
+    {
+      "path": "cloudflare/migrations/0050_semester_exact_rankings.sql",
+      "productionSha256": "80c537d9c38d945bc5e92e988c85a14d5524d5d0da9a98b10b9154d177d4888f",
+      "mainBaseSha256": "80c537d9c38d945bc5e92e988c85a14d5524d5d0da9a98b10b9154d177d4888f",
+      "equal": true
+    }
+  ]
+}
