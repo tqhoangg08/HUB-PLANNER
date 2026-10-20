@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-10-20T14:26:33.282Z",
+  "method": "Authorized Chrome Dashboard Refresh; browser-provided CDP read of already-loaded Worker metadata GET responses only",
+  "deploymentsRequestId": "28052.745",
+  "versionsRequestId": "28052.751",
+  "responses": [
+    {
+      "url": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/deployments",
+      "status": 200
+    },
+    {
+      "url": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/versions?page=1&per_page=15",
+      "status": 200
+    }
+  ],
+  "success": true,
+  "deployment": {
+    "id": "6ce53f5f-ffea-44b7-9937-98851c03aa93",
+    "createdOn": "2026-10-20T09:50:17.050028Z",
+    "source": "wrangler",
+    "strategy": "percentage",
+    "versions": [
+      {
+        "version_id": "3e7f80ec-e268-4869-976a-6e26c38244b0",
+        "percentage": 100
+      }
+    ]
+  },
+  "version": {
+    "id": "3e7f80ec-e268-4869-976a-6e26c38244b0",
+    "number": 460,
+    "createdOn": "2026-10-20T09:50:16.082485Z",
+    "source": "wrangler",
+    "annotationKeys": [
+      "workers/triggered_by"
+    ]
+  },
+  "headerOrCredentialValuesRead": false,
+  "temporaryNetworkObservationStopped": true
+}

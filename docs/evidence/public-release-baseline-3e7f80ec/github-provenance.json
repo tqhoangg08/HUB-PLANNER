@@ -1,0 +1,98 @@
+{
+  "recordedAt": "2026-10-20T14:19:57Z",
+  "release": {
+    "id": 39402488104,
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39402488104",
+    "name": "Approved Public-only production release",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "headSha": "c015275aaad5d4e46993950ad3d2f3d4a59d2b8b",
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2026-10-20T09:41:10Z",
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "path": ".github/workflows/deploy-cloudflare-production.yml",
+    "updatedAt": "2026-10-20T09:50:31Z"
+  },
+  "jobs": [
+    {
+      "id": 118560359745,
+      "name": "validate",
+      "startedAt": "2026-10-20T09:41:14Z",
+      "completedAt": "2026-10-20T09:44:17Z",
+      "conclusion": "success",
+      "steps": []
+    },
+    {
+      "id": 118561614898,
+      "name": "release-public",
+      "startedAt": "2026-10-20T09:49:20Z",
+      "completedAt": "2026-10-20T09:50:31Z",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Verify live settings and schema without applying migrations",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-20T09:49:59Z",
+          "completed_at": "2026-10-20T09:50:05Z"
+        },
+        {
+          "name": "Verify solo owner approval, live protections and exact-SHA CI",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-20T09:50:05Z",
+          "completed_at": "2026-10-20T09:50:07Z"
+        },
+        {
+          "name": "Deploy Public Worker and frontend assets",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-20T09:50:07Z",
+          "completed_at": "2026-10-20T09:50:25Z"
+        },
+        {
+          "name": "Verify serving Public version preserves V2 100 percent and document flags remain OFF",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-20T09:50:25Z",
+          "completed_at": "2026-10-20T09:50:28Z"
+        }
+      ]
+    }
+  ],
+  "independentMainCI": {
+    "id": 39405698063,
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39405698063",
+    "name": "AI Advisor PR validation (no deployment)",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "headSha": "29a45995bad29b54bb5d0eff1f4f5890a42f851e",
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "startedAt": "2026-10-20T10:07:40Z",
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "path": ".github/workflows/ai-advisor-pr-validation.yml",
+    "updatedAt": "2026-10-20T10:12:37Z"
+  },
+  "receipts": [
+    "2026-10-20T09:49:24.7025808Z c015275aaad5d4e46993950ad3d2f3d4a59d2b8b",
+    "2026-10-20T09:50:05.2537563Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=cf44c795-ddf0-4f56-b55c-6100029d6d3e",
+    "2026-10-20T09:50:07.2831986Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+    "2026-10-20T09:50:23.2607215Z Uploaded hub-planner-public-dev-api (12.70 sec)",
+    "2026-10-20T09:50:25.8721875Z Deployed hub-planner-public-dev-api triggers (2.62 sec)",
+    "2026-10-20T09:50:25.8729767Z Current Version ID: 3e7f80ec-e268-4869-976a-6e26c38244b0",
+    "2026-10-20T09:50:28.5191006Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=3e7f80ec-e268-4869-976a-6e26c38244b0"
+  ],
+  "sourceReceiptSha256": "d1698b64f79dc6ea2bd8fefbcb3718206d6aae74d6da85bdd8cab8ff9592549e",
+  "releaseJobCheckoutShaVerified": true,
+  "releaseShaAncestorOfMain": true
+}

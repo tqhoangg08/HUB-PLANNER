@@ -145,6 +145,7 @@ test('state reader uses only Public metadata GETs and the fixed read-only schema
 
 test('wrong account, Auth DB, absent previous version or invalid phase fail before network access',async()=>{
   for(const patch of [{account:'wrong'},{token:''},{phase:'skip'},{phase:'postdeploy',beforeVersion:undefined},{phase:'postdeploy',beforeVersion:after},
+    {phase:'postdeploy',beforeVersion:'cf44c795-ddf0-4f56-b55c-6100029d6d3e'},
     {phase:'postdeploy',beforeVersion:'77374643-bb94-420a-ab4c-fd456fca516d'},
     {phase:'postdeploy',beforeVersion:'799042c2-47a2-471c-80dc-e13c42e237ef'},
     {phase:'postdeploy',beforeVersion:'9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1'}]){
@@ -186,11 +187,12 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
   }
 });
 
-test('predeploy accepts reviewed cf44c795 baseline and rejects previous or unknown versions',async()=>{
-  assert.equal(before,'cf44c795-ddf0-4f56-b55c-6100029d6d3e');
-  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-cf44c795.json','utf8'));
-  assert.equal(evidence.version,before);assert.equal(evidence.runId,'39219603848');
-  assert.equal(evidence.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-evidence.json','utf8')).version);
+test('predeploy accepts reviewed 3e7f80ec baseline and rejects previous or unknown versions',async()=>{
+  assert.equal(before,'3e7f80ec-e268-4869-976a-6e26c38244b0');
+  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-3e7f80ec.json','utf8'));
+  assert.equal(evidence.version,before);assert.equal(evidence.runId,'39402488104');
+  assert.equal(evidence.sha,'c015275aaad5d4e46993950ad3d2f3d4a59d2b8b');
+  assert.equal(evidence.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-cf44c795.json','utf8')).version);
   const wrap=result=>({ok:true,json:async()=>({success:true,result})});
   const reviewed=fakeApi('predeploy');
   assert.equal((await checkPublicReleaseState(config,opts(reviewed))).versionId,before);
@@ -198,7 +200,7 @@ test('predeploy accepts reviewed cf44c795 baseline and rejects previous or unkno
   const unknown=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:after,percentage:100}]}]}):undefined);
   await assert.rejects(()=>checkPublicReleaseState(config,opts(unknown)),/UNREVIEWED_PREDEPLOY_VERSION/);
   assert.ok(!unknown.calls.some(c=>c.url.includes('/versions/')));
-  for(const obsoleteVersion of ['77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
+  for(const obsoleteVersion of ['cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
     const obsolete=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:obsoleteVersion,percentage:100}]}]}):undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(obsolete)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!obsolete.calls.some(c=>c.url.includes('/versions/')));
@@ -211,7 +213,7 @@ test('predeploy accepts reviewed cf44c795 baseline and rejects previous or unkno
 
 test('reviewed baseline still rejects partial or split traffic in both release phases',async()=>{
   for(const phase of ['predeploy','postdeploy'])for(const versions of [
-    [{version_id:phase==='predeploy'?before:after,percentage:99}],
+    ...[0,7,99,101,'100',undefined].map(percentage=>[{version_id:phase==='predeploy'?before:after,percentage}]),
     [{version_id:before,percentage:50},{version_id:after,percentage:50}],
     [{version_id:before,percentage:100},{version_id:after,percentage:0}],
   ]){
