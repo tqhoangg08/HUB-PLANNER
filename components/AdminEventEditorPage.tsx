@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, Eye, FileImage, FileText, Info, Loader2, Settings2, Trash2, Upload, X } from 'lucide-react';
@@ -162,6 +163,6 @@ export const AdminEventEditorPage: React.FC = () => {
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-[#003375]" aria-labelledby="event-note-title"><h2 id="event-note-title" className="flex items-center gap-2 font-black"><Info size={17}/>Lưu ý</h2><p className="mt-2 text-xs leading-5">Sự kiện sau khi công khai sẽ xuất hiện trong danh sách dành cho sinh viên. Hãy kiểm tra thời gian, điểm rèn luyện và đường dẫn trước khi tạo.</p></section>
       </aside>
     </form>
-    {preview && <div role="dialog" aria-modal="true" aria-label="Xem trước sự kiện" className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/60 p-3 sm:p-6"><div className="mx-auto max-w-5xl rounded-lg bg-white p-4 sm:p-6"><div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3"><h2 className="font-black text-[#003375]">Xem trước bản nháp</h2><button type="button" onClick={() => setPreview(false)} className={secondary}><X size={16}/>Đóng</button></div><EventDetailView event={detail} preview canEdit={false} isRegistrationClosed={draft.is_manually_closed} isParticipated={false} onBack={() => setPreview(false)} recordView={false}/></div></div>}
+    {preview && <Overlay role="dialog" aria-modal="true" aria-label="Xem trước sự kiện" className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/60 p-3 sm:p-6"><div className="mx-auto max-w-5xl rounded-lg bg-white p-4 sm:p-6"><div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3"><h2 className="font-black text-[#003375]">Xem trước bản nháp</h2><button type="button" onClick={() => setPreview(false)} className={secondary}><X size={16}/>Đóng</button></div><EventDetailView event={detail} preview canEdit={false} isRegistrationClosed={draft.is_manually_closed} isParticipated={false} onBack={() => setPreview(false)} recordView={false}/></div></Overlay>}
   </div>;
 };

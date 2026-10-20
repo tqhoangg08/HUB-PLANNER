@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle, Tag, Bell, BarChart3 } from 'lucide-react';
@@ -2467,7 +2468,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         {/* ============================================================== */}
 
         {isAdminEditModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }}>
+            <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }}>
                 <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[90vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -2511,11 +2512,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         </button>
                     </form>
                 </div>
-            </div>, document.body
+            </Overlay>, document.body
         )}
 
         {selectedChangedCourse && createPortal(
-            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setSelectedChangedCourse(null)}>
+            <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setSelectedChangedCourse(null)}>
                 <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[88vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-start justify-between border-b border-gray-100 shrink-0">
@@ -2550,7 +2551,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         ))}
                     </div>
                 </div>
-            </div>, document.body
+            </Overlay>, document.body
         )}
 
         {/* MODAL CHI TIẾT MÔN HỌC */}
@@ -2634,7 +2635,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             };
 
             return createPortal(
-                <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setSelectedCourseInfo(null)}>
+                <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setSelectedCourseInfo(null)}>
                     <div className="bg-white rounded-t-3xl w-full flex flex-col overflow-hidden animate-slideUp shadow-2xl relative max-h-[90vh]" onClick={e => e.stopPropagation()}>
                         <DragHandle />
                         <div className="p-4 border-b border-gray-100 flex justify-between items-start shrink-0">
@@ -2749,13 +2750,13 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             )}
                         </div>
                     </div>
-                </div>, document.body
+                </Overlay>, document.body
             );
         })()}
 
         {/* MODAL GẮN NHÃN NHANH */}
         {quickTagCourse && createPortal(
-            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setQuickTagCourse(null)}>
+            <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setQuickTagCourse(null)}>
                 <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[88vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -2823,12 +2824,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         </button>
                     </div>
                 </div>
-            </div>, document.body
+            </Overlay>, document.body
         )}
 
         {/* MODAL MÔN ĐÃ LƯU */}
         {isMyScheduleModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsMyScheduleModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsMyScheduleModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full flex flex-col h-[75vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -2857,12 +2858,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         )}
                     </div>
                 </div>
-            </div>, document.body
+            </Overlay>, document.body
         )}
 
         {/* MODAL BÁO LỖI */}
         {isStudentEditModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsStudentEditModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsStudentEditModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[90vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -2894,11 +2895,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         </button>
                     </form>
                 </div>
-            </div>, document.body
+            </Overlay>, document.body
         )}
 
         {isReportModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsReportModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsReportModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slideUp flex flex-col relative" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -2914,12 +2915,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         <button type="submit" className="w-full py-3 rounded-xl bg-red-600 text-white text-[13px] font-bold active:bg-red-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2"><Send size={16}/> Tạo ticket hỗ trợ</button>
                     </form>
                 </div>
-            </div>, document.body
+            </Overlay>, document.body
         )}
 
         {/* MODAL YÊU CẦU THÊM MÔN */}
         {isCreateCourseModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsCreateCourseModalOpen(false)}>
+            <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsCreateCourseModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slideUp flex flex-col relative" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -2936,7 +2937,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         <button type="submit" disabled={isSubmittingCourse || !newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)} className="w-full py-3 rounded-xl bg-emerald-600 text-white text-[13px] font-bold active:bg-emerald-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2 disabled:bg-slate-300">{isSubmittingCourse ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} Gửi yêu cầu</button>
                     </form>
                 </div>
-            </div>, document.body
+            </Overlay>, document.body
         )}
 
         {isPdfGuideOpen && (

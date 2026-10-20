@@ -3192,7 +3192,7 @@ body.mobile-standalone .mobile-app-root *::after {
     Header/menu vẫn bình thường,
     nhưng không cho nó tạo scroll container phụ.
   */
-  html.mobile-browser header {
+  html.mobile-browser #root header {
     flex-shrink: 0 !important;
     background-color: rgba(255, 255, 255, 0.96) !important;
   }
@@ -3218,7 +3218,7 @@ body.mobile-standalone .mobile-app-root *::after {
     background-color: #F8FAFC !important;
   }
 
-  html.mobile-browser footer {
+  html.mobile-browser #root footer {
     margin-bottom: 0 !important;
     background-color: transparent !important;
   }
@@ -3297,20 +3297,6 @@ html.mobile-browser .mobile-browser-drawer-scroll {
   min-height: auto !important;
   overflow: visible !important;
   padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important;
-}
-
-html.mobile-menu-open,
-body.mobile-menu-open {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-}
-
-html.mobile-menu-open .app-shell,
-html.mobile-menu-open .desktop-page-scroll,
-html.mobile-menu-open .desktop-page-main,
-html.mobile-menu-open main {
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
 }
 
 @keyframes mobileMenuPanelIn {

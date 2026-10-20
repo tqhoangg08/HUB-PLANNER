@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useState } from 'react';
 import {
     Bell,
@@ -302,7 +303,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             </div>
 
             {showNotificationSettings && createPortal(
-                <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/60 animate-fadeIn" onClick={() => setShowNotificationSettings(false)}>
+                <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/60 animate-fadeIn" onClick={() => setShowNotificationSettings(false)}>
                     <div className="flex max-h-[78vh] w-full max-w-[430px] flex-col rounded-t-3xl bg-white shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
                         <DragHandle />
                         <div className="flex items-center justify-between border-b border-gray-100 px-5 pb-3 pt-2">
@@ -328,7 +329,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                             </button>
                         </div>
                     </div>
-                </div>,
+                </Overlay>,
                 document.body
             )}
         </div>

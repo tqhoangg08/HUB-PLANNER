@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { DRL_APPENDIX_ROWS, DRL_NOTES, DRL_SECTIONS, DRL_SPECIAL_CASES } from '../utils/drlPolicy2026';
@@ -8,8 +9,6 @@ export const DrlScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
   useEffect(() => {
     if (!isOpen) return;
     const previous = document.activeElement as HTMLElement | null;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     dialog.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); onClose(); }
@@ -21,10 +20,10 @@ export const DrlScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
       } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
     document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; previous?.focus(); };
+    return () => { document.removeEventListener('keydown', onKey); previous?.focus({ preventScroll: true }); };
   }, [isOpen, onClose]);
   if (!isOpen) return null;
-  return createPortal(<div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-2 sm:p-5" onClick={onClose}>
+  return createPortal(<Overlay className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-2 sm:p-5" onClick={onClose}>
     <div role="dialog" aria-modal="true" aria-labelledby={titleId} ref={dialog} tabIndex={-1}
       className="flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white text-slate-800 shadow-xl focus:outline-none" onClick={(event) => event.stopPropagation()}>
       <header className="flex items-start justify-between gap-3 bg-[#003375] p-4 text-white">
@@ -49,5 +48,5 @@ export const DrlScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClo
           <details className="rounded border p-3 text-sm"><summary className="cursor-pointer font-semibold">Điều 8 — Các trường hợp đặc thù</summary>{DRL_SPECIAL_CASES.map((text) => <p key={text} className="mt-2">{text}</p>)}</details>
       </div>
     </div>
-  </div>, document.body);
+  </Overlay>, document.body);
 };

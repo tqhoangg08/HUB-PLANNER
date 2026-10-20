@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
@@ -21,7 +22,7 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
     const hasRank = Boolean(data?.rank && data?.totalStudents);
 
     return createPortal(
-        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/75 px-3 py-4 sm:px-4 sm:py-6 animate-fadeIn motion-reduce:animate-none" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/75 px-3 py-4 sm:px-4 sm:py-6 animate-fadeIn motion-reduce:animate-none" onClick={onClose}>
             <div
                 className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-3xl flex-col overflow-hidden rounded-[10px] bg-white shadow-xl animate-slideUp motion-reduce:animate-none sm:max-h-[86vh] sm:rounded-lg"
                 onClick={(event) => event.stopPropagation()}
@@ -134,7 +135,7 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
                     )}
                 </div>
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };

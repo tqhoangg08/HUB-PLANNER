@@ -1,3 +1,4 @@
+import { Overlay } from '../Overlay';
 import React from 'react';
 import { Loader2, User, X } from 'lucide-react';
 
@@ -25,7 +26,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     if (!open) return null;
 
     return (
-        <div
+        <Overlay
             className={`fixed inset-0 z-[100000] flex animate-fadeIn bg-black/60 ${
                 mobile
                     ? 'items-end justify-center p-0'
@@ -118,6 +119,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                     </button>
                 </div>
             </div>
-        </div>
+        </Overlay>
     );
 };

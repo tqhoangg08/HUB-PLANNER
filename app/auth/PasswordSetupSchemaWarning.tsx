@@ -1,3 +1,4 @@
+import { Overlay } from '../../components/Overlay';
 import { AlertTriangle } from 'lucide-react';
 
 interface PasswordSetupSchemaWarningProps {
@@ -10,7 +11,7 @@ export const PasswordSetupSchemaWarning = ({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4">
+        <Overlay className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4">
             <div className="w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-6 shadow-2xl sm:p-8">
                 <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
                     <AlertTriangle size={28} />
@@ -31,6 +32,6 @@ export const PasswordSetupSchemaWarning = ({
                     trước khi cho sinh viên dùng tiếp.
                 </p>
             </div>
-        </div>
+        </Overlay>
     );
 };

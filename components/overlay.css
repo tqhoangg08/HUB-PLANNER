@@ -1,0 +1,27 @@
+/* Scoped foundation shared by dialogs and drawers, including keyboard-sized viewports. */
+.overlay-root {
+  --overlay-height: 100dvh;
+  --overlay-top: 0px;
+  position: fixed !important;
+  top: var(--overlay-top) !important;
+  bottom: auto !important;
+  height: var(--overlay-height) !important;
+  min-height: 0 !important;
+  max-height: var(--overlay-height) !important;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 1rem;
+}
+
+/* Limit existing vh-based panels without changing their preferred size or appearance. */
+.overlay-root > :not(button) {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.overlay-root :where(.overflow-y-auto, .overflow-y-scroll, .overflow-auto, .mobile-menu-scroll) {
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}

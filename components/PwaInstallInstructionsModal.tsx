@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React from 'react';
 import { Download, PlusSquare, Share, X } from 'lucide-react';
 
@@ -13,7 +14,7 @@ export const PwaInstallInstructionsModal: React.FC<PwaInstallInstructionsModalPr
     if (!open) return null;
 
     return (
-        <div
+        <Overlay
             className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center sm:items-center p-4 animate-fadeIn"
             onClick={onClose}
         >
@@ -69,6 +70,6 @@ export const PwaInstallInstructionsModal: React.FC<PwaInstallInstructionsModalPr
                     Đã hiểu
                 </button>
             </div>
-        </div>
+        </Overlay>
     );
 };

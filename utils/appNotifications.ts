@@ -1,4 +1,5 @@
-import Swal, { SweetAlertIcon } from 'sweetalert2';
+import type { SweetAlertIcon } from 'sweetalert2';
+import { fireOverlayAlert } from './overlayAlert';
 import {
   buildErrorSupportTicketDraft,
   saveSupportTicketDraft,
@@ -89,7 +90,7 @@ export const showAlert = async (input: string | NotifyOptions) => {
   const message = typeof input === 'string' ? parsed.message : (input.message || parsed.message);
   const canCreateSupportTicket = variant === 'error';
 
-  const result = await Swal.fire({
+  const result = await fireOverlayAlert({
     title,
     text: message,
     icon: ICON_BY_VARIANT[variant],
@@ -122,7 +123,7 @@ export const showConfirm = async (input: string | NotifyOptions): Promise<boolea
   const message = typeof input === 'string' ? parsed.message : (input.message || parsed.message);
   const variant = typeof input === 'string' ? detectVariant(rawMessage, 'question') : (input.variant || 'question');
 
-  const result = await Swal.fire({
+  const result = await fireOverlayAlert({
     title,
     text: message,
     icon: ICON_BY_VARIANT[variant],
@@ -145,7 +146,7 @@ export const showToast = (input: string | NotifyOptions) => {
   const variant = typeof input === 'string' ? detectVariant(rawMessage) : (input.variant || detectVariant(rawMessage));
   const parsed = splitTitleAndMessage(rawMessage, variant);
 
-  void Swal.fire({
+  void fireOverlayAlert({
     toast: true,
     position: 'top-end',
     icon: ICON_BY_VARIANT[variant],

@@ -5,9 +5,12 @@ import react from '@vitejs/plugin-react';
 import { chromium } from 'playwright-core';
 import { mkdir } from 'node:fs/promises';
 
-const server = await createServer({ configFile:false, plugins:[react()], cacheDir:'.cache/drl-browser-policy-deps',
+const server = await createServer({ configFile:false, plugins:[react()], cacheDir:'node_modules/.vite-drl-policy-tests',
   optimizeDeps:{entries:['tests/drl-policy-harness.html']}, server:{host:'127.0.0.1',port:0},logLevel:'error' });
 await server.listen();
+// Compile the fixture and Tailwind before the page navigation timeout starts.
+await server.warmupRequest('/tests/drl-policy-harness.tsx');
+await server.warmupRequest('/index.css');
 const browser = await chromium.launch({ executablePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',headless:true });
 test.after(async () => { await browser.close(); await server.close(); });
 await mkdir('.cache/drl-ui', {recursive:true});

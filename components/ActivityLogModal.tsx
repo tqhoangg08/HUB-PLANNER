@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -649,11 +650,11 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
     if (!onClose) return content;
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 animate-fadeIn" onClick={onClose}>
             <div onClick={event => event.stopPropagation()} className="w-full">
                 {content}
             </div>
-        </div>,
+        </Overlay>,
         document.body
     );
 };

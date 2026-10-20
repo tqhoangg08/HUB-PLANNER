@@ -1,0 +1,197 @@
+
+> hub-grade-planner@0.0.0 test:overlay:mobile
+> node --test tests/mobile-overlay-acceptance.browser.test.mjs
+
+Starting isolated Vite acceptance server
+Warming Vite fixture and production stylesheet
+Vite ready; launching WebKit
+iphone13 PasswordSetupSchemaWarning-1: PASS
+iphone13 AdminEventEditorPage-1: PASS
+iphone13 AdminStudentManagement-1: PASS
+iphone13 Dashboard-1: PASS
+iphone13 Dashboard-5: PASS
+iphone13 EventsBoard-1: PASS
+iphone13 FloatingSupportTab-1: PASS
+iphone13 LostFoundBoard-2: PASS
+iphone13 MobileDashboard-3: PASS
+iphone13 MobileEvents-2: PASS
+iphone13 MobileLearning-1: PASS
+iphone13 MobileLostFound-2: PASS
+iphone13 MobileSchedule-2: PASS
+iphone13 MobileSchedule-6: PASS
+iphone13 PushNotificationPrompt-1: PASS
+iphone13 ScheduleBoard-3: PASS
+iphone13 ScheduleBoard-7: PASS
+iphone13 ScheduleBoard-11: PASS
+iphone13 SemesterLookbackModal-1: PASS
+iphone13 UserGuideModal-1: PASS
+iphone13 EventFilterControls-1: PASS
+▶ isolated mobile overlay acceptance
+  ✔ iphone13 390px: production overlays 1/4 (223990.8117ms)
+iphone13 ActivityLogModal-1: PASS
+iphone13 AdminInternalAccounts-1: PASS
+iphone13 AdminStudentManagement-2: PASS
+iphone13 Dashboard-2: PASS
+iphone13 Dashboard-6: PASS
+iphone13 EventsBoard-2: PASS
+iphone13 Handbook-1: PASS
+iphone13 LostFoundBoard-3: PASS
+iphone13 MobileDashboard-4: PASS
+iphone13 MobileEvents-3: PASS
+iphone13 MobileLearning-2: PASS
+iphone13 MobileLostFound-3: PASS
+iphone13 MobileSchedule-3: PASS
+iphone13 MobileSchedule-7: PASS
+iphone13 PwaInstallInstructionsModal-1: PASS
+iphone13 ScheduleBoard-4: PASS
+iphone13 ScheduleBoard-8: PASS
+iphone13 ScheduleImportGuideModal-1: PASS
+iphone13 SubjectRankingModal-1: PASS
+iphone13 AccountPasswordOtpModal-1: PASS
+iphone13 ScholarshipAdminControls-1: PASS
+  ✔ iphone13 390px: production overlays 2/4 (204568.1356ms)
+iphone13 AdminEventBannerUpload-1: PASS
+iphone13 AdminInternalAccounts-2: PASS
+iphone13 CalendarExportDialog-1: PASS
+iphone13 Dashboard-3: PASS
+iphone13 DataIncidentNoticeModal-1: PASS
+iphone13 EventsBoard-3: PASS
+iphone13 ImportGuideModal-1: PASS
+iphone13 MobileDashboard-1: PASS
+iphone13 MobileDashboard-5: PASS
+iphone13 MobileEvents-4: PASS
+iphone13 MobileLearning-3: PASS
+iphone13 MobileProfile-1: PASS
+iphone13 MobileSchedule-4: PASS
+iphone13 MobileSchedule-8: PASS
+iphone13 ScheduleBoard-1: PASS
+iphone13 ScheduleBoard-5: PASS
+iphone13 ScheduleBoard-9: PASS
+iphone13 ScheduleImportPreviewModal-1: PASS
+iphone13 SupportNoticeModal-1: PASS
+iphone13 AccountSettingsModal-1: PASS
+  ✔ iphone13 390px: production overlays 3/4 (182735.7216ms)
+iphone13 AdminEventCandidates-1: PASS
+iphone13 AdminStudentExcelExportModal-1: PASS
+iphone13 CalendarImportGuideDialog-1: PASS
+iphone13 Dashboard-4: PASS
+iphone13 DrlScoreGuide-1: PASS
+iphone13 EventsBoard-4: PASS
+iphone13 LostFoundBoard-1: PASS
+iphone13 MobileDashboard-2: PASS
+iphone13 MobileEvents-1: PASS
+iphone13 MobileHandbook-1: PASS
+iphone13 MobileLostFound-1: PASS
+iphone13 MobileSchedule-1: PASS
+iphone13 MobileSchedule-5: PASS
+iphone13 PasswordSetupModal-1: PASS
+iphone13 ScheduleBoard-2: PASS
+iphone13 ScheduleBoard-6: PASS
+iphone13 ScheduleBoard-10: PASS
+iphone13 SchoolAnnouncements-1: PASS
+iphone13 TranscriptImportPreviewModal-1: PASS
+iphone13 DeleteAccountModal-1: PASS
+  ✔ iphone13 390px: production overlays 4/4 (206626.392ms)
+iphoneSE PasswordSetupSchemaWarning-1: PASS
+iphoneSE AdminEventEditorPage-1: PASS
+iphoneSE AdminStudentManagement-1: PASS
+iphoneSE Dashboard-1: PASS
+iphoneSE Dashboard-5: PASS
+iphoneSE EventsBoard-1: PASS
+iphoneSE FloatingSupportTab-1: PASS
+iphoneSE LostFoundBoard-2: PASS
+iphoneSE MobileDashboard-3: PASS
+iphoneSE MobileEvents-2: PASS
+iphoneSE MobileLearning-1: PASS
+iphoneSE MobileLostFound-2: PASS
+iphoneSE MobileSchedule-2: PASS
+iphoneSE MobileSchedule-6: PASS
+iphoneSE PushNotificationPrompt-1: PASS
+iphoneSE ScheduleBoard-3: PASS
+iphoneSE ScheduleBoard-7: PASS
+iphoneSE ScheduleBoard-11: PASS
+iphoneSE SemesterLookbackModal-1: PASS
+iphoneSE UserGuideModal-1: PASS
+iphoneSE EventFilterControls-1: PASS
+  ✔ iphoneSE 375px: production overlays 1/4 (140917.3086ms)
+iphoneSE ActivityLogModal-1: PASS
+iphoneSE AdminInternalAccounts-1: PASS
+iphoneSE AdminStudentManagement-2: PASS
+iphoneSE Dashboard-2: PASS
+iphoneSE Dashboard-6: PASS
+iphoneSE EventsBoard-2: PASS
+iphoneSE Handbook-1: PASS
+iphoneSE LostFoundBoard-3: PASS
+iphoneSE MobileDashboard-4: PASS
+iphoneSE MobileEvents-3: PASS
+iphoneSE MobileLearning-2: PASS
+iphoneSE MobileLostFound-3: PASS
+iphoneSE MobileSchedule-3: PASS
+iphoneSE MobileSchedule-7: PASS
+iphoneSE PwaInstallInstructionsModal-1: PASS
+iphoneSE ScheduleBoard-4: PASS
+iphoneSE ScheduleBoard-8: PASS
+iphoneSE ScheduleImportGuideModal-1: PASS
+iphoneSE SubjectRankingModal-1: PASS
+iphoneSE AccountPasswordOtpModal-1: PASS
+iphoneSE ScholarshipAdminControls-1: PASS
+  ✔ iphoneSE 375px: production overlays 2/4 (129272.2966ms)
+iphoneSE AdminEventBannerUpload-1: PASS
+iphoneSE AdminInternalAccounts-2: PASS
+iphoneSE CalendarExportDialog-1: PASS
+iphoneSE Dashboard-3: PASS
+iphoneSE DataIncidentNoticeModal-1: PASS
+iphoneSE EventsBoard-3: PASS
+iphoneSE ImportGuideModal-1: PASS
+iphoneSE MobileDashboard-1: PASS
+iphoneSE MobileDashboard-5: PASS
+iphoneSE MobileEvents-4: PASS
+iphoneSE MobileLearning-3: PASS
+iphoneSE MobileProfile-1: PASS
+iphoneSE MobileSchedule-4: PASS
+iphoneSE MobileSchedule-8: PASS
+iphoneSE ScheduleBoard-1: PASS
+iphoneSE ScheduleBoard-5: PASS
+iphoneSE ScheduleBoard-9: PASS
+iphoneSE ScheduleImportPreviewModal-1: PASS
+iphoneSE SupportNoticeModal-1: PASS
+iphoneSE AccountSettingsModal-1: PASS
+  ✔ iphoneSE 375px: production overlays 3/4 (106690.8079ms)
+iphoneSE AdminEventCandidates-1: PASS
+iphoneSE AdminStudentExcelExportModal-1: PASS
+iphoneSE CalendarImportGuideDialog-1: PASS
+iphoneSE Dashboard-4: PASS
+iphoneSE DrlScoreGuide-1: PASS
+iphoneSE EventsBoard-4: PASS
+iphoneSE LostFoundBoard-1: PASS
+iphoneSE MobileDashboard-2: PASS
+iphoneSE MobileEvents-1: PASS
+iphoneSE MobileHandbook-1: PASS
+iphoneSE MobileLostFound-1: PASS
+iphoneSE MobileSchedule-1: PASS
+iphoneSE MobileSchedule-5: PASS
+iphoneSE PasswordSetupModal-1: PASS
+iphoneSE ScheduleBoard-2: PASS
+iphoneSE ScheduleBoard-6: PASS
+iphoneSE ScheduleBoard-10: PASS
+iphoneSE SchoolAnnouncements-1: PASS
+iphoneSE TranscriptImportPreviewModal-1: PASS
+iphoneSE DeleteAccountModal-1: PASS
+  ✔ iphoneSE 375px: production overlays 4/4 (110059.2067ms)
+✔ isolated mobile overlay acceptance (1304865.164ms)
+✔ iphone13: keyboard, nested owners, route cleanup, PWA internal scroll (10992.2374ms)
+✔ iphone13: real staff drawer + real modal ownership (2804.1815ms)
+✔ iphone13: real student drawer + real modal ownership (2796.274ms)
+✔ iphone13: real scholarship drawer + real modal ownership (2295.5719ms)
+✔ iphoneSE: keyboard, nested owners, route cleanup, PWA internal scroll (10425.3655ms)
+✔ iphoneSE: real staff drawer + real modal ownership (2419.9224ms)
+✔ iphoneSE: real student drawer + real modal ownership (2347.5423ms)
+✔ iphoneSE: real scholarship drawer + real modal ownership (2061.4496ms)
+ℹ tests 16
+ℹ suites 1
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1357042.3482

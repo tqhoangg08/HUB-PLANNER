@@ -1,4 +1,6 @@
+import { useOverlayScrollLock } from '../hooks/useOverlayScrollLock';
 import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles, PanelLeftClose, PanelLeftOpen, Megaphone } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -56,6 +58,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   onInstallApp, showInstallButton
 }) => {
   const location = useLocation();
+  const adminDrawerRef = useRef<HTMLElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isColorAvatar = isAllowedAvatarColor(avatarUrl);
   const isImageAvatar = isAvatarImageUrl(avatarUrl);
   const safeAvatarColorClass = getAvatarColorClass(avatarUrl);
@@ -157,10 +161,15 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   }, []);
 
   useEffect(() => {
-      const handleResize = () => setIsSmallViewport(window.innerWidth < 640);
+      const handleResize = () => {
+          setIsSmallViewport(window.innerWidth < 640);
+          if (window.innerWidth >= (isAdmin || isAuditor ? 768 : 640)) setIsMobileMenuOpen(false);
+      };
       window.addEventListener('resize', handleResize);
       return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [isAdmin, isAuditor]);
+
+  useLayoutEffect(() => { setIsMobileMenuOpen(false); }, [location.pathname]);
 
   useLayoutEffect(() => {
       if (isAdmin || isAuditor) return;
@@ -218,26 +227,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       });
   }, [navIndicator]);
 
-  useEffect(() => {
-      if (!isMobileMenuOpen) return;
-
-      const html = document.documentElement;
-      const body = document.body;
-      const previousHtmlOverflow = html.style.overflow;
-      const previousBodyOverflow = body.style.overflow;
-
-      html.classList.add('mobile-menu-open');
-      body.classList.add('mobile-menu-open');
-      html.style.overflow = 'hidden';
-      body.style.overflow = 'hidden';
-
-      return () => {
-          html.classList.remove('mobile-menu-open');
-          body.classList.remove('mobile-menu-open');
-          html.style.overflow = previousHtmlOverflow;
-          body.style.overflow = previousBodyOverflow;
-      };
-  }, [isMobileMenuOpen]);
+  useOverlayScrollLock(adminDrawerRef, isMobileMenuOpen && (isAdmin || isAuditor));
+  useOverlayScrollLock(mobileMenuRef, isMobileMenuOpen && !isAdmin && !isAuditor);
 
   useEffect(() => {
       if (!(isAdmin || isAuditor)) {
@@ -338,7 +329,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               />
 
               {/* SIDEBAR BÊN TRÁI */}
-              <aside data-collapsed={isAdminSidebarCollapsed ? 'true' : 'false'} className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] md:w-[var(--admin-sidebar-width)] md:basis-[var(--admin-sidebar-width)] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-[transform,width,flex-basis] duration-200 ease-out md:translate-x-0 ${
+              <aside ref={adminDrawerRef} data-collapsed={isAdminSidebarCollapsed ? 'true' : 'false'} className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] md:w-[var(--admin-sidebar-width)] md:basis-[var(--admin-sidebar-width)] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-[transform,width,flex-basis] duration-200 ease-out md:translate-x-0 ${
                   isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
               }`}>
                   
@@ -531,7 +522,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                   </header>
 
-                  <main className="admin-content-scroll flex-1 overflow-y-auto custom-scrollbar">
+                  <main data-overlay-scroll-root className="admin-content-scroll flex-1 overflow-y-auto custom-scrollbar">
                       <div className="admin-density-canvas w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 lg:pt-4 pb-8 min-h-full flex flex-col">
                           <div className="flex-1">
                               {children}
@@ -817,7 +808,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       </header>
 
             <div
-          className={
+          data-overlay-scroll-root className={
         isMobileBrowser
             ? "desktop-page-scroll w-full overflow-visible overflow-x-hidden relative z-10"
             : "desktop-page-scroll flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10"
@@ -864,8 +855,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       {/* KHỐI MENU TRƯỢT DÀNH CHO MOBILE */}
       {/* ======================================================================= */}
       
-      {isMobileMenuOpen && (
-      <div className="mobile-menu-layer fixed inset-0 z-[100] sm:hidden">
+      {isMobileMenuOpen && createPortal(
+      <div ref={mobileMenuRef} data-overlay-root="" className="mobile-menu-layer fixed inset-0 z-[100] sm:hidden">
           <button
               type="button"
               aria-label="Đóng menu"
@@ -1121,7 +1112,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               <div className="mobile-menu-bottom-spacer shrink-0" aria-hidden="true" />
           </div>
           </aside>
-      </div>
+      </div>, document.body
       )}
     </>
   );

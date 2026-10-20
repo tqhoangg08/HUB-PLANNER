@@ -1,0 +1,132 @@
+{
+  "scrollY": 0,
+  "body": "overflow: hidden !important; color: rgb(12, 34, 56); overscroll-behavior: none !important; position: fixed !important; top: 0px !important; left: 0px !important; width: 100% !important;",
+  "parents": [
+    {
+      "tag": "BUTTON",
+      "cls": "p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors",
+      "rect": {
+        "x": 270,
+        "y": 4290.875,
+        "width": 32.5,
+        "height": 32.5,
+        "top": 4290.875,
+        "right": 302.5,
+        "bottom": 4323.375,
+        "left": 270
+      },
+      "position": "static",
+      "transform": "none",
+      "top": "auto",
+      "overflow": "visible"
+    },
+    {
+      "tag": "DIV",
+      "cls": "mobile-browser-drawer-header bg-[#003375] p-5 flex items-center justify-between shrink-0 shadow-md",
+      "rect": {
+        "x": 0,
+        "y": 4269.5,
+        "width": 320,
+        "height": 75.25,
+        "top": 4269.5,
+        "right": 320,
+        "bottom": 4344.75,
+        "left": 0
+      },
+      "position": "sticky",
+      "transform": "none",
+      "top": "0px",
+      "overflow": "visible"
+    },
+    {
+      "tag": "ASIDE",
+      "cls": "mobile-menu-panel absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl animate-slideInLeft",
+      "rect": {
+        "x": 0,
+        "y": 4269.5,
+        "width": 320,
+        "height": 664,
+        "top": 4269.5,
+        "right": 320,
+        "bottom": 4933.5,
+        "left": 0
+      },
+      "position": "absolute",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "top": "0px",
+      "overflow": "hidden"
+    },
+    {
+      "tag": "DIV",
+      "cls": "mobile-menu-layer fixed inset-0 z-[100] sm:hidden",
+      "rect": {
+        "x": 0,
+        "y": 4269.5,
+        "width": 390,
+        "height": 664,
+        "top": 4269.5,
+        "right": 390,
+        "bottom": 4933.5,
+        "left": 0
+      },
+      "position": "relative",
+      "transform": "none",
+      "top": "0px",
+      "overflow": "hidden auto"
+    },
+    {
+      "tag": "DIV",
+      "cls": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 4933.5,
+        "top": 0,
+        "right": 390,
+        "bottom": 4933.5,
+        "left": 0
+      },
+      "position": "relative",
+      "transform": "none",
+      "top": "0px",
+      "overflow": "hidden auto"
+    },
+    {
+      "tag": "BODY",
+      "cls": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 4933.5,
+        "top": 0,
+        "right": 390,
+        "bottom": 4933.5,
+        "left": 0
+      },
+      "position": "fixed",
+      "transform": "none",
+      "top": "0px",
+      "overflow": "hidden"
+    },
+    {
+      "tag": "HTML",
+      "cls": "mobile-browser",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 664,
+        "top": 0,
+        "right": 390,
+        "bottom": 664,
+        "left": 0
+      },
+      "position": "static",
+      "transform": "none",
+      "top": "auto",
+      "overflow": "hidden"
+    }
+  ]
+}

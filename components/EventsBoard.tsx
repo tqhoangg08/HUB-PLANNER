@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import { EventContributionTimeFields } from './EventContributionTimeFields';
 import { DrlScoreGuideModal as ScoreGuideModal } from './DrlScoreGuide';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
@@ -152,7 +153,7 @@ const getEventDateKey = (dateValue: string | null) => {
 const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     if (!isOpen) return null;
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-scaleIn relative flex flex-col border border-gray-300 shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-2">
                     <div className="w-14 h-14 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center border border-blue-200">
@@ -175,7 +176,7 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
                     />
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -266,7 +267,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
                     <h3 className="font-bold text-[15px] flex items-center gap-2">
@@ -435,7 +436,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                     </form>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -505,7 +506,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white rounded-xl border border-gray-300 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -690,7 +691,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     </button>
                 </form>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -750,7 +751,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-lg p-0 overflow-hidden animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
@@ -812,7 +813,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                     </form>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 

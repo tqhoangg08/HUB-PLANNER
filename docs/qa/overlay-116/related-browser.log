@@ -1,0 +1,25 @@
+✔ iOS mobile download renders body-portal guide before export unmount and survives reload (30323.2731ms)
+✔ Android mobile download renders guide and no horizontal overflow (1781.0552ms)
+✔ Windows desktop download still renders guide exactly once (1728.638ms)
+✔ successful share and cancelled share neither download nor show the guide (1889.5207ms)
+✔ full appendix and keyboard dialog at 1440px (2198.1735ms)
+✔ full appendix and keyboard dialog at 390px (1533.8939ms)
+✔ student detail uses the shared layout without administration actions (3441.3265ms)
+✔ desktop route mounts detail inline rather than through a modal portal (10.8151ms)
+✔ admin and auditor preview show only existing edit permission (2520.4179ms)
+✔ metadata and missing-image/source fallback remain readable on mobile (1562.5272ms)
+✔ opening detail records one authoritative view; rerender does not, reopening and reload do (2070.7488ms)
+✔ admin and auditor previews count published event views without extra list requests (2271.2568ms)
+✔ student card image overlays retain a light gradient and use D1 view count in both layouts (9.8258ms)
+✔ student list cards expose only one arrow detail action on desktop and mobile (8.7662ms)
+✔ auditor desktop navigation has its own ordered groups, badges and no admin-only groups (6113.4327ms)
+✔ auditor mobile drawer keeps the same IA without overflow (1288.8595ms)
+✔ admin desktop navigation retains its original groups (1426.1606ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 147685.5494

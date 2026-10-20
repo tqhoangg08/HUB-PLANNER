@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { Overlay } from './Overlay';
+import React, { useMemo, useState } from 'react';
 import {
     Award,
     BookOpen,
@@ -229,15 +230,6 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
 
     const progressText = useMemo(() => `${activeIndex + 1}/${guideItems.length}`, [activeIndex]);
 
-    useEffect(() => {
-        const originalOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-
-        return () => {
-            document.body.style.overflow = originalOverflow;
-        };
-    }, []);
-
     const goTo = (index: number) => {
         playClick();
         setActiveIndex(index);
@@ -274,7 +266,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-3 animate-fadeIn">
+        <Overlay className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-3 animate-fadeIn">
             <div className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-xl animate-scaleIn">
                 <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-3 sm:px-6">
                     <div>
@@ -440,6 +432,6 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </Overlay>
     );
 };

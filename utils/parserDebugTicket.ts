@@ -1,4 +1,4 @@
-import Swal from 'sweetalert2';
+import { fireOverlayAlert } from './overlayAlert';
 
 type ParserDebugKind = 'transcript' | 'schedule';
 
@@ -77,7 +77,7 @@ export const promptSendParserDebugFile = async (input: ParserDebugTicketInput) =
     </div>
   `;
 
-  await Swal.fire({
+  await fireOverlayAlert({
     title: textExtractionFailed
       ? `Không đọc được phần chữ trong PDF ${documentName}`
       : `Chưa thể phân tích PDF ${documentName}`,

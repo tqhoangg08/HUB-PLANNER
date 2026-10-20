@@ -1,0 +1,412 @@
+[
+  {
+    "file": "app/auth/PasswordSetupSchemaWarning.tsx",
+    "id": 1,
+    "owner": "PasswordSetupSchemaWarning"
+  },
+  {
+    "file": "components/ActivityLogModal.tsx",
+    "id": 1,
+    "owner": "ActivityLogModal"
+  },
+  {
+    "file": "components/AdminEventBannerUpload.tsx",
+    "id": 1,
+    "owner": "AdminEventBannerUpload"
+  },
+  {
+    "file": "components/AdminEventCandidates.tsx",
+    "id": 1,
+    "owner": "CandidateDetailModal"
+  },
+  {
+    "file": "components/AdminEventEditorPage.tsx",
+    "id": 1,
+    "owner": "AdminEventEditorPage"
+  },
+  {
+    "file": "components/AdminInternalAccounts.tsx",
+    "id": 1,
+    "owner": "AdminInternalAccounts"
+  },
+  {
+    "file": "components/AdminInternalAccounts.tsx",
+    "id": 2,
+    "owner": "AdminInternalAccounts"
+  },
+  {
+    "file": "components/AdminStudentExcelExportModal.tsx",
+    "id": 1,
+    "owner": "AdminStudentExcelExportModal"
+  },
+  {
+    "file": "components/AdminStudentManagement.tsx",
+    "id": 1,
+    "owner": "AdminStudentManagement"
+  },
+  {
+    "file": "components/AdminStudentManagement.tsx",
+    "id": 2,
+    "owner": "AdminStudentManagement"
+  },
+  {
+    "file": "components/CalendarExportDialog.tsx",
+    "id": 1,
+    "owner": "CalendarExportDialog"
+  },
+  {
+    "file": "components/CalendarImportGuideDialog.tsx",
+    "id": 1,
+    "owner": "CalendarImportGuideDialog"
+  },
+  {
+    "file": "components/Dashboard.tsx",
+    "id": 1,
+    "owner": "ReportErrorModal"
+  },
+  {
+    "file": "components/Dashboard.tsx",
+    "id": 2,
+    "owner": "FailedSubjectsModal"
+  },
+  {
+    "file": "components/Dashboard.tsx",
+    "id": 3,
+    "owner": "YearlyStatsModal"
+  },
+  {
+    "file": "components/Dashboard.tsx",
+    "id": 4,
+    "owner": "PdfExportModal"
+  },
+  {
+    "file": "components/Dashboard.tsx",
+    "id": 5,
+    "owner": "SemesterTable"
+  },
+  {
+    "file": "components/Dashboard.tsx",
+    "id": 6,
+    "owner": "Dashboard"
+  },
+  {
+    "file": "components/DataIncidentNoticeModal.tsx",
+    "id": 1,
+    "owner": "DataIncidentNoticeModal"
+  },
+  {
+    "file": "components/DrlScoreGuide.tsx",
+    "id": 1,
+    "owner": "DrlScoreGuideModal"
+  },
+  {
+    "file": "components/EventsBoard.tsx",
+    "id": 1,
+    "owner": "CTVModalWrapper"
+  },
+  {
+    "file": "components/EventsBoard.tsx",
+    "id": 2,
+    "owner": "ContributeEventModal"
+  },
+  {
+    "file": "components/EventsBoard.tsx",
+    "id": 3,
+    "owner": "ManageEventModal"
+  },
+  {
+    "file": "components/EventsBoard.tsx",
+    "id": 4,
+    "owner": "ReportEventModal"
+  },
+  {
+    "file": "components/FloatingSupportTab.tsx",
+    "id": 1,
+    "owner": "FloatingSupportTab"
+  },
+  {
+    "file": "components/Handbook.tsx",
+    "id": 1,
+    "owner": "Handbook"
+  },
+  {
+    "file": "components/ImportGuideModal.tsx",
+    "id": 1,
+    "owner": "ImportGuideModal"
+  },
+  {
+    "file": "components/LostFoundBoard.tsx",
+    "id": 1,
+    "owner": "SubmitModal"
+  },
+  {
+    "file": "components/LostFoundBoard.tsx",
+    "id": 2,
+    "owner": "ItemDetailModal"
+  },
+  {
+    "file": "components/LostFoundBoard.tsx",
+    "id": 3,
+    "owner": "ReportModal"
+  },
+  {
+    "file": "components/MobileDashboard.tsx",
+    "id": 1,
+    "owner": "ReportErrorModal"
+  },
+  {
+    "file": "components/MobileDashboard.tsx",
+    "id": 2,
+    "owner": "FailedSubjectsModal"
+  },
+  {
+    "file": "components/MobileDashboard.tsx",
+    "id": 3,
+    "owner": "YearlyStatsModal"
+  },
+  {
+    "file": "components/MobileDashboard.tsx",
+    "id": 4,
+    "owner": "SemesterTable"
+  },
+  {
+    "file": "components/MobileDashboard.tsx",
+    "id": 5,
+    "owner": "NativeAdminStudentManager"
+  },
+  {
+    "file": "components/MobileEvents.tsx",
+    "id": 1,
+    "owner": "CTVModalWrapper"
+  },
+  {
+    "file": "components/MobileEvents.tsx",
+    "id": 2,
+    "owner": "ContributeEventModal"
+  },
+  {
+    "file": "components/MobileEvents.tsx",
+    "id": 3,
+    "owner": "ReportEventModal"
+  },
+  {
+    "file": "components/MobileEvents.tsx",
+    "id": 4,
+    "owner": "MobileEvents"
+  },
+  {
+    "file": "components/MobileHandbook.tsx",
+    "id": 1,
+    "owner": "MobileHandbook"
+  },
+  {
+    "file": "components/MobileLearning.tsx",
+    "id": 1,
+    "owner": "FailedSubjectsNativeModal"
+  },
+  {
+    "file": "components/MobileLearning.tsx",
+    "id": 2,
+    "owner": "MobileLearning"
+  },
+  {
+    "file": "components/MobileLearning.tsx",
+    "id": 3,
+    "owner": "MobileLearning"
+  },
+  {
+    "file": "components/MobileLostFound.tsx",
+    "id": 1,
+    "owner": "SubmitModal"
+  },
+  {
+    "file": "components/MobileLostFound.tsx",
+    "id": 2,
+    "owner": "ItemDetailModal"
+  },
+  {
+    "file": "components/MobileLostFound.tsx",
+    "id": 3,
+    "owner": "ReportModal"
+  },
+  {
+    "file": "components/MobileProfile.tsx",
+    "id": 1,
+    "owner": "MobileProfile"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 1,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 2,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 3,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 4,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 5,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 6,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 7,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/MobileSchedule.tsx",
+    "id": 8,
+    "owner": "MobileSchedule"
+  },
+  {
+    "file": "components/PasswordSetupModal.tsx",
+    "id": 1,
+    "owner": "PasswordSetupModal"
+  },
+  {
+    "file": "components/PushNotificationPrompt.tsx",
+    "id": 1,
+    "owner": "PushNotificationPrompt"
+  },
+  {
+    "file": "components/PwaInstallInstructionsModal.tsx",
+    "id": 1,
+    "owner": "PwaInstallInstructionsModal"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 1,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 2,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 3,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 4,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 5,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 6,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 7,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 8,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 9,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 10,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleBoard.tsx",
+    "id": 11,
+    "owner": "ScheduleBoard"
+  },
+  {
+    "file": "components/ScheduleImportGuideModal.tsx",
+    "id": 1,
+    "owner": "ScheduleImportGuideModal"
+  },
+  {
+    "file": "components/ScheduleImportPreviewModal.tsx",
+    "id": 1,
+    "owner": "ScheduleImportPreviewModal"
+  },
+  {
+    "file": "components/SchoolAnnouncements.jsx",
+    "id": 1,
+    "owner": "SchoolAnnouncements"
+  },
+  {
+    "file": "components/SemesterLookbackModal.tsx",
+    "id": 1,
+    "owner": "SemesterLookbackModal"
+  },
+  {
+    "file": "components/SubjectRankingModal.tsx",
+    "id": 1,
+    "owner": "SubjectRankingModal"
+  },
+  {
+    "file": "components/SupportNoticeModal.tsx",
+    "id": 1,
+    "owner": "SupportNoticeModal"
+  },
+  {
+    "file": "components/TranscriptImportPreviewModal.tsx",
+    "id": 1,
+    "owner": "TranscriptImportPreviewModal"
+  },
+  {
+    "file": "components/UserGuideModal.tsx",
+    "id": 1,
+    "owner": "UserGuideModal"
+  },
+  {
+    "file": "components/account/AccountPasswordOtpModal.tsx",
+    "id": 1,
+    "owner": "AccountPasswordOtpModal"
+  },
+  {
+    "file": "components/account/AccountSettingsModal.tsx",
+    "id": 1,
+    "owner": "AccountSettingsModal"
+  },
+  {
+    "file": "components/account/DeleteAccountModal.tsx",
+    "id": 1,
+    "owner": "DeleteAccountModal"
+  },
+  {
+    "file": "components/event-filters/EventFilterControls.tsx",
+    "id": 1,
+    "owner": "EventFilterControls"
+  },
+  {
+    "file": "features/scholarships/ScholarshipAdminControls.tsx",
+    "id": 1,
+    "owner": "AdminModal"
+  }
+]

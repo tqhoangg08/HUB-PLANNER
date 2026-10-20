@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, FileText, HelpCircle, Image as ImageIcon, Loader2, Maximize2, MessageCircle, MessageSquarePlus, MoreVertical, Paperclip, Plus, Send, Trash2, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -216,7 +217,7 @@ export const FloatingSupportTab: React.FC<FloatingSupportTabProps> = ({
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-[70]">
+        <Overlay className="fixed inset-0 z-[70]">
           <button type="button" className="absolute inset-0 bg-slate-950/30 backdrop-blur-[1px]" aria-label="Đóng hỗ trợ" onClick={closePanel} />
           <aside
             className={
@@ -274,7 +275,7 @@ export const FloatingSupportTab: React.FC<FloatingSupportTabProps> = ({
               <SupportDrawerDetail ticketId={selectedTicketId} onDeleted={goList} />
             )}
           </aside>
-        </div>
+        </Overlay>
       )}
     </>
   );

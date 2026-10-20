@@ -1,3 +1,4 @@
+import { Overlay } from './Overlay';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -112,7 +113,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md p-0 overflow-hidden animate-scaleIn shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -156,7 +157,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                     </form>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -165,7 +166,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 // ============================================================================
 const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClose: () => void }) => {
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
@@ -198,7 +199,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
                     <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -207,7 +208,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
 // ============================================================================
 const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => void }) => {
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <Overlay className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
@@ -258,7 +259,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                     <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
                 </div>
             </div>
-        </div>, document.body
+        </Overlay>, document.body
     );
 };
 
@@ -702,7 +703,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       </div>
 
       {showRankMenu && hasData && isValidFormat && createPortal(
-        <div
+        <Overlay
           className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/55 px-3 py-4 sm:px-6"
           onClick={() => { setShowRankMenu(false); setIsSemesterChooserOpen(false); resetSemesterRanks(); resetResult(); }}
         >
@@ -885,7 +886,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
               </section>
             </div>
           </div>
-        </div>,
+        </Overlay>,
         document.body
       )}
 
@@ -2141,7 +2142,7 @@ const NativeAdminStudentManager = () => {
       </section>
 
       {selectedStudent && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/55" onClick={() => setSelectedStudent(null)}>
+        <Overlay className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/55" onClick={() => setSelectedStudent(null)}>
           <div className="max-h-[88vh] w-full max-w-[430px] overflow-hidden rounded-t-3xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200" />
             <div className="flex items-start justify-between gap-3 border-b border-[#EEF2FF] p-4">
@@ -2180,7 +2181,7 @@ const NativeAdminStudentManager = () => {
               </div>
             </div>
           </div>
-        </div>,
+        </Overlay>,
         document.body
       )}
     </main>
