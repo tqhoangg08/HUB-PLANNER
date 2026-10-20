@@ -1,0 +1,129 @@
+COMMAND OUTPUT: final-chromium-browser.log
+✔ chromium iphone-se: real event page, appendix, focus, viewport and scroll lifecycle (9590.1895ms)
+✔ chromium iphone-13: real event page, appendix, focus, viewport and scroll lifecycle (5922.8615ms)
+✔ chromium small-360: real event page, appendix, focus, viewport and scroll lifecycle (8548.9195ms)
+✔ chromium desktop: real event page, appendix, focus, viewport and scroll lifecycle (7351.174ms)
+✔ full appendix and keyboard dialog at 1440px (1606.609ms)
+✔ full appendix and keyboard dialog at 390px (941.1826ms)
+✔ mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads (5067.4587ms)
+✔ iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1082.4047ms)
+✔ iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (979.9308ms)
+✔ Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (982.4217ms)
+✔ desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore (986.145ms)
+✔ desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore (1044.1847ms)
+✔ nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode (1236.25ms)
+✔ unexpected unmount and route navigation release all ownership (929.9005ms)
+✔ drawer adapter and SweetAlert dialogs share ownership with React modals (2767.8345ms)
+✔ SweetAlert Safari body fix cannot move a locked background or clear a remaining owner (5238.3604ms)
+✔ visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input (1947.8622ms)
+✔ touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch (1567.1404ms)
+✔ real event filter drawer and DRL guide share ownership and retain Escape and focus behavior (2552.9823ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35242.2089
+
+COMMAND OUTPUT: webkit-tests.log
+✔ webkit iphone-se: real event page, appendix, focus, viewport and scroll lifecycle (12287.242ms)
+✔ webkit iphone-13: real event page, appendix, focus, viewport and scroll lifecycle (7249.6501ms)
+✔ webkit small-360: real event page, appendix, focus, viewport and scroll lifecycle (6605.2987ms)
+✔ webkit desktop: real event page, appendix, focus, viewport and scroll lifecycle (5933.249ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33629.0292
+
+COMMAND OUTPUT: desktop-final-chromium.log
+✔ chromium desktop: real event page, appendix, focus, viewport and scroll lifecycle (16854.655ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33487.9262
+
+COMMAND OUTPUT: desktop-final-webkit.log
+✔ webkit desktop: real event page, appendix, focus, viewport and scroll lifecycle (15460.7635ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19780.7717
+
+COMMAND OUTPUT: overlay-unit.log
+
+> hub-grade-planner@0.0.0 test:overlay
+> node --test --experimental-strip-types tests/overlay-scroll-lock.test.ts
+
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (2.7046ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (0.5355ms)
+✔ desktop compensates scrollbar once and preserves existing padding (0.3107ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (10.4128ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 714.2146
+
+COMMAND OUTPUT: drl-migration-recheck.log
+(node:3276) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ catalog-only migration is idempotent and preserves history, approvals, points, IDs and cached predictions (54.6664ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 286.9747
+
+COMMAND OUTPUT: typecheck.log
+
+> hub-grade-planner@0.0.0 typecheck
+> tsc -p tsconfig.app.json --noEmit
+
+
+COMMAND OUTPUT: cf-typecheck.log
+
+> hub-grade-planner@0.0.0 cf:typecheck
+> tsc -p cloudflare/tsconfig.json --noEmit
+
+
+INITIAL DRL UNIT RUN (before local CRLF correction): 12 passed, 1 failed; generated SQL equality only. Exact failed test recheck is included above. See README.
+BUILD OUTPUT (tail):
+dist/assets/browserBootstrap-BYEihZnv.js                  249.70 kB │ gzip:  80.16 kB
+dist/assets/pdf-DT5A8ONP.js                               334.03 kB │ gzip:  98.26 kB
+dist/assets/LineChart-DTfz7itm.js                         343.68 kB │ gzip: 104.17 kB
+dist/assets/pdfExport-C0erXRBO.js                         426.07 kB │ gzip: 140.43 kB
+dist/assets/legacy-entry-BFJa1gfy.js                      773.27 kB │ gzip: 214.34 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1m 6s
+
+PWA v1.3.0
+mode      generateSW
+precache  106 entries (4114.25 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-9c191d2f.js
+EXIT CODES: frontend typecheck=0, Cloudflare typecheck=0, build=0, diff-check=0. Build reports the existing >500kB chunk warning. Full suite deferred to PR CI as requested.
