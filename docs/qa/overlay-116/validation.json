@@ -1,0 +1,58 @@
+[
+  {
+    "exitCode": 0,
+    "command": "npm run test:overlay",
+    "completed": "2026-10-19T21:45:58.0811483+07:00",
+    "log": "final-test-overlay.log",
+    "started": "2026-10-19T21:45:54.2741997+07:00"
+  },
+  {
+    "exitCode": 0,
+    "command": "npm run typecheck",
+    "completed": "2026-10-19T21:46:58.864455+07:00",
+    "log": "final-typecheck.log",
+    "started": "2026-10-19T21:45:58.8590207+07:00"
+  },
+  {
+    "exitCode": 0,
+    "command": "npm run cf:typecheck",
+    "completed": "2026-10-19T21:47:19.3254257+07:00",
+    "log": "final-cf-typecheck.log",
+    "started": "2026-10-19T21:46:58.868008+07:00"
+  },
+  {
+    "exitCode": 0,
+    "command": "npm test",
+    "completed": "2026-10-19T22:02:12.1597236+07:00",
+    "log": "final-test.log",
+    "started": "2026-10-19T21:47:19.3343732+07:00"
+  },
+  {
+    "log": "final-build-verified.log",
+    "command": "npm run build",
+    "exitCode": 0,
+    "completed": "2026-10-19T22:06:38.8144401+07:00"
+  },
+  {
+    "log": "final-diff-check.log",
+    "command": "git diff --check",
+    "exitCode": 0
+  },
+  {
+    "exitCode": 0,
+    "command": "npm run test:overlay:browser",
+    "log": "final-overlay-browser.log"
+  },
+  {
+    "completed": "2026-10-19T22:22:08.8163005+07:00",
+    "command": "Chromium mobile matrix",
+    "exitCode": 0,
+    "log": "chromium-acceptance-verified.log"
+  },
+  {
+    "command": "WebKit mobile matrix",
+    "completed": "2026-10-19T22:26:56.4672361+07:00",
+    "log": "webkit-acceptance-final.log",
+    "exitCode": 0
+  }
+]

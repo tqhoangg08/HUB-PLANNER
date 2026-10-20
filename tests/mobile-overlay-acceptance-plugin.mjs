@@ -1,10 +1,21 @@
 import ts from 'typescript';
+import fs from 'node:fs';
 import path from 'node:path';
 
 // Exercise real component render trees without adding test exports or authentication
 // bypasses to the production bundle. State controls only open otherwise private UI.
 export function acceptancePlugin() {
-  return { name: 'local-overlay-acceptance', enforce: 'pre', transform(code, id) {
+  return { name: 'local-overlay-acceptance', enforce: 'pre', configureServer(server) {
+    // Windows worktrees may share node_modules through a cross-drive junction.
+    // Serve the exact installed font bytes instead of Vite's HTML fallback there.
+    server.middlewares.use((request, response, next) => {
+      const match = request.url?.split('?')[0].match(/^\/@fs\/.*\/@fontsource\/inter\/files\/([a-zA-Z0-9.-]+\.(woff2?))$/);
+      if (!match) return next();
+      const file = path.resolve('node_modules/@fontsource/inter/files', match[1]);
+      response.setHeader('Content-Type', `font/${match[2]}`);
+      response.end(fs.readFileSync(file));
+    });
+  }, transform(code, id) {
     const file = id.split('?')[0].replaceAll('\\', '/');
     const relative = path.relative(process.cwd(), file).replaceAll('\\', '/');
     if (!/^(components|app\/auth|features\/scholarships)\//.test(relative) || !/\.(tsx|jsx)$/.test(file) || !code.includes('<Overlay')) return;

@@ -1,0 +1,16 @@
+
+> hub-grade-planner@0.0.0 test:overlay
+> node --test --experimental-strip-types tests/overlay-scroll-lock.test.ts
+
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (2.2717ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (0.518ms)
+✔ desktop compensates scrollbar once and preserves existing padding (0.322ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (9.8947ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 206.6352

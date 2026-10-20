@@ -1,5 +1,6 @@
 import { useOverlayScrollLock } from '../hooks/useOverlayScrollLock';
 import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles, PanelLeftClose, PanelLeftOpen, Megaphone } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -854,7 +855,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       {/* KHỐI MENU TRƯỢT DÀNH CHO MOBILE */}
       {/* ======================================================================= */}
       
-      {isMobileMenuOpen && (
+      {isMobileMenuOpen && createPortal(
       <div ref={mobileMenuRef} data-overlay-root="" className="mobile-menu-layer fixed inset-0 z-[100] sm:hidden">
           <button
               type="button"
@@ -1111,7 +1112,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               <div className="mobile-menu-bottom-spacer shrink-0" aria-hidden="true" />
           </div>
           </aside>
-      </div>
+      </div>, document.body
       )}
     </>
   );

@@ -1,5 +1,7 @@
 import React, { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import '@fontsource/inter/latin.css';
+import '@fontsource/inter/vietnamese.css';
 import { BrowserRouter, Link } from 'react-router-dom';
 import { MobileAppLayout } from '../layouts/MobileAppLayout';
 import { DesktopLayout } from '../layouts/DesktopLayout';

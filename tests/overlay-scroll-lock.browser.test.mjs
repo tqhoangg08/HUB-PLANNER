@@ -135,12 +135,49 @@ test('drawer adapter and SweetAlert dialogs share ownership with React modals', 
   } finally { await context.close(); }
 });
 
+test('SweetAlert Safari body fix cannot move a locked background or clear a remaining owner', async () => {
+  const { context, page, before } = await fixture();
+  try {
+    // SweetAlert detects Safari by GestureEvent, independently of our iOS UA path.
+    // Set it before a fresh module load so this regression runs on Windows too.
+    await context.addInitScript(() => { window.GestureEvent = function GestureEvent() {}; });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('#open').scrollIntoViewIfNeeded();
+    const initial = await position(page);
+    for (let cycle = 0; cycle < 2; cycle++) {
+      await page.locator('#open').click();
+      const body = () => page.evaluate(() => ({ top: document.body.style.top, priority: document.body.style.getPropertyPriority('top'), rect: document.body.getBoundingClientRect().top }));
+      const frozen = await body();
+      assert.equal(frozen.top, `${-initial.document}px`);
+      await page.locator('#alert').click();
+      await page.getByRole('dialog', { name: 'Nested alert' }).waitFor();
+      assert.equal(await page.evaluate(() => document.body.classList.contains('swal2-iosfix')), true);
+      assert.deepEqual(await body(), frozen);
+      await page.getByRole('button', { name: 'OK', exact: true }).click();
+      await page.locator('.swal2-container').waitFor({ state: 'detached' });
+      assert.deepEqual(await body(), frozen);
+      assert.equal(await locked(page), true);
+      await page.locator('#close-a').click();
+      await restored(page, initial);
+    }
+    // No observer survives final cleanup to overwrite subsequent page styles.
+    await page.evaluate(() => { document.body.style.top = '3px'; });
+    await page.waitForTimeout(20);
+    assert.equal(await page.evaluate(() => document.body.style.top), '3px');
+  } finally { await context.close(); }
+});
+
 test('visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input', async () => {
   const { context, page, before } = await fixture({ keyboard: true });
   try {
     await page.locator('#open').click();
     await page.getByRole('textbox', { name: 'Notes' }).fill('Preserve draft');
-    await page.evaluate(() => { Object.assign(visualViewport, { height: 360, offsetTop: 80, scale: 1.4 }); visualViewport.dispatchEvent(new Event('resize')); });
+    await page.evaluate(() => {
+      // Reproduce WebKit's stale layout metric during viewport resize delivery.
+      Object.defineProperty(document.querySelector('#a'), 'clientHeight', { configurable: true, get: () => 740 });
+      Object.assign(visualViewport, { height: 360, offsetTop: 80, scale: 1.4 }); visualViewport.dispatchEvent(new Event('resize'));
+    });
+    assert.ok(await page.locator('#a > section').evaluate(panel => panel.getBoundingClientRect().height <= panel.parentElement.getBoundingClientRect().height), 'panel fits visible height even while clientHeight is stale');
     const box = await page.locator('#a').boundingBox();
     assert.equal(box.height, 360);
     assert.equal(box.y, 80);

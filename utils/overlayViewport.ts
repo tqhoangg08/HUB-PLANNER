@@ -20,10 +20,13 @@ export function attachOverlayViewport(element: HTMLElement | null) {
   const update = () => {
     // VisualViewport already reports CSS pixels, including keyboard and input auto-zoom.
     // Follow its geometry without changing the browser's native scale or moving on blur.
-    element.style.setProperty('--overlay-height', viewport ? `${viewport.height}px` : '100dvh');
+    const height = viewport?.height ?? window.innerHeight;
+    element.style.setProperty('--overlay-height', `${height}px`);
     element.style.setProperty('--overlay-top', viewport ? `${viewport.offsetTop}px` : '0px');
     const style = getComputedStyle(element);
-    const available = Math.max(0, element.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
+    // WebKit can report the previous clientHeight during the resize callback.
+    // Use the same viewport measurement for the wrapper and its panel cap.
+    const available = Math.max(0, height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth));
     panels.forEach((panel, index) => {
       const [value, priority] = originalMax[index];
       if (value) panel.style.setProperty('max-height', value, priority);

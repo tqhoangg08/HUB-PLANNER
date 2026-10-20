@@ -1,0 +1,26 @@
+{
+  "before": {
+    "scrollY": 0,
+    "top": "-1479px",
+    "priority": "important",
+    "position": "fixed",
+    "rectTop": -1479,
+    "classes": ""
+  },
+  "during": {
+    "scrollY": 0,
+    "top": "0px",
+    "priority": "",
+    "position": "fixed",
+    "rectTop": 0,
+    "classes": "swal2-shown swal2-iosfix"
+  },
+  "after": {
+    "scrollY": 0,
+    "top": "",
+    "priority": "",
+    "position": "fixed",
+    "rectTop": 0,
+    "classes": ""
+  }
+}

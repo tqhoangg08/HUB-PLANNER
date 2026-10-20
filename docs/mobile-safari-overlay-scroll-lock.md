@@ -1,5 +1,7 @@
 # Task 01 — Mobile Safari overlay scroll lock
 
+The original implementation record below is superseded for current merge readiness by the [automated mobile acceptance and main synchronization report](mobile-overlay-automated-acceptance.md). Real-device procedures remain reference material; current acceptance is explicitly browser emulation.
+
 ## Git baseline and scope
 
 - Fetched `origin/main`: `cc7c8222d7c039912bb6b882b0ea5372cb645c6e`.
@@ -29,7 +31,7 @@ Only iOS/iPadOS with a scrollable document gets a fixed body with a negative sav
 
 One shared touch/wheel guard checks whether a scrollable ancestor inside the highest-z-index active overlay can consume the movement. Interior scrolling is allowed; backdrop gestures and attempts to scroll past both edges are cancelled. Multi-touch and Ctrl-wheel zoom remain native. The guard does not cancel touchstart, input clicks or picker taps. Keyboard scroll keys outside the active overlay cannot move the background. Existing modal Escape/Tab/focus handlers are preserved.
 
-Scroll roots are explicitly marked with `data-overlay-scroll-root` in both layouts. Overlay content is portaled outside those roots; the lock also excludes roots containing overlay content. Existing layout drawers share the hook and remain in their established DOM structure. DesktopLayout releases its drawer on route changes and when its mobile breakpoint is left.
+Scroll roots are explicitly marked with `data-overlay-scroll-root` in both layouts. Overlay content is portaled outside those roots; the lock also excludes roots containing overlay content. Existing layout drawers share the hook. DesktopLayout's student drawer is portaled to body to escape page-root CSS; its menu structure is retained. DesktopLayout releases its drawer on route changes and when its mobile breakpoint is left.
 
 ## Migrated overlays
 
@@ -103,7 +105,9 @@ Local execution on 2026-10-18:
 
 Local command logs are retained in `.cache/overlay-validation/` (ignored build/test evidence). GitHub CI status is recorded in the PR/task report for the exact feature commit.
 
-Use Safari directly, not an installed Home Screen app. Serve this branch locally with test data on a network accessible by the iPhone. Do not deploy or make production data changes for this checklist. Record device, iOS/Safari version, orientation and result for every row. Repeat on a notched/Dynamic Island iPhone where available.
+The following is retained as a reference procedure, not a request for the project owner to run phone acceptance. Current PR readiness follows the automated report linked above; physical-device results remain unverified.
+
+For a future physical-device run, use Safari directly, not an installed Home Screen app. Serve this branch locally with test data on a network accessible by the iPhone. Do not deploy or make production data changes for this checklist. Record device, iOS/Safari version, orientation and result for every row. Repeat on a notched/Dynamic Island iPhone where available.
 
 1. Scroll several screens down on events, announcements, schedules and handbook. Open each migrated modal family; drag the backdrop in both directions. Background content and its horizontal position must stay fixed.
 2. Scroll a long modal from top to bottom and back. Pull past both edges. The modal must scroll; the page behind it must remain stationary. The first and last actions must remain reachable.
@@ -122,4 +126,4 @@ No production smoke test, deployment, merge, Auth Worker change, operational D1 
 
 - Existing AI Advisor/document overlays still use their own presentation and need a separate scoped adoption if requested.
 - Existing per-dialog focus/Escape behavior is preserved; the shared foundation is not a replacement focus-trap stack. A full accessibility stack for simultaneously open dialogs is separate work.
-- The current browser scripts assume an installed system Chrome. Device-specific Safari acceptance remains a review/release gate, regardless of automated test success.
+- The browser scripts assume an installed system Chrome (or `CHROME_PATH`) and a locally installed Playwright WebKit for that engine. Real-device Safari is not claimed by the automated acceptance; deployment/release approval remains outside this PR task.

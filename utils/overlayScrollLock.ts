@@ -4,10 +4,23 @@ let releaseBackground: (() => void) | undefined;
 
 type Restore = () => void;
 
-function setStyles(element: HTMLElement, values: Record<string, string>): Restore {
+function setStyles(element: HTMLElement, values: Record<string, string>, protect = false): Restore {
   const original = Object.keys(values).map(property => [property, element.style.getPropertyValue(property), element.style.getPropertyPriority(property)]);
   for (const [property, value] of Object.entries(values)) element.style.setProperty(property, value, 'important');
+  const locked = Object.keys(values).map(property => [property, element.style.getPropertyValue(property)]);
+  // SweetAlert's Safari fix writes/clears body.top even when scrollbarPadding is
+  // disabled. Keep first-owner properties authoritative until the last release.
+  // Mutation delivery happens before paint; unrelated inline styles stay editable.
+  const observer = protect && typeof MutationObserver !== 'undefined' ? new MutationObserver(() => {
+    for (const [property, value] of locked) {
+      if (element.style.getPropertyValue(property) !== value || element.style.getPropertyPriority(property) !== 'important') {
+        element.style.setProperty(property, value, 'important');
+      }
+    }
+  }) : undefined;
+  observer?.observe(element, { attributes: true, attributeFilter: ['style'] });
   return () => {
+    observer?.disconnect();
     for (const [property, value, priority] of original) {
       if (value) element.style.setProperty(property, value, priority);
       else element.style.removeProperty(property);
@@ -101,7 +114,7 @@ function lockBackground(): Restore {
   if (gap) bodyStyles['padding-right'] = `calc(${paddingRight} + ${gap}px)`;
   // iOS document scrolling needs a fixed body; internal scrollers and other browsers do not.
   if (isIOS && documentScrolls) Object.assign(bodyStyles, { position: 'fixed', top: `${-y}px`, left: `${-x}px`, width: '100%' });
-  const restoreBody = setStyles(body, bodyStyles);
+  const restoreBody = setStyles(body, bodyStyles, true);
   const removeGuards = guardGestures();
   return () => {
     removeGuards();
