@@ -1,0 +1,172 @@
+{
+  "task": "02/10 — Release preparation",
+  "mainAtPreparation": "fdc4ce8c3af54cc58e528916ef230f6b09286020",
+  "previousVersion": "3e7f80ec-e268-4869-976a-6e26c38244b0",
+  "version": "93e9bad7-39f3-4635-bb97-c6d71ccc4524",
+  "worker": "hub-planner-public-dev-api",
+  "runId": "39445974440",
+  "sha": "acbada706e365b0593882eb783f808805ef1a2e5",
+  "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39445974440",
+  "liveMetadata": {
+    "recordedAt": "2026-10-20T15:42:46.907Z",
+    "method": "Authorized existing Chrome session; ordinary navigation to exact read-only metadata GET URLs already observed in Dashboard; JSON read from rendered accessibility text",
+    "deploymentsUrl": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/deployments",
+    "versionsUrl": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/versions?page=1&per_page=15",
+    "deployment": {
+      "id": "495306c1-ed82-441f-9997-88fafb082b74",
+      "createdOn": "2026-10-20T15:20:39.202089Z",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "versions": [
+        {
+          "version_id": "93e9bad7-39f3-4635-bb97-c6d71ccc4524",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "93e9bad7-39f3-4635-bb97-c6d71ccc4524",
+      "number": 461,
+      "createdOn": "2026-10-20T15:20:38.474627Z",
+      "source": "wrangler"
+    },
+    "dashboardUi": {
+      "versionPrefix": "93e9bad7",
+      "trafficPercent": 100,
+      "status": "Ready"
+    },
+    "limitations": [
+      "Initial CDP body retrieval returned No resource with given identifier; ordinary rendered-JSON GET navigation in the same authorized browser succeeded.",
+      "Current quota, health, schema/ledger/binding inventory not rechecked; no screenshot saved."
+    ]
+  },
+  "release": {
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "startedAt": "2026-10-20T15:10:28Z",
+    "updatedAt": "2026-10-20T15:20:51Z",
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "jobs": [
+      {
+        "id": 118707878638,
+        "name": "validate",
+        "startedAt": "2026-10-20T15:10:33Z",
+        "completedAt": "2026-10-20T15:14:38Z",
+        "conclusion": "success",
+        "steps": []
+      },
+      {
+        "id": 118710045252,
+        "name": "release-public",
+        "startedAt": "2026-10-20T15:19:40Z",
+        "completedAt": "2026-10-20T15:20:50Z",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Verify live settings and schema without applying migrations",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-20T15:20:17Z",
+            "completed_at": "2026-10-20T15:20:21Z"
+          },
+          {
+            "name": "Verify solo owner approval, live protections and exact-SHA CI",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-20T15:20:21Z",
+            "completed_at": "2026-10-20T15:20:22Z"
+          },
+          {
+            "name": "Deploy Public Worker and frontend assets",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-20T15:20:22Z",
+            "completed_at": "2026-10-20T15:20:45Z"
+          },
+          {
+            "name": "Verify serving Public version preserves V2 100 percent and document flags remain OFF",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-20T15:20:45Z",
+            "completed_at": "2026-10-20T15:20:48Z"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      "2026-10-20T15:19:44.2973215Z acbada706e365b0593882eb783f808805ef1a2e5",
+      "2026-10-20T15:20:21.1564761Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=3e7f80ec-e268-4869-976a-6e26c38244b0",
+      "2026-10-20T15:20:22.8083730Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "2026-10-20T15:20:40.5831116Z Uploaded hub-planner-public-dev-api (14.59 sec)",
+      "2026-10-20T15:20:45.6612641Z Deployed hub-planner-public-dev-api triggers (5.08 sec)",
+      "2026-10-20T15:20:45.6621434Z Current Version ID: 93e9bad7-39f3-4635-bb97-c6d71ccc4524",
+      "2026-10-20T15:20:48.8064102Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=93e9bad7-39f3-4635-bb97-c6d71ccc4524"
+    ]
+  },
+  "task02": {
+    "prUrl": "https://github.com/tqhoangg08/HUB-PLANNER/pull/122",
+    "number": 122,
+    "merged": true,
+    "mergeSha": "fdc4ce8c3af54cc58e528916ef230f6b09286020"
+  },
+  "historicalEvidence": "docs/public-release-baseline-3e7f80ec.json",
+  "safety": {
+    "productionSql": false,
+    "credentialsOrHeadersRead": false,
+    "oauthRefreshed": false,
+    "permissionsChanged": false,
+    "productionModified": false,
+    "mergedByThisTask": false,
+    "deployed": false
+  },
+  "validation": {
+    "status": "PASS",
+    "recordedAt": "2026-10-20T15:46:17.385Z",
+    "nodeVersion": "v24.12.0",
+    "commands": [
+      {
+        "command": "npm run test:release-assistant",
+        "exitCode": 0,
+        "status": "PASS",
+        "tests": 229,
+        "passed": 229,
+        "logSha256": "97b82de61b95dbccca712f05193a59539947deb104898680086fdacd2ecb3b2c"
+      },
+      {
+        "command": "npm run typecheck",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa"
+      },
+      {
+        "command": "npm run cf:typecheck",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35"
+      },
+      {
+        "command": "npm run build",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "8b3ecd75f42097656f02cc95a62999b8bb72ea1972309916c5991a30f114de37"
+      }
+    ],
+    "guardLogicEquivalentExceptPinAndComments": true,
+    "protectedScopeUnchanged": true,
+    "historicalEvidenceUnchanged": true,
+    "dependencyLockfileAndConfigUnchanged": true,
+    "fullLocalSuite": "NOT_RUN; GitHub PR CI owns full suite",
+    "mobileBrowserMatrix": "NOT_RUN",
+    "localBenchmarks": "NOT_RUN",
+    "diffCheck": "PASS",
+    "prCi": "To be checked separately against the pushed head SHA"
+  }
+}
