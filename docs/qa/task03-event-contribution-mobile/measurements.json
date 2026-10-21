@@ -1,0 +1,588 @@
+{
+  "base": "1a61b4451c43a1a26fadc8174a9ec05014d19739",
+  "environment": "local browser emulation; no physical iPhone",
+  "before": [
+    {
+      "engine": "chromium",
+      "view": "mobile",
+      "width": 375,
+      "close": {
+        "width": 30,
+        "height": 30,
+        "label": null
+      },
+      "fonts": [
+        "13px"
+      ],
+      "compact": {
+        "viewport": [
+          375,
+          240
+        ],
+        "header": {
+          "top": 43.25,
+          "bottom": 91.75
+        },
+        "close": {
+          "width": 30,
+          "height": 30,
+          "label": null
+        },
+        "fonts": [
+          "13px"
+        ],
+        "scroll": {
+          "height": 148,
+          "total": 973
+        },
+        "horizontal": false,
+        "focused": {
+          "tag": "INPUT",
+          "top": 339,
+          "bottom": 377
+        }
+      },
+      "errors": []
+    },
+    {
+      "engine": "chromium",
+      "view": "board",
+      "width": 375,
+      "close": {
+        "width": 34,
+        "height": 34,
+        "label": null
+      },
+      "fonts": [
+        "13px"
+      ],
+      "compact": {
+        "viewport": [
+          375,
+          240
+        ],
+        "header": {
+          "top": 15,
+          "bottom": 77
+        },
+        "close": {
+          "width": 34,
+          "height": 34,
+          "label": null
+        },
+        "fonts": [
+          "13px"
+        ],
+        "scroll": {
+          "height": 210,
+          "total": 1262
+        },
+        "horizontal": false,
+        "focused": {
+          "tag": "INPUT",
+          "top": 295.5,
+          "bottom": 333.5
+        }
+      },
+      "errors": []
+    },
+    {
+      "engine": "chromium",
+      "view": "board",
+      "width": 1440,
+      "close": {
+        "width": 34,
+        "height": 34,
+        "label": null
+      },
+      "fonts": [
+        "13px"
+      ],
+      "compact": {
+        "viewport": [
+          1440,
+          240
+        ],
+        "header": {
+          "top": 15,
+          "bottom": 77
+        },
+        "close": {
+          "width": 34,
+          "height": 34,
+          "label": null
+        },
+        "fonts": [
+          "13px"
+        ],
+        "scroll": {
+          "height": 210,
+          "total": 937
+        },
+        "horizontal": false,
+        "focused": {
+          "tag": "INPUT",
+          "top": 145,
+          "bottom": 183
+        }
+      },
+      "errors": []
+    },
+    {
+      "engine": "webkit",
+      "view": "mobile",
+      "width": 375,
+      "close": {
+        "width": 30,
+        "height": 30,
+        "label": null
+      },
+      "fonts": [
+        "13px"
+      ],
+      "compact": {
+        "viewport": [
+          375,
+          240
+        ],
+        "header": {
+          "top": 43.25,
+          "bottom": 91.75
+        },
+        "close": {
+          "width": 30,
+          "height": 30,
+          "label": null
+        },
+        "fonts": [
+          "13px"
+        ],
+        "scroll": {
+          "height": 148,
+          "total": 973
+        },
+        "horizontal": false,
+        "focused": {
+          "tag": "INPUT",
+          "top": 82,
+          "bottom": 120
+        }
+      },
+      "errors": []
+    },
+    {
+      "engine": "webkit",
+      "view": "board",
+      "width": 375,
+      "close": {
+        "width": 34,
+        "height": 34,
+        "label": null
+      },
+      "fonts": [
+        "13px"
+      ],
+      "compact": {
+        "viewport": [
+          375,
+          240
+        ],
+        "header": {
+          "top": 15,
+          "bottom": 77
+        },
+        "close": {
+          "width": 34,
+          "height": 34,
+          "label": null
+        },
+        "fonts": [
+          "13px"
+        ],
+        "scroll": {
+          "height": 210,
+          "total": 1281
+        },
+        "horizontal": false,
+        "focused": {
+          "tag": "INPUT",
+          "top": 4.5,
+          "bottom": 42.5
+        }
+      },
+      "errors": []
+    },
+    {
+      "engine": "webkit",
+      "view": "board",
+      "width": 1440,
+      "close": {
+        "width": 34,
+        "height": 34,
+        "label": null
+      },
+      "fonts": [
+        "13px"
+      ],
+      "compact": {
+        "viewport": [
+          1440,
+          240
+        ],
+        "header": {
+          "top": 15,
+          "bottom": 77
+        },
+        "close": {
+          "width": 34,
+          "height": 34,
+          "label": null
+        },
+        "fonts": [
+          "13px"
+        ],
+        "scroll": {
+          "height": 210,
+          "total": 936
+        },
+        "horizontal": false,
+        "focused": {
+          "tag": "INPUT",
+          "top": 146,
+          "bottom": 184
+        }
+      },
+      "errors": []
+    }
+  ],
+  "after": [
+    {
+      "engine": "chromium",
+      "case": "board-iphone-se",
+      "page": "EventsBoard",
+      "viewport": [
+        375,
+        667
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        34.34375,
+        106.34375
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "no draft feature",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "case": "desktop",
+      "page": "EventsBoard",
+      "viewport": [
+        1440,
+        900
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        46,
+        118
+      ],
+      "fonts": [
+        "13px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "no draft feature",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "case": "iphone-13",
+      "page": "MobileEvents",
+      "viewport": [
+        390,
+        844
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        103.65625,
+        166.15625
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "restore/cancel/clear PASS after existing 500ms autosave",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "case": "iphone-se",
+      "page": "MobileEvents",
+      "viewport": [
+        375,
+        667
+      ],
+      "close": {
+        "width": 44,
+        "height": 43.99999237060547,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        86.10803985595703,
+        148.6080322265625
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "restore/cancel/clear PASS after existing 500ms autosave",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "case": "small-360",
+      "page": "MobileEvents",
+      "viewport": [
+        360,
+        640
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        83.25,
+        145.75
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "restore/cancel/clear PASS after existing 500ms autosave",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "case": "board-iphone-se",
+      "page": "EventsBoard",
+      "viewport": [
+        375,
+        667
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        34.34375,
+        106.34375
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "no draft feature",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "case": "desktop",
+      "page": "EventsBoard",
+      "viewport": [
+        1440,
+        900
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        46,
+        118
+      ],
+      "fonts": [
+        "13px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "no draft feature",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "case": "iphone-13",
+      "page": "MobileEvents",
+      "viewport": [
+        390,
+        844
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        103.65625,
+        166.15625
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "restore/cancel/clear PASS after existing 500ms autosave",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "case": "iphone-se",
+      "page": "MobileEvents",
+      "viewport": [
+        375,
+        667
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        85.953125,
+        148.453125
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "restore/cancel/clear PASS after existing 500ms autosave",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "case": "small-360",
+      "page": "MobileEvents",
+      "viewport": [
+        360,
+        640
+      ],
+      "close": {
+        "width": 44,
+        "height": 44,
+        "minWidth": 44,
+        "minHeight": 44
+      },
+      "header": [
+        83.25,
+        145.5
+      ],
+      "fonts": [
+        "16px"
+      ],
+      "horizontalOverflow": false,
+      "draft": "restore/cancel/clear PASS after existing 500ms autosave",
+      "errors": [],
+      "warnings": [],
+      "interceptedMethods": [
+        "GET",
+        "POST"
+      ]
+    }
+  ],
+  "boardAfterCompact": {
+    "viewport": [
+      375,
+      240
+    ],
+    "header": {
+      "top": 15,
+      "bottom": 87
+    },
+    "close": {
+      "width": 44,
+      "height": 44,
+      "label": "Đóng đóng góp sự kiện"
+    },
+    "fonts": [
+      "16px"
+    ],
+    "scroll": {
+      "height": 138,
+      "total": 1237
+    },
+    "horizontal": false,
+    "focused": {
+      "tag": "INPUT",
+      "top": 91.5,
+      "bottom": 129.5
+    }
+  }
+}

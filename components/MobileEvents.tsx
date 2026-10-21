@@ -1,4 +1,5 @@
 import { Overlay } from './Overlay';
+import { useEventContributionDialog } from '../hooks/useEventContributionDialog';
 import { EventContributionTimeFields } from './EventContributionTimeFields';
 import { DrlScoreGuideModal as ScoreGuideModal } from './DrlScoreGuide';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
@@ -204,6 +205,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         }
     };
 
+    const { dialogRef, titleId } = useEventContributionDialog(isOpen, onClose);
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -247,21 +249,21 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         }
     };
 
-    return createPortal(
+    return (
         <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-t-3xl w-full h-[90vh] flex flex-col overflow-hidden animate-slideUp relative shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="bg-white rounded-t-3xl w-full min-w-0 h-[90dvh] flex flex-col overflow-hidden animate-slideUp relative shadow-2xl" onClick={e => e.stopPropagation()}>
                 <DragHandle />
-                <div className="px-5 pb-3 pt-2 flex justify-between items-center bg-white shrink-0 border-b border-gray-100">
-                    <h3 className="font-bold text-[15px] flex items-center gap-2 text-[#003375]">
+                <header className="px-5 pb-3 pt-2 flex justify-between items-center gap-2 bg-white shrink-0 border-b border-gray-100">
+                    <h3 id={titleId} className="min-w-0 font-bold text-[15px] flex items-center gap-2 text-[#003375]">
                         <PlusCircle size={20}/> Đóng góp Sự kiện
                     </h3>
-                    <div className="flex items-center gap-2">
-                        <button onClick={handleClearDraft} className="p-2 rounded-full bg-gray-100 text-gray-500 active:scale-95"><RotateCcw size={16} /></button>
-                        <button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 active:scale-95"><X size={16}/></button>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <button type="button" aria-label="Xóa bản nháp đóng góp" onClick={handleClearDraft} className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-full bg-gray-100 text-gray-500 active:scale-95"><RotateCcw size={16} /></button>
+                        <button type="button" aria-label="Đóng đóng góp sự kiện" onClick={onClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center p-2 rounded-full bg-gray-100 text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
-                </div>
+                </header>
 
-                <div className="p-5 overflow-y-auto custom-scrollbar flex-1 pb-safe">
+                <div data-contribution-scroll tabIndex={0} className="p-5 min-h-0 overflow-y-auto custom-scrollbar flex-1 pb-safe">
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5 flex gap-2 text-xs text-blue-800">
                         <Sparkles className="shrink-0 mt-0.5" size={16}/>
                         <p>Dữ liệu đang nhập sẽ tự động lưu nháp.</p>
@@ -346,7 +348,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                     </form>
                 </div>
             </div>
-        </Overlay>, document.body
+        </Overlay>
     );
 };
 
@@ -1145,7 +1147,7 @@ return (
               </div>
               <div className="flex gap-2">
                   <button onClick={() => { playClick(); fetchEvents({ bypassCache: true }); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"><RefreshCw size={19} className={loading ? "animate-spin" : ""} /></button>
-                  <button onClick={() => { isManagementView ? openEventEditor(null) : (playClick(), setShowContributeModal(true)); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)] active:scale-95"><PlusCircle size={19} /></button>
+                  <button onClick={(event) => { if (!isManagementView) event.currentTarget.focus({ preventScroll: true }); isManagementView ? openEventEditor(null) : (playClick(), setShowContributeModal(true)); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)] active:scale-95"><PlusCircle size={19} /></button>
               </div>
           </div>
 
@@ -1258,7 +1260,7 @@ return (
                           loading={loading}
                           onRefresh={() => { playClick(); fetchEvents({ bypassCache: true, page: 0 }); }}
                           onOpenGuide={() => { playClick(); setShowScoreGuide(true); }}
-                          onPrimaryAction={() => { playClick(); isManagementView ? openEventEditor(null) : setShowContributeModal(true); }}
+                          onPrimaryAction={(event) => { if (!isManagementView) event.currentTarget.focus({ preventScroll: true }); playClick(); isManagementView ? openEventEditor(null) : setShowContributeModal(true); }}
                           primaryActionLabel={isManagementView ? 'Thêm mới' : 'Gửi đóng góp'}
                       />
                   </div>

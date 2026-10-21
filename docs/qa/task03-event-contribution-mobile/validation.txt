@@ -1,0 +1,67 @@
+OUTPUT: acceptance-chromium.log
+✔ chromium iphone-se: contribution viewport, native values, focus and draft lifecycle (14447.5222ms)
+✔ chromium iphone-13: contribution viewport, native values, focus and draft lifecycle (7077.4283ms)
+✔ chromium small-360: contribution viewport, native values, focus and draft lifecycle (7268.9795ms)
+✔ chromium board-iphone-se: contribution viewport, native values, focus and draft lifecycle (5270.3075ms)
+✔ chromium desktop: contribution viewport, native values, focus and draft lifecycle (5220.8879ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42259.7173
+
+OUTPUT: acceptance-webkit.log
+✔ webkit iphone-se: contribution viewport, native values, focus and draft lifecycle (29348.8147ms)
+✔ webkit iphone-13: contribution viewport, native values, focus and draft lifecycle (17522.0783ms)
+✔ webkit small-360: contribution viewport, native values, focus and draft lifecycle (12907.1247ms)
+✔ webkit board-iphone-se: contribution viewport, native values, focus and draft lifecycle (8110.9091ms)
+✔ webkit desktop: contribution viewport, native values, focus and draft lifecycle (7414.6198ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 76539.0298
+
+OUTPUT: overlay-related.log
+✔ nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode (80335.3606ms)
+✔ drawer adapter and SweetAlert dialogs share ownership with React modals (2183.679ms)
+✔ visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input (2503.0798ms)
+✔ real event filter drawer and DRL guide share ownership and retain Escape and focus behavior (2881.8699ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 99720.642
+
+OUTPUT: typecheck.log
+
+> hub-grade-planner@0.0.0 typecheck
+> tsc -p tsconfig.app.json --noEmit
+
+
+OUTPUT: cf-typecheck.log
+
+> hub-grade-planner@0.0.0 cf:typecheck
+> tsc -p cloudflare/tsconfig.json --noEmit
+
+
+UNCHANGED CATALOG REGRESSION: source test file unchanged, 3/3 PASS
+✔ actual contribution form: aligned compact fields, catalog errors and recovery at 1440px (62402.9388ms)
+✔ actual contribution form: aligned compact fields, catalog errors and recovery at 620px (8017.9552ms)
+✔ actual contribution form: aligned compact fields, catalog errors and recovery at 390px (9349.6708ms)
+BUILD (exit 0):
+> hub-grade-planner@0.0.0 build
+vite v6.4.3 building for production...
+(!) Some chunks are larger than 500 kB after minification. Consider:
+✓ built in 1m 3s
+EXIT CODES: frontend typecheck=0; Cloudflare typecheck=0; build=0; protected-file diff=0.
+DIFF_CHECK=PASS (working tree and staged changes).

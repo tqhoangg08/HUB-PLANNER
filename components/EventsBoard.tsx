@@ -1,4 +1,5 @@
 import { Overlay } from './Overlay';
+import { useEventContributionDialog } from '../hooks/useEventContributionDialog';
 import { EventContributionTimeFields } from './EventContributionTimeFields';
 import { DrlScoreGuideModal as ScoreGuideModal } from './DrlScoreGuide';
 import React, { useEffect, useState, useRef, useMemo } from 'react';
@@ -204,6 +205,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [isCustomCategory, setIsCustomCategory] = useState(false);
     const { rules, organizers, prediction, catalogState, reloadCatalog } = useEventDrlAssistant(formData, isOpen);
 
+    const { dialogRef, titleId } = useEventContributionDialog(isOpen, onClose);
     if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -266,19 +268,19 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         }
     };
 
-    return createPortal(
+    return (
         <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
-                    <h3 className="font-bold text-[15px] flex items-center gap-2">
+            <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="bg-white rounded-xl w-full min-w-0 max-w-2xl max-h-[90dvh] overflow-hidden animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
+                <header className="bg-[#003375] p-4 flex justify-between items-center gap-2 text-white z-10 shrink-0">
+                    <h3 id={titleId} className="min-w-0 font-bold text-[15px] flex items-center gap-2">
                         <PlusCircle size={20}/> Đóng góp Sự kiện mới
                     </h3>
                     <div className="flex items-center gap-2">
-                        <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                        <button type="button" aria-label="Đóng đóng góp sự kiện" onClick={onClose} className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                     </div>
-                </div>
+                </header>
 
-                <div className="p-6">
+                <div data-contribution-scroll tabIndex={0} className="p-6 min-h-0 flex-1 overflow-y-auto custom-scrollbar">
                     <form onSubmit={handleSubmit} className="event-contribution-form space-y-4">
                         <div>
                             <label className="block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
@@ -436,7 +438,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                     </form>
                 </div>
             </div>
-        </Overlay>, document.body
+        </Overlay>
     );
 };
 
@@ -1466,7 +1468,7 @@ return (
                     loading={loading}
                     onRefresh={() => { playClick(); fetchEvents({ bypassCache: true }); }}
                     onOpenGuide={() => { playClick(); setShowScoreGuide(true); }}
-                    onPrimaryAction={showManagementView ? handleOpenAdd : !canManage ? () => { playClick(); setShowContributeModal(true); } : undefined}
+                    onPrimaryAction={showManagementView ? handleOpenAdd : !canManage ? (event) => { event.currentTarget.focus({ preventScroll: true }); playClick(); setShowContributeModal(true); } : undefined}
                     primaryActionLabel={showManagementView ? 'Thêm mới' : 'Gửi đóng góp'}
                     extraActions={canPreviewStudentUI ? (
                         <button type="button" onClick={() => { playClick(); setIsStudentPreview((value) => !value); }} title={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} aria-label={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} className="flex h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-[#003375] hover:bg-blue-50">
