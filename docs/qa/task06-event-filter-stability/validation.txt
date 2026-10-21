@@ -1,0 +1,286 @@
+Task 06 local validation
+BASE=0d915a4ac65f3a205b3c9020534719eb3101d773
+Node 24.12.0; Windows; Playwright Core 1.62.1
+
+model-overlay-unit: PASS 9/9
+chromium-final: PASS 13/13
+webkit-final: PASS 13/13
+chromium-scroll: PASS 1/1
+webkit-scroll: PASS 1/1
+drl-chromium: PASS 4/4
+drl-webkit: PASS 4/4
+contribution-chromium: PASS 5/5
+contribution-webkit: PASS 5/5
+contribution-catalog: PASS 3/3
+overlay-browser: PASS 13/13
+admin-events: PASS 4/4
+typecheck: PASS (exit 0)
+cf-typecheck: PASS (exit 0)
+build: PASS (exit 0; build includes chunk-size warning)
+
+Targeted total: 75/75
+Full suite: delegated to GitHub PR CI on final pushed HEAD.
+REAL_DEVICE_ACCEPTANCE=NOT_VERIFIED
+NO_MERGE=YES
+NO_DEPLOYMENT=YES
+PRODUCTION_UNCHANGED=YES
+DIFF_CHECK=PASS
+SCOPE_CHECK=PASS (filter model, shared Overlay/lock/viewport, Admin view, dependencies, Cloudflare and workflows unchanged)
+
+Executed logs (TAP metadata condensed; no failure output omitted):
+
+== model-overlay-unit ==
+✔ filter badge counts groups and ignores defaults and keyword (2.9044ms)
+✔ event filtering combines keyword, region, type, date and category (4.6187ms)
+✔ month presets and score sorting are deterministic (5.1919ms)
+✔ each registration status and category still filters the matching event only (1.3709ms)
+✔ all sort orders and inclusive date boundaries preserve their contract (0.755ms)
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (4.7632ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (1.3001ms)
+✔ desktop compensates scrollbar once and preserves existing padding (0.7256ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (21.1674ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 910.6157
+
+== chromium-final ==
+# Subtest: chromium 360x640: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 1 - chromium 360x640: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: chromium 375x667: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 2 - chromium 375x667: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: chromium 390x844: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 3 - chromium 390x844: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: chromium 430x932: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 4 - chromium 430x932: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: chromium 768x1024: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 5 - chromium 768x1024: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: chromium 1440x900: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 6 - chromium 1440x900: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: chromium: real EventsBoard guest, tabs, actions and pagination
+ok 7 - chromium: real EventsBoard guest, tabs, actions and pagination
+# Subtest: chromium: real EventsBoard student, tabs, actions and pagination
+ok 8 - chromium: real EventsBoard student, tabs, actions and pagination
+# Subtest: chromium: real MobileEvents student, tabs, actions and pagination
+ok 9 - chromium: real MobileEvents student, tabs, actions and pagination
+# Subtest: chromium: admin management and shared student preview remain available
+ok 10 - chromium: admin management and shared student preview remain available
+# Subtest: chromium: auditor management and shared student preview remain available
+ok 11 - chromium: auditor management and shared student preview remain available
+# Subtest: chromium: all category, status, sorting and alternate-date options remain available
+ok 12 - chromium: all category, status, sorting and alternate-date options remain available
+# Subtest: chromium: intermediate desktop breakpoints keep every toolbar control reachable
+ok 13 - chromium: intermediate desktop breakpoints keep every toolbar control reachable
+# tests 13
+# pass 13
+# fail 0
+# skipped 0
+# duration_ms 82433.6153
+
+== webkit-final ==
+# Subtest: webkit 360x640: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 1 - webkit 360x640: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: webkit 375x667: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 2 - webkit 375x667: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: webkit 390x844: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 3 - webkit 390x844: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: webkit 430x932: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 4 - webkit 430x932: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: webkit 768x1024: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 5 - webkit 768x1024: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: webkit 1440x900: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+ok 6 - webkit 1440x900: stable toolbar, draft/apply/reset, focus, scrolling and debounce
+# Subtest: webkit: real EventsBoard guest, tabs, actions and pagination
+ok 7 - webkit: real EventsBoard guest, tabs, actions and pagination
+# Subtest: webkit: real EventsBoard student, tabs, actions and pagination
+ok 8 - webkit: real EventsBoard student, tabs, actions and pagination
+# Subtest: webkit: real MobileEvents student, tabs, actions and pagination
+ok 9 - webkit: real MobileEvents student, tabs, actions and pagination
+# Subtest: webkit: admin management and shared student preview remain available
+ok 10 - webkit: admin management and shared student preview remain available
+# Subtest: webkit: auditor management and shared student preview remain available
+ok 11 - webkit: auditor management and shared student preview remain available
+# Subtest: webkit: all category, status, sorting and alternate-date options remain available
+ok 12 - webkit: all category, status, sorting and alternate-date options remain available
+# Subtest: webkit: intermediate desktop breakpoints keep every toolbar control reachable
+ok 13 - webkit: intermediate desktop breakpoints keep every toolbar control reachable
+# tests 13
+# pass 13
+# fail 0
+# skipped 0
+# duration_ms 207014.9145
+
+== chromium-scroll ==
+# Subtest: chromium: record scroll lifecycle measurements across target viewports
+ok 1 - chromium: record scroll lifecycle measurements across target viewports
+# tests 1
+# pass 1
+# fail 0
+# skipped 0
+# duration_ms 20951.1148
+
+== webkit-scroll ==
+# Subtest: webkit: record scroll lifecycle measurements across target viewports
+ok 1 - webkit: record scroll lifecycle measurements across target viewports
+# tests 1
+# pass 1
+# fail 0
+# skipped 0
+# duration_ms 28914.5262
+
+== drl-chromium ==
+# Subtest: chromium iphone-se: real event page, appendix, focus, viewport and scroll lifecycle
+ok 1 - chromium iphone-se: real event page, appendix, focus, viewport and scroll lifecycle
+# Subtest: chromium iphone-13: real event page, appendix, focus, viewport and scroll lifecycle
+ok 2 - chromium iphone-13: real event page, appendix, focus, viewport and scroll lifecycle
+# Subtest: chromium small-360: real event page, appendix, focus, viewport and scroll lifecycle
+ok 3 - chromium small-360: real event page, appendix, focus, viewport and scroll lifecycle
+# Subtest: chromium desktop: real event page, appendix, focus, viewport and scroll lifecycle
+ok 4 - chromium desktop: real event page, appendix, focus, viewport and scroll lifecycle
+# tests 4
+# pass 4
+# fail 0
+# skipped 0
+# duration_ms 26997.447
+
+== drl-webkit ==
+# Subtest: webkit iphone-se: real event page, appendix, focus, viewport and scroll lifecycle
+ok 1 - webkit iphone-se: real event page, appendix, focus, viewport and scroll lifecycle
+# Subtest: webkit iphone-13: real event page, appendix, focus, viewport and scroll lifecycle
+ok 2 - webkit iphone-13: real event page, appendix, focus, viewport and scroll lifecycle
+# Subtest: webkit small-360: real event page, appendix, focus, viewport and scroll lifecycle
+ok 3 - webkit small-360: real event page, appendix, focus, viewport and scroll lifecycle
+# Subtest: webkit desktop: real event page, appendix, focus, viewport and scroll lifecycle
+ok 4 - webkit desktop: real event page, appendix, focus, viewport and scroll lifecycle
+# tests 4
+# pass 4
+# fail 0
+# skipped 0
+# duration_ms 44263.9489
+
+== contribution-chromium ==
+# Subtest: chromium iphone-se: contribution viewport, native values, focus and draft lifecycle
+ok 1 - chromium iphone-se: contribution viewport, native values, focus and draft lifecycle
+# Subtest: chromium iphone-13: contribution viewport, native values, focus and draft lifecycle
+ok 2 - chromium iphone-13: contribution viewport, native values, focus and draft lifecycle
+# Subtest: chromium small-360: contribution viewport, native values, focus and draft lifecycle
+ok 3 - chromium small-360: contribution viewport, native values, focus and draft lifecycle
+# Subtest: chromium board-iphone-se: contribution viewport, native values, focus and draft lifecycle
+ok 4 - chromium board-iphone-se: contribution viewport, native values, focus and draft lifecycle
+# Subtest: chromium desktop: contribution viewport, native values, focus and draft lifecycle
+ok 5 - chromium desktop: contribution viewport, native values, focus and draft lifecycle
+# tests 5
+# pass 5
+# fail 0
+# skipped 0
+# duration_ms 40104.0613
+
+== contribution-webkit ==
+# Subtest: webkit iphone-se: contribution viewport, native values, focus and draft lifecycle
+ok 1 - webkit iphone-se: contribution viewport, native values, focus and draft lifecycle
+# Subtest: webkit iphone-13: contribution viewport, native values, focus and draft lifecycle
+ok 2 - webkit iphone-13: contribution viewport, native values, focus and draft lifecycle
+# Subtest: webkit small-360: contribution viewport, native values, focus and draft lifecycle
+ok 3 - webkit small-360: contribution viewport, native values, focus and draft lifecycle
+# Subtest: webkit board-iphone-se: contribution viewport, native values, focus and draft lifecycle
+ok 4 - webkit board-iphone-se: contribution viewport, native values, focus and draft lifecycle
+# Subtest: webkit desktop: contribution viewport, native values, focus and draft lifecycle
+ok 5 - webkit desktop: contribution viewport, native values, focus and draft lifecycle
+# tests 5
+# pass 5
+# fail 0
+# skipped 0
+# duration_ms 67611.6069
+
+== contribution-catalog ==
+# Subtest: actual contribution form: aligned compact fields, catalog errors and recovery at 1440px
+ok 1 - actual contribution form: aligned compact fields, catalog errors and recovery at 1440px
+# Subtest: actual contribution form: aligned compact fields, catalog errors and recovery at 620px
+ok 2 - actual contribution form: aligned compact fields, catalog errors and recovery at 620px
+# Subtest: actual contribution form: aligned compact fields, catalog errors and recovery at 390px
+ok 3 - actual contribution form: aligned compact fields, catalog errors and recovery at 390px
+# tests 3
+# pass 3
+# fail 0
+# skipped 0
+# duration_ms 16062.3172
+
+== overlay-browser ==
+# Subtest: mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads
+ok 1 - mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads
+# Subtest: iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+ok 2 - iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+# Subtest: iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+ok 3 - iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+# Subtest: Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+ok 4 - Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+# Subtest: desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore
+ok 5 - desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore
+# Subtest: desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore
+ok 6 - desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore
+# Subtest: nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode
+ok 7 - nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode
+# Subtest: unexpected unmount and route navigation release all ownership
+ok 8 - unexpected unmount and route navigation release all ownership
+# Subtest: drawer adapter and SweetAlert dialogs share ownership with React modals
+ok 9 - drawer adapter and SweetAlert dialogs share ownership with React modals
+# Subtest: SweetAlert Safari body fix cannot move a locked background or clear a remaining owner
+ok 10 - SweetAlert Safari body fix cannot move a locked background or clear a remaining owner
+# Subtest: visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input
+ok 11 - visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input
+# Subtest: touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch
+ok 12 - touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch
+# Subtest: real event filter drawer and DRL guide share ownership and retain Escape and focus behavior
+ok 13 - real event filter drawer and DRL guide share ownership and retain Escape and focus behavior
+# tests 13
+# pass 13
+# fail 0
+# skipped 0
+# duration_ms 24712.9282
+
+== admin-events ==
+# Subtest: admin and auditor get management layout, accessible actions and role-safe delete
+ok 1 - admin and auditor get management layout, accessible actions and role-safe delete
+# Subtest: admin filters banner review queue and uploads a licensed local image only after confirmation
+ok 2 - admin filters banner review queue and uploads a licensed local image only after confirmation
+# Subtest: tabs, search and pagination reset after filter changes
+ok 3 - tabs, search and pagination reset after filter changes
+# Subtest: loading and empty states remain clear on a narrow viewport
+ok 4 - loading and empty states remain clear on a narrow viewport
+# tests 4
+# pass 4
+# fail 0
+# skipped 0
+# duration_ms 14021.0683
+
+== typecheck ==
+> hub-grade-planner@0.0.0 typecheck
+> tsc -p tsconfig.app.json --noEmit
+
+== cf-typecheck ==
+> hub-grade-planner@0.0.0 cf:typecheck
+> tsc -p cloudflare/tsconfig.json --noEmit
+
+== build ==
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+dist/assets/html2canvas.esm-OkJIQ-sN.js                   201.86 kB │ gzip:  47.90 kB
+dist/assets/browserBootstrap-BYEihZnv.js                  249.70 kB │ gzip:  80.16 kB
+dist/assets/pdf-DT5A8ONP.js                               334.03 kB │ gzip:  98.26 kB
+dist/assets/LineChart-ChuQj2XT.js                         343.68 kB │ gzip: 104.17 kB
+dist/assets/pdfExport-DhMW7wcv.js                         426.07 kB │ gzip: 140.43 kB
+dist/assets/legacy-entry-ah-kif8y.js                      776.36 kB │ gzip: 215.50 kB
+✓ built in 28.34s
+
+PWA v1.3.0
+mode      generateSW
+precache  107 entries (4125.99 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-9c191d2f.js

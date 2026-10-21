@@ -29,6 +29,7 @@ for (const width of [1440,620,390]) test(`actual contribution form: aligned comp
   });
   try {
     await page.goto(`${server.resolvedUrls.local[0]}tests/event-contribution-harness.html${width < 600 ? '?mobile' : ''}`,{waitUntil:'domcontentloaded',timeout:60_000});
+    if (width < 1024) await page.getByRole('button',{name:'Thao tác sự kiện',exact:true}).click();
     await page.getByRole('button',{name:'Gửi đóng góp',exact:true}).first().click();
     const form = page.locator('form').filter({has:page.locator('#event-drl-rule')});
     await form.getByRole('status').filter({hasText:'Vui lòng đăng nhập để tải danh mục đơn vị tổ chức và mục ĐRL.'}).waitFor();

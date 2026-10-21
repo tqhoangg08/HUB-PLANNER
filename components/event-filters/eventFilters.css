@@ -1,0 +1,50 @@
+.event-filter-controls { width: 100%; min-width: 0; }
+.event-filter-toolbar { display: grid; gap: 8px; min-width: 0; }
+.event-filter-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.event-filter-control { height: 44px; min-height: 44px; }
+.event-filter-open, .event-filter-sort-trigger { flex: 1; min-width: 0; white-space: nowrap; }
+.event-filter-more, .event-filter-close { flex: none; width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+.event-filter-close { display: grid; place-items: center; }
+.event-filter-inline-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.event-filter-inline-actions[hidden] { display: none; }
+.event-filter-inline-actions .event-filter-action-label { display: none; }
+.event-filter-inline-actions > button { min-width: 44px; min-height: 44px; white-space: nowrap; }
+.event-filter-date-trigger { flex: none; white-space: nowrap; }
+.event-filter-sort { flex: 1; min-width: 205px; max-width: 250px; }
+.event-filter-chips { display: flex; align-items: center; gap: 8px; height: 44px; margin-top: 8px; max-width: 100%; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
+.event-filter-chip { display: inline-flex; flex: none; align-items: center; height: 44px; padding-left: 12px; white-space: nowrap; }
+.event-filter-chip-remove { display: grid; place-items: center; height: 44px; min-width: 44px; }
+.event-filter-chips > button { flex: none; min-height: 44px; white-space: nowrap; }
+.event-filter-overlay { display: flex; align-items: flex-end; justify-content: center; }
+.event-filter-panel { position: relative; display: flex; flex-direction: column; width: 100%; max-height: 94dvh; min-width: 0; overflow: hidden; border-radius: 16px 16px 0 0; }
+.event-filter-content { min-height: 0; min-width: 0; }
+.event-filter-panel header, .event-filter-panel footer { flex-shrink: 0; }
+.event-filter-panel input:not([type=radio]):not([type=checkbox]), .event-filter-panel select { min-width: 0; max-width: 100%; }
+.event-filter-focus-section:focus { outline: 2px solid #1769e0; outline-offset: 3px; }
+.event-filter-sheet-actions { display: grid; gap: 8px; }
+.event-filter-sheet-actions > button { width: 100%; min-height: 44px; height: auto; padding: 12px; justify-content: flex-start; text-align: left; }
+.event-filter-sheet-actions .event-filter-action-label { display: inline; }
+.event-filter-sheet-actions .hidden { display: inline; }
+@media (max-width: 767px) {
+  .event-filter-controls input:not([type=radio]):not([type=checkbox]),
+  .event-filter-panel input:not([type=radio]):not([type=checkbox]), .event-filter-panel select { font-size: 16px; }
+}
+@media (max-width: 479px) {
+  .event-filter-date-range { grid-template-columns: minmax(0, 1fr); }
+  .event-filter-date-range > span { display: none; }
+}
+@media (min-width: 640px) {
+  .event-filter-overlay { align-items: stretch; justify-content: flex-end; }
+  .event-filter-panel { width: min(400px, 88vw); max-height: 100%; border-radius: 0; }
+}
+@media (min-width: 1024px) {
+  .event-filter-open { flex: none; }
+}
+
+/* Keep this sheet's footer grid despite the browser shell's generic footer rule. */
+html.mobile-browser .event-filter-panel > footer { display: grid !important; }
+/* The floating launcher must not cover or receive taps over the active sheet.
+   Visibility preserves the advisor/chat state and its existing stacking order. */
+html body:has(.event-filter-overlay) .mobile-ai-advisor,
+html body:has(.event-filter-overlay) .mobile-ai-button,
+html body:has(.event-filter-overlay) .mobile-ai-bubble-position { visibility: hidden !important; pointer-events: none !important; }

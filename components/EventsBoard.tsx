@@ -1462,7 +1462,12 @@ return (
                 
                 <EventFilterControls
                     filters={appliedFilters}
-                    onChange={setAppliedFilters}
+                    onChange={(next) => {
+                        setAppliedFilters(next);
+                        if (activeTab !== 'participated') {
+                            setActiveTab(next.trainingCategories.length === 1 ? next.trainingCategories[0] : 'all');
+                        }
+                    }}
                     regions={eventRegions}
                     eventTypes={eventTypes}
                     loading={loading}

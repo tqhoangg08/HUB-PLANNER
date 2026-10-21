@@ -1,0 +1,468 @@
+[
+  {
+    "width": 360,
+    "height": 640,
+    "before": {
+      "x": 0,
+      "y": 873,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -802,
+      "rawScroll": [
+        0,
+        873
+      ],
+      "bodyPosition": ""
+    },
+    "during": {
+      "x": 0,
+      "y": 873,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -802,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": "fixed"
+    },
+    "after": {
+      "x": 0,
+      "y": 873,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -802,
+      "rawScroll": [
+        0,
+        873
+      ],
+      "bodyPosition": ""
+    },
+    "appliedBefore": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterCancel": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    }
+  },
+  {
+    "width": 375,
+    "height": 667,
+    "before": {
+      "x": 0,
+      "y": 860,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -789,
+      "rawScroll": [
+        0,
+        860
+      ],
+      "bodyPosition": ""
+    },
+    "during": {
+      "x": 0,
+      "y": 860,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -789,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": "fixed"
+    },
+    "after": {
+      "x": 0,
+      "y": 860,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -789,
+      "rawScroll": [
+        0,
+        860
+      ],
+      "bodyPosition": ""
+    },
+    "appliedBefore": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterCancel": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterApply": {
+      "keyword": "",
+      "region": "Trong trường",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterReset": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    }
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "before": {
+      "x": 0,
+      "y": 771,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -700,
+      "rawScroll": [
+        0,
+        771
+      ],
+      "bodyPosition": ""
+    },
+    "during": {
+      "x": 0,
+      "y": 771,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -700,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": "fixed"
+    },
+    "after": {
+      "x": 0,
+      "y": 771,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -700,
+      "rawScroll": [
+        0,
+        771
+      ],
+      "bodyPosition": ""
+    },
+    "appliedBefore": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterCancel": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    }
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "before": {
+      "x": 0,
+      "y": 727,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -656,
+      "rawScroll": [
+        0,
+        727
+      ],
+      "bodyPosition": ""
+    },
+    "during": {
+      "x": 0,
+      "y": 727,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -656,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": "fixed"
+    },
+    "after": {
+      "x": 0,
+      "y": 727,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -656,
+      "rawScroll": [
+        0,
+        727
+      ],
+      "bodyPosition": ""
+    },
+    "appliedBefore": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterCancel": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    }
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "before": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          645
+        ]
+      ],
+      "anchor": -585.5,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": ""
+    },
+    "during": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          645
+        ]
+      ],
+      "anchor": -585.5,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": ""
+    },
+    "after": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          645
+        ]
+      ],
+      "anchor": -585.5,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": ""
+    },
+    "appliedBefore": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterCancel": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    }
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "before": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          707
+        ]
+      ],
+      "anchor": -647.5,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": ""
+    },
+    "during": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          707
+        ]
+      ],
+      "anchor": -647.5,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": ""
+    },
+    "after": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          707
+        ]
+      ],
+      "anchor": -647.5,
+      "rawScroll": [
+        0,
+        0
+      ],
+      "bodyPosition": ""
+    },
+    "appliedBefore": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "afterCancel": {
+      "keyword": "",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    }
+  }
+]

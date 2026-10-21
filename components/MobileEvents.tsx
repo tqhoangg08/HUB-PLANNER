@@ -1254,7 +1254,13 @@ return (
                       <EventFilterControls
                           compact
                           filters={appliedFilters}
-                          onChange={(next) => { setAppliedFilters(next); setEventsPage(0); }}
+                          onChange={(next) => {
+                              setAppliedFilters(next);
+                              setEventsPage(0);
+                              if (activeTab !== 'participated') {
+                                  setActiveTab(next.trainingCategories.length === 1 ? next.trainingCategories[0] : 'all');
+                              }
+                          }}
                           regions={eventRegions}
                           eventTypes={eventTypes}
                           loading={loading}

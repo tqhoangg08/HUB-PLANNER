@@ -1,0 +1,918 @@
+[
+  {
+    "engine": "chromium",
+    "width": 360,
+    "height": 640,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 434,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 575.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 133,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "chromium",
+    "width": 375,
+    "height": 667,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 447,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 553.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 98,
+    "keywordAfterCancel": "cancelled change",
+    "sheetSurvivesGuideEscape": 0
+  },
+  {
+    "engine": "chromium",
+    "width": 390,
+    "height": 844,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 536,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 642.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 98,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "chromium",
+    "width": 430,
+    "height": 932,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 580,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 686.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 98,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "chromium",
+    "width": 768,
+    "height": 1024,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 650.5,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 722.25,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 63,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "chromium",
+    "width": 1440,
+    "height": 900,
+    "before": {
+      "height": 38.5,
+      "rows": 1,
+      "anchor": 494,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 38.5
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 38.5,
+      "rows": 1,
+      "anchor": 530.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 38.5
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 28,
+    "keywordAfterCancel": "cancelled change",
+    "dateBefore": {
+      "y": 0,
+      "anchor": 530.75
+    },
+    "dateDuring": {
+      "y": 0,
+      "anchor": 530.75
+    },
+    "dateAfter": {
+      "y": 0,
+      "anchor": 530.75,
+      "focus": "Bộ lọc (5)"
+    }
+  },
+  {
+    "engine": "webkit",
+    "width": 360,
+    "height": 640,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 433,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 574.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 133,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "webkit",
+    "width": 375,
+    "height": 667,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 447,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 553.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 98,
+    "keywordAfterCancel": "cancelled change",
+    "sheetSurvivesGuideEscape": 0
+  },
+  {
+    "engine": "webkit",
+    "width": 390,
+    "height": 844,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 535,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 641.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 98,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "webkit",
+    "width": 430,
+    "height": 932,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 579,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 685.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 98,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "webkit",
+    "width": 768,
+    "height": 1024,
+    "before": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 650.5,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 133,
+      "rows": 3,
+      "anchor": 722.25,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 0
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 63,
+    "keywordAfterCancel": "cancelled change"
+  },
+  {
+    "engine": "webkit",
+    "width": 1440,
+    "height": 900,
+    "before": {
+      "height": 38.5,
+      "rows": 1,
+      "anchor": 494,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 38.5
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "appliedWhileEditing": "unapplied keyword",
+    "afterChips": {
+      "height": 38.5,
+      "rows": 1,
+      "anchor": 530.75,
+      "font": "13px",
+      "targets": [
+        {
+          "name": "Bộ lọc (5)",
+          "height": 38.5
+        },
+        {
+          "name": "Chọn thời gian",
+          "height": 38.5
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "height": 38.5
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "height": 38.5
+        },
+        {
+          "name": "Extra action",
+          "height": 21
+        },
+        {
+          "name": "Gửi đóng góp",
+          "height": 38.5
+        }
+      ],
+      "overflow": false
+    },
+    "chipHeight": 28,
+    "keywordAfterCancel": "cancelled change",
+    "dateBefore": {
+      "y": 0,
+      "anchor": 530.75
+    },
+    "dateDuring": {
+      "y": 0,
+      "anchor": 530.75
+    },
+    "dateAfter": {
+      "y": 0,
+      "anchor": 530.75,
+      "focus": "Bộ lọc (5)"
+    }
+  }
+]

@@ -22,7 +22,9 @@ await mkdir('.cache/drl-task02', { recursive: true });
 
 const title = 'Phụ lục Đánh giá Kết quả Rèn luyện';
 const guide = page => page.getByRole('dialog', { name: title });
-const trigger = page => page.getByRole('button', { name: 'Xem hướng dẫn điểm rèn luyện' });
+const guideAction = page => page.getByRole('button', { name: 'Xem hướng dẫn điểm rèn luyện' });
+const trigger = page => page.viewportSize().width < 1024 ? page.getByRole('button', { name: 'Thao tác sự kiện', exact: true }) : guideAction(page);
+async function chooseGuide(page) { if (page.viewportSize().width < 1024) await guideAction(page).click(); }
 const anchorTop = page => page.locator('#page-anchor').evaluate(n => n.getBoundingClientRect().top);
 const settleViewport = page => page.waitForFunction(() => Math.abs(
   document.querySelector('[data-overlay-root]').getBoundingClientRect().height - visualViewport.height) < 2);
@@ -71,7 +73,8 @@ for (const [name, width, height, desktop] of [
     await trigger(page).waitFor();
     assert.equal(await guide(page).count(), 0, 'closed on initial mount');
     await page.getByRole('textbox', { name: 'Tìm kiếm sự kiện', exact: true }).fill('fixture');
-    await page.getByRole('combobox', { name: 'Sắp xếp sự kiện', exact: true }).selectOption({ index: 1 });
+    if (page.viewportSize().width >= 1024) await page.getByRole('combobox', { name: 'Sắp xếp sự kiện', exact: true }).selectOption({ index: 1 });
+    else { await page.getByRole('button', { name: 'Sắp xếp', exact: true }).click(); await page.locator('#event-filter-sort').selectOption({ index: 1 }); await page.getByRole('button', { name: 'Áp dụng bộ lọc', exact: true }).click(); }
     await page.waitForTimeout(400); // Allow the real keyword debounce to rerender its parent.
     await page.evaluate(() => window.drlHarness.rerender());
     assert.equal(await guide(page).count(), 0, 'filters and parent rerender cannot open appendix');
@@ -95,6 +98,7 @@ for (const [name, width, height, desktop] of [
     // Click its current hit-tested coordinates, as a user does, after snapshotting.
     const triggerBox = await trigger(page).boundingBox();
     await page.mouse.click(triggerBox.x + triggerBox.width / 2, triggerBox.y + triggerBox.height / 2);
+    await chooseGuide(page);
     await guide(page).waitFor();
     assert.equal(await page.getByRole('dialog').count(), 1, 'one user action opens one dialog');
     await settleViewport(page);
@@ -159,7 +163,7 @@ for (const [name, width, height, desktop] of [
     assert.deepEqual(await page.evaluate(() => [document.body.getAttribute('style'), document.documentElement.getAttribute('style')]), beforeStyles);
 
     for (const dismissal of ['button', 'escape', 'route']) {
-      await trigger(page).click(); await guide(page).waitFor();
+      await trigger(page).click(); await chooseGuide(page); await guide(page).waitFor();
       if (engine === 'chromium') {
         await page.mouse.move(1, 1); await page.mouse.wheel(0, 500); await page.waitForTimeout(100);
       } else {

@@ -18,7 +18,9 @@ test.after(async () => { await browser.close(); await server.close(); });
 await mkdir('.cache/task03', { recursive: true });
 
 const modal = page => page.getByRole('dialog', { name: /Đóng góp Sự kiện/ });
-const trigger = page => page.getByRole('button', { name: 'Gửi đóng góp', exact: true }).first();
+const contributionAction = page => page.getByRole('button', { name: 'Gửi đóng góp', exact: true }).first();
+const trigger = page => page.viewportSize().width < 1024 ? page.getByRole('button', { name: 'Thao tác sự kiện', exact: true }) : contributionAction(page);
+async function chooseContribution(page) { if (page.viewportSize().width < 1024) await contributionAction(page).click(); }
 const anchor = page => page.locator('#page-anchor').evaluate(n => n.getBoundingClientRect().top);
 const times = { deadline: '2026-11-28', deadline_time: '23:45', event_date: '2026-11-20', event_time: '08:30' };
 async function values(form) {
@@ -92,6 +94,7 @@ for (const [name, width, height, mobile] of [
     assert.ok(beforeScroll > 500);
     const box = await trigger(page).boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await chooseContribution(page);
     await modal(page).waitFor();
     await page.waitForTimeout(550); // Existing entrance animations must finish before hit testing.
     assert.equal(await modal(page).count(), 1);
@@ -171,7 +174,7 @@ for (const [name, width, height, mobile] of [
     await modal(page).waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => scrollY), beforeScroll);
     assert.equal(await trigger(page).evaluate(n => n === document.activeElement), true);
-    await trigger(page).click(); await modal(page).waitFor(); await page.waitForTimeout(550);
+    await trigger(page).click(); await chooseContribution(page); await modal(page).waitFor(); await page.waitForTimeout(550);
     if (mobile) {
       assert.deepEqual(await values(form), times); assert.equal(await title.inputValue(), 'Local fixture draft');
       assert.equal(await link.inputValue(), 'https://example.invalid/fixture');
@@ -187,10 +190,10 @@ for (const [name, width, height, mobile] of [
     }
     await modal(page).getByRole('button', { name: 'Đóng đóng góp sự kiện' }).focus();
     await page.keyboard.press('Escape'); await modal(page).waitFor({ state: 'detached' });
-    await trigger(page).click(); await modal(page).waitFor(); await page.waitForTimeout(550);
+    await trigger(page).click(); await chooseContribution(page); await modal(page).waitFor(); await page.waitForTimeout(550);
     const root = page.locator('[data-overlay-root]').filter({ has: modal(page) });
     await root.click({ position: { x: 1, y: 1 } }); await modal(page).waitFor({ state: 'detached' });
-    await trigger(page).click(); await modal(page).waitFor();
+    await trigger(page).click(); await chooseContribution(page); await modal(page).waitFor();
     await page.evaluate(() => window.contributionHarness.leave()); await page.locator('#away').waitFor();
     await modal(page).waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => getComputedStyle(document.body).overflowY !== 'hidden' && document.body.style.position !== 'fixed'), true);
