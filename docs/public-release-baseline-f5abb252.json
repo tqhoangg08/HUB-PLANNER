@@ -1,0 +1,318 @@
+{
+  "task": "06/10 — Production baseline preparation",
+  "mainAtPreparation": "8e37d69e4aac21c93fe4174cae76d528129bb8a3",
+  "previousVersion": "58c94fc8-5bfe-41e3-97f5-d0c39bc8be65",
+  "version": "f5abb252-a042-45e7-9f4e-96bdb550dd8e",
+  "worker": "hub-planner-public-dev-api",
+  "runId": "39582294253",
+  "sha": "0d915a4ac65f3a205b3c9020534719eb3101d773",
+  "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39582294253",
+  "liveMetadata": {
+    "recordedAt": "2026-10-21T14:48:59Z",
+    "method": "Existing authorized Chrome Cloudflare Dashboard session; read-only UI and ordinary navigation to metadata GET URLs; allowlisted metadata only",
+    "account": "6cd8bac6009a55f96bdf9df7c2057548",
+    "environment": "Production",
+    "dashboardUrl": "https://dash.cloudflare.com/6cd8bac6009a55f96bdf9df7c2057548/workers/services/view/hub-planner-public-dev-api/production",
+    "deploymentsUrl": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/deployments",
+    "versionsUrl": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/versions?page=1&per_page=15",
+    "deployment": {
+      "id": "fc127a9d-dfe5-4397-9fd6-50ce53ca3edc",
+      "createdOn": "2026-10-21T10:17:48.686577Z",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "versions": [
+        {
+          "version_id": "f5abb252-a042-45e7-9f4e-96bdb550dd8e",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "f5abb252-a042-45e7-9f4e-96bdb550dd8e",
+      "number": 465,
+      "createdOn": "2026-10-21T10:17:48.060144Z",
+      "source": "wrangler"
+    },
+    "dashboardUi": {
+      "versionPrefix": "f5abb252",
+      "trafficPercent": 100,
+      "status": "Ready"
+    },
+    "limitations": [
+      "Point-in-time deployment/version provenance only. Current quota, health, schema, ledger, full binding inventory and secrets are not rechecked; unchanged release guards must verify those before a future release.",
+      "No screenshot saved; Dashboard UI and rendered metadata GET documents agree. No cookies, credentials, tokens or response headers extracted or recorded.",
+      "Production release SHA predates Task 06 merge; this preparation does not release Task 06."
+    ]
+  },
+  "release": {
+    "runId": "39582294253",
+    "sha": "0d915a4ac65f3a205b3c9020534719eb3101d773",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39582294253",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "createdAt": "2026-10-21T10:07:51Z",
+    "startedAt": "2026-10-21T10:07:51Z",
+    "updatedAt": "2026-10-21T10:17:59Z",
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "jobs": [
+      {
+        "id": 119162567272,
+        "name": "validate",
+        "status": "completed",
+        "startedAt": "2026-10-21T10:07:55Z",
+        "completedAt": "2026-10-21T10:12:01Z",
+        "conclusion": "success",
+        "steps": []
+      },
+      {
+        "id": 119164301637,
+        "name": "release-public",
+        "status": "completed",
+        "startedAt": "2026-10-21T10:17:05Z",
+        "completedAt": "2026-10-21T10:17:58Z",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Verify live settings and schema without applying migrations",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "startedAt": "2026-10-21T10:17:37Z",
+            "completedAt": "2026-10-21T10:17:40Z"
+          },
+          {
+            "name": "Verify solo owner approval, live protections and exact-SHA CI",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "startedAt": "2026-10-21T10:17:40Z",
+            "completedAt": "2026-10-21T10:17:42Z"
+          },
+          {
+            "name": "Deploy Public Worker and frontend assets",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "startedAt": "2026-10-21T10:17:42Z",
+            "completedAt": "2026-10-21T10:17:53Z"
+          },
+          {
+            "name": "Verify serving Public version preserves V2 100 percent and document flags remain OFF",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "startedAt": "2026-10-21T10:17:53Z",
+            "completedAt": "2026-10-21T10:17:56Z"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      "2026-10-21T10:17:08.8047805Z 0d915a4ac65f3a205b3c9020534719eb3101d773",
+      "2026-10-21T10:17:40.5742937Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=58c94fc8-5bfe-41e3-97f5-d0c39bc8be65",
+      "2026-10-21T10:17:40.5956603Z   APPROVED_SHA: 0d915a4ac65f3a205b3c9020534719eb3101d773",
+      "2026-10-21T10:17:42.0259716Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "2026-10-21T10:17:44.4410667Z ✨ Read 170 files from the assets directory /home/runner/work/HUB-PLANNER/HUB-PLANNER/dist",
+      "2026-10-21T10:17:44.5070196Z 🌀 Starting asset upload...",
+      "2026-10-21T10:17:45.9702697Z 🌀 Found 53 new or modified static assets to upload. Proceeding with upload...",
+      "2026-10-21T10:17:46.9931377Z Uploaded 18 of 53 assets",
+      "2026-10-21T10:17:47.0186091Z Uploaded 35 of 53 assets",
+      "2026-10-21T10:17:47.2939965Z Uploaded 53 of 53 assets",
+      "2026-10-21T10:17:47.2943566Z ✨ Success! Uploaded 53 files (113 already uploaded) (1.32 sec)",
+      "2026-10-21T10:17:50.1349420Z Uploaded hub-planner-public-dev-api (5.88 sec)",
+      "2026-10-21T10:17:53.3681368Z Deployed hub-planner-public-dev-api triggers (3.24 sec)",
+      "2026-10-21T10:17:53.3685868Z Current Version ID: f5abb252-a042-45e7-9f4e-96bdb550dd8e",
+      "2026-10-21T10:17:56.0523227Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=f5abb252-a042-45e7-9f4e-96bdb550dd8e"
+    ]
+  },
+  "historicalEvidence": "docs/public-release-baseline-58c94fc8.json",
+  "safety": {
+    "productionSql": false,
+    "credentialsOrHeadersRead": false,
+    "oauthRefreshed": false,
+    "permissionsChanged": false,
+    "productionModified": false,
+    "mergedByThisTask": false,
+    "deployed": false
+  },
+  "validation": {
+    "status": "PASS",
+    "recordedAt": "2026-10-21T14:55:51Z",
+    "nodeVersion": "v24.12.0",
+    "commands": [
+      {
+        "command": "node --test tests/release-assistant.test.mjs tests/public-release-solo-owner.test.mjs tests/public-release-v2-rollout.test.mjs tests/public-release-metadata-probe.test.mjs",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "4b316e53045ceb33ed63dcd97cd642a7632a08d0cfb8e01905258c4d7806363e",
+        "tests": 294,
+        "passed": 294
+      },
+      {
+        "command": "npm run typecheck",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa"
+      },
+      {
+        "command": "npm run cf:typecheck",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35"
+      },
+      {
+        "command": "npm run build",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "01c34d6638b3f9c93cce30125761adcfbe5964b25403c980ee597b4df0f81def"
+      }
+    ],
+    "guardChangedLines": [
+      12,
+      13,
+      14
+    ],
+    "guardLogicEquivalentExceptPinAndComments": true,
+    "guardSourceSha256IgnoringPinAndComments": "5dd85725c90b43581cdd449886bd7e86149a60dc661eca31e76984885975c39c",
+    "historicalBaselineFilesPreserved": 27,
+    "historicalBaselineManifestSha256": "506e4fbd4d7fa9231b591f2bbf6a0bb7471bdba86d5891699ce412ef07d0d353",
+    "historicalComparison": "Git blob identities after repository clean filters; accounts for Windows checkout CRLF without changing historical files",
+    "historicalBaselineManifest": [
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/README.md",
+        "blob": "6c46fd74ccffe40c5c1604d353daa11e5046ab64"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/SHA256SUMS.txt",
+        "blob": "76efbc6eecca7dbbb6030b9ddc2eeb8690fa0b52"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/dashboard-metadata.json",
+        "blob": "1cbbce25633d33d4f37b535e5b9d05ab30af7e94"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/dashboard-observation.json",
+        "blob": "ec41de228bd1d37aad4d440f388bd767952d735e"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/github-provenance.json",
+        "blob": "59d62fbbd510a6139b45ae6659e4b6b80d819101"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/release-receipts.txt",
+        "blob": "1cd6438bd19059b33ebe2c5fc33ef514a2bff7c8"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/validation.json",
+        "blob": "d676cd2f66ae11c133283eea95698540f117fa24"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/README.md",
+        "blob": "b3276bfb16782f8477d209790c3de730748d1916"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/SHA256SUMS.txt",
+        "blob": "e69ec6f3b7ec93a9d30db11a9273a96b2a12e849"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/active-deployment.png",
+        "blob": "cfcb7e80bb95b050f52ed01e80226ad81e89d472"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/dashboard-metadata.json",
+        "blob": "532b2e01d1011554bddf26865c06c60f56a8183c"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/github-provenance.json",
+        "blob": "7ab7d151b5281c2adb65f39f54688999e43dfb6f"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/validation.json",
+        "blob": "e46937ef1ea2c331a01d8d10e99af361658bb3db"
+      },
+      {
+        "path": "docs/public-release-baseline-3e7f80ec.json",
+        "blob": "933c7f5f3504d7c3aa2fd6b582aa0d61250937df"
+      },
+      {
+        "path": "docs/public-release-baseline-3e7f80ec.md",
+        "blob": "bf4ec45095dd92ac85271983ea6b54ab33b37aec"
+      },
+      {
+        "path": "docs/public-release-baseline-58c94fc8.json",
+        "blob": "d0022c06c8db4bdb4104353ea18ed1cdb34d7bdc"
+      },
+      {
+        "path": "docs/public-release-baseline-58c94fc8.md",
+        "blob": "7d81e60184c9c6ca3e39b897e2c949b70cd9bafe"
+      },
+      {
+        "path": "docs/public-release-baseline-66bc5fd9.json",
+        "blob": "7054a15276ecf27dc58180b11fcf1537d4b9384a"
+      },
+      {
+        "path": "docs/public-release-baseline-66bc5fd9.md",
+        "blob": "4f9f0ce71518d3592808598a140a16ce703157b7"
+      },
+      {
+        "path": "docs/public-release-baseline-8869278a.md",
+        "blob": "0477085de936cdefc1cf801109f203c5b552ba97"
+      },
+      {
+        "path": "docs/public-release-baseline-93e9bad7.json",
+        "blob": "c1766fc056d070db74e60c132ab8cc150a59f508"
+      },
+      {
+        "path": "docs/public-release-baseline-93e9bad7.md",
+        "blob": "cda44f10de857bb09b204c2fda8e2b3ff5ab83ef"
+      },
+      {
+        "path": "docs/public-release-baseline-cd1d81be.json",
+        "blob": "7e61b7cdd06e1fa1e5792e65e207c7781bc27fdc"
+      },
+      {
+        "path": "docs/public-release-baseline-cd1d81be.md",
+        "blob": "9c7e7aefc053919fd37271d9a72f40653b9a8111"
+      },
+      {
+        "path": "docs/public-release-baseline-cf44c795.json",
+        "blob": "7a318f9b636ab2cfdd0e03f6436a8197c8e36d31"
+      },
+      {
+        "path": "docs/public-release-baseline-cf44c795.md",
+        "blob": "1f61fa53e2e4573abdc71126a33df29d908acec8"
+      },
+      {
+        "path": "docs/public-release-baseline-evidence.json",
+        "blob": "b86259fd375f23d03d4552c42b75619d404d3ee9"
+      }
+    ],
+    "protectedScopeUnchanged": true,
+    "historicalEvidenceUnchanged": true,
+    "dependencyLockfileAndConfigUnchanged": true,
+    "releaseShaAncestorOfPreparationMain": true,
+    "fullLocalSuite": "NOT_RUN; GitHub PR CI owns full suite",
+    "mobileBrowserMatrix": "NOT_RUN",
+    "localBenchmarks": "NOT_RUN",
+    "diffCheck": "PASS",
+    "buildWarning": "Existing large-chunk warning only",
+    "prCi": "See final pushed HEAD GitHub PR checks and PR description; not a local test result"
+  },
+  "task06": {
+    "prUrl": "https://github.com/tqhoangg08/HUB-PLANNER/pull/130",
+    "number": 130,
+    "merged": true,
+    "mergeSha": "8e37d69e4aac21c93fe4174cae76d528129bb8a3",
+    "headSha": "1549de912004c4f3c14cbccda55f7646f6d54104",
+    "baseSha": "0d915a4ac65f3a205b3c9020534719eb3101d773",
+    "mergedAt": "2026-10-21T14:43:26Z",
+    "parents": [
+      "0d915a4ac65f3a205b3c9020534719eb3101d773",
+      "1549de912004c4f3c14cbccda55f7646f6d54104"
+    ]
+  }
+}
