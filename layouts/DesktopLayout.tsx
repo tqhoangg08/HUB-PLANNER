@@ -869,7 +869,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       {/* KHỐI MENU TRƯỢT DÀNH CHO MOBILE */}
       {/* ======================================================================= */}
       
-      {drawerActive && createPortal(
+      {isMobileMenuOpen && createPortal(
       <div ref={mobileMenuRef} data-overlay-root="" className="mobile-sidebar-layer mobile-menu-layer overlay-root fixed inset-0 sm:hidden">
           <button
               type="button"

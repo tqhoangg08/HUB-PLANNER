@@ -46,7 +46,7 @@ Chromium uses native wheel and CDP touch scrolling; both engines use native keyb
 
 The fixture renders real `ProtectedAppShell`, `DesktopLayout`, `AppAiAdvisorOverlay`, `useAppMode` and a real shared `Overlay`, under StrictMode. Role/session props are isolated fixtures. All fetch/XHR and external requests are fulfilled locally; no production writes or AI submissions occur. The AI concurrency case explicitly invokes the existing opener from the fixture, because an already open AI backdrop correctly prevents pointer access to a lower page control.
 
-Final result: **20/20 PASS**, Chromium 10/10 and WebKit 10/10. Overlay unit 4/4, existing overlay browser 13/13, staff sidebar 3/3, both typechecks, build and diff check passed.
+Final result: **20/20 PASS**, Chromium 10/10 and WebKit 10/10. Overlay unit 4/4, existing overlay browser 13/13, staff sidebar 3/3, scholarship menu/frontend regression 25/25, both typechecks, build and diff check passed.
 
 During test development, the fixture was corrected to compare fixed-body logical offsets plus background anchor position, await committed Router/viewport updates, and focus the newly mounted scroll region before keyboard scrolling. Fixture identity now persists across navigation, and the nested fixture establishes focus before Escape. SweetAlert release is awaited through its asynchronous `didDestroy` callback after container removal (observed 48–80ms). Background, focus, target size and end-of-menu assertions remain enforced.
 
@@ -69,6 +69,8 @@ npm run cf:typecheck
 npm run build
 git diff --check
 ```
+
+The first PR CI run found a source-structure scholarship menu regression: its AST assertion identifies the mobile menu through the original `isMobileMenuOpen` render guard. That original student portal guard is retained; `drawerActive` still controls viewport-aware focus/scroll ownership. No scholarship links, permissions or assertions changed. The related frontend file passed 25/25, and the final drawer matrix was rerun 20/20 after this one-line compatibility fix.
 
 The full local suite and the 492-scenario inventory were not rerun. GitHub PR CI runs the standard full suite. Build retains the existing large-chunk advisory.
 
