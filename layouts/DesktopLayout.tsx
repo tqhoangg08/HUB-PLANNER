@@ -5,7 +5,7 @@ import './mobileSidebar.css';
 import '../components/overlay.css';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles, PanelLeftClose, PanelLeftOpen, Megaphone } from 'lucide-react';
+import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles, PanelLeftClose, PanelLeftOpen, Megaphone, Ticket } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
@@ -1042,12 +1042,20 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider mt-1">TIỆN ÍCH & HỔ TRỢ</div>
               
               <div className="flex flex-col">
+                  <NavLink
+                      to="/support"
+                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }}
+                      className={({ isActive }) => `min-h-[44px] flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc] font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                      <Ticket size={20} aria-hidden="true" />
+                      <span>Yêu cầu hỗ trợ</span>
+                  </NavLink>
                   <button 
                       aria-expanded={isMobileHandbookOpen} onClick={() => { playClick(); setIsMobileHandbookOpen(!isMobileHandbookOpen); }}
-                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${(location.pathname.includes('/handbook') || location.pathname.includes('/support')) && !location.pathname.includes('/handbook/about') ? 'bg-blue-50 text-[#0052cc] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${location.pathname.includes('/handbook') && !location.pathname.includes('/handbook/about') ? 'bg-blue-50 text-[#0052cc] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                       <div className="flex items-center gap-3.5">
-                          <Book size={20} className={(location.pathname.includes('/handbook') || location.pathname.includes('/support')) && !location.pathname.includes('/handbook/about') ? 'text-[#0052cc]' : 'text-gray-500'} /> 
+                          <Book size={20} className={location.pathname.includes('/handbook') && !location.pathname.includes('/handbook/about') ? 'text-[#0052cc]' : 'text-gray-500'} />
                           <span>Cẩm nang</span>
                       </div>
                       <ChevronDown size={16} className={`transition-transform duration-200 text-gray-500 ${isMobileHandbookOpen ? 'rotate-180' : ''}`} />
@@ -1069,9 +1077,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </Link>
                           <Link to="/handbook/faqs" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-indigo-600 transition-colors">
                               <HelpCircle size={14} /> FAQs
-                          </Link>
-                          <Link to="/support" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#003375] transition-colors">
-                              <Headphones size={14} /> Hỗ trợ
                           </Link>
                           <Link to="/handbook/plagiarism" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-violet-600 transition-colors">
                               <ShieldCheck size={14} /> Check đạo văn Turnitin

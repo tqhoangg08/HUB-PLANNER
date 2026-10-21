@@ -1,0 +1,118 @@
+TAP version 13
+# Subtest: chromium: 375x667 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 1 - chromium: 375x667 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 12755.2525
+  type: 'test'
+  ...
+# Subtest: chromium: 390x844 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 2 - chromium: 390x844 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 6321.8411
+  type: 'test'
+  ...
+# Subtest: chromium: 430x932 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 3 - chromium: 430x932 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 5279.5623
+  type: 'test'
+  ...
+# Subtest: chromium: 360x640 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 4 - chromium: 360x640 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 5333.8997
+  type: 'test'
+  ...
+# Subtest: chromium: real create/detail/reply/attachment contracts and deep link
+ok 5 - chromium: real create/detail/reply/attachment contracts and deep link
+  ---
+  duration_ms: 4849.2399
+  type: 'test'
+  ...
+# Subtest: chromium: Guest receives login guidance; fixture rejects unauthorized creation
+ok 6 - chromium: Guest receives login guidance; fixture rejects unauthorized creation
+  ---
+  duration_ms: 3558.4227
+  type: 'test'
+  ...
+# Subtest: chromium: admin preserves /admin/support navigation
+ok 7 - chromium: admin preserves /admin/support navigation
+  ---
+  duration_ms: 4935.3293
+  type: 'test'
+  ...
+# Subtest: chromium: auditor preserves /admin/support navigation
+ok 8 - chromium: auditor preserves /admin/support navigation
+  ---
+  duration_ms: 3498.6689
+  type: 'test'
+  ...
+# Subtest: chromium: desktop retains navigation; PWA retains its real floating Ticket UI
+ok 9 - chromium: desktop retains navigation; PWA retains its real floating Ticket UI
+  ---
+  duration_ms: 5763.5152
+  type: 'test'
+  ...
+# Subtest: webkit: 375x667 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 10 - webkit: 375x667 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 12194.2367
+  type: 'test'
+  ...
+# Subtest: webkit: 390x844 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 11 - webkit: 390x844 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 14848.8366
+  type: 'test'
+  ...
+# Subtest: webkit: 430x932 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 12 - webkit: 430x932 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 16661.8281
+  type: 'test'
+  ...
+# Subtest: webkit: 360x640 single top-level Ticket entry, navigation, scroll/focus and AI
+ok 13 - webkit: 360x640 single top-level Ticket entry, navigation, scroll/focus and AI
+  ---
+  duration_ms: 11188.1516
+  type: 'test'
+  ...
+# Subtest: webkit: real create/detail/reply/attachment contracts and deep link
+ok 14 - webkit: real create/detail/reply/attachment contracts and deep link
+  ---
+  duration_ms: 7365.6487
+  type: 'test'
+  ...
+# Subtest: webkit: Guest receives login guidance; fixture rejects unauthorized creation
+ok 15 - webkit: Guest receives login guidance; fixture rejects unauthorized creation
+  ---
+  duration_ms: 6055.9912
+  type: 'test'
+  ...
+# Subtest: webkit: admin preserves /admin/support navigation
+ok 16 - webkit: admin preserves /admin/support navigation
+  ---
+  duration_ms: 7127.677
+  type: 'test'
+  ...
+# Subtest: webkit: auditor preserves /admin/support navigation
+ok 17 - webkit: auditor preserves /admin/support navigation
+  ---
+  duration_ms: 6300.1511
+  type: 'test'
+  ...
+# Subtest: webkit: desktop retains navigation; PWA retains its real floating Ticket UI
+ok 18 - webkit: desktop retains navigation; PWA retains its real floating Ticket UI
+  ---
+  duration_ms: 14061.1168
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 151612.9849

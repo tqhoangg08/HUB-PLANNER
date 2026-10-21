@@ -140,13 +140,13 @@ export const ProtectedAppShell = ({
             {layout}
             {overlays}
 
-            <FloatingSupportTab
+            {mobileLayout && <FloatingSupportTab
                 currentUserId={session?.user?.id || null}
                 isGuest={isGuest}
                 isAdmin={isAdmin}
                 isAuditor={isAuditor}
                 isMobileLayout={mobileLayout || mobileScreen}
-            />
+            />}
 
             <PasswordSetupSchemaWarning
                 open={passwordSetupSchemaMissing && !isPrivilegedUser}
