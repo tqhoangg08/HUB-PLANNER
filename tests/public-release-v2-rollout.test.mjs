@@ -145,6 +145,8 @@ test('state reader uses only Public metadata GETs and the fixed read-only schema
 
 test('wrong account, Auth DB, absent previous version or invalid phase fail before network access',async()=>{
   for(const patch of [{account:'wrong'},{token:''},{phase:'skip'},{phase:'postdeploy',beforeVersion:undefined},{phase:'postdeploy',beforeVersion:after},
+    {phase:'postdeploy',beforeVersion:'66bc5fd9-55f4-4983-9048-0a271550ef9f'},
+    {phase:'postdeploy',beforeVersion:'00000000-0000-4000-8000-000000000000'},
     {phase:'postdeploy',beforeVersion:'93e9bad7-39f3-4635-bb97-c6d71ccc4524'},
     {phase:'postdeploy',beforeVersion:'3e7f80ec-e268-4869-976a-6e26c38244b0'},
     {phase:'postdeploy',beforeVersion:'cf44c795-ddf0-4f56-b55c-6100029d6d3e'},
@@ -189,18 +191,32 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
   }
 });
 
-test('predeploy accepts reviewed 66bc5fd9 baseline and rejects previous or unknown versions',async()=>{
-  assert.equal(before,'66bc5fd9-55f4-4983-9048-0a271550ef9f');
-  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-66bc5fd9.json','utf8'));
-  assert.equal(evidence.version,before);assert.equal(evidence.runId,'39453522579');
-  assert.equal(evidence.sha,'1a61b4451c43a1a26fadc8174a9ec05014d19739');
-  assert.equal(evidence.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-93e9bad7.json','utf8')).version);
+test('predeploy accepts reviewed cd1d81be baseline and rejects previous or unknown versions',async()=>{
+  assert.equal(before,'cd1d81be-966f-4518-8729-0b1c3e5484ce');
+  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-cd1d81be.json','utf8'));
+  assert.equal(evidence.version,before);assert.equal(evidence.runId,'39546015838');
+  assert.equal(evidence.sha,'105a0812ee0bbf5505a8e7b7c58ec91455ef6d9e');
+  assert.equal(evidence.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-66bc5fd9.json','utf8')).version);
   assert.deepEqual(evidence.liveMetadata.deployment.versions,[{version_id:before,percentage:100}]);
   assert.equal(evidence.liveMetadata.version.id,before);
   assert.equal(evidence.release.sha,evidence.sha);assert.equal(evidence.release.branch,'main');
   assert.equal(evidence.release.event,'workflow_dispatch');assert.equal(evidence.release.conclusion,'success');
   const job=evidence.release.jobs.find(j=>j.name==='release-public');
   assert.equal(job.conclusion,'success');
+  assert.equal(job.id,119045449807);
+  assert.equal(evidence.worker,'hub-planner-public-dev-api');
+  assert.equal(evidence.mainAtPreparation,'cd44cd66e82b35519761922c1f810f3122f213f2');
+  assert.equal(evidence.task04.merged,true);assert.equal(evidence.task04.number,126);
+  assert.equal(evidence.task04.mergeSha,evidence.mainAtPreparation);
+  assert.equal(evidence.release.runId,evidence.runId);assert.equal(evidence.release.url,evidence.url);
+  assert.equal(evidence.release.status,'completed');assert.equal(evidence.release.attempt,1);
+  assert.equal(evidence.release.jobs.find(j=>j.name==='validate').conclusion,'success');
+  for(const name of ['Verify live settings and schema without applying migrations','Verify solo owner approval, live protections and exact-SHA CI','Deploy Public Worker and frontend assets','Verify serving Public version preserves V2 100 percent and document flags remain OFF']){
+    const step=job.steps.find(s=>s.name===name);assert.equal(step.status,'completed');assert.equal(step.conclusion,'success');
+  }
+  for(const receipt of [`PHASE=predeploy; PUBLIC_VERSION=${evidence.previousVersion}`,`APPROVED_SHA: ${evidence.sha}`,'PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS',`Current Version ID: ${before}`]){
+    assert.ok(evidence.release.receipts.some(line=>line.includes(receipt)));
+  }
   for(const created of [evidence.liveMetadata.version.createdOn,evidence.liveMetadata.deployment.createdOn]){
     assert.ok(Date.parse(job.startedAt)<=Date.parse(created)&&Date.parse(created)<=Date.parse(job.completedAt));
   }
@@ -212,7 +228,7 @@ test('predeploy accepts reviewed 66bc5fd9 baseline and rejects previous or unkno
   const unknown=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:after,percentage:100}]}]}):undefined);
   await assert.rejects(()=>checkPublicReleaseState(config,opts(unknown)),/UNREVIEWED_PREDEPLOY_VERSION/);
   assert.ok(!unknown.calls.some(c=>c.url.includes('/versions/')));
-  for(const obsoleteVersion of ['93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
+  for(const obsoleteVersion of ['66bc5fd9-55f4-4983-9048-0a271550ef9f','93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
     const obsolete=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:obsoleteVersion,percentage:100}]}]}):undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(obsolete)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!obsolete.calls.some(c=>c.url.includes('/versions/')));
