@@ -1,0 +1,269 @@
+[
+  {
+    "engine": "chromium",
+    "role": "student",
+    "initial": {
+      "count": 0,
+      "rect": null,
+      "expanded": null,
+      "controls": null
+    },
+    "geometry": {
+      "panel": {
+        "x": 0,
+        "y": 0,
+        "width": 318.75,
+        "height": 667
+      },
+      "header": {
+        "top": 0,
+        "bottom": 75.25
+      },
+      "close": {
+        "width": 32.5,
+        "height": 32.5,
+        "label": null
+      },
+      "focused": "BUTTON",
+      "backgroundInert": false,
+      "horizontal": false
+    },
+    "ai": {
+      "rect": {
+        "x": 293,
+        "y": 477,
+        "width": 60,
+        "height": 60
+      },
+      "hit": true,
+      "hitClass": "lucide lucide-sparkles text-yellow-300"
+    },
+    "escapeCloses": false,
+    "errors": []
+  },
+  {
+    "engine": "chromium",
+    "role": "guest",
+    "initial": {
+      "count": 0,
+      "rect": null,
+      "expanded": null,
+      "controls": null
+    },
+    "geometry": {
+      "panel": {
+        "x": 0,
+        "y": 0,
+        "width": 318.75,
+        "height": 667
+      },
+      "header": {
+        "top": 0,
+        "bottom": 75.25
+      },
+      "close": {
+        "width": 32.5,
+        "height": 32.5,
+        "label": null
+      },
+      "focused": "BUTTON",
+      "backgroundInert": false,
+      "horizontal": false
+    },
+    "ai": {
+      "rect": {
+        "x": 293,
+        "y": 477,
+        "width": 60,
+        "height": 60
+      },
+      "hit": true,
+      "hitClass": "lucide lucide-sparkles text-yellow-300"
+    },
+    "escapeCloses": false,
+    "errors": []
+  },
+  {
+    "engine": "chromium",
+    "role": "admin",
+    "initial": {
+      "count": 1,
+      "rect": {
+        "x": -260,
+        "y": 0,
+        "width": 260,
+        "height": 667
+      },
+      "expanded": null,
+      "controls": null
+    },
+    "geometry": {
+      "panel": {
+        "x": 0,
+        "y": 0,
+        "width": 260,
+        "height": 667
+      },
+      "header": {
+        "top": 0,
+        "bottom": 56
+      },
+      "close": {
+        "width": 32.5,
+        "height": 32.5,
+        "label": "Đóng menu"
+      },
+      "focused": "BUTTON",
+      "backgroundInert": false,
+      "horizontal": false
+    },
+    "ai": {
+      "rect": {
+        "x": 293,
+        "y": 477,
+        "width": 60,
+        "height": 60
+      },
+      "hit": true,
+      "hitClass": "lucide lucide-sparkles text-yellow-300"
+    },
+    "escapeCloses": false,
+    "errors": []
+  },
+  {
+    "engine": "chromium",
+    "role": "auditor",
+    "initial": {
+      "count": 1,
+      "rect": {
+        "x": -260,
+        "y": 0,
+        "width": 260,
+        "height": 667
+      },
+      "expanded": null,
+      "controls": null
+    },
+    "geometry": {
+      "panel": {
+        "x": 0,
+        "y": 0,
+        "width": 260,
+        "height": 667
+      },
+      "header": {
+        "top": 0,
+        "bottom": 56
+      },
+      "close": {
+        "width": 32.5,
+        "height": 32.5,
+        "label": "Đóng menu"
+      },
+      "focused": "BUTTON",
+      "backgroundInert": false,
+      "horizontal": false
+    },
+    "ai": {
+      "rect": {
+        "x": 293,
+        "y": 477,
+        "width": 60,
+        "height": 60
+      },
+      "hit": true,
+      "hitClass": "lucide lucide-sparkles text-yellow-300"
+    },
+    "escapeCloses": false,
+    "errors": []
+  },
+  {
+    "engine": "webkit",
+    "role": "student",
+    "initial": {
+      "count": 0,
+      "rect": null,
+      "expanded": null,
+      "controls": null
+    },
+    "geometry": {
+      "panel": {
+        "x": 0,
+        "y": 0,
+        "width": 318.75,
+        "height": 667
+      },
+      "header": {
+        "top": 0,
+        "bottom": 75.234375
+      },
+      "close": {
+        "width": 32.5,
+        "height": 32.5,
+        "label": null
+      },
+      "focused": "BODY",
+      "backgroundInert": false,
+      "horizontal": false
+    },
+    "ai": {
+      "rect": {
+        "x": 293,
+        "y": 477,
+        "width": 60,
+        "height": 60
+      },
+      "hit": true,
+      "hitClass": "lucide lucide-sparkles text-yellow-300"
+    },
+    "escapeCloses": false,
+    "errors": []
+  },
+  {
+    "engine": "webkit",
+    "role": "admin",
+    "initial": {
+      "count": 1,
+      "rect": {
+        "x": -260,
+        "y": 0,
+        "width": 260,
+        "height": 667
+      },
+      "expanded": null,
+      "controls": null
+    },
+    "geometry": {
+      "panel": {
+        "x": 0,
+        "y": 0,
+        "width": 260,
+        "height": 667
+      },
+      "header": {
+        "top": 0,
+        "bottom": 56
+      },
+      "close": {
+        "width": 32.5,
+        "height": 32.5,
+        "label": "Đóng menu"
+      },
+      "focused": "BODY",
+      "backgroundInert": false,
+      "horizontal": false
+    },
+    "ai": {
+      "rect": {
+        "x": 293,
+        "y": 477,
+        "width": 60,
+        "height": 60
+      },
+      "hit": true,
+      "hitClass": "lucide lucide-sparkles text-yellow-300"
+    },
+    "escapeCloses": false,
+    "errors": []
+  }
+]

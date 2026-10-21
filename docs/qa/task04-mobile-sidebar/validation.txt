@@ -1,0 +1,242 @@
+Task 04 validation — base 105a0812ee0bbf5505a8e7b7c58ec91455ef6d9e
+Windows / Node 24.12 / local Vite, Chrome and Playwright WebKit
+Product source unchanged between successful typecheck/build and final browser acceptance.
+No full local suite, benchmark, production write, deployment or merge.
+
+$ node --test --test-reporter=tap tests/mobile-sidebar.browser.test.mjs
+EXIT_CODE=0
+TAP version 13
+# Subtest: chromium browser student 375x667: drawer, isolation, scroll, focus, route and resize
+ok 1 - chromium browser student 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 10544.5622
+  type: 'test'
+  ...
+# Subtest: chromium browser student 390x844: drawer, isolation, scroll, focus, route and resize
+ok 2 - chromium browser student 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 8036.8045
+  type: 'test'
+  ...
+# Subtest: chromium browser student 430x932: drawer, isolation, scroll, focus, route and resize
+ok 3 - chromium browser student 430x932: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 8001.6701
+  type: 'test'
+  ...
+# Subtest: chromium browser student 360x640: drawer, isolation, scroll, focus, route and resize
+ok 4 - chromium browser student 360x640: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 8187.1043
+  type: 'test'
+  ...
+# Subtest: chromium browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+ok 5 - chromium browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 7906.7228
+  type: 'test'
+  ...
+# Subtest: chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+ok 6 - chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 8208.5946
+  type: 'test'
+  ...
+# Subtest: chromium browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+ok 7 - chromium browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 7108.6799
+  type: 'test'
+  ...
+# Subtest: chromium: higher overlay ownership, existing AI draft and viewport geometry
+ok 8 - chromium: higher overlay ownership, existing AI draft and viewport geometry
+  ---
+  duration_ms: 2307.4857
+  type: 'test'
+  ...
+# Subtest: chromium: SweetAlert confirmation takes focus and Escape before the drawer
+ok 9 - chromium: SweetAlert confirmation takes focus and Escape before the drawer
+  ---
+  duration_ms: 2704.068
+  type: 'test'
+  ...
+# Subtest: chromium: desktop and installed mode retain their layout
+ok 10 - chromium: desktop and installed mode retain their layout
+  ---
+  duration_ms: 2981.0322
+  type: 'test'
+  ...
+# Subtest: webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize
+ok 11 - webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 11014.1076
+  type: 'test'
+  ...
+# Subtest: webkit browser student 390x844: drawer, isolation, scroll, focus, route and resize
+ok 12 - webkit browser student 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 11367.341
+  type: 'test'
+  ...
+# Subtest: webkit browser student 430x932: drawer, isolation, scroll, focus, route and resize
+ok 13 - webkit browser student 430x932: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 12490.4573
+  type: 'test'
+  ...
+# Subtest: webkit browser student 360x640: drawer, isolation, scroll, focus, route and resize
+ok 14 - webkit browser student 360x640: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 11825.7317
+  type: 'test'
+  ...
+# Subtest: webkit browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+ok 15 - webkit browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 16514.1593
+  type: 'test'
+  ...
+# Subtest: webkit browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+ok 16 - webkit browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 13331.9596
+  type: 'test'
+  ...
+# Subtest: webkit browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+ok 17 - webkit browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 13860.1799
+  type: 'test'
+  ...
+# Subtest: webkit: higher overlay ownership, existing AI draft and viewport geometry
+ok 18 - webkit: higher overlay ownership, existing AI draft and viewport geometry
+  ---
+  duration_ms: 3631.7267
+  type: 'test'
+  ...
+# Subtest: webkit: SweetAlert confirmation takes focus and Escape before the drawer
+ok 19 - webkit: SweetAlert confirmation takes focus and Escape before the drawer
+  ---
+  duration_ms: 3944.1659
+  type: 'test'
+  ...
+# Subtest: webkit: desktop and installed mode retain their layout
+ok 20 - webkit: desktop and installed mode retain their layout
+  ---
+  duration_ms: 4774.1245
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 171750.3361
+
+$ npm run test:overlay
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 test:overlay
+> node --test --experimental-strip-types tests/overlay-scroll-lock.test.ts
+
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (7.5351ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (1.6187ms)
+✔ desktop compensates scrollbar once and preserves existing padding (0.8272ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (30.8293ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 527.5532
+
+$ npm run test:overlay:browser
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 test:overlay:browser
+> node --test tests/overlay-scroll-lock.browser.test.mjs
+
+✔ mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads (12305.121ms)
+✔ iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1764.9714ms)
+✔ iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1825.8445ms)
+✔ Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1498.6515ms)
+✔ desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore (1451.1985ms)
+✔ desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore (1314.8598ms)
+✔ nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode (1516.7322ms)
+✔ unexpected unmount and route navigation release all ownership (1404.146ms)
+✔ drawer adapter and SweetAlert dialogs share ownership with React modals (2348.6415ms)
+✔ SweetAlert Safari body fix cannot move a locked background or clear a remaining owner (4155.8194ms)
+✔ visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input (1551.8529ms)
+✔ touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch (1231.683ms)
+✔ real event filter drawer and DRL guide share ownership and retain Escape and focus behavior (1798.2595ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39759.1898
+
+$ node --test tests/staff-sidebar-ui.browser.test.mjs
+EXIT_CODE=0
+✔ auditor desktop navigation has its own ordered groups, badges and no admin-only groups (1488.6829ms)
+✔ auditor mobile drawer keeps the same IA without overflow (2365.5219ms)
+✔ admin desktop navigation retains its original groups (3754.3586ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13505.7447
+
+$ npm run typecheck
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 typecheck
+> tsc -p tsconfig.app.json --noEmit
+
+
+$ npm run cf:typecheck
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 cf:typecheck
+> tsc -p cloudflare/tsconfig.json --noEmit
+
+
+$ npm run build (last 24 lines)
+EXIT_CODE=0
+dist/assets/EventsBoard--Kr4hLJ0.js                        81.86 kB │ gzip:  19.91 kB
+dist/assets/Dashboard-YyacJhR_.js                         130.22 kB │ gzip:  33.42 kB
+dist/assets/MobileLearning-blIHj7kg.js                    138.44 kB │ gzip:  33.59 kB
+dist/assets/index.es-BDSix3Cp.js                          159.27 kB │ gzip:  53.41 kB
+dist/assets/ScheduleBoard-DFCM4CT7.js                     172.54 kB │ gzip:  37.94 kB
+dist/assets/html2canvas.esm-OkJIQ-sN.js                   201.86 kB │ gzip:  47.90 kB
+dist/assets/browserBootstrap-BYEihZnv.js                  249.70 kB │ gzip:  80.16 kB
+dist/assets/pdf-DT5A8ONP.js                               334.03 kB │ gzip:  98.26 kB
+dist/assets/LineChart-QX70M5-C.js                         343.68 kB │ gzip: 104.17 kB
+dist/assets/pdfExport-Cn8FUtYv.js                         426.07 kB │ gzip: 140.43 kB
+dist/assets/legacy-entry-D7CgMvRU.js                      775.79 kB │ gzip: 215.32 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1m 43s
+
+PWA v1.3.0
+mode      generateSW
+precache  106 entries (4120.51 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-9c191d2f.js
+
+$ git diff --check
+EXIT_CODE=0

@@ -21,6 +21,10 @@ const open = async (role, width) => {
     return route.fulfill({ status: 401, contentType: 'application/json', body: '{}' });
   });
   await page.goto(`${base}?role=${role}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  if (width < 768) {
+    assert.equal(await page.locator('.admin-sidebar').count(), 0);
+    await page.getByRole('button', { name: 'Mở menu', exact: true }).click();
+  }
   await page.locator('.admin-sidebar-nav').waitFor();
   return page;
 };
@@ -45,7 +49,6 @@ test('auditor desktop navigation has its own ordered groups, badges and no admin
 test('auditor mobile drawer keeps the same IA without overflow', async () => {
   const page = await open('auditor', 390);
   try {
-    await page.getByRole('button', { name: /Mở menu|Menu/ }).first().click();
     const nav = page.locator('.admin-sidebar-nav');
     assert.deepEqual(await nav.locator('section > button').allTextContents(), ['HỌC TẬP', 'NỘI DUNG & SỰ KIỆN', 'KIỂM DUYỆT', 'HỖ TRỢ']);
     assert.equal(await nav.getByText('QUẢN LÝ', { exact: true }).count(), 0);

@@ -1,5 +1,8 @@
 import { useOverlayScrollLock } from '../hooks/useOverlayScrollLock';
-import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useCallback, useId } from 'react';
+import { useMobileSidebarDialog } from './useMobileSidebarDialog';
+import './mobileSidebar.css';
+import '../components/overlay.css';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles, PanelLeftClose, PanelLeftOpen, Megaphone } from 'lucide-react';
@@ -58,7 +61,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   onInstallApp, showInstallButton
 }) => {
   const location = useLocation();
-  const adminDrawerRef = useRef<HTMLElement>(null);
+  const sidebarPanelRef = useRef<HTMLElement>(null);
+  const sidebarId = useId();
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isColorAvatar = isAllowedAvatarColor(avatarUrl);
   const isImageAvatar = isAvatarImageUrl(avatarUrl);
@@ -83,6 +87,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [isProfileSearchOpen, setIsProfileSearchOpen] = useState(false);
   const [profileSearchSuggestions, setProfileSearchSuggestions] = useState<any[]>([]);
   const [isLoadingProfileSuggestions, setIsLoadingProfileSuggestions] = useState(false);
+  const [isStaffMobile, setIsStaffMobile] = useState(() => window.innerWidth < 768);
   const [isSmallViewport, setIsSmallViewport] = useState(() => window.innerWidth < 640);
 
   useEffect(() => {
@@ -163,6 +168,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   useEffect(() => {
       const handleResize = () => {
           setIsSmallViewport(window.innerWidth < 640);
+          setIsStaffMobile(window.innerWidth < 768);
           if (window.innerWidth >= (isAdmin || isAuditor ? 768 : 640)) setIsMobileMenuOpen(false);
       };
       window.addEventListener('resize', handleResize);
@@ -227,8 +233,14 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       });
   }, [navIndicator]);
 
-  useOverlayScrollLock(adminDrawerRef, isMobileMenuOpen && (isAdmin || isAuditor));
-  useOverlayScrollLock(mobileMenuRef, isMobileMenuOpen && !isAdmin && !isAuditor);
+  const drawerActive = isMobileMenuOpen && (isAdmin || isAuditor ? isStaffMobile : isSmallViewport);
+  const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
+  const openMobileMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.currentTarget.focus({ preventScroll: true });
+      setIsMobileMenuOpen(true);
+  };
+  useOverlayScrollLock(mobileMenuRef, drawerActive);
+  useMobileSidebarDialog(mobileMenuRef, sidebarPanelRef, drawerActive, closeMobileMenu);
 
   useEffect(() => {
       if (!(isAdmin || isAuditor)) {
@@ -314,27 +326,13 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   // ✨ 1. GIAO DIỆN ADMIN & AUDITOR ✨
   // ==============================================================================================
   if (isAdmin || isAuditor) {
-      return (
-          <div
-              className="admin-shell-compact flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800"
-              style={{ '--admin-sidebar-width': isAdminSidebarCollapsed ? '60px' : '228px' } as React.CSSProperties}
-          >
-              
-              {/* Nền đen cho Mobile */}
-              <div 
-                  className={`fixed inset-0 bg-black/60 z-[100] transition-opacity duration-300 md:hidden ${
-                      isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-              />
-
-              {/* SIDEBAR BÊN TRÁI */}
-              <aside ref={adminDrawerRef} data-collapsed={isAdminSidebarCollapsed ? 'true' : 'false'} className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] md:w-[var(--admin-sidebar-width)] md:basis-[var(--admin-sidebar-width)] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-[transform,width,flex-basis] duration-200 ease-out md:translate-x-0 ${
+      const staffSidebar = (
+              <aside ref={sidebarPanelRef} id={sidebarId} role={isStaffMobile ? "dialog" : undefined} aria-modal={isStaffMobile ? true : undefined} aria-label="Menu điều hướng" tabIndex={-1} data-collapsed={isAdminSidebarCollapsed ? 'true' : 'false'} className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] md:w-[var(--admin-sidebar-width)] md:basis-[var(--admin-sidebar-width)] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-[transform,width,flex-basis] duration-200 ease-out md:translate-x-0 ${
                   isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
               }`}>
                   
                   {/* HEADER LOGO & NÚT X (CHỈ HIỆN TRÊN MOBILE) */}
-                  <div className="md:hidden h-16 flex items-center justify-between px-6 border-b border-[#003375] shrink-0 bg-[#003375]">
+                  <div data-sidebar-header className="md:hidden h-16 flex items-center justify-between px-6 border-b border-[#003375] shrink-0 bg-[#003375]">
                       <Link to="/dashboard" className="hub-brand flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
                           <img src="/logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-white rounded flex items-center justify-center text-[#003375] font-bold text-xs">HUB</div>'; }} />
                           <div className="leading-tight">
@@ -342,11 +340,12 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <p className="hub-brand-subtitle text-[9px] text-blue-200 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                           </div>
                       </Link>
-                      <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Đóng menu" className="text-blue-200 hover:text-white hover:bg-white/20 p-1.5 rounded-md transition-colors active:scale-95 border border-transparent hover:border-blue-400">
+                      <button onClick={() => setIsMobileMenuOpen(false)} data-sidebar-close aria-label="Đóng menu" className="text-blue-200 hover:text-white hover:bg-white/20 p-1.5 rounded-md transition-colors active:scale-95 border border-transparent hover:border-blue-400">
                           <X size={20} />
                       </button>
                   </div>
 
+                  <div className={isStaffMobile ? "staff-sidebar-content mobile-menu-scroll" : "contents"}>
                   {/* THÔNG TIN USER (HIỆN Ở TRÊN CÙNG SIDEBAR KHI MỞ TRÊN MOBILE) */}
                   <div className="md:hidden flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-white">
                       <div className="h-12 w-12 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0 overflow-hidden border-2 border-white outline outline-1 outline-gray-200">
@@ -407,7 +406,22 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           {isAdminSidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span className={isAdminSidebarCollapsed ? 'sr-only' : ''}>{isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}</span>
                       </button>
                   </div>
+                  </div>
               </aside>
+      );
+      return (
+          <div
+              className="admin-shell-compact flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800"
+              style={{ '--admin-sidebar-width': isAdminSidebarCollapsed ? '60px' : '228px' } as React.CSSProperties}
+          >
+
+              {/* SIDEBAR BÊN TRÁI */}
+              {isStaffMobile ? drawerActive && createPortal(
+                  <div ref={mobileMenuRef} data-overlay-root="" className="mobile-sidebar-layer overlay-root fixed inset-0">
+                      <button type="button" tabIndex={-1} aria-label="Đóng nền menu" className="mobile-sidebar-backdrop" onClick={closeMobileMenu} />
+                      {staffSidebar}
+                  </div>, document.body
+              ) : staffSidebar}
 
               <div className="flex-1 flex flex-col min-w-0 relative">
                   <header className="admin-topbar h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-40">
@@ -513,7 +527,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
                           {/* NÚT HAMBURGER CHO MOBILE ĐƯỢC ĐƯA SANG BÊN PHẢI */}
                           <button 
-                              onClick={() => setIsMobileMenuOpen(true)} 
+                              onClick={openMobileMenu} aria-expanded={drawerActive} aria-controls={sidebarId}
                               aria-label="Mở menu"
                               className="md:hidden p-1.5 text-gray-600 hover:text-[#0052cc] focus:outline-none transition-transform active:scale-95 bg-gray-50 rounded-md border border-gray-200 ml-1"
                           >
@@ -573,7 +587,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       )}
                       
                       <button 
-                          onClick={() => setIsMobileMenuOpen(true)} 
+                          onClick={openMobileMenu} aria-expanded={drawerActive} aria-controls={sidebarId} aria-label="Mở menu"
                           className="p-1.5 text-gray-600 hover:text-[#0052cc] focus:outline-none transition-transform active:scale-95 bg-gray-50 rounded-md border border-gray-200 ml-1"
                       >
                           <Menu size={20} />
@@ -855,23 +869,23 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       {/* KHỐI MENU TRƯỢT DÀNH CHO MOBILE */}
       {/* ======================================================================= */}
       
-      {isMobileMenuOpen && createPortal(
-      <div ref={mobileMenuRef} data-overlay-root="" className="mobile-menu-layer fixed inset-0 z-[100] sm:hidden">
+      {drawerActive && createPortal(
+      <div ref={mobileMenuRef} data-overlay-root="" className="mobile-sidebar-layer mobile-menu-layer overlay-root fixed inset-0 sm:hidden">
           <button
               type="button"
-              aria-label="Đóng menu"
-              className="absolute inset-0 bg-black/60"
+              tabIndex={-1} aria-label="Đóng nền menu"
+              className="mobile-sidebar-backdrop"
               onClick={() => setIsMobileMenuOpen(false)}
           />
 
-          <aside className="mobile-menu-panel absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl animate-slideInLeft">
-          <div className="mobile-browser-drawer-header bg-[#003375] p-5 flex items-center justify-between shrink-0 shadow-md">
+          <aside ref={sidebarPanelRef} id={sidebarId} role="dialog" aria-modal="true" aria-label="Menu điều hướng" tabIndex={-1} className="mobile-menu-panel absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl animate-slideInLeft">
+          <div data-sidebar-header className="mobile-browser-drawer-header bg-[#003375] p-5 flex items-center justify-between shrink-0 shadow-md">
               <div className="hub-brand flex flex-col text-white">
                   <span className="hub-brand-title font-extrabold text-lg tracking-tight">HUB PLANNER</span>
                   <span className="hub-brand-subtitle text-xs font-medium opacity-90 mt-0.5">Hỗ trợ sinh viên</span>
               </div>
               <button 
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu} data-sidebar-close aria-label="Đóng menu"
                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
               >
                   <X size={22} />
@@ -1029,7 +1043,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               
               <div className="flex flex-col">
                   <button 
-                      onClick={() => { playClick(); setIsMobileHandbookOpen(!isMobileHandbookOpen); }} 
+                      aria-expanded={isMobileHandbookOpen} onClick={() => { playClick(); setIsMobileHandbookOpen(!isMobileHandbookOpen); }}
                       className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${(location.pathname.includes('/handbook') || location.pathname.includes('/support')) && !location.pathname.includes('/handbook/about') ? 'bg-blue-50 text-[#0052cc] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                       <div className="flex items-center gap-3.5">
@@ -1039,7 +1053,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <ChevronDown size={16} className={`transition-transform duration-200 text-gray-500 ${isMobileHandbookOpen ? 'rotate-180' : ''}`} />
                   </button>
 
-                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isMobileHandbookOpen ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
+                  <div inert={!isMobileHandbookOpen} aria-hidden={!isMobileHandbookOpen} className={`overflow-hidden transition-all duration-300 ease-in-out ${isMobileHandbookOpen ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
                       <div className="flex flex-col gap-1 pl-12 pr-4 pb-2 border-l-2 border-gray-100 ml-[26px]">
                           <Link to="/handbook/contacts" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#0052cc] transition-colors">
                               <Phone size={14} /> Danh bạ & Khoa
