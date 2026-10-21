@@ -38,7 +38,7 @@ interface EventFilterControlsProps {
   loading?: boolean;
   onRefresh: () => void;
   onOpenGuide: () => void;
-  onPrimaryAction?: () => void;
+  onPrimaryAction?: React.MouseEventHandler<HTMLButtonElement>;
   primaryActionLabel?: string;
   primaryActionIcon?: React.ReactNode;
   extraActions?: React.ReactNode;

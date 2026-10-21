@@ -1,0 +1,38 @@
+[
+  {
+    "file": "components/EventsBoard.tsx",
+    "part": "stateAndDraft",
+    "sha256": "cc279972f373eff9634f981a82f1be5fb3640ce4e21c9051ba560ab0ea773dc7",
+    "unchanged": true
+  },
+  {
+    "file": "components/EventsBoard.tsx",
+    "part": "submit",
+    "sha256": "123d11da9b4da08c233d4a8c021268d2aa8c0ec2774ae19102e821676a88fa77",
+    "unchanged": true
+  },
+  {
+    "file": "components/EventsBoard.tsx",
+    "part": "form",
+    "sha256": "6966b89af73a501a1d6151b0b402593bf28f00cdd0ae7df371a8ed34ab91b838",
+    "unchanged": true
+  },
+  {
+    "file": "components/MobileEvents.tsx",
+    "part": "stateAndDraft",
+    "sha256": "23a81a5137dacfd44fa1884568a3b16745b61e909a98fb2ace82266c18e1e21a",
+    "unchanged": true
+  },
+  {
+    "file": "components/MobileEvents.tsx",
+    "part": "submit",
+    "sha256": "2d4362d87f0c5d17e2a436ce06f92a9ff555079662edf6674b3bfc86333e53a7",
+    "unchanged": true
+  },
+  {
+    "file": "components/MobileEvents.tsx",
+    "part": "form",
+    "sha256": "644079c827e8734f1c1e0d552c82b39812144b7cc411b9d30d7d50de3b604faf",
+    "unchanged": true
+  }
+]

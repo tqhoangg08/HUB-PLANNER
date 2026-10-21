@@ -33,6 +33,14 @@
   padding-left: 32px;
 }
 
+/* Touch form controls avoid the small-text iOS focus-zoom trigger. Keep the
+   existing compact 13px desktop controls, labels and 38px field geometry. */
+@media (hover: none) and (pointer: coarse) {
+  .event-contribution-form :is(input:not([type="checkbox"]):not([type="hidden"]), select, textarea) {
+    font-size: 16px;
+  }
+}
+
 /* =========================================================
    BASE
    ========================================================= */
