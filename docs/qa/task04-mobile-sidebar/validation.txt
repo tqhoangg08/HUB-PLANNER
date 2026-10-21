@@ -1,0 +1,279 @@
+Task 04 validation — base 105a0812ee0bbf5505a8e7b7c58ec91455ef6d9e
+Windows / Node 24.12 / local Vite, Chrome and Playwright WebKit
+Final student render guard retained after CI source-structure regression; related 25 tests and all 20 browser cases passed on final product source.
+Overlay/staff regressions passed; their implementation unchanged by the one-line guard restoration.
+No full local suite, benchmark, production write, deployment or merge.
+
+$ node --test --test-reporter=tap tests/mobile-sidebar.browser.test.mjs
+EXIT_CODE=0
+TAP version 13
+# Subtest: chromium browser student 375x667: drawer, isolation, scroll, focus, route and resize
+ok 1 - chromium browser student 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 11606.4873
+  type: 'test'
+  ...
+# Subtest: chromium browser student 390x844: drawer, isolation, scroll, focus, route and resize
+ok 2 - chromium browser student 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 7990.4196
+  type: 'test'
+  ...
+# Subtest: chromium browser student 430x932: drawer, isolation, scroll, focus, route and resize
+ok 3 - chromium browser student 430x932: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 7917.472
+  type: 'test'
+  ...
+# Subtest: chromium browser student 360x640: drawer, isolation, scroll, focus, route and resize
+ok 4 - chromium browser student 360x640: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 7983.2373
+  type: 'test'
+  ...
+# Subtest: chromium browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+ok 5 - chromium browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 7729.2291
+  type: 'test'
+  ...
+# Subtest: chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+ok 6 - chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 8234.1615
+  type: 'test'
+  ...
+# Subtest: chromium browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+ok 7 - chromium browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 7213.5728
+  type: 'test'
+  ...
+# Subtest: chromium: higher overlay ownership, existing AI draft and viewport geometry
+ok 8 - chromium: higher overlay ownership, existing AI draft and viewport geometry
+  ---
+  duration_ms: 2644.0952
+  type: 'test'
+  ...
+# Subtest: chromium: SweetAlert confirmation takes focus and Escape before the drawer
+ok 9 - chromium: SweetAlert confirmation takes focus and Escape before the drawer
+  ---
+  duration_ms: 2682.2369
+  type: 'test'
+  ...
+# Subtest: chromium: desktop and installed mode retain their layout
+ok 10 - chromium: desktop and installed mode retain their layout
+  ---
+  duration_ms: 2816.8303
+  type: 'test'
+  ...
+# Subtest: webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize
+ok 11 - webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 11998.9415
+  type: 'test'
+  ...
+# Subtest: webkit browser student 390x844: drawer, isolation, scroll, focus, route and resize
+ok 12 - webkit browser student 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 12479.9839
+  type: 'test'
+  ...
+# Subtest: webkit browser student 430x932: drawer, isolation, scroll, focus, route and resize
+ok 13 - webkit browser student 430x932: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 14590.469
+  type: 'test'
+  ...
+# Subtest: webkit browser student 360x640: drawer, isolation, scroll, focus, route and resize
+ok 14 - webkit browser student 360x640: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 11717.1162
+  type: 'test'
+  ...
+# Subtest: webkit browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+ok 15 - webkit browser guest 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 11848.3738
+  type: 'test'
+  ...
+# Subtest: webkit browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+ok 16 - webkit browser admin 375x667: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 14650.6835
+  type: 'test'
+  ...
+# Subtest: webkit browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+ok 17 - webkit browser auditor 390x844: drawer, isolation, scroll, focus, route and resize
+  ---
+  duration_ms: 14214.7322
+  type: 'test'
+  ...
+# Subtest: webkit: higher overlay ownership, existing AI draft and viewport geometry
+ok 18 - webkit: higher overlay ownership, existing AI draft and viewport geometry
+  ---
+  duration_ms: 7303.629
+  type: 'test'
+  ...
+# Subtest: webkit: SweetAlert confirmation takes focus and Escape before the drawer
+ok 19 - webkit: SweetAlert confirmation takes focus and Escape before the drawer
+  ---
+  duration_ms: 3809.8127
+  type: 'test'
+  ...
+# Subtest: webkit: desktop and installed mode retain their layout
+ok 20 - webkit: desktop and installed mode retain their layout
+  ---
+  duration_ms: 4570.0759
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 177702.0322
+
+$ node --test --experimental-strip-types tests/hub-scholarship-frontend.test.ts
+EXIT_CODE=0
+✔ 12 source columns are ordered, individually approved and never include private rankings (2.3693ms)
+✔ own details omit absent values and legacy aliases, rankings format ratios exactly once, UI storage contains only known keys (2.2256ms)
+✔ desktop and mobile handbook each contain one scholarship lookup, with no independent top tab (66.6267ms)
+✔ My Scholarships removes celebration entry points while preserving sidebar permissions and other routes (3.6198ms)
+✔ personal award details use Vietnamese labels and VND without changing source scores (0.4348ms)
+✔ personal award details hide absent, null, unknown and malformed fields without legacy fallbacks (0.3341ms)
+✔ celebration wraps all approved score values without dropping Vietnamese or long source text (0.3929ms)
+✔ score formatter preserves source values without coercing null to zero or assuming /4.0 scale (0.1801ms)
+✔ local synthetic server refuses a production process before opening a listener (110.5253ms)
+✔ ScholarshipApiError accurately maps standard contract error codes to clear user messages (0.5046ms)
+✔ backend failure stays an error with Vietnamese text rather than an empty published list (24.4577ms)
+✔ Scholarship routes are registered in AppRoutes.tsx with /scholarships as default and list/search redirected (1.4226ms)
+✔ Canva list uses approved source columns and training program filtering without inventing ranks (1.468ms)
+✔ CelebrationStudio enforces 1080x1920 Story and 1080x1350 Feed resolutions and client-side only processing with server re-verification (1.708ms)
+✔ ScholarshipMe verifies identity through server API and locks personal recognition to server records (1.2768ms)
+✔ URL model preserves unrelated deep-link params, resets page and bounds invalid pagination (0.4139ms)
+✔ score fields require individual explicit approval even if metadata contains a stale private column (0.1525ms)
+✔ login return only permits scholarship paths; rejects external and protocol-relative redirects (0.2992ms)
+✔ celebration uses refreshed approved record and denies unverified, removed or changed ownership (0.183ms)
+✔ campaign client paginates beyond 50 and fails incomplete pagination rather than silently truncating (1.9459ms)
+✔ search sends filters to backend and personal API sends cookies without client identity selectors (1.22ms)
+✔ combined filters reset pagination and clearing preserves campaign and unrelated URL state (0.3522ms)
+✔ recipient/search clients send every independent AND filter without legacy alias inference (0.885ms)
+✔ facet adapter paginates metadata and rejects incompatible contracts rather than invent options (2.1141ms)
+✔ Better Auth display avatar/name survives role reconciliation without trusting a client role (4.637ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1688.5318
+
+$ npm run test:overlay
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 test:overlay
+> node --test --experimental-strip-types tests/overlay-scroll-lock.test.ts
+
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (7.5351ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (1.6187ms)
+✔ desktop compensates scrollbar once and preserves existing padding (0.8272ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (30.8293ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 527.5532
+
+$ npm run test:overlay:browser
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 test:overlay:browser
+> node --test tests/overlay-scroll-lock.browser.test.mjs
+
+✔ mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads (12305.121ms)
+✔ iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1764.9714ms)
+✔ iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1825.8445ms)
+✔ Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1498.6515ms)
+✔ desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore (1451.1985ms)
+✔ desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore (1314.8598ms)
+✔ nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode (1516.7322ms)
+✔ unexpected unmount and route navigation release all ownership (1404.146ms)
+✔ drawer adapter and SweetAlert dialogs share ownership with React modals (2348.6415ms)
+✔ SweetAlert Safari body fix cannot move a locked background or clear a remaining owner (4155.8194ms)
+✔ visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input (1551.8529ms)
+✔ touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch (1231.683ms)
+✔ real event filter drawer and DRL guide share ownership and retain Escape and focus behavior (1798.2595ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39759.1898
+
+$ node --test tests/staff-sidebar-ui.browser.test.mjs
+EXIT_CODE=0
+✔ auditor desktop navigation has its own ordered groups, badges and no admin-only groups (1488.6829ms)
+✔ auditor mobile drawer keeps the same IA without overflow (2365.5219ms)
+✔ admin desktop navigation retains its original groups (3754.3586ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13505.7447
+
+$ npm run typecheck
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 typecheck
+> tsc -p tsconfig.app.json --noEmit
+
+
+$ npm run cf:typecheck
+EXIT_CODE=0
+
+> hub-grade-planner@0.0.0 cf:typecheck
+> tsc -p cloudflare/tsconfig.json --noEmit
+
+
+$ npm run build (last 24 lines)
+EXIT_CODE=0
+dist/assets/EventsBoard-CUGutJka.js                        81.86 kB │ gzip:  19.92 kB
+dist/assets/Dashboard-D0sKx4X1.js                         130.22 kB │ gzip:  33.42 kB
+dist/assets/MobileLearning-DnvM0bch.js                    138.44 kB │ gzip:  33.59 kB
+dist/assets/index.es-D1X6JNSo.js                          159.27 kB │ gzip:  53.41 kB
+dist/assets/ScheduleBoard-BMSFc9Rf.js                     172.54 kB │ gzip:  37.94 kB
+dist/assets/html2canvas.esm-OkJIQ-sN.js                   201.86 kB │ gzip:  47.90 kB
+dist/assets/browserBootstrap-BYEihZnv.js                  249.70 kB │ gzip:  80.16 kB
+dist/assets/pdf-DT5A8ONP.js                               334.03 kB │ gzip:  98.26 kB
+dist/assets/LineChart-C0FQJGzC.js                         343.68 kB │ gzip: 104.17 kB
+dist/assets/pdfExport-Dk4X5pxd.js                         426.07 kB │ gzip: 140.43 kB
+dist/assets/legacy-entry-G0eJBOvk.js                      775.79 kB │ gzip: 215.32 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 14.76s
+
+PWA v1.3.0
+mode      generateSW
+precache  106 entries (4120.51 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-9c191d2f.js
+
+$ git diff --check
+EXIT_CODE=0
