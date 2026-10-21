@@ -1,0 +1,68 @@
+✔ chromium browser student 375x667: drawer, isolation, scroll, focus, route and resize (60090.6701ms)
+✔ chromium browser student 390x844: drawer, isolation, scroll, focus, route and resize (9972.2268ms)
+✔ chromium browser student 430x932: drawer, isolation, scroll, focus, route and resize (9326.0607ms)
+✔ chromium browser student 360x640: drawer, isolation, scroll, focus, route and resize (9311.5042ms)
+✔ chromium browser guest 375x667: drawer, isolation, scroll, focus, route and resize (9433.1135ms)
+✔ chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize (9536.3063ms)
+✖ chromium browser auditor 390x844: drawer, isolation, scroll, focus, route and resize (5795.9649ms)
+✔ chromium: higher overlay ownership, existing AI draft and viewport geometry (2710.0157ms)
+✔ chromium: SweetAlert confirmation takes focus and Escape before the drawer (3069.061ms)
+✔ chromium: desktop and installed mode retain their layout (5620.4043ms)
+✔ webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize (39672.5308ms)
+✔ webkit browser student 390x844: drawer, isolation, scroll, focus, route and resize (110860.875ms)
+✔ webkit browser student 430x932: drawer, isolation, scroll, focus, route and resize (50780.0445ms)
+✔ webkit browser student 360x640: drawer, isolation, scroll, focus, route and resize (22989.9416ms)
+✔ webkit browser guest 375x667: drawer, isolation, scroll, focus, route and resize (20981.9032ms)
+✔ webkit browser admin 375x667: drawer, isolation, scroll, focus, route and resize (16103.8193ms)
+✔ webkit browser auditor 390x844: drawer, isolation, scroll, focus, route and resize (16631.1359ms)
+✔ webkit: higher overlay ownership, existing AI draft and viewport geometry (4450.4827ms)
+✔ webkit: SweetAlert confirmation takes focus and Escape before the drawer (4110.786ms)
+✔ webkit: desktop and installed mode retain their layout (5066.2551ms)
+✔ auditor desktop navigation has its own ordered groups, badges and no admin-only groups (12982.9513ms)
+✔ auditor mobile drawer keeps the same IA without overflow (4120.7137ms)
+✔ admin desktop navigation retains its original groups (2852.0163ms)
+✖ auditor can reply and attach files but sees no management or internal-note controls (42365.0474ms)
+✔ auditor can preview image paste, image drop and PDF selection before sending (11515.1285ms)
+✔ admin retains reply, attachment and assigned-ticket management controls (1409.6103ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 24
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 449670.6494
+
+✖ failing tests:
+
+test at tests\mobile-sidebar.browser.test.mjs:93:5
+✖ chromium browser auditor 390x844: drawer, isolation, scroll, focus, route and resize (5795.9649ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  0 !== 1
+
+      at open (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/mobile-sidebar.browser.test.mjs:63:10)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+      at process.processImmediate (node:internal/timers:472:9)
+      at async TestContext.<anonymous> (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/mobile-sidebar.browser.test.mjs:173:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\support-staff-role.browser.test.mjs:40:1
+✖ auditor can reply and attach files but sees no management or internal-note controls (42365.0474ms)
+  page.goto: Timeout 30000ms exceeded.
+  Call log:
+  [2m  - navigating to "http://127.0.0.1:5176/tests/support-staff-role-harness.html?role=auditor", waiting until "domcontentloaded"[22m
+
+      at openRole (C:\Users\tqhoa\.codex\worktrees\task01-release-preflight\HUB-PLANNER\tests\support-staff-role.browser.test.mjs:35:14)
+      at async TestContext.<anonymous> (C:\Users\tqhoa\.codex\worktrees\task01-release-preflight\HUB-PLANNER\tests\support-staff-role.browser.test.mjs:41:29) {
+    name: 'TimeoutError',
+    log: [ '  - navigating to "http://127.0.0.1:5176/tests/support-staff-role-harness.html?role=auditor", waiting until "domcontentloaded"' ]
+  }

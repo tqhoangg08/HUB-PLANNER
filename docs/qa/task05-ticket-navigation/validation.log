@@ -1,0 +1,46 @@
+COMMAND: npm run typecheck
+OBSERVED_EXIT_CODE: 0
+
+
+> hub-grade-planner@0.0.0 typecheck
+
+> tsc -p tsconfig.app.json --noEmit
+
+
+
+
+
+COMMAND: npm run cf:typecheck
+OBSERVED_EXIT_CODE: 0
+
+
+> hub-grade-planner@0.0.0 cf:typecheck
+
+> tsc -p cloudflare/tsconfig.json --noEmit
+
+
+
+
+
+COMMAND: npm run build
+OBSERVED_EXIT_CODE: 0
+dist/assets/ScheduleBoard-BRj0AlS3.js                     172.54 kB │ gzip:  37.94 kB
+dist/assets/html2canvas.esm-OkJIQ-sN.js                   201.86 kB │ gzip:  47.90 kB
+dist/assets/browserBootstrap-BYEihZnv.js                  249.70 kB │ gzip:  80.16 kB
+dist/assets/pdf-DT5A8ONP.js                               334.03 kB │ gzip:  98.26 kB
+dist/assets/LineChart-BggX7YOy.js                         343.68 kB │ gzip: 104.17 kB
+dist/assets/pdfExport-8Il--ZYc.js                         426.07 kB │ gzip: 140.43 kB
+dist/assets/legacy-entry-CBh4i7mL.js                      776.31 kB │ gzip: 215.49 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2m 42s
+
+PWA v1.3.0
+mode      generateSW
+precache  106 entries (4121.02 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-9c191d2f.js

@@ -1,0 +1,50 @@
+[
+  {
+    "engine": "chromium",
+    "main": "379332840b540bc3a6e9eff7797f7f276409bb72",
+    "ticket": {
+      "x": 312,
+      "y": 522,
+      "width": 49,
+      "height": 49
+    },
+    "ai": {
+      "x": 293,
+      "y": 477,
+      "width": 60,
+      "height": 60
+    },
+    "ticketLinks": 1,
+    "hiddenUnderHandbook": true,
+    "oldTarget": {
+      "x": 84,
+      "y": 617.75,
+      "width": 206.75,
+      "height": 33.5
+    }
+  },
+  {
+    "engine": "webkit",
+    "main": "379332840b540bc3a6e9eff7797f7f276409bb72",
+    "ticket": {
+      "x": 312,
+      "y": 522,
+      "width": 49,
+      "height": 49
+    },
+    "ai": {
+      "x": 293,
+      "y": 477,
+      "width": 60,
+      "height": 60
+    },
+    "ticketLinks": 1,
+    "hiddenUnderHandbook": true,
+    "oldTarget": {
+      "x": 84,
+      "y": 355.75,
+      "width": 200.75,
+      "height": 33.5
+    }
+  }
+]

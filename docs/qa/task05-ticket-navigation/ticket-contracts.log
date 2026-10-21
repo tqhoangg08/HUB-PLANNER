@@ -1,0 +1,27 @@
+✔ admin navigation separates overview from the cursor-backed student manager (126.3702ms)
+✔ admin sidebar preserves only real routes in the requested hierarchy (30.1136ms)
+✔ admin sidebar badges are count based and do not alter backend authorization (3.5143ms)
+✔ auditor has separate, complete navigation without admin-only groups or empty sections (1.2264ms)
+✔ auditor direct navigation to admin-only routes remains denied (45.8656ms)
+✔ admin sidebar preserves independently expanded groups and auto-expands the active route group (0.8048ms)
+✔ admin sidebar removes the bottom profile card and retains a sticky collapse control (0.7154ms)
+✔ admin sidebar collapse changes the desktop layout width while keeping the mobile drawer full width (1.6588ms)
+✔ Support and Excel browser adapters contain no browser Supabase dependency (55.2379ms)
+✔ Excel OTP consumes a valid challenge and blocks reuse (534.0932ms)
+✔ Excel OTP request creates only hashed server-side state and invokes the internal mail service (9.0369ms)
+✔ Excel OTP rejects expiration, wrong-user state, and non-admin authorization (11.2742ms)
+✔ Support Worker authority is covered by the D1/R2 integration suite (19.9922ms)
+(node:48852) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ D1 support owner flow persists create, reply, resolve and delete (792.1418ms)
+✔ admin can manage tickets while auditor can reply without management privileges (40.7916ms)
+✔ R2 attachment upload, private read and owner delete use only safe object keys (16.7181ms)
+✔ active support runtime is D1/R2-only and retains Better Auth owner authority (2.3867ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2444.7635
