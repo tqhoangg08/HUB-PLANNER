@@ -1,0 +1,188 @@
+{
+  "task": "05/10 — Production baseline preparation",
+  "mainAtPreparation": "78cc4b5e36d1de993e2fd6d506fefb55bead4cfe",
+  "previousVersion": "cd1d81be-966f-4518-8729-0b1c3e5484ce",
+  "version": "58c94fc8-5bfe-41e3-97f5-d0c39bc8be65",
+  "worker": "hub-planner-public-dev-api",
+  "runId": "39565559132",
+  "sha": "379332840b540bc3a6e9eff7797f7f276409bb72",
+  "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39565559132",
+  "liveMetadata": {
+    "recordedAt": "2026-10-21T09:32:47.972Z",
+    "method": "Existing authorized Chrome Dashboard session; read-only UI and ordinary navigation to metadata GET URLs; allowlisted metadata only",
+    "account": "6cd8bac6009a55f96bdf9df7c2057548",
+    "dashboardUrl": "https://dash.cloudflare.com/6cd8bac6009a55f96bdf9df7c2057548/workers/services/view/hub-planner-public-dev-api/production",
+    "deploymentsUrl": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/deployments",
+    "versionsUrl": "https://dash.cloudflare.com/api/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/versions?page=1&per_page=15",
+    "deployment": {
+      "id": "3b40e18e-b23d-4f8a-9101-49f08bb84ae6",
+      "createdOn": "2026-10-21T08:06:53.629868Z",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "versions": [
+        {
+          "version_id": "58c94fc8-5bfe-41e3-97f5-d0c39bc8be65",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "58c94fc8-5bfe-41e3-97f5-d0c39bc8be65",
+      "number": 464,
+      "createdOn": "2026-10-21T08:06:52.950924Z",
+      "source": "wrangler"
+    },
+    "dashboardUi": {
+      "versionPrefix": "58c94fc8",
+      "trafficPercent": 100,
+      "status": "Ready"
+    },
+    "limitations": [
+      "Point-in-time deployment/version provenance only. Current quota, health, schema, ledger, full binding inventory and secrets are not rechecked; unchanged release guards must verify those before a future release.",
+      "No screenshot saved; Dashboard UI and rendered metadata GET documents agree. No cookies, credentials, tokens or response headers extracted or recorded.",
+      "Production release SHA predates Task 05 merge; this preparation does not release Task 05."
+    ]
+  },
+  "release": {
+    "runId": "39565559132",
+    "sha": "379332840b540bc3a6e9eff7797f7f276409bb72",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39565559132",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "startedAt": "2026-10-21T07:56:32Z",
+    "updatedAt": "2026-10-21T08:07:03Z",
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "jobs": [
+      {
+        "id": 119106864149,
+        "name": "validate",
+        "startedAt": "2026-10-21T07:56:35Z",
+        "completedAt": "2026-10-21T08:01:08Z",
+        "conclusion": "success",
+        "steps": []
+      },
+      {
+        "id": 119108704790,
+        "name": "release-public",
+        "startedAt": "2026-10-21T08:06:11Z",
+        "completedAt": "2026-10-21T08:07:02Z",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Verify live settings and schema without applying migrations",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "startedAt": "2026-10-21T08:06:43Z",
+            "completedAt": "2026-10-21T08:06:45Z"
+          },
+          {
+            "name": "Verify solo owner approval, live protections and exact-SHA CI",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "startedAt": "2026-10-21T08:06:45Z",
+            "completedAt": "2026-10-21T08:06:47Z"
+          },
+          {
+            "name": "Deploy Public Worker and frontend assets",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "startedAt": "2026-10-21T08:06:47Z",
+            "completedAt": "2026-10-21T08:06:57Z"
+          },
+          {
+            "name": "Verify serving Public version preserves V2 100 percent and document flags remain OFF",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "startedAt": "2026-10-21T08:06:57Z",
+            "completedAt": "2026-10-21T08:06:59Z"
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      "2026-10-21T08:06:15.7191109Z 379332840b540bc3a6e9eff7797f7f276409bb72",
+      "2026-10-21T08:06:45.3266441Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=cd1d81be-966f-4518-8729-0b1c3e5484ce",
+      "2026-10-21T08:06:45.3485568Z   APPROVED_SHA: 379332840b540bc3a6e9eff7797f7f276409bb72",
+      "2026-10-21T08:06:47.2488616Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "2026-10-21T08:06:54.9627582Z Uploaded hub-planner-public-dev-api (5.77 sec)",
+      "2026-10-21T08:06:57.8454157Z Deployed hub-planner-public-dev-api triggers (2.88 sec)",
+      "2026-10-21T08:06:57.8464353Z Current Version ID: 58c94fc8-5bfe-41e3-97f5-d0c39bc8be65",
+      "2026-10-21T08:06:59.9383423Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=58c94fc8-5bfe-41e3-97f5-d0c39bc8be65"
+    ]
+  },
+  "historicalEvidence": "docs/public-release-baseline-cd1d81be.json",
+  "safety": {
+    "productionSql": false,
+    "credentialsOrHeadersRead": false,
+    "oauthRefreshed": false,
+    "permissionsChanged": false,
+    "productionModified": false,
+    "mergedByThisTask": false,
+    "deployed": false
+  },
+  "validation": {
+    "status": "PASS",
+    "recordedAt": "2026-10-21T09:40:19.322Z",
+    "nodeVersion": "v24.12.0",
+    "commands": [
+      {
+        "command": "node --test tests/release-assistant.test.mjs tests/public-release-solo-owner.test.mjs tests/public-release-v2-rollout.test.mjs tests/public-release-metadata-probe.test.mjs",
+        "tests": 294,
+        "passed": 294,
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "28c7c6a97a004178d0df05b5e04f06b15d71a7c32f8e19168b1bac9775ec359c"
+      },
+      {
+        "command": "npm run typecheck",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa"
+      },
+      {
+        "command": "npm run cf:typecheck",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35"
+      },
+      {
+        "command": "npm run build",
+        "exitCode": 0,
+        "status": "PASS",
+        "logSha256": "3eb8e4ddefd9b79b7100faed6410150e7ea5d99336c14884767565a7601943c8"
+      }
+    ],
+    "guardLogicEquivalentExceptPinAndComments": true,
+    "guardSourceSha256IgnoringPinAndComments": "6e7df8326271770a80634d1c719273c535a650b4fbe073b1c26d79da39c94acb",
+    "protectedScopeUnchanged": true,
+    "historicalEvidenceUnchanged": true,
+    "historicalBaselineFilesPreserved": 21,
+    "historicalBaselineManifestSha256": "022f4ba8aed533737676657f11a818439b044e8830ee394367ad14e1f3cd3ca4",
+    "historicalComparison": "Git blob identities after repository clean filters; accounts for Windows checkout CRLF without changing historical files",
+    "dependencyLockfileAndConfigUnchanged": true,
+    "releaseShaAncestorOfPreparationMain": true,
+    "fullLocalSuite": "NOT_RUN; GitHub PR CI owns full suite",
+    "mobileBrowserMatrix": "NOT_RUN",
+    "localBenchmarks": "NOT_RUN",
+    "diffCheck": "PASS",
+    "buildWarning": "Existing large-chunk warning only",
+    "prCi": "See final pushed HEAD GitHub PR checks and PR description; not a local test result"
+  },
+  "task05": {
+    "prUrl": "https://github.com/tqhoangg08/HUB-PLANNER/pull/128",
+    "number": 128,
+    "merged": true,
+    "mergeSha": "78cc4b5e36d1de993e2fd6d506fefb55bead4cfe",
+    "headSha": "67c31d9ae3b41928f81a139f94f29a68d8ec606d",
+    "baseSha": "379332840b540bc3a6e9eff7797f7f276409bb72",
+    "mergedAt": "2026-10-21T09:27:22Z"
+  }
+}
