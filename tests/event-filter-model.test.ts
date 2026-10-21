@@ -55,3 +55,33 @@ test('month presets and score sorting are deterministic', () => {
   const lowerScore = { ...event, score: '3' };
   assert.ok(compareFilteredEvents(event, lowerScore, 'highestScore') < 0);
 });
+
+
+test('each registration status and category still filters the matching event only', () => {
+  const common = { ...event, event_date: '2099-12-31', registration_start_date: '', deadlineDate: new Date('2099-12-30'), status: 'Sắp diễn ra' };
+  const examples = [
+    { ...common, status: 'Đang mở đăng ký' },
+    { ...common, registration_start_date: '2099-12-01' },
+    { ...common, status: 'Đã đóng đăng ký' },
+    { ...common, status: 'Đang diễn ra' },
+    { ...common, status: 'Đã kết thúc' },
+  ];
+  for (const [index, registrationStatus] of (['open', 'upcoming', 'closed', 'ongoing', 'ended'] as const).entries()) {
+    assert.deepEqual(examples.filter(candidate => matchesEventFilters(candidate, { ...createDefaultEventFilters(), registrationStatus })), [examples[index]]);
+  }
+  for (const category of ['I', 'II', 'III', 'IV', 'V']) {
+    assert.equal(matchesEventFilters({ ...common, category }, { ...createDefaultEventFilters(), trainingCategories: [category] }), true);
+    assert.equal(matchesEventFilters({ ...common, category }, { ...createDefaultEventFilters(), trainingCategories: ['other'] }), false);
+  }
+});
+
+test('all sort orders and inclusive date boundaries preserve their contract', () => {
+  const earlier = { ...event, created_at: '2026-01-01', event_date: '2026-02-01', score: '1', deadlineDate: new Date('2026-01-30') };
+  const later = { ...event, created_at: '2026-02-01', event_date: '2026-03-01', score: '5', deadlineDate: new Date('2026-02-28') };
+  for (const sort of ['oldest', 'upcoming', 'registrationDeadline'] as const) assert.deepEqual([later, earlier].sort((a,b) => compareFilteredEvents(a,b,sort)), [earlier,later]);
+  for (const sort of ['newest', 'highestScore'] as const) assert.deepEqual([earlier, later].sort((a,b) => compareFilteredEvents(a,b,sort)), [later,earlier]);
+  const filters = { ...createDefaultEventFilters(), datePreset: 'custom' as const, dateFrom: '2026-02-01', dateTo: '2026-03-01' };
+  assert.deepEqual([earlier,later].filter(candidate => matchesEventFilters(candidate,filters)),[earlier,later]);
+  assert.equal(matchesEventFilters({...earlier,event_date:'2026-01-31'},filters),false);
+  assert.equal(matchesEventFilters({...later,event_date:'2026-03-02'},filters),false);
+});

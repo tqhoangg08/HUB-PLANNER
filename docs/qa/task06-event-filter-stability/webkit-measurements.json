@@ -1,0 +1,680 @@
+[
+  {
+    "engine": "webkit",
+    "width": 360,
+    "height": 640,
+    "before": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "width": 137.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 134.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "after": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc (6)",
+          "width": 137.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 134.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "portrait": {
+      "header": [
+        38.40625,
+        94.40625
+      ],
+      "close": [
+        44,
+        44
+      ],
+      "footer": [
+        567,
+        640
+      ],
+      "viewport": 640,
+      "contentHeight": 473,
+      "overflow": false,
+      "hit": true
+    },
+    "original": {
+      "keyword": "latest keyword v2",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "active": {
+      "keyword": "latest keyword v2",
+      "region": "Trong trường",
+      "eventType": "Hội thảo",
+      "datePreset": "custom",
+      "dateFrom": "2099-01-01",
+      "dateTo": "2099-12-31",
+      "trainingCategories": [
+        "II",
+        "IV"
+      ],
+      "registrationStatus": "closed",
+      "sortBy": "highestScore"
+    },
+    "scroll": {
+      "x": 0,
+      "y": 873,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -802
+    }
+  },
+  {
+    "engine": "webkit",
+    "width": 375,
+    "height": 667,
+    "before": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "width": 145.25,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 141.75,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "after": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc (6)",
+          "width": 145.25,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 141.75,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "portrait": {
+      "header": [
+        40.03125,
+        96.03125
+      ],
+      "close": [
+        44,
+        44
+      ],
+      "footer": [
+        594,
+        667
+      ],
+      "viewport": 667,
+      "contentHeight": 498,
+      "overflow": false,
+      "hit": true
+    },
+    "keyboard": {
+      "header": [
+        14.40625,
+        70.40625
+      ],
+      "close": [
+        44,
+        44
+      ],
+      "footer": [
+        167,
+        240
+      ],
+      "viewport": 240,
+      "contentHeight": 97,
+      "overflow": false,
+      "hit": true
+    },
+    "original": {
+      "keyword": "latest keyword v2",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "active": {
+      "keyword": "latest keyword v2",
+      "region": "Trong trường",
+      "eventType": "Hội thảo",
+      "datePreset": "custom",
+      "dateFrom": "2099-01-01",
+      "dateTo": "2099-12-31",
+      "trainingCategories": [
+        "II",
+        "IV"
+      ],
+      "registrationStatus": "closed",
+      "sortBy": "highestScore"
+    },
+    "scroll": {
+      "x": 0,
+      "y": 860,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -789
+    }
+  },
+  {
+    "engine": "webkit",
+    "width": 390,
+    "height": 844,
+    "before": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "width": 152.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 149.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "after": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc (6)",
+          "width": 152.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 149.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "portrait": {
+      "header": [
+        50.640625,
+        106.640625
+      ],
+      "close": [
+        44,
+        44
+      ],
+      "footer": [
+        771,
+        844
+      ],
+      "viewport": 844,
+      "contentHeight": 664,
+      "overflow": false,
+      "hit": true
+    },
+    "original": {
+      "keyword": "latest keyword v2",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "active": {
+      "keyword": "latest keyword v2",
+      "region": "Trong trường",
+      "eventType": "Hội thảo",
+      "datePreset": "custom",
+      "dateFrom": "2099-01-01",
+      "dateTo": "2099-12-31",
+      "trainingCategories": [
+        "II",
+        "IV"
+      ],
+      "registrationStatus": "closed",
+      "sortBy": "highestScore"
+    },
+    "scroll": {
+      "x": 0,
+      "y": 771,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -700
+    }
+  },
+  {
+    "engine": "webkit",
+    "width": 430,
+    "height": 932,
+    "before": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "width": 172.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 169.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "after": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc (6)",
+          "width": 172.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 169.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "16px"
+    },
+    "portrait": {
+      "header": [
+        56,
+        112
+      ],
+      "close": [
+        44,
+        44
+      ],
+      "footer": [
+        859,
+        932
+      ],
+      "viewport": 932,
+      "contentHeight": 747,
+      "overflow": false,
+      "hit": true
+    },
+    "original": {
+      "keyword": "latest keyword v2",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "active": {
+      "keyword": "latest keyword v2",
+      "region": "Trong trường",
+      "eventType": "Hội thảo",
+      "datePreset": "custom",
+      "dateFrom": "2099-01-01",
+      "dateTo": "2099-12-31",
+      "trainingCategories": [
+        "II",
+        "IV"
+      ],
+      "registrationStatus": "closed",
+      "sortBy": "highestScore"
+    },
+    "scroll": {
+      "x": 0,
+      "y": 727,
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "anchor": -656
+    }
+  },
+  {
+    "engine": "webkit",
+    "width": 768,
+    "height": 1024,
+    "before": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "width": 331.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 328.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "13px"
+    },
+    "after": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc (6)",
+          "width": 331.75,
+          "height": 44
+        },
+        {
+          "name": "Sắp xếp",
+          "width": 328.25,
+          "height": 44
+        },
+        {
+          "name": "Thao tác sự kiện",
+          "width": 44,
+          "height": 44
+        }
+      ],
+      "font": "13px"
+    },
+    "portrait": {
+      "header": [
+        0,
+        56
+      ],
+      "close": [
+        44,
+        44
+      ],
+      "footer": [
+        951,
+        1024
+      ],
+      "viewport": 1024,
+      "contentHeight": 895,
+      "overflow": false,
+      "hit": true
+    },
+    "original": {
+      "keyword": "latest keyword v2",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "active": {
+      "keyword": "latest keyword v2",
+      "region": "Trong trường",
+      "eventType": "Hội thảo",
+      "datePreset": "custom",
+      "dateFrom": "2099-01-01",
+      "dateTo": "2099-12-31",
+      "trainingCategories": [
+        "II",
+        "IV"
+      ],
+      "registrationStatus": "closed",
+      "sortBy": "highestScore"
+    },
+    "scroll": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          645
+        ]
+      ],
+      "anchor": -585.5
+    }
+  },
+  {
+    "engine": "webkit",
+    "width": 1440,
+    "height": 900,
+    "before": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc",
+          "width": 88.15625,
+          "height": 44
+        },
+        {
+          "name": "Chọn thời gian",
+          "width": 140.28125,
+          "height": 44
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "Extra action",
+          "width": 78.484375,
+          "height": 44
+        },
+        {
+          "name": "Gửi đóng góp",
+          "width": 138.375,
+          "height": 44
+        }
+      ],
+      "font": "13px"
+    },
+    "after": {
+      "height": 96,
+      "rows": 2,
+      "rootHeight": 148,
+      "targets": [
+        {
+          "name": "Bộ lọc (6)",
+          "width": 109.453125,
+          "height": 44
+        },
+        {
+          "name": "01/01/2099 – 31/12/2099",
+          "width": 204.390625,
+          "height": 44
+        },
+        {
+          "name": "Làm mới dữ liệu",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "Xem hướng dẫn điểm rèn luyện",
+          "width": 44,
+          "height": 44
+        },
+        {
+          "name": "Extra action",
+          "width": 78.484375,
+          "height": 44
+        },
+        {
+          "name": "Gửi đóng góp",
+          "width": 138.375,
+          "height": 44
+        }
+      ],
+      "font": "13px"
+    },
+    "portrait": {
+      "header": [
+        0,
+        56
+      ],
+      "close": [
+        44,
+        44
+      ],
+      "footer": [
+        827,
+        900
+      ],
+      "viewport": 900,
+      "contentHeight": 771,
+      "overflow": false,
+      "hit": true
+    },
+    "original": {
+      "keyword": "latest keyword v2",
+      "region": "all",
+      "eventType": "all",
+      "datePreset": "all",
+      "dateFrom": "",
+      "dateTo": "",
+      "trainingCategories": [],
+      "registrationStatus": "all",
+      "sortBy": "newest"
+    },
+    "active": {
+      "keyword": "latest keyword v2",
+      "region": "Trong trường",
+      "eventType": "Hội thảo",
+      "datePreset": "custom",
+      "dateFrom": "2099-01-01",
+      "dateTo": "2099-12-31",
+      "trainingCategories": [
+        "II",
+        "IV"
+      ],
+      "registrationStatus": "closed",
+      "sortBy": "highestScore"
+    },
+    "scroll": {
+      "x": 0,
+      "y": 0,
+      "internal": [
+        [
+          0,
+          707
+        ]
+      ],
+      "anchor": -647.5
+    }
+  }
+]
