@@ -1,0 +1,1332 @@
+[
+  {
+    "width": 360,
+    "height": 640,
+    "initial": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 332,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "expanded": {
+      "sidebar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 332,
+        "height": 520
+      },
+      "calendar": {
+        "x": 14,
+        "y": 878,
+        "width": 332,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "collapsed": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 332,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "after": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 332,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "target": {
+      "x": 22,
+      "y": 179,
+      "width": 137.8125,
+      "height": 44
+    },
+    "scrollBefore": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollAfter": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollInput": "synthetic touch boundary + keyboard + explicit scrollBy (no native swipe API)",
+    "filterRequests": [
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "30",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      }
+    ],
+    "count": "1 điều kiện đang áp dụng",
+    "persisted": "false"
+  },
+  {
+    "width": 375,
+    "height": 667,
+    "initial": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 347,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "expanded": {
+      "sidebar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 347,
+        "height": 520
+      },
+      "calendar": {
+        "x": 14,
+        "y": 878,
+        "width": 347,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "collapsed": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 347,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "after": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 347,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "target": {
+      "x": 22,
+      "y": 179,
+      "width": 137.8125,
+      "height": 44
+    },
+    "scrollBefore": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollAfter": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollInput": "synthetic touch boundary + keyboard + explicit scrollBy (no native swipe API)",
+    "filterRequests": [
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "30",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      }
+    ],
+    "count": "1 điều kiện đang áp dụng",
+    "persisted": "false"
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "initial": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 362,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "expanded": {
+      "sidebar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 362,
+        "height": 520
+      },
+      "calendar": {
+        "x": 14,
+        "y": 878,
+        "width": 362,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "collapsed": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 362,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "after": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 362,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "target": {
+      "x": 22,
+      "y": 179,
+      "width": 137.8125,
+      "height": 44
+    },
+    "scrollBefore": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollAfter": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollInput": "synthetic touch boundary + keyboard + explicit scrollBy (no native swipe API)",
+    "filterRequests": [
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "30",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      }
+    ],
+    "count": "1 điều kiện đang áp dụng",
+    "persisted": "false"
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "initial": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 299.5,
+        "width": 402,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "expanded": {
+      "sidebar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 402,
+        "height": 520
+      },
+      "calendar": {
+        "x": 14,
+        "y": 878,
+        "width": 402,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "collapsed": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 347.5,
+        "width": 402,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "after": {
+      "sidebar": null,
+      "calendar": {
+        "x": 14,
+        "y": 299.5,
+        "width": 402,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "target": {
+      "x": 22,
+      "y": 179,
+      "width": 137.8125,
+      "height": 44
+    },
+    "scrollBefore": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollAfter": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 171
+    },
+    "scrollInput": "synthetic touch boundary + keyboard + explicit scrollBy (no native swipe API)",
+    "filterRequests": [
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "30",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      }
+    ],
+    "count": "1 điều kiện đang áp dụng",
+    "persisted": "false"
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "initial": {
+      "sidebar": null,
+      "calendar": {
+        "x": 21,
+        "y": 288,
+        "width": 720,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "expanded": {
+      "sidebar": {
+        "x": 21,
+        "y": 288,
+        "width": 720,
+        "height": 520
+      },
+      "calendar": {
+        "x": 21,
+        "y": 825.5,
+        "width": 720,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "collapsed": {
+      "sidebar": null,
+      "calendar": {
+        "x": 21,
+        "y": 288,
+        "width": 720,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "after": {
+      "sidebar": null,
+      "calendar": {
+        "x": 21,
+        "y": 288,
+        "width": 720,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "target": {
+      "x": 29,
+      "y": 167.5,
+      "width": 137.8125,
+      "height": 44
+    },
+    "scrollBefore": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 159.5
+    },
+    "scrollAfter": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 159.5
+    },
+    "scrollInput": "mouse wheel",
+    "filterRequests": [
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "30",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      }
+    ],
+    "count": "1 điều kiện đang áp dụng",
+    "persisted": "false"
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "initial": {
+      "sidebar": null,
+      "calendar": {
+        "x": 28,
+        "y": 288,
+        "width": 962,
+        "height": 676
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "sidebar": {
+        "x": 28,
+        "y": 288,
+        "width": 330,
+        "height": 676
+      },
+      "calendar": {
+        "x": 375.5,
+        "y": 288,
+        "width": 614.5,
+        "height": 676
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "collapsed": {
+      "sidebar": null,
+      "calendar": {
+        "x": 28,
+        "y": 288,
+        "width": 962,
+        "height": 676
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "after": {
+      "sidebar": null,
+      "calendar": {
+        "x": 28,
+        "y": 288,
+        "width": 962,
+        "height": 676
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "target": {
+      "x": 36,
+      "y": 167.5,
+      "width": 137.8125,
+      "height": 44
+    },
+    "scrollBefore": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 159.5
+    },
+    "scrollAfter": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 159.5
+    },
+    "scrollInput": "mouse wheel",
+    "filterRequests": [
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "30",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      }
+    ],
+    "count": "1 điều kiện đang áp dụng",
+    "persisted": "false"
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "initial": {
+      "sidebar": null,
+      "calendar": {
+        "x": 28,
+        "y": 288,
+        "width": 1378,
+        "height": 808
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "expanded": {
+      "sidebar": {
+        "x": 28,
+        "y": 288,
+        "width": 330,
+        "height": 808
+      },
+      "calendar": {
+        "x": 375.5,
+        "y": 288,
+        "width": 1030.5,
+        "height": 808
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "collapsed": {
+      "sidebar": null,
+      "calendar": {
+        "x": 28,
+        "y": 288,
+        "width": 1378,
+        "height": 808
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "after": {
+      "sidebar": null,
+      "calendar": {
+        "x": 28,
+        "y": 288,
+        "width": 1378,
+        "height": 808
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "target": {
+      "x": 36,
+      "y": 167.5,
+      "width": 137.8125,
+      "height": 44
+    },
+    "scrollBefore": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 159.5
+    },
+    "scrollAfter": {
+      "document": [
+        0,
+        0
+      ],
+      "internal": [],
+      "anchor": 159.5
+    },
+    "scrollInput": "mouse wheel",
+    "filterRequests": [
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "0",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "30",
+          "offset": "30",
+          "semester": "HK1_2026_2027",
+          "search": "Fixture subject"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "view": "summary",
+          "limit": "10",
+          "offset": "0",
+          "suggestions": "true"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      },
+      {
+        "path": "/courses",
+        "query": {
+          "resource": "filter-options",
+          "semester": "HK1_2026_2027"
+        },
+        "method": "GET"
+      }
+    ],
+    "count": "1 điều kiện đang áp dụng",
+    "persisted": "false"
+  }
+]

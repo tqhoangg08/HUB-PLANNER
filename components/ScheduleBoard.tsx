@@ -1,4 +1,5 @@
 import { Overlay } from './Overlay';
+import './schedule-filters.css';
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -577,8 +578,48 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isCourseDetailLoading, setIsCourseDetailLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const addScheduleInFlightRef = useRef(false);
+  // UI preference only: filter values and accordion sections keep their own state.
+  const [isFilterSidebarExpanded, setIsFilterSidebarExpanded] = useState(() => {
+    try { return localStorage.getItem('hub_timetable_filter_sidebar_expanded_v1') === 'true'; }
+    catch { return false; }
+  });
+  const filterToggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    try { localStorage.setItem('hub_timetable_filter_sidebar_expanded_v1', String(isFilterSidebarExpanded)); }
+    catch { /* Storage restrictions must not prevent filtering. */ }
+  }, [isFilterSidebarExpanded]);
+  const collapseFilterSidebar = () => {
+    setIsFilterSidebarExpanded(false);
+    filterToggleRef.current?.focus({ preventScroll: true });
+  };
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [isCourseResultsOpen, setIsCourseResultsOpen] = useState(false);
+  const courseFilterDialogRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const dialog = courseFilterDialogRef.current;
+    if ((!isFilterExpanded && !isCourseResultsOpen) || !dialog) return;
+    const previous = document.activeElement as HTMLElement | null;
+    dialog.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || (document.activeElement as HTMLElement)?.closest('[role="dialog"]') !== dialog) return;
+      if (event.key === 'Escape') {
+        if ((document.activeElement as HTMLElement).matches('select, input[type="date"], input[type="time"]')) return;
+        event.preventDefault(); setIsFilterExpanded(false); setIsCourseResultsOpen(false);
+      }
+      if (event.key !== 'Tab') return;
+      const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button, input, select, textarea, [tabindex="0"]'))
+        .filter(node => node.tabIndex >= 0 && !node.matches(':disabled') && node.getClientRects().length);
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      else filterToggleRef.current?.focus({ preventScroll: true });
+    };
+  }, [isFilterExpanded, isCourseResultsOpen]);
   const [openSidebarFilterSections, setOpenSidebarFilterSections] = useState<Set<SidebarFilterSection>>(() => new Set(['semester']));
   const [adminScheduleError, setAdminScheduleError] = useState('');
   const [adminFacultyFilter, setAdminFacultyFilter] = useState(() => adminQuery.get('faculty') || '');
@@ -2905,10 +2946,33 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 </div>
             </div>
         ) : (
+            <>
+                        <div className="timetable-filter-bar rounded-xl border border-gray-300 bg-white p-2" aria-label="Điều khiển bộ lọc thời khóa biểu">
+                            <div className="timetable-filter-actions">
+                                <button ref={filterToggleRef} type="button" aria-expanded={isFilterSidebarExpanded} aria-controls="timetable-filter-sidebar" onClick={() => isFilterSidebarExpanded ? collapseFilterSidebar() : setIsFilterSidebarExpanded(true)} className="rounded-lg bg-[#0D4E9B] px-3 text-xs font-extrabold text-white">
+                                    <SlidersHorizontal size={16}/> {isFilterSidebarExpanded ? 'Thu gọn bộ lọc' : 'Mở bộ lọc'} <span aria-label={`${activeCourseFilterCount} điều kiện đang áp dụng`}>({activeCourseFilterCount})</span>
+                                </button>
+                                <button type="button" disabled={!isAuthenticated || isLoading} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setIsCourseResultsOpen(true); }} className="rounded-lg border border-gray-300 px-3 text-xs font-bold text-[#12366A] disabled:opacity-50"><List size={16}/> Xem danh sách lớp</button>
+                                <button type="button" onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setIsFilterExpanded(true); }} className="rounded-lg px-3 text-xs font-bold text-[#155EEF]"><Settings size={16}/> Bộ lọc nâng cao</button>
+                            </div>
+                            <div className="timetable-filter-chips no-scrollbar" aria-label="Bộ lọc đang áp dụng">
+                            {!hasActiveCourseFilters && <span className="text-[11px] font-medium text-gray-400">Chưa chọn tiêu chí nào</span>}
+                            {selectedFilterSemesters.map(value => <span key={`semester-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterSemesters, value)} aria-label="Bỏ lọc học kỳ"><X size={12}/></button></span>)}
+                            {selectedFilterPhases.map(value => <span key={`phase-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} aria-label="Bỏ lọc đợt"><X size={12}/></button></span>)}
+                            {selectedSubjectName !== 'all' && <span className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{selectedSubjectName}</span><button onClick={() => setSelectedSubjectName('all')} aria-label="Bỏ lọc môn"><X size={12}/></button></span>}
+                            {selectedFilterPrograms.map(value => <span key={`program-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterPrograms, value)} aria-label="Bỏ lọc chương trình"><X size={12}/></button></span>)}
+                            {selectedFilterMajors.map(value => <span key={`major-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterMajors, value)} aria-label="Bỏ lọc chuyên ngành"><X size={12}/></button></span>)}
+                            {activeAdvancedScheduleFilters.map(([key, value]) => <span key={`advanced-${key}`} className="flex max-w-[200px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span><button onClick={() => setAdvancedScheduleFilters(previous => ({ ...previous, [key]: '' }))} aria-label={`Bỏ lọc ${key}`}><X size={12}/></button></span>)}
+                            {searchTerm.trim() && <span className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs"><span className="max-w-[180px] truncate">{searchTerm}</span><button onClick={() => setSearchTerm('')} aria-label="Bỏ lọc từ khóa"><X size={12}/></button></span>}
+                            {selectedFilterCohorts.map(value => <span key={`cohort-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">Khóa {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterCohorts, value)} aria-label="Bỏ lọc khóa"><X size={12}/></button></span>)}
+                            {selectedFilterGroups.map(value => <span key={`group-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">{value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterGroups, value)} aria-label="Bỏ lọc nhóm"><X size={12}/></button></span>)}
+                            {hasActiveCourseFilters && <button type="button" onClick={clearCourseFilters} className="shrink-0 px-3 text-xs font-bold text-[#155EEF]">Xóa tất cả bộ lọc</button>}
+                            </div>
+                        </div>
             <div className="flex flex-col items-start gap-3 sm:gap-5 lg:h-[calc(100vh-92px)] lg:flex-row">
             
                 {/* CỘT TRÁI: SIDEBAR FILTER */}
-                <div className={`flex w-full flex-col overflow-visible rounded-xl border border-gray-300 bg-white lg:h-full lg:w-[330px] lg:shrink-0 ${hasActiveCourseFilters ? 'h-[520px]' : 'h-auto'}`}>
+                <div id="timetable-filter-sidebar" hidden={!isFilterSidebarExpanded} className={`timetable-filter-sidebar flex w-full flex-col overflow-visible rounded-xl border border-gray-300 bg-white lg:h-full lg:w-[330px] lg:shrink-0 ${hasActiveCourseFilters ? 'h-[520px]' : 'h-auto'}`}>
                     <div className="flex items-center justify-between rounded-t-xl border-b border-blue-900 bg-gradient-to-r from-[#073B7A] to-[#062D63] px-4 py-3 text-white">
                         <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide"><SlidersHorizontal size={16}/> Bộ lọc</h2>
                         <div className="flex items-center gap-1.5">
@@ -2986,17 +3050,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
 
                     <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-300 bg-white px-4 py-4">
-                        <button onClick={() => setOpenSidebarFilterSections(new Set())} disabled={openSidebarFilterSections.size === 0} className="flex items-center gap-2 text-xs font-bold text-[#28466F] hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40">
-                            <ChevronDown size={15} className="rotate-180"/> Thu gọn
+                        <button onClick={collapseFilterSidebar} className="min-h-[44px] flex items-center gap-2 text-xs font-bold text-[#28466F] hover:text-[#003375]">
+                            <ChevronDown size={15} className="rotate-180"/> Thu gọn bộ lọc
                         </button>
-                        <button disabled={!isAuthenticated || isLoading} onClick={() => setIsCourseResultsOpen(true)} className="flex h-11 min-w-[205px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0D4E9B] to-[#073B7A] px-4 text-sm font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
-                            {isLoading ? <Loader2 size={17} className="animate-spin"/> : <SlidersHorizontal size={17}/>} Áp dụng bộ lọc ({courseTotal || availableCourses.length} lớp)
-                        </button>
+
                     </div>
                 </div>
 
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-                <div className="relative flex min-h-[600px] w-full flex-1 flex-col overflow-hidden bg-[#F8FAFC] lg:h-full lg:min-h-0">
+                <div className="relative flex min-h-[600px] min-w-0 w-full flex-1 flex-col overflow-hidden bg-[#F8FAFC] lg:h-full lg:min-h-0">
                     <div className="schedule-toolbar shrink-0 bg-[#F8FAFC]">
                         <div className="no-scrollbar flex min-h-[62px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-1 pb-2">
                             <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
@@ -3076,17 +3138,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             )}
                         </div>
 
-                        <div className="no-scrollbar mb-3 flex min-h-[48px] items-center gap-2 overflow-x-auto rounded-xl border border-gray-300 bg-white px-4 py-2 whitespace-nowrap">
-                            <span className="mr-1 shrink-0 text-xs font-extrabold text-[#12366A]">Bộ lọc đang áp dụng</span>
-                            {!hasActiveCourseFilters && <span className="text-[11px] font-medium text-gray-400">Chưa chọn tiêu chí nào</span>}
-                            {selectedFilterSemesters.map(value => <span key={`semester-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterSemesters, value)} aria-label="Bỏ lọc học kỳ"><X size={12}/></button></span>)}
-                            {selectedFilterPhases.map(value => <span key={`phase-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} aria-label="Bỏ lọc đợt"><X size={12}/></button></span>)}
-                            {selectedSubjectName !== 'all' && <span className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{selectedSubjectName}</span><button onClick={() => setSelectedSubjectName('all')} aria-label="Bỏ lọc môn"><X size={12}/></button></span>}
-                            {selectedFilterPrograms.map(value => <span key={`program-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterPrograms, value)} aria-label="Bỏ lọc chương trình"><X size={12}/></button></span>)}
-                            {selectedFilterMajors.map(value => <span key={`major-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterMajors, value)} aria-label="Bỏ lọc chuyên ngành"><X size={12}/></button></span>)}
-                            {activeAdvancedScheduleFilters.map(([key, value]) => <span key={`advanced-${key}`} className="flex max-w-[200px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span><button onClick={() => setAdvancedScheduleFilters(previous => ({ ...previous, [key]: '' }))} aria-label={`Bỏ lọc ${key}`}><X size={12}/></button></span>)}
-                            <button onClick={() => setIsFilterExpanded(true)} className="ml-auto flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-[11px] font-extrabold text-[#155EEF] transition hover:bg-blue-50"><Edit size={13}/> Chỉnh sửa bộ lọc <ChevronDown size={13}/></button>
-                        </div>
+
 
                         {isWeekDropdownOpen && createPortal(
                             <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(weekDropdownButtonRef, 192)} className="z-[100000] rounded-xl border border-gray-300 bg-white py-1 max-h-[320px] overflow-y-auto custom-scrollbar">
@@ -3424,6 +3476,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
                 </div>
             </div>
+            </>
         )}
 
         {isFilterExpanded && !isAdminView && createPortal(
@@ -3433,7 +3486,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     onMouseDown={(event) => event.stopPropagation()}
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Bộ lọc nâng cao"
+                    aria-label="Bộ lọc nâng cao" ref={courseFilterDialogRef} tabIndex={-1}
                 >
                     <header className="flex items-start justify-between border-b border-gray-300 bg-white px-6 py-5 sm:px-8">
                         <div className="flex items-start gap-4">
@@ -3575,7 +3628,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {isCourseResultsOpen && !isAdminView && createPortal(
             <Overlay className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/25 backdrop-blur-[1px]" onMouseDown={() => setIsCourseResultsOpen(false)}>
-                <section className="flex h-full w-full max-w-[620px] flex-col border-l border-gray-300 bg-[#F8FAFC] animate-slideInRight" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Kết quả lớp học phù hợp">
+                <section className="flex h-full w-full max-w-[620px] flex-col border-l border-gray-300 bg-[#F8FAFC] animate-slideInRight" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Kết quả lớp học phù hợp" ref={courseFilterDialogRef} tabIndex={-1}>
                     <header className="flex items-start justify-between border-b border-gray-300 bg-white px-5 py-5 sm:px-6">
                         <div className="flex items-start gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#155EEF]"><Search size={20}/></div>

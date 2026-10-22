@@ -1,0 +1,10 @@
+.timetable-filter-sidebar[hidden] { display: none; }
+.timetable-filter-bar { min-width: 0; margin-bottom: 12px; }
+.timetable-filter-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.timetable-filter-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 44px; }
+.timetable-filter-chips { display: flex; align-items: center; gap: 8px; overflow-x: auto; max-width: 100%; white-space: nowrap; }
+.timetable-filter-chips button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+.timetable-filter-sidebar input:not([type="checkbox"]), .timetable-filter-sidebar select { max-width: 100%; }
+@media (max-width: 767px) {
+  .timetable-filter-sidebar input:not([type="checkbox"]), .timetable-filter-sidebar select { font-size: 16px; }
+}

@@ -1,0 +1,102 @@
+[
+  {
+    "width": 375,
+    "expanded": {
+      "sidebar": {
+        "x": 14,
+        "y": 171,
+        "width": 347,
+        "height": 520
+      },
+      "calendar": {
+        "x": 14,
+        "y": 701.5,
+        "width": 347,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "collapsed": {
+      "sidebar": {
+        "x": 14,
+        "y": 171,
+        "width": 347,
+        "height": 520
+      },
+      "calendar": {
+        "x": 14,
+        "y": 701.5,
+        "width": 347,
+        "height": 600
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "applyOpensResults": true
+  },
+  {
+    "width": 1440,
+    "expanded": {
+      "sidebar": {
+        "x": 28,
+        "y": 159.5,
+        "width": 330,
+        "height": 808
+      },
+      "calendar": {
+        "x": 375.5,
+        "y": 159.5,
+        "width": 1030.5,
+        "height": 808
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "collapsed": {
+      "sidebar": {
+        "x": 28,
+        "y": -204.5,
+        "width": 330,
+        "height": 808
+      },
+      "calendar": {
+        "x": 375.5,
+        "y": -204.5,
+        "width": 1030.5,
+        "height": 808
+      },
+      "scroll": [
+        0,
+        0
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "applyOpensResults": true
+  }
+]

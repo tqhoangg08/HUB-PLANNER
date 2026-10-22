@@ -8,10 +8,11 @@ import { build } from 'esbuild';
 test('actual import preview at 1280, 1024, 768 and 390px: official lock, independent edits, visible confirm and exact persistence', { timeout: 120000 }, async () => {
   const executablePath = process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', '/usr/bin/chromium'].find(existsSync);
   assert.ok(executablePath, 'Chrome is required for browser acceptance');
-  const bundled = await build({ entryPoints: ['tests/browser/schedule-import-entry.tsx'], bundle: true, write: false, platform: 'browser', format: 'esm', jsx: 'automatic' });
-  const cssFile = readdirSync('dist/assets').find(name => name.endsWith('.css'));
-  assert.ok(cssFile, 'Run npm run build before browser acceptance');
-  const css = readFileSync(`dist/assets/${cssFile}`);
+  // The fixture serves built styles below; esbuild only needs the JavaScript bundle.
+  const bundled = await build({ loader: { '.css': 'empty' }, entryPoints: ['tests/browser/schedule-import-entry.tsx'], bundle: true, write: false, platform: 'browser', format: 'esm', jsx: 'automatic' });
+  const cssFiles = readdirSync('dist/assets').filter(name => name.endsWith('.css'));
+  assert.ok(cssFiles.some(name => name.startsWith('index-')), 'Run npm run build before browser acceptance');
+  const css = cssFiles.map(name => readFileSync(`dist/assets/${name}`, 'utf8')).join('\n');
   const catalog = JSON.parse(readFileSync('tests/fixtures/hub-schedule-catalog.json', 'utf8'));
   const server = createServer((req, res) => {
     if (req.url === '/app.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(bundled.outputFiles[0].text); }
@@ -38,7 +39,10 @@ test('actual import preview at 1280, 1024, 768 and 390px: official lock, indepen
       });
       await page.goto(`http://127.0.0.1:${port}/`);
       const confirm = page.getByRole('button', { name: 'Xác nhận nhập', exact: true });
-      await confirm.waitFor();
+      await confirm.waitFor({ timeout: 15000 }).catch(async error => {
+        await page.screenshot({ path: `.cache/schedule-browser/import-failure-${width}.png` });
+        throw new Error(`Import fixture failed to render: ${JSON.stringify(errors)}`, { cause: error });
+      });
       assert.equal(await confirm.isDisabled(), true, 'PDF has two genuinely missing instructors');
       const official = page.getByRole('group', { name: 'Học phần LAW349_2611_1_D01', exact: true });
       assert.equal(await official.getByText('Dữ liệu hệ thống', { exact: true }).count(), 1);
