@@ -1,0 +1,16 @@
+{
+  "sourceSha": "e4740ecada34ad4569104ca4133b01fe586e38b4",
+  "method": "Read-only git show via Vite transform; actual ScheduleBoard in the same local fixture",
+  "observations": [
+    {
+      "width": 375,
+      "applyOpensResults": true,
+      "escapeLeavesResultsOpen": true
+    },
+    {
+      "width": 1440,
+      "applyOpensResults": true,
+      "escapeLeavesResultsOpen": true
+    }
+  ]
+}
