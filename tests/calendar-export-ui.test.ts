@@ -14,8 +14,12 @@ test('desktop and mobile schedule surfaces use the shared calendar export dialog
     assert.match(source, /isCalendarExportOpen/);
     assert.match(source, /currentSemesterSchedule/);
   }
-  assert.match(desktop, /Thêm vào lịch/);
-  assert.match(mobile, /Thêm lịch/);
+  for (const source of [desktop, mobile]) {
+    assert.match(source, /<ScheduleActionsDropdown/);
+    assert.match(source, /onExport=\{\(\) => setIsCalendarExportOpen\(true\)\}/);
+    assert.match(source, /hasCourses=\{currentSemesterSchedule.length > 0\}/);
+  }
+  assert.match(read('components/ScheduleActionsDropdown.tsx'), /label: 'Thêm vào lịch'/);
   assert.match(dialog, /Thêm vào lịch thiết bị/);
   assert.match(dialog, /Thêm toàn bộ vào lịch/);
   assert.match(dialog, /Không nhắc/);

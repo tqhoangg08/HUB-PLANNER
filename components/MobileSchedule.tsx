@@ -7,6 +7,7 @@ import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
 import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
 import { CalendarExportDialog } from './CalendarExportDialog';
+import { ScheduleActionsDropdown } from './ScheduleActionsDropdown';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
@@ -1732,19 +1733,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 />
             </div>
             {!forceManagementView && (
-            <div className="grid grid-cols-4 gap-2">
-                <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#FFE0E8] bg-[#FFF0F3] text-[10px] font-black text-[#E11D48] disabled:opacity-50">
-                    <AlertTriangle size={16} /> Báo lỗi
-                </button>
-                <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#D1FAE5] bg-[#ECFDF5] text-[10px] font-black text-[#059669] disabled:opacity-50">
-                    <Plus size={16} /> Thêm môn
-                </button>
-                <button disabled={!isAuthenticated || currentSemesterSchedule.length === 0} onClick={() => setIsCalendarExportOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-violet-100 bg-violet-50 text-[10px] font-black text-violet-700 disabled:opacity-50">
-                    <CalendarDays size={16} /> Thêm lịch
-                </button>
-                <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#E5EAF4] bg-[#F4F6FA] text-[10px] font-black text-[#5D687E] disabled:opacity-50">
-                    {isProcessingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />} Nhập PDF
-                </button>
+            <div>
+                <ScheduleActionsDropdown
+                    isAuthenticated={isAuthenticated}
+                    hasCourses={currentSemesterSchedule.length > 0}
+                    isProcessingPdf={isProcessingPdf}
+                    actionActive={isProcessingPdf || isCalendarExportOpen || isReportModalOpen || isCreateCourseModalOpen || isPdfGuideOpen || Boolean(pendingScheduleImport)}
+                    onExport={() => setIsCalendarExportOpen(true)}
+                    onReport={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }}
+                    onRequest={() => setIsCreateCourseModalOpen(true)}
+                    onImport={() => setIsPdfGuideOpen(true)}
+                />
                 <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
             </div>
             )}

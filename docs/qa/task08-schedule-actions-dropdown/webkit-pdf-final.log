@@ -1,0 +1,23 @@
+TAP version 13
+# AUTOMATED_ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+# Subtest: webkit PDF guide to real PDF parser and preview, processing disabled browser
+ok 1 - webkit PDF guide to real PDF parser and preview, processing disabled browser
+  ---
+  duration_ms: 21001.7292
+  type: 'test'
+  ...
+# Subtest: webkit PDF guide to real PDF parser and preview, processing disabled PWA
+ok 2 - webkit PDF guide to real PDF parser and preview, processing disabled PWA
+  ---
+  duration_ms: 35484.9677
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 58599.3123

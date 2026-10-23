@@ -1,0 +1,608 @@
+=== Pinned baseline matrix | exit 0 ===
+TAP version 13
+# Subtest: chromium before 375 browser
+ok 1 - chromium before 375 browser
+  ---
+  duration_ms: 84336.499
+  type: 'test'
+  ...
+# Subtest: chromium before 390 browser
+ok 2 - chromium before 390 browser
+  ---
+  duration_ms: 7147.28
+  type: 'test'
+  ...
+# Subtest: chromium before 1440 browser
+ok 3 - chromium before 1440 browser
+  ---
+  duration_ms: 11026.1059
+  type: 'test'
+  ...
+# Subtest: chromium before 375 PWA
+ok 4 - chromium before 375 PWA
+  ---
+  duration_ms: 5498.1213
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 157729.1069
+
+=== Pinned PWA week selector evidence | exit 0 ===
+TAP version 13
+# AUTOMATED_ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+# Subtest: chromium before 375 PWA
+ok 1 - chromium before 375 PWA
+  ---
+  duration_ms: 30412.3656
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 58634.8949
+
+=== Calendar/model/role/overlay unit regressions | exit 0 ===
+✔ admin timetable preserves the five management tabs in an accessible tab strip (2.8026ms)
+✔ admin timetable uses the student-management filter and action-bar pattern without changing its data authority (1.262ms)
+✔ admin timetable renders a dense responsive enterprise table and reuses course pagination (2.3998ms)
+✔ remaining management tabs use real fields, dedicated filters, and one bounded pagination grammar (2.0806ms)
+✔ URL controls all tabs, pagination and sort while request actions stay on the same tab (0.7645ms)
+✔ request identity, quick approve, credits and email use authoritative backend values (44.8954ms)
+✔ auditor keeps read-only request and schedule actions while admin review remains available (13.8973ms)
+✔ desktop and mobile schedule surfaces use the shared calendar export dialog (8.1625ms)
+✔ download handoff shows a focused, responsive import guide without downloading again (68.1749ms)
+✔ exports one real session with canonical morning dates and details (13.7668ms)
+✔ expands selected weeks, all courses, and skips calendar holiday weeks (6.8573ms)
+✔ supports detailed and exact canonical shifts (2.7315ms)
+✔ exports the production D1 two-course, 15-session schedule shape (52.0116ms)
+✔ recognizes observed production legacy shift shapes without guessing unknown times (3.64ms)
+✔ skips one malformed row, reports its position, and retains valid events (6.09ms)
+✔ uses UTF-8-safe escaping, optional fields, reminders, line folding, and stable opaque UIDs (3.7513ms)
+✔ uses web share when supported and downloads one combined ICS when unsupported (0.7625ms)
+✔ desktop capability failures and unsupported Web Share download safely (0.7102ms)
+✔ download result is returned after the guide notification runs before browser download (0.5841ms)
+✔ cancelled share is silent; platform share failure falls back to download (0.4862ms)
+✔ download failure is classified separately from ICS generation (1.3015ms)
+✔ empty or invalid schedules produce no events for a meaningful disabled state (0.7191ms)
+✔ Better Auth user reads only their own D1 schedule (144.3393ms)
+✔ authenticated user with no schedule receives the stable empty array contract (31.0983ms)
+✔ logged-out and bearer-only requests cannot authenticate schedule reads (14.3659ms)
+✔ Better Auth identity wins over malicious bearer, query and identity headers (5.235ms)
+✔ users and staff roles remain self-only on schedule reads (34.4887ms)
+✔ expired, malformed and unavailable Auth Service states fail closed (26.4707ms)
+✔ unsupported collection method fails before Auth Service and D1 (1.1367ms)
+✔ schedule reads and legacy writes use Better Auth while source authority stays server-side (19.8951ms)
+✔ schedule write mode defaults to legacy and accepts only explicit modes (6.3723ms)
+✔ matcher covers exactly the four legacy schedule mutation shapes (73.2928ms)
+✔ frozen mode fails all schedule mutations before auth or database access (37.7406ms)
+✔ unknown mode fails all schedule mutations before auth or database access (13.5426ms)
+✔ d1 mode routes every private schedule mutation through Better Auth before D1 (35.737ms)
+✔ legacy mode keeps the existing mutation implementation reachable (4.6229ms)
+✔ scheduled user sync freezes permanently while course sync resumes in d1 (20.5049ms)
+✔ migration candidate is additive and contains the write-safety schema only (22.9175ms)
+✔ private course snapshot migration is additive and cannot feed the public catalogue (15.967ms)
+✔ Courses Edge no longer directly mutates the legacy user schedule table (18.763ms)
+✔ user schedule identifiers, semester and request size are bounded (6.9273ms)
+✔ user schedule reads are restricted to the authenticated owner (0.5693ms)
+✔ user schedule reads fail closed before the private mirror is seeded (1.1225ms)
+✔ user schedule reads fall back when a linked course is not mirrored yet (0.8787ms)
+✔ private course snapshots resolve only through the owner-scoped schedule join (1.2677ms)
+✔ user schedule responses do not expose the private owner identifier (0.8003ms)
+✔ user schedule writes use the user token and mirror only the returned row (61.1205ms)
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (4.3368ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (0.8818ms)
+✔ desktop compensates scrollbar once and preserves existing padding (0.5641ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (40.1014ms)
+✔ schedule request pagination keeps the current page neighborhood and boundaries (3.4055ms)
+✔ management pagination slices bounded API results without inventing a server total (0.6269ms)
+✔ schedule requests are sorted newest first and tolerate invalid dates (3.0217ms)
+✔ student code uses only the authoritative profile value (0.5223ms)
+✔ five admin tabs have stable URL names and invalid sort safely defaults (0.6237ms)
+✔ admin semester restores from full or split URL values (0.5953ms)
+✔ Vietnamese request sort and stable ties happen before slicing the page (84.7093ms)
+✔ student schedule sort uses authoritative totals and deterministic student-code ties (0.6198ms)
+✔ academic program options are trimmed, unique, and keep the default first (0.6064ms)
+✔ plan schedules start independent (0.4551ms)
+✔ unknown import courses and manual requests share the structured schedule editor on desktop and mobile (15.9879ms)
+ℹ tests 62
+ℹ suites 0
+ℹ pass 62
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12784.7744
+
+=== PDF/import regressions | exit 0 ===
+
+> hub-grade-planner@0.0.0 test:schedule-import
+> node --test --experimental-strip-types tests/hub-schedule-extraction.test.ts tests/schedule-pdf-orchestration.test.ts tests/schedule-import-preview.test.ts tests/schedule-import-persistence.test.ts tests/schedule-import-generation.test.ts tests/schedule-import-shifts.test.ts tests/schedule-import-conflicts.test.ts tests/structured-schedule-sessions.test.ts tests/structured-schedule-ui.test.ts tests/cloudflare-course-schedule-sessions.test.ts
+
+✔ worker accepts canonical structured schedule sessions and rejects malformed input (9.3317ms)
+✔ anonymized two-page HUB PDF layout extracts all 11 courses, 23 credits, dates, teachers and meetings (148.417ms)
+✔ HUB direct parser must reject incomplete layouts before AI fallback (234.9761ms)
+✔ fixture excludes student header, identity, signature and source URL (3.3573ms)
+✔ frontend and worker allow different weekdays in the same week (12.6122ms)
+✔ frontend and worker allow two non-overlapping declared time ranges on the same date (9.2831ms)
+✔ frontend and worker still reject actual overlapping sessions regardless of room (2.4295ms)
+✔ legacy conversion infers shift from contained times and retains the original range (3.6189ms)
+✔ cross-course conflict detection uses exact intervals, including split slot labels (2.2738ms)
+✔ 1 credits produce exactly 3 sessions across all declared weekdays (37.4427ms)
+✔ 2 credits produce exactly 6 sessions across all declared weekdays (3.8094ms)
+✔ 3 credits produce exactly 9 sessions across all declared weekdays (11.3924ms)
+✔ 4 credits produce exactly 12 sessions across all declared weekdays (3.559ms)
+✔ standard six sessions retain both PDF endpoints, alternating weekdays, rooms and campus (5.886ms)
+✔ ten Tuesdays produce nine sessions with endpoints and one gap in the middle (3.909ms)
+✔ two declared times on the same date survive, identical meetings do not duplicate (105.6123ms)
+✔ short ranges extend only declared slots, flag estimates and never duplicate exact dates/times (23.3465ms)
+✔ estimation stays in the selected semester even when the PDF ends on its last day (2.0197ms)
+✔ unsupported credits and invalid dates require review without guessed session counts (2.0189ms)
+✔ an impossible target remains visibly incomplete instead of duplicating slots or leaving the semester (2.3805ms)
+✔ invalid or missing meeting times are never silently assigned S/C (3.3281ms)
+✔ all eleven PDF courses independently obey target counts, chronological order and stable generation (960.1391ms)
+✔ D1 import request keeps system references and exact private sessions/estimates without catalogue writes (132.5347ms)
+✔ D1 import rejects invalid credits, incorrect session counts and malformed ranges before mutation (36.8026ms)
+✔ D1 import prevents overwriting official data or specifying another owner in import rows (4.0294ms)
+✔ fallback uses credits once across all meetings, maps C, and preserves rooms (151.7744ms)
+✔ official equivalent code wins unchanged over conflicting PDF and community course (18.9077ms)
+✔ same name, different class or semester cannot become an official match (22.154ms)
+✔ ambiguous official matches stop preview safely instead of choosing the first (7.5146ms)
+✔ catalog failure cannot silently turn an official course into a fallback (4.2751ms)
+✔ an official catalog row missing its id cannot be hidden by a community row or become a fallback (9.6174ms)
+✔ eleven-course PDF matches one official course and only generates the ten unmatched classes (147.517ms)
+✔ preview validation requires supported credits and target count but permits repeated weeks (5.2688ms)
+✔ preview keeps actual cross-course overlap validation while allowing separate time ranges (6.8393ms)
+✔ confirmation sends only official id and the exact edited fallback sessions via owner CAS API (17.0798ms)
+✔ catalog pagination completes before checking uniqueness (7.4908ms)
+✔ HUB full and partial morning/afternoon ranges map without losing original times (65.9103ms)
+✔ missing, reversed, malformed, outside-shift and cross-shift times never receive a guessed shift (1.0596ms)
+✔ reliable HUB layout returns eleven courses without calling AI or consuming quota (74.9847ms)
+✔ unreliable direct parser invokes AI fallback once and keeps its extracted data (38.2637ms)
+✔ semester week options are bounded and include semester dates (54.0707ms)
+✔ structured sessions require exactly one canonical week, day, shift and bounded free-text room (7.3296ms)
+✔ multiple sessions serialize to existing deterministic parallel schedule fields (4.6063ms)
+✔ unknown import courses and manual requests share the structured schedule editor on desktop and mobile (108.4437ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2749.884
+
+=== Task07 Chromium | exit 0 ===
+TAP version 13
+# Subtest: chromium 360x640: full collapse, direct filters, results, pagination, focus and persistence
+ok 1 - chromium 360x640: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 63259.0233
+  type: 'test'
+  ...
+# Subtest: chromium 375x667: full collapse, direct filters, results, pagination, focus and persistence
+ok 2 - chromium 375x667: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 59106.3865
+  type: 'test'
+  ...
+# Subtest: chromium 390x844: full collapse, direct filters, results, pagination, focus and persistence
+ok 3 - chromium 390x844: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 43860.8865
+  type: 'test'
+  ...
+# Subtest: chromium 430x932: full collapse, direct filters, results, pagination, focus and persistence
+ok 4 - chromium 430x932: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 35381.6439
+  type: 'test'
+  ...
+# Subtest: chromium 768x1024: full collapse, direct filters, results, pagination, focus and persistence
+ok 5 - chromium 768x1024: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 33298.7693
+  type: 'test'
+  ...
+# Subtest: chromium 1024x768: full collapse, direct filters, results, pagination, focus and persistence
+ok 6 - chromium 1024x768: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 29909.3854
+  type: 'test'
+  ...
+# Subtest: chromium 1440x900: full collapse, direct filters, results, pagination, focus and persistence
+ok 7 - chromium 1440x900: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 32951.5674
+  type: 'test'
+  ...
+# Subtest: chromium: preference corrupted
+ok 8 - chromium: preference corrupted
+  ---
+  duration_ms: 3328.4315
+  type: 'test'
+  ...
+# Subtest: chromium: preference null
+ok 9 - chromium: preference null
+  ---
+  duration_ms: 3350.1365
+  type: 'test'
+  ...
+# Subtest: chromium: preference false
+ok 10 - chromium: preference false
+  ---
+  duration_ms: 3248.5319
+  type: 'test'
+  ...
+# Subtest: chromium: preference true
+ok 11 - chromium: preference true
+  ---
+  duration_ms: 3614.0047
+  type: 'test'
+  ...
+# Subtest: chromium: denied preference storage does not block filtering
+ok 12 - chromium: denied preference storage does not block filtering
+  ---
+  duration_ms: 5168.8644
+  type: 'test'
+  ...
+# Subtest: chromium: guest authorization and navigation retained
+ok 13 - chromium: guest authorization and navigation retained
+  ---
+  duration_ms: 5734.7952
+  type: 'test'
+  ...
+# Subtest: chromium: admin authorization and navigation retained
+ok 14 - chromium: admin authorization and navigation retained
+  ---
+  duration_ms: 7107.3645
+  type: 'test'
+  ...
+# Subtest: chromium: auditor authorization and navigation retained
+ok 15 - chromium: auditor authorization and navigation retained
+  ---
+  duration_ms: 9025.3299
+  type: 'test'
+  ...
+# Subtest: chromium: plan A/B, week/month, result selection and PWA remain available
+ok 16 - chromium: plan A/B, week/month, result selection and PWA remain available
+  ---
+  duration_ms: 22392.473
+  type: 'test'
+  ...
+# Subtest: chromium: all sidebar fields, advanced input, chip removals and PDF entry survive collapse
+ok 17 - chromium: all sidebar fields, advanced input, chip removals and PDF entry survive collapse
+  ---
+  duration_ms: 29888.841
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 435406.2485
+
+=== Task07 WebKit targeted | exit 0 ===
+TAP version 13
+# Subtest: webkit 375x667: full collapse, direct filters, results, pagination, focus and persistence
+ok 1 - webkit 375x667: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 49644.0091
+  type: 'test'
+  ...
+# Subtest: webkit 1440x900: full collapse, direct filters, results, pagination, focus and persistence
+ok 2 - webkit 1440x900: full collapse, direct filters, results, pagination, focus and persistence
+  ---
+  duration_ms: 23291.8151
+  type: 'test'
+  ...
+# Subtest: webkit: plan A/B, week/month, result selection and PWA remain available
+ok 3 - webkit: plan A/B, week/month, result selection and PWA remain available
+  ---
+  duration_ms: 15599.02
+  type: 'test'
+  ...
+# Subtest: webkit: all sidebar fields, advanced input, chip removals and PDF entry survive collapse
+ok 4 - webkit: all sidebar fields, advanced input, chip removals and PDF entry survive collapse
+  ---
+  duration_ms: 14094.1384
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 108755.0098
+
+=== Overlay browser regression | exit 0 ===
+TAP version 13
+# Subtest: mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads
+ok 1 - mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads
+  ---
+  duration_ms: 16683.2385
+  type: 'test'
+  ...
+# Subtest: iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+ok 2 - iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+  ---
+  duration_ms: 1450.9444
+  type: 'test'
+  ...
+# Subtest: iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+ok 3 - iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+  ---
+  duration_ms: 1482.346
+  type: 'test'
+  ...
+# Subtest: Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+ok 4 - Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore
+  ---
+  duration_ms: 1419.5494
+  type: 'test'
+  ...
+# Subtest: desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore
+ok 5 - desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore
+  ---
+  duration_ms: 1396.9546
+  type: 'test'
+  ...
+# Subtest: desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore
+ok 6 - desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore
+  ---
+  duration_ms: 4398.8675
+  type: 'test'
+  ...
+# Subtest: nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode
+ok 7 - nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode
+  ---
+  duration_ms: 3729.3845
+  type: 'test'
+  ...
+# Subtest: unexpected unmount and route navigation release all ownership
+ok 8 - unexpected unmount and route navigation release all ownership
+  ---
+  duration_ms: 3318.8636
+  type: 'test'
+  ...
+# Subtest: drawer adapter and SweetAlert dialogs share ownership with React modals
+ok 9 - drawer adapter and SweetAlert dialogs share ownership with React modals
+  ---
+  duration_ms: 3962.7109
+  type: 'test'
+  ...
+# Subtest: SweetAlert Safari body fix cannot move a locked background or clear a remaining owner
+ok 10 - SweetAlert Safari body fix cannot move a locked background or clear a remaining owner
+  ---
+  duration_ms: 5106.7921
+  type: 'test'
+  ...
+# Subtest: visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input
+ok 11 - visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input
+  ---
+  duration_ms: 2135.9406
+  type: 'test'
+  ...
+# Subtest: touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch
+ok 12 - touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch
+  ---
+  duration_ms: 1580.1164
+  type: 'test'
+  ...
+# Subtest: real event filter drawer and DRL guide share ownership and retain Escape and focus behavior
+ok 13 - real event filter drawer and DRL guide share ownership and retain Escape and focus behavior
+  ---
+  duration_ms: 1901.4691
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 66527.5517
+
+=== Existing PDF preview browser (4 widths) | exit 0 ===
+
+> hub-grade-planner@0.0.0 test:schedule-import:browser
+> node --test --experimental-strip-types tests/schedule-import.browser.test.ts
+
+✔ actual import preview at 1280, 1024, 768 and 390px: official lock, independent edits, visible confirm and exact persistence (43828.2127ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45258.4274
+
+=== Frontend typecheck | exit 0 ===
+
+> hub-grade-planner@0.0.0 typecheck
+> tsc -p tsconfig.app.json --noEmit
+
+
+=== Cloudflare typecheck | exit 0 ===
+
+> hub-grade-planner@0.0.0 cf:typecheck
+> tsc -p cloudflare/tsconfig.json --noEmit
+
+
+=== Build including PWA generation | exit 0 ===
+
+> hub-grade-planner@0.0.0 build
+> vite build && node -e "const fs=require('fs'),path=require('path');const walk=d=>{if(!fs.existsSync(d))return;for(const f of fs.readdirSync(d)){const p=path.join(d,f);const s=fs.statSync(p);if(s.isDirectory())walk(p);else if(p.endsWith('.map'))fs.rmSync(p)}};walk('dist')"
+
+vite v6.4.3 building for production...
+transforming...
+✓ 3487 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/registerSW.js                                          0.13 kB
+dist/sw.js                                                  2.13 kB
+dist/manifest.webmanifest                                   2.21 kB
+dist/index.html                                             3.34 kB │ gzip:   1.26 kB
+dist/assets/inter-vietnamese-400-normal-DMkecbls.woff2      4.97 kB
+dist/assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2      5.10 kB
+dist/assets/inter-vietnamese-700-normal-DlLaEgI2.woff2      5.10 kB
+dist/assets/inter-vietnamese-500-normal-DOriooB6.woff2      5.11 kB
+dist/assets/inter-vietnamese-400-italic-Ceaj4WUo.woff2      5.13 kB
+dist/assets/inter-vietnamese-800-normal-Cm7tD1pz.woff2      5.18 kB
+dist/assets/inter-vietnamese-400-normal-Bbgyi5SW.woff       6.50 kB
+dist/assets/inter-vietnamese-500-normal-mJboJaSs.woff       6.60 kB
+dist/assets/inter-vietnamese-700-normal-BZaoP0fm.woff       6.63 kB
+dist/assets/inter-vietnamese-600-normal-BuLX-rYi.woff       6.64 kB
+dist/assets/inter-vietnamese-800-normal-DDlpr_Ee.woff       6.64 kB
+dist/assets/inter-vietnamese-400-italic-E-DnQMHp.woff       6.68 kB
+dist/assets/inter-latin-400-normal-C38fXH4l.woff2          23.66 kB
+dist/assets/inter-latin-500-normal-Cerq10X2.woff2          24.27 kB
+dist/assets/inter-latin-700-normal-Yt3aPRUw.woff2          24.36 kB
+dist/assets/inter-latin-800-normal-BYj_oED-.woff2          24.40 kB
+dist/assets/inter-latin-600-normal-LgqL8muc.woff2          24.45 kB
+dist/assets/inter-latin-400-italic-D1l0FflY.woff2          25.04 kB
+dist/assets/inter-latin-400-normal-CyCys3Eg.woff           30.70 kB
+dist/assets/inter-latin-600-normal-CiBQ2DWP.woff           31.26 kB
+dist/assets/inter-latin-500-normal-BL9OpVg8.woff           31.28 kB
+dist/assets/inter-latin-800-normal-D1mf63XC.woff           31.30 kB
+dist/assets/inter-latin-700-normal-BLAVimhd.woff           31.32 kB
+dist/assets/inter-latin-400-italic-BmFrN47l.woff           32.42 kB
+dist/.vite/manifest.json                                   40.79 kB │ gzip:   4.69 kB
+dist/assets/pdf.worker.min-yatZIOMy.mjs                 1,375.84 kB
+dist/assets/ScheduleBoard-CXMM0m4g.css                      0.76 kB │ gzip:   0.31 kB
+dist/assets/scheduleCoursePageCache-Bd52daOO.css            1.49 kB │ gzip:   0.59 kB
+dist/assets/legacy-entry-CVXtg1b3.css                       1.65 kB │ gzip:   0.56 kB
+dist/assets/EventFilterControls-BKYJoFr_.css                2.98 kB │ gzip:   0.88 kB
+dist/assets/scholarshipApi-BIdWpPBk.css                    14.18 kB │ gzip:   3.36 kB
+dist/assets/index-C6Vw_j7A.css                            239.81 kB │ gzip:  38.62 kB
+dist/assets/pdf.worker.min-D8eRykn8.js                      0.07 kB │ gzip:   0.09 kB
+dist/assets/announcementsApi-5u6QeJVn.js                    0.09 kB │ gzip:   0.10 kB
+dist/assets/moderatorNotifications-DCO7-sIR.js              0.27 kB │ gzip:   0.23 kB
+dist/assets/clock-3-B01loyWH.js                             0.35 kB │ gzip:   0.28 kB
+dist/assets/check-check-DnL0uAO8.js                         0.36 kB │ gzip:   0.28 kB
+dist/assets/user-round-1Lf5rjjf.js                          0.37 kB │ gzip:   0.29 kB
+dist/assets/circle-check-big-CxHjQpq2.js                    0.38 kB │ gzip:   0.30 kB
+dist/assets/list-filter-DJ6J49o-.js                         0.38 kB │ gzip:   0.28 kB
+dist/assets/circle-plus-DpEPMJU8.js                         0.39 kB │ gzip:   0.29 kB
+dist/assets/target-BD5CegBd.js                              0.41 kB │ gzip:   0.28 kB
+dist/assets/upload-D9XhOVOE.js                              0.41 kB │ gzip:   0.31 kB
+dist/assets/pen-mOHYR4kr.js                                 0.42 kB │ gzip:   0.32 kB
+dist/assets/copy-Gbr0PoTR.js                                0.42 kB │ gzip:   0.32 kB
+dist/assets/map-pin-Bz7oSKkj.js                             0.44 kB │ gzip:   0.34 kB
+dist/assets/pencil-C-R3SMA9.js                              0.46 kB │ gzip:   0.34 kB
+dist/assets/SemesterLookbackDialog-CrKubUcM.js              0.49 kB │ gzip:   0.34 kB
+dist/assets/tag-Cj3K5NT9.js                                 0.51 kB │ gzip:   0.36 kB
+dist/assets/key-round-DW64ru6F.js                           0.54 kB │ gzip:   0.37 kB
+dist/assets/crown-CloLEB29.js                               0.55 kB │ gzip:   0.37 kB
+dist/assets/earth-BxYVMfgi.js                               0.58 kB │ gzip:   0.38 kB
+dist/assets/bell-ring-BVo5P20j.js                           0.58 kB │ gzip:   0.40 kB
+dist/assets/bookmark-iisWdLmy.js                            0.68 kB │ gzip:   0.33 kB
+dist/assets/pdfAiApi-P2c3N4y3.js                            0.69 kB │ gzip:   0.50 kB
+dist/assets/scholarshipListModel-CjMt_VrN.js                0.71 kB │ gzip:   0.44 kB
+dist/assets/adminStudentsApi-CNrt3GeN.js                    1.03 kB │ gzip:   0.52 kB
+dist/assets/image-off-a6oJOquO.js                           1.03 kB │ gzip:   0.52 kB
+dist/assets/lostFoundApi-CYo8howh.js                        1.38 kB │ gzip:   0.72 kB
+dist/assets/ai-document-categories-BB35AqNU.js              1.79 kB │ gzip:   0.80 kB
+dist/assets/academicCalendar-BCG6WxHh.js                    2.05 kB │ gzip:   0.78 kB
+dist/assets/recovery-entry-Bu5VYdi9.js                      2.08 kB │ gzip:   1.02 kB
+dist/assets/StaffPasswordActivationScreen-Dd3B7jOW.js       2.41 kB │ gzip:   1.29 kB
+dist/assets/RecoveryForgotPasswordScreen-nTRsgtWY.js        2.44 kB │ gzip:   1.31 kB
+dist/assets/calculations-CQjBF1jn.js                        2.49 kB │ gzip:   1.44 kB
+dist/assets/cloudflareAdminApi-CAp7J-Bg.js                  2.96 kB │ gzip:   1.50 kB
+dist/assets/RecoveryResetPasswordScreen-B5jU9Fan.js         2.99 kB │ gzip:   1.46 kB
+dist/assets/scholarshipDetailsModel-DNdqiA0f.js             3.12 kB │ gzip:   1.45 kB
+dist/assets/RecoveryAccountScreen-BbGQqECU.js               3.19 kB │ gzip:   1.37 kB
+dist/assets/RegistrationPasswordScreen-BwqB6udb.js          3.26 kB │ gzip:   1.60 kB
+dist/assets/ProfileSearchPage-D5aZChGH.js                   3.38 kB │ gzip:   1.53 kB
+dist/assets/recoveryAuthClient-C3ahcgj9.js                  3.47 kB │ gzip:   1.40 kB
+dist/assets/eventsApi-Ba6HmU5T.js                           3.50 kB │ gzip:   1.71 kB
+dist/assets/benchmarkRankingsApi-CuF7b9ID.js                3.52 kB │ gzip:   1.66 kB
+dist/assets/NotificationNudge-BpyMgcUg.js                   3.74 kB │ gzip:   1.75 kB
+dist/assets/PushNotificationPrompt-CojwCD7y.js              3.97 kB │ gzip:   1.84 kB
+dist/assets/index-BrruhTtp.js                               4.15 kB │ gzip:   1.97 kB
+dist/assets/adminEventForm-C6QbD7VP.js                      4.35 kB │ gzip:   1.69 kB
+dist/assets/PublicAIDocumentViewer-DQeHTuui.js              4.98 kB │ gzip:   2.12 kB
+dist/assets/RecoveryLoginScreen-F3yQvsLZ.js                 5.32 kB │ gzip:   2.30 kB
+dist/assets/ProfilePage-Cevt-_gP.js                         6.38 kB │ gzip:   2.30 kB
+dist/assets/EventDrlAssistant-BLxx-01G.js                   6.73 kB │ gzip:   2.76 kB
+dist/assets/PublicRankings-Co5qiRdS.js                      7.13 kB │ gzip:   2.42 kB
+dist/assets/handbookFaqs-CXXrTw14.js                        8.46 kB │ gzip:   3.14 kB
+dist/assets/EventDetailView-CZHzQIEx.js                     9.00 kB │ gzip:   3.35 kB
+dist/assets/SemesterLookbackModal-DIgC3CMv.js               9.38 kB │ gzip:   3.02 kB
+dist/assets/ScholarshipMe-CEMDgidu.js                      10.26 kB │ gzip:   3.30 kB
+dist/assets/CloudflareDataAdmin-B66x6SZj.js                10.29 kB │ gzip:   3.56 kB
+dist/assets/AdminSupportTickets-C6zPZLM3.js                10.42 kB │ gzip:   3.40 kB
+dist/assets/Onboarding-LfI-O1iY.js                         10.46 kB │ gzip:   3.30 kB
+dist/assets/AdminInternalAccounts--AfdSEO4.js              10.54 kB │ gzip:   3.15 kB
+dist/assets/ScholarshipList-B4ZgC2bG.js                    11.46 kB │ gzip:   4.06 kB
+dist/assets/LoginScreen-CtbWX9Jv.js                        13.35 kB │ gzip:   4.51 kB
+dist/assets/MobileHome-nQFaOUDC.js                         13.64 kB │ gzip:   4.18 kB
+dist/assets/MobileProfile-0DsVyvl4.js                      14.05 kB │ gzip:   4.61 kB
+dist/assets/AdminStudentExcelExportModal-BCy7tnRN.js       14.16 kB │ gzip:   5.34 kB
+dist/assets/AdminReports-CSR0HpeF.js                       14.44 kB │ gzip:   4.64 kB
+dist/assets/pdfImport-D_o5SyOc.js                          14.88 kB │ gzip:   6.29 kB
+dist/assets/AdminEventEditorPage-CLmBxMeD.js               15.89 kB │ gzip:   5.39 kB
+dist/assets/index-CQ-4OQhX.js                              16.98 kB │ gzip:   7.27 kB
+dist/assets/scholarshipApi-G79Cywml.js                     17.79 kB │ gzip:   5.47 kB
+dist/assets/TermsOfUse-BCv6jLei.js                         19.39 kB │ gzip:   5.70 kB
+dist/assets/PrivacyPolicy-DmWcB_YJ.js                      20.56 kB │ gzip:   5.84 kB
+dist/assets/AdminOperationsDashboard-DClTimUQ.js           21.24 kB │ gzip:   6.17 kB
+dist/assets/SupportTickets-CwI8pD6N.js                     25.55 kB │ gzip:   7.57 kB
+dist/assets/LostFoundBoard-CK1xoDGD.js                     28.72 kB │ gzip:   8.08 kB
+dist/assets/purify.es-CoWIIkCt.js                          29.34 kB │ gzip:  11.28 kB
+dist/assets/CelebrationStudio-COG1-HpQ.js                  30.60 kB │ gzip:  10.37 kB
+dist/assets/excelExport-BemmysVM.js                        32.21 kB │ gzip:   7.94 kB
+dist/assets/MobileLostFound-BXLW0hl1.js                    33.85 kB │ gzip:   9.33 kB
+dist/assets/AdminEventCandidates-B9rLwHmB.js               37.12 kB │ gzip:   8.98 kB
+dist/assets/AdminScholarships-CQiIRz9n.js                  38.97 kB │ gzip:  10.25 kB
+dist/assets/EventFilterControls-Dzb4J936.js                42.69 kB │ gzip:  12.36 kB
+dist/assets/AdminAIDocuments-5vhp_8kb.js                   43.64 kB │ gzip:  14.46 kB
+dist/assets/MobileHandbook-CTsMqM2G.js                     47.17 kB │ gzip:  12.15 kB
+dist/assets/MobileEvents-Dxw-Kike.js                       49.04 kB │ gzip:  13.71 kB
+dist/assets/Handbook-D1Qv2Eqz.js                           50.36 kB │ gzip:  12.71 kB
+dist/assets/scheduleCoursePageCache--4l9EpG5.js            69.90 kB │ gzip:  23.10 kB
+dist/assets/EventsBoard-BpxN8mFW.js                        81.95 kB │ gzip:  19.94 kB
+dist/assets/Dashboard-XVEzjeTw.js                         130.22 kB │ gzip:  33.42 kB
+dist/assets/MobileLearning-C2pdgSow.js                    137.42 kB │ gzip:  33.52 kB
+dist/assets/index.es-CrA6t5ih.js                          159.27 kB │ gzip:  53.41 kB
+dist/assets/ScheduleBoard-Ly6xZBM0.js                     173.17 kB │ gzip:  38.45 kB
+dist/assets/html2canvas.esm-OkJIQ-sN.js                   201.86 kB │ gzip:  47.90 kB
+dist/assets/browserBootstrap-BYEihZnv.js                  249.70 kB │ gzip:  80.16 kB
+dist/assets/pdf-DT5A8ONP.js                               334.03 kB │ gzip:  98.26 kB
+dist/assets/LineChart-Cl71v23C.js                         343.68 kB │ gzip: 104.17 kB
+dist/assets/pdfExport-BvhpqVRk.js                         426.07 kB │ gzip: 140.43 kB
+dist/assets/legacy-entry-B-9alO5R.js                      776.45 kB │ gzip: 215.52 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2m 49s
+
+PWA v1.3.0
+mode      generateSW
+precache  109 entries (4130.35 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-9c191d2f.js

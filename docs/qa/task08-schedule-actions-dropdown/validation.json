@@ -1,0 +1,184 @@
+{
+  "task": "08/10",
+  "mainBaseSha": "69672040488df01e8eada26a5e9ec628b51458c3",
+  "recordedAt": "2026-10-23T03:10:17+00:00",
+  "nodeVersion": "v24.12.0",
+  "engines": {
+    "chromium": "155.0.8059.85",
+    "webkit": "26.5"
+  },
+  "automatedAcceptance": {
+    "chromium": "PASS: 18/18 matrix + 2/2 stronger file-chooser tests",
+    "webkit": "PASS by scenario: 16 successful cases from initial run + both PDF failures corrected and retested 2/2; no claim of one clean 18/18 final WebKit invocation"
+  },
+  "realDeviceAcceptance": "NOT_VERIFIED",
+  "commands": [
+    {
+      "label": "Task08 Chromium matrix",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 18,
+      "localRawLog": ".cache/task08-chromium-final.log",
+      "localRawLogSha256": "f1a4cc9129d0a1043a7289ab6ead12694a9af2598f75e9ac970a7261b9bf50c4",
+      "committedLog": "chromium-browser.log",
+      "committedLogSha256": "f1a4cc9129d0a1043a7289ab6ead12694a9af2598f75e9ac970a7261b9bf50c4"
+    },
+    {
+      "label": "Task08 Chromium real file chooser",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 2,
+      "localRawLog": ".cache/task08-file-chooser-final.log",
+      "localRawLogSha256": "f40d58e25315bf4d6199323bef38b22f4280ac58417c52bca023dbab10fff6f3",
+      "committedLog": "chromium-pdf-chooser.log",
+      "committedLogSha256": "f40d58e25315bf4d6199323bef38b22f4280ac58417c52bca023dbab10fff6f3"
+    },
+    {
+      "label": "Task08 WebKit initial matrix",
+      "status": "16 PASS; 2 fixture failures superseded by PDF retest",
+      "exitCode": 1,
+      "tests": 18,
+      "localRawLog": ".cache/task08-webkit-final.log",
+      "localRawLogSha256": "7cc9c633074877e602b67d81194bb7c0e5299220bcaa88b97492064c48e68b71",
+      "committedLog": "webkit-initial-with-fixture-failures.log",
+      "committedLogSha256": "ad6f9115e912d355d68e818bcd60c8d14c427ec9c8ebfa4339897541cbf15aa6"
+    },
+    {
+      "label": "Task08 WebKit PDF retest",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 2,
+      "localRawLog": ".cache/task08-webkit-pdf-final.log",
+      "localRawLogSha256": "7b3fe77c5304e700b6b47017dfb6042ffd7f07c4504ccc6a441d519356d89473",
+      "committedLog": "webkit-pdf-final.log",
+      "committedLogSha256": "7b3fe77c5304e700b6b47017dfb6042ffd7f07c4504ccc6a441d519356d89473"
+    },
+    {
+      "label": "Pinned baseline matrix",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 4,
+      "localRawLog": ".cache/task08-baseline-final.log",
+      "localRawLogSha256": "098140a754f07fce4722dce95ac649c9b6b717d4c229f684e830d498a1862735"
+    },
+    {
+      "label": "Pinned PWA week selector evidence",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 1,
+      "localRawLog": ".cache/task08-baseline-pwa.log",
+      "localRawLogSha256": "b19d1804a0a3328fbe4095cfe4f0f1c5c645f732f645e669da0e2a450f85b036"
+    },
+    {
+      "label": "Calendar/model/role/overlay unit regressions",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 62,
+      "localRawLog": ".cache/task08-targeted.log",
+      "localRawLogSha256": "e3b9a1f2e3fb446f22341308a5e746404d140a419bcdeb53bc648ee1a3117b5e"
+    },
+    {
+      "label": "PDF/import regressions",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 44,
+      "localRawLog": ".cache/task08-pdf-regressions.log",
+      "localRawLogSha256": "6ace39c1e8d045d57c289f2194c1fe7e6fa7df556709b270e5ed159e3dd3a791"
+    },
+    {
+      "label": "Task07 Chromium",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 17,
+      "localRawLog": ".cache/task08-task07-chromium.log",
+      "localRawLogSha256": "96d6644cbab6b11563e64657b69e5f3a782c8b8a5ecbf800e55c4f35444ca857"
+    },
+    {
+      "label": "Task07 WebKit targeted",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 4,
+      "localRawLog": ".cache/task08-task07-webkit.log",
+      "localRawLogSha256": "8b6f1f4a2252536529515caaf664c233be12c72915c5c8edddcd4df8b2307a41"
+    },
+    {
+      "label": "Overlay browser regression",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 13,
+      "localRawLog": ".cache/task08-overlay-browser.log",
+      "localRawLogSha256": "bb44170250fec4cbb34279c9bf171ddac26cad783691245f6cffdb377f2120f5"
+    },
+    {
+      "label": "Existing PDF preview browser (4 widths)",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 1,
+      "localRawLog": ".cache/task08-preview-browser.log",
+      "localRawLogSha256": "066aba1a4912c0c6e37dd50eeac9b58fc9b66b2fd9da8bef42f198ccf9f5983c"
+    },
+    {
+      "label": "Frontend typecheck",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": null,
+      "localRawLog": ".cache/task08-typecheck-final.log",
+      "localRawLogSha256": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa"
+    },
+    {
+      "label": "Cloudflare typecheck",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": null,
+      "localRawLog": ".cache/task08-cf-typecheck.log",
+      "localRawLogSha256": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35"
+    },
+    {
+      "label": "Build including PWA generation",
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": null,
+      "localRawLog": ".cache/task08-build.log",
+      "localRawLogSha256": "e60d4394ee0fe9f87c6e8a5946310ebd513c9ac7fb7fefc249205b13603d4ddb"
+    }
+  ],
+  "sourceSha256Lf": {
+    "components/ScheduleBoard.tsx": "1832b0fc23bd7f7996aba931cd8bd9dca87fc018b4f7585db11e5b3ba8805058",
+    "components/MobileSchedule.tsx": "110ee9ce0e57fea3fec60828f9385c07c452b35f829fc71b49b7cd60dc915931",
+    "components/ScheduleActionsDropdown.tsx": "6562bd50a4abee3fce23ba14d799bf929cebe48387464771440ae429ae72d603",
+    "components/schedule-actions.css": "0deef56c35831edc2783849922589ec9a91b72172367c5e9a5d135a70fa68261"
+  },
+  "task07ReleaseReadOnly": {
+    "run": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/39757483460",
+    "headSha": "69672040488df01e8eada26a5e9ec628b51458c3",
+    "conclusion": "success",
+    "liveCloudflareVersion": "NOT_QUERIED; outside this frontend task"
+  },
+  "fullLocalSuite": "NOT_RUN; GitHub PR CI owns full offline suite",
+  "githubCi": "See final pushed HEAD checks and PR description",
+  "scope": {
+    "overlayFoundationChanged": false,
+    "businessLogicChanged": false,
+    "dependenciesChanged": false,
+    "baselineOrWorkflowsChanged": false,
+    "productionModified": false,
+    "deployed": false,
+    "merged": false
+  },
+  "limits": [
+    "Browser/device emulation only, not physical iPhone Safari.",
+    "Keyboard-sized viewport and orientation resize are simulated; no physical OS keyboard or file-picker UI certification.",
+    "Turnstile external UI is replaced only in the isolated Vite test server; the real file-input callback, PDF.js, direct parser and preview execute. No production auth bypass.",
+    "The initial WebKit errors were test fixture issues: static worker GET mocked as API JSON, and a timer-based busy assertion raced with preview. The final PDF test uses static-asset passthrough and an explicit local File.arrayBuffer gate; console/runtime error assertions remain strict.",
+    "Base PWA week selector already renders one week-1 menu row in a CSS-hidden legacy block, with zero visible rows. Retained unchanged; PWA smoke uses the existing next-week button to reach course labels.",
+    "Existing Admin/Auditor Add affordance retained; no staff writes attempted in browser. Authorization regressions pass independently.",
+    "The existing PDF preview regression performs an expected mocked PUT only; Task08 entrypoint cases reject all unexpected writes."
+  ],
+  "diffCheck": {
+    "command": "git diff --cached --check",
+    "status": "PASS",
+    "exitCode": 0,
+    "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "committedLogNormalization": "UTF-8 LF; trailing line whitespace trimmed. Raw local log SHA-256 values are retained separately."
+}

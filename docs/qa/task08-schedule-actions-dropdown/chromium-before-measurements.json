@@ -1,0 +1,140 @@
+[
+  {
+    "width": 375,
+    "height": 667,
+    "standalone": false,
+    "bar": {
+      "x": 14,
+      "y": 409.5,
+      "width": 347,
+      "height": 38.5
+    },
+    "trigger": null,
+    "legacyReport": {
+      "x": 260.890625,
+      "y": 413,
+      "width": 99.71875,
+      "height": 24.5
+    },
+    "menu": null,
+    "renderedActionButtons": 4,
+    "visibleActionButtons": 1,
+    "scroll": [
+      0,
+      0
+    ],
+    "internal": [],
+    "overflow": false,
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "standalone": false,
+    "bar": {
+      "x": 14,
+      "y": 409.5,
+      "width": 362,
+      "height": 38.5
+    },
+    "trigger": null,
+    "legacyReport": {
+      "x": 260.890625,
+      "y": 413,
+      "width": 99.71875,
+      "height": 24.5
+    },
+    "menu": null,
+    "renderedActionButtons": 4,
+    "visibleActionButtons": 1,
+    "scroll": [
+      0,
+      0
+    ],
+    "internal": [],
+    "overflow": false,
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "standalone": false,
+    "bar": {
+      "x": 28,
+      "y": 350,
+      "width": 1384,
+      "height": 38.5
+    },
+    "trigger": null,
+    "legacyReport": {
+      "x": 288.71875,
+      "y": 353.5,
+      "width": 99.71875,
+      "height": 24.5
+    },
+    "menu": null,
+    "renderedActionButtons": 4,
+    "visibleActionButtons": 4,
+    "scroll": [
+      0,
+      0
+    ],
+    "internal": [
+      [
+        0,
+        0
+      ]
+    ],
+    "overflow": false,
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "width": 375,
+    "height": 667,
+    "standalone": true,
+    "bar": {
+      "x": 12.25,
+      "y": 553.125,
+      "width": 350.5,
+      "height": 54
+    },
+    "trigger": null,
+    "legacyReport": {
+      "x": 12.25,
+      "y": 553.125,
+      "width": 82.375,
+      "height": 54
+    },
+    "menu": null,
+    "renderedActionButtons": 4,
+    "visibleActionButtons": 4,
+    "scroll": [
+      0,
+      0
+    ],
+    "internal": [
+      [
+        0,
+        0
+      ]
+    ],
+    "overflow": false,
+    "viewport": [
+      375,
+      667
+    ],
+    "existingWeekSelector": {
+      "renderedRows": 1,
+      "visibleRows": 0
+    }
+  }
+]

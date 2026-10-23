@@ -1,0 +1,1223 @@
+[
+  {
+    "width": 360,
+    "height": 640,
+    "initial": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 332,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "opened": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 332,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 31.5,
+        "y": 270,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 24.5,
+        "y": 219,
+        "width": 252,
+        "height": 190
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "final": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 332,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "targets": {
+      "Thêm vào lịch": {
+        "x": 31.5,
+        "y": 226,
+        "width": 238,
+        "height": 44
+      },
+      "Báo lỗi môn": {
+        "x": 31.5,
+        "y": 270,
+        "width": 238,
+        "height": 44
+      },
+      "Yêu cầu thêm môn": {
+        "x": 31.5,
+        "y": 314,
+        "width": 238,
+        "height": 44
+      },
+      "Nhập PDF": {
+        "x": 31.5,
+        "y": 358,
+        "width": 238,
+        "height": 44
+      }
+    },
+    "keyboard": "PASS",
+    "actions": [
+      {
+        "label": "Thêm vào lịch",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Báo lỗi môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Yêu cầu thêm môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Nhập PDF",
+        "enabled": true,
+        "opensExistingModal": true
+      }
+    ]
+  },
+  {
+    "width": 375,
+    "height": 667,
+    "initial": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 347,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "opened": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 347,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 31.5,
+        "y": 514,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 24.5,
+        "y": 463,
+        "width": 252,
+        "height": 190
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "final": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 347,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "targets": {
+      "Thêm vào lịch": {
+        "x": 31.5,
+        "y": 470,
+        "width": 238,
+        "height": 44
+      },
+      "Báo lỗi môn": {
+        "x": 31.5,
+        "y": 514,
+        "width": 238,
+        "height": 44
+      },
+      "Yêu cầu thêm môn": {
+        "x": 31.5,
+        "y": 558,
+        "width": 238,
+        "height": 44
+      },
+      "Nhập PDF": {
+        "x": 31.5,
+        "y": 602,
+        "width": 238,
+        "height": 44
+      }
+    },
+    "keyboard": "PASS",
+    "actions": [
+      {
+        "label": "Thêm vào lịch",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Báo lỗi môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Yêu cầu thêm môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Nhập PDF",
+        "enabled": true,
+        "opensExistingModal": true
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "initial": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 362,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "opened": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 362,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 31.5,
+        "y": 514,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 24.5,
+        "y": 463,
+        "width": 252,
+        "height": 190
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "final": {
+      "bar": {
+        "x": 14,
+        "y": 409.5,
+        "width": 362,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 413,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "targets": {
+      "Thêm vào lịch": {
+        "x": 31.5,
+        "y": 470,
+        "width": 238,
+        "height": 44
+      },
+      "Báo lỗi môn": {
+        "x": 31.5,
+        "y": 514,
+        "width": 238,
+        "height": 44
+      },
+      "Yêu cầu thêm môn": {
+        "x": 31.5,
+        "y": 558,
+        "width": 238,
+        "height": 44
+      },
+      "Nhập PDF": {
+        "x": 31.5,
+        "y": 602,
+        "width": 238,
+        "height": 44
+      }
+    },
+    "keyboard": "PASS",
+    "actions": [
+      {
+        "label": "Thêm vào lịch",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Báo lỗi môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Yêu cầu thêm môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Nhập PDF",
+        "enabled": true,
+        "opensExistingModal": true
+      }
+    ]
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "initial": {
+      "bar": {
+        "x": 14,
+        "y": 361.5,
+        "width": 402,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 365,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "opened": {
+      "bar": {
+        "x": 14,
+        "y": 361.5,
+        "width": 402,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 365,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 31.5,
+        "y": 466,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 24.5,
+        "y": 415,
+        "width": 252,
+        "height": 190
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "final": {
+      "bar": {
+        "x": 14,
+        "y": 361.5,
+        "width": 402,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 365,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "targets": {
+      "Thêm vào lịch": {
+        "x": 31.5,
+        "y": 422,
+        "width": 238,
+        "height": 44
+      },
+      "Báo lỗi môn": {
+        "x": 31.5,
+        "y": 466,
+        "width": 238,
+        "height": 44
+      },
+      "Yêu cầu thêm môn": {
+        "x": 31.5,
+        "y": 510,
+        "width": 238,
+        "height": 44
+      },
+      "Nhập PDF": {
+        "x": 31.5,
+        "y": 554,
+        "width": 238,
+        "height": 44
+      }
+    },
+    "keyboard": "PASS",
+    "actions": [
+      {
+        "label": "Thêm vào lịch",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Báo lỗi môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Yêu cầu thêm môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Nhập PDF",
+        "enabled": true,
+        "opensExistingModal": true
+      }
+    ]
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "initial": {
+      "bar": {
+        "x": 21,
+        "y": 350,
+        "width": 720,
+        "height": 58
+      },
+      "trigger": {
+        "x": 35,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "opened": {
+      "bar": {
+        "x": 21,
+        "y": 350,
+        "width": 720,
+        "height": 58
+      },
+      "trigger": {
+        "x": 35,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 42,
+        "y": 454.5,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 35,
+        "y": 403.5,
+        "width": 252,
+        "height": 190
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "final": {
+      "bar": {
+        "x": 21,
+        "y": 350,
+        "width": 720,
+        "height": 58
+      },
+      "trigger": {
+        "x": 35,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "targets": {
+      "Thêm vào lịch": {
+        "x": 42,
+        "y": 410.5,
+        "width": 238,
+        "height": 44
+      },
+      "Báo lỗi môn": {
+        "x": 42,
+        "y": 454.5,
+        "width": 238,
+        "height": 44
+      },
+      "Yêu cầu thêm môn": {
+        "x": 42,
+        "y": 498.5,
+        "width": 238,
+        "height": 44
+      },
+      "Nhập PDF": {
+        "x": 42,
+        "y": 542.5,
+        "width": 238,
+        "height": 44
+      }
+    },
+    "keyboard": "PASS",
+    "actions": [
+      {
+        "label": "Thêm vào lịch",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Báo lỗi môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Yêu cầu thêm môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Nhập PDF",
+        "enabled": true,
+        "opensExistingModal": true
+      }
+    ]
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "initial": {
+      "bar": {
+        "x": 28,
+        "y": 350,
+        "width": 962,
+        "height": 58
+      },
+      "trigger": {
+        "x": 42,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "opened": {
+      "bar": {
+        "x": 28,
+        "y": 350,
+        "width": 962,
+        "height": 58
+      },
+      "trigger": {
+        "x": 42,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 49,
+        "y": 454.5,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 42,
+        "y": 403.5,
+        "width": 252,
+        "height": 190
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "final": {
+      "bar": {
+        "x": 28,
+        "y": 350,
+        "width": 962,
+        "height": 58
+      },
+      "trigger": {
+        "x": 42,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "targets": {
+      "Thêm vào lịch": {
+        "x": 49,
+        "y": 410.5,
+        "width": 238,
+        "height": 44
+      },
+      "Báo lỗi môn": {
+        "x": 49,
+        "y": 454.5,
+        "width": 238,
+        "height": 44
+      },
+      "Yêu cầu thêm môn": {
+        "x": 49,
+        "y": 498.5,
+        "width": 238,
+        "height": 44
+      },
+      "Nhập PDF": {
+        "x": 49,
+        "y": 542.5,
+        "width": 238,
+        "height": 44
+      }
+    },
+    "keyboard": "PASS",
+    "actions": [
+      {
+        "label": "Thêm vào lịch",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Báo lỗi môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Yêu cầu thêm môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Nhập PDF",
+        "enabled": true,
+        "opensExistingModal": true
+      }
+    ]
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "initial": {
+      "bar": {
+        "x": 28,
+        "y": 350,
+        "width": 1378,
+        "height": 58
+      },
+      "trigger": {
+        "x": 42,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "opened": {
+      "bar": {
+        "x": 28,
+        "y": 350,
+        "width": 1378,
+        "height": 58
+      },
+      "trigger": {
+        "x": 42,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 49,
+        "y": 454.5,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 42,
+        "y": 403.5,
+        "width": 252,
+        "height": 190
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "final": {
+      "bar": {
+        "x": 28,
+        "y": 350,
+        "width": 1378,
+        "height": 58
+      },
+      "trigger": {
+        "x": 42,
+        "y": 353.5,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": null,
+      "menu": null,
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        0
+      ],
+      "internal": [
+        [
+          0,
+          0
+        ]
+      ],
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "targets": {
+      "Thêm vào lịch": {
+        "x": 49,
+        "y": 410.5,
+        "width": 238,
+        "height": 44
+      },
+      "Báo lỗi môn": {
+        "x": 49,
+        "y": 454.5,
+        "width": 238,
+        "height": 44
+      },
+      "Yêu cầu thêm môn": {
+        "x": 49,
+        "y": 498.5,
+        "width": 238,
+        "height": 44
+      },
+      "Nhập PDF": {
+        "x": 49,
+        "y": 542.5,
+        "width": 238,
+        "height": 44
+      }
+    },
+    "keyboard": "PASS",
+    "actions": [
+      {
+        "label": "Thêm vào lịch",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Báo lỗi môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Yêu cầu thêm môn",
+        "enabled": true,
+        "opensExistingModal": true
+      },
+      {
+        "label": "Nhập PDF",
+        "enabled": true,
+        "opensExistingModal": true
+      }
+    ]
+  },
+  {
+    "case": "disabled",
+    "role": "guest",
+    "state": {
+      "Thêm vào lịch": true,
+      "Báo lỗi môn": true,
+      "Yêu cầu thêm môn": true,
+      "Nhập PDF": true
+    }
+  },
+  {
+    "case": "disabled",
+    "empty": true,
+    "state": {
+      "Thêm vào lịch": true,
+      "Báo lỗi môn": false,
+      "Yêu cầu thêm môn": false,
+      "Nhập PDF": false
+    }
+  },
+  {
+    "case": "disabled",
+    "role": "guest",
+    "standalone": true,
+    "state": {
+      "Thêm vào lịch": true,
+      "Báo lỗi môn": true,
+      "Yêu cầu thêm môn": true,
+      "Nhập PDF": true
+    }
+  },
+  {
+    "case": "disabled",
+    "empty": true,
+    "standalone": true,
+    "state": {
+      "Thêm vào lịch": true,
+      "Báo lỗi môn": false,
+      "Yêu cầu thêm môn": false,
+      "Nhập PDF": false
+    }
+  },
+  {
+    "case": "orientation-short-viewport",
+    "geometry": {
+      "bar": {
+        "x": 14,
+        "y": 94.5,
+        "width": 362,
+        "height": 58
+      },
+      "trigger": {
+        "x": 24.5,
+        "y": 98,
+        "width": 129.390625,
+        "height": 44
+      },
+      "legacyReport": {
+        "x": 31.5,
+        "y": 199,
+        "width": 238,
+        "height": 44
+      },
+      "menu": {
+        "x": 24.5,
+        "y": 148,
+        "width": 252,
+        "height": 80
+      },
+      "renderedActionButtons": 1,
+      "visibleActionButtons": 1,
+      "scroll": [
+        0,
+        315
+      ],
+      "internal": [],
+      "overflow": false,
+      "viewport": [
+        390,
+        240
+      ]
+    }
+  },
+  {
+    "case": "PWA",
+    "bar": {
+      "x": 12.25,
+      "y": 245.109375,
+      "width": 344.5,
+      "height": 44
+    },
+    "trigger": {
+      "x": 12.25,
+      "y": 245.109375,
+      "width": 129.390625,
+      "height": 44
+    },
+    "legacyReport": {
+      "x": 19.25,
+      "y": 346.109375,
+      "width": 238,
+      "height": 44
+    },
+    "menu": {
+      "x": 12.25,
+      "y": 295.109375,
+      "width": 252,
+      "height": 190
+    },
+    "renderedActionButtons": 1,
+    "visibleActionButtons": 1,
+    "scroll": [
+      0,
+      0
+    ],
+    "internal": [
+      [
+        0,
+        308
+      ]
+    ],
+    "overflow": false,
+    "viewport": [
+      375,
+      667
+    ]
+  },
+  {
+    "case": "PDF",
+    "standalone": false,
+    "parser": "hub-layout-parsed",
+    "courses": 11,
+    "busyDisabled": true,
+    "fileChooser": true
+  },
+  {
+    "case": "week-month-plans-labels",
+    "result": "PASS"
+  },
+  {
+    "case": "PDF",
+    "standalone": true,
+    "parser": "hub-layout-parsed",
+    "courses": 11,
+    "busyDisabled": true,
+    "fileChooser": true
+  }
+]
