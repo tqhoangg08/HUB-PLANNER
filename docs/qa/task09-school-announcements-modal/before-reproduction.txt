@@ -1,0 +1,68 @@
+Command log: .cache/task09-before-chromium.log
+ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+✔ chromium before 360: baseline geometry and requests (11943.2843ms)
+✔ chromium before 375: baseline geometry and requests (3718.8758ms)
+✔ chromium before 390: baseline geometry and requests (4980.1934ms)
+✔ chromium before 430: baseline geometry and requests (3822.3877ms)
+✔ chromium before 1440: baseline geometry and requests (4467.7237ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41889.9425
+
+Command log: .cache/task09-before-race.log
+ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+✔ chromium before: out-of-order response evidence (5563.8649ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7407.5239
+
+Command log: .cache/task09-before-keyboard-chromium.log
+ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+✔ chromium before: keyboard viewport clips original footer and Escape is absent (4080.6727ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5890.5198
+
+Command log: .cache/task09-before-webkit.log
+ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✔ webkit before 360: baseline geometry and requests (11888.6134ms)
+✔ webkit before 375: baseline geometry and requests (5780.443ms)
+✔ webkit before 390: baseline geometry and requests (5922.2907ms)
+✔ webkit before 430: baseline geometry and requests (8144.292ms)
+✔ webkit before 1440: baseline geometry and requests (7548.9294ms)
+✔ webkit before: out-of-order response evidence (6519.5262ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 50059.0273
+
+Command log: .cache/task09-before-keyboard-webkit.log
+ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✔ webkit before: keyboard viewport clips original footer and Escape is absent (3893.9221ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5333.8768

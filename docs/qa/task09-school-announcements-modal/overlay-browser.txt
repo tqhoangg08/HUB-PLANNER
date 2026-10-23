@@ -1,0 +1,25 @@
+
+> hub-grade-planner@0.0.0 test:overlay:browser
+> node --test tests/overlay-scroll-lock.browser.test.mjs
+
+✔ mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads (50234.2627ms)
+✔ iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1581.2537ms)
+✔ iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1514.4139ms)
+✔ Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1644.4546ms)
+✔ desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore (1485.293ms)
+✔ desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore (1569.3666ms)
+✔ nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode (1849.2541ms)
+✔ unexpected unmount and route navigation release all ownership (1377.9165ms)
+✔ drawer adapter and SweetAlert dialogs share ownership with React modals (1964.7837ms)
+✔ SweetAlert Safari body fix cannot move a locked background or clear a remaining owner (3861.4209ms)
+✔ visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input (1512.3894ms)
+✔ touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch (1275.4631ms)
+✔ real event filter drawer and DRL guide share ownership and retain Escape and focus behavior (1558.9231ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79084.1006

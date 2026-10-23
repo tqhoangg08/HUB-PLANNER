@@ -1,0 +1,943 @@
+{
+  "task": "09/10",
+  "baseSha": "f55e2b3553358858b32cad72a31e1b4aa7a7c0a4",
+  "recordedAt": "2026-10-23T05:20:46.439Z",
+  "realDeviceAcceptance": "NOT_VERIFIED",
+  "engines": {
+    "chromium": "155.0.8059.85",
+    "webkit": "26.5"
+  },
+  "actualComponent": true,
+  "strictMode": true,
+  "productionWrites": 0,
+  "unexpectedRuntimeErrors": 0,
+  "viewports": [
+    [
+      360,
+      640
+    ],
+    [
+      375,
+      667
+    ],
+    [
+      390,
+      844
+    ],
+    [
+      430,
+      932
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      1440,
+      900
+    ],
+    [
+      667,
+      375
+    ],
+    [
+      390,
+      240
+    ]
+  ],
+  "simulatedVisualViewport": {
+    "height": 240,
+    "offsetTop": 36,
+    "layoutViewport": [
+      390,
+      844
+    ]
+  },
+  "release": {
+    "runId": 39901349479,
+    "sha": "f55e2b3553358858b32cad72a31e1b4aa7a7c0a4",
+    "status": "completed",
+    "conclusion": "success",
+    "workerVersionFromPostdeploy": "ecee213b-dbe8-4ce9-98e8-a8c9a13e184b"
+  },
+  "validation": [
+    {
+      "name": "chromium",
+      "command": "ANNOUNCEMENTS_BROWSER=chromium node --test tests/school-announcements-modal.browser.test.mjs",
+      "localLog": ".cache/task09-final-chromium.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "8a981553fabd57aebbbf25ffc105f9cca329c0dc9277f29225e241b86317615c"
+    },
+    {
+      "name": "webkit",
+      "command": "ANNOUNCEMENTS_BROWSER=webkit node --test tests/school-announcements-modal.browser.test.mjs",
+      "localLog": ".cache/task09-final-webkit.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "a251e8c6f6e03109c666729b546da7a37d6d0e05c2f129cc700684f75c52f97b"
+    },
+    {
+      "name": "announcementApiModelCrawlerAndOverlayUnit",
+      "command": "node --test --experimental-strip-types tests/cloudflare-announcements-model.test.ts tests/cloudflare-announcement-crawler.test.ts tests/hub-notification-crawler.test.ts tests/announcement-d1-authority.test.ts tests/browser-supabase-phase1.test.ts tests/overlay-scroll-lock.test.ts",
+      "localLog": ".cache/task09-targeted.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "passed": 39,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "5a462055f0c67fd6e66cd44c0d02d478830c916489ac051dea905ea89e4ff2cd"
+    },
+    {
+      "name": "overlayBrowser",
+      "command": "npm run test:overlay:browser",
+      "localLog": ".cache/task09-overlay-browser-final.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "94c13544703c7d7452ac2be0331a5a0fcdc7e052483666f209434f09c28e5771"
+    },
+    {
+      "name": "task08Smoke",
+      "command": "ACTIONS_BROWSER=chromium node --test --test-name-pattern=\"375: actual|actual MobileSchedule PWA\" tests/schedule-actions-dropdown.browser.test.mjs",
+      "localLog": ".cache/task09-task08-chromium.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "3c837218fe12ea865425528f937ae7361637802e47f901b5165fdf1186815380"
+    },
+    {
+      "name": "frontendTypecheck",
+      "command": "npm run typecheck",
+      "localLog": ".cache/task09-frontend-typecheck.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "logSha256": "9c3a31c67ed4f0ab4b2fc5ef05ed7496b17e665d36da23756b05e3126fda89aa"
+    },
+    {
+      "name": "cloudflareTypecheck",
+      "command": "npm run cf:typecheck",
+      "localLog": ".cache/task09-cloudflare-typecheck.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "logSha256": "0d3b590ef4e168db92d16f46720a75859abbc9b23bd5a9d6642c15c9dee01e35"
+    },
+    {
+      "name": "build",
+      "command": "npm run build",
+      "localLog": ".cache/task09-build.log",
+      "exitCode": 0,
+      "status": "PASS",
+      "logSha256": "18cb88d4de6dd2617a97b6de34ad11b386971604426cd083c04a68372617f42b"
+    },
+    {
+      "name": "diffCheck",
+      "command": "git diff --check",
+      "exitCode": 0,
+      "status": "PASS",
+      "localLog": ".cache/task09-diff-check.log",
+      "logSha256": "68f3fb395fcd19b3bb7c5a994b7b0aa6599667441c94e62a427150deda4b1b03"
+    }
+  ],
+  "sourceIntegrity": {
+    "baseSha": "f55e2b3553358858b32cad72a31e1b4aa7a7c0a4",
+    "recordedAt": "2026-10-23T05:14:19.155Z",
+    "unchanged": {
+      "cacheTTLAndHelpers": true,
+      "widgetFetchEffect": true,
+      "processLinkData": true,
+      "getDepartmentName": true,
+      "protectedFiles": [
+        {
+          "path": "components/Dashboard.tsx",
+          "blob": "5c725f4d14b9a36b2d8421b10f85842d01a2a016"
+        },
+        {
+          "path": "components/MobileHome.tsx",
+          "blob": "35f57083ed902df53cd1ac7de620be6a8fe6e2ed"
+        },
+        {
+          "path": "components/Overlay.tsx",
+          "blob": "46e6574aac87c0415b217db3311945541f802071"
+        },
+        {
+          "path": "components/overlay.css",
+          "blob": "595868241a0d72d7cde5d61a0ca56a443dbaf6be"
+        },
+        {
+          "path": "hooks/useOverlayScrollLock.ts",
+          "blob": "227640b78546548fd8c857304b0bab48f2781316"
+        },
+        {
+          "path": "utils/overlayViewport.ts",
+          "blob": "fbf907bc7d1a805300a62badc48db08614cac0a7"
+        },
+        {
+          "path": "utils/overlayScrollLock.ts",
+          "blob": "11ea7a7a211dd094d2c7d36db6adcde8a688b953"
+        },
+        {
+          "path": "utils/announcementsApi.ts",
+          "blob": "3eb0673be62213b82c678a25c9b9d98410609c8e"
+        },
+        {
+          "path": "utils/publicWorkerApi.ts",
+          "blob": "3fc6ec409ac07a70031b82693cd3f3402fa4b78c"
+        },
+        {
+          "path": "components/ScheduleActionsDropdown.tsx",
+          "blob": "2d9dfd9db815d272b057327f6d1ba4ef31f59d87"
+        },
+        {
+          "path": "components/ScheduleBoard.tsx",
+          "blob": "c8deef98aeac9127bc971520e916a21ca5216039"
+        },
+        {
+          "path": "components/MobileSchedule.tsx",
+          "blob": "6beb1130de87c141b595db06f462a4820553c49b"
+        },
+        {
+          "path": "scripts/check-public-release-state.mjs",
+          "blob": "cf86576d6f8a92b6418c227d8c4ccc33f7d88f52"
+        },
+        {
+          "path": "cloudflare/wrangler.jsonc",
+          "blob": "230353b9032c4f58558cf3b3db791a2d06e58f58"
+        },
+        {
+          "path": "package.json",
+          "blob": "8c94f042ffb49f7e579dd5ca676f91408ada5d86"
+        },
+        {
+          "path": "package-lock.json",
+          "blob": "ec0f962ac77131bd09e62742b04822aeacc22e8c"
+        }
+      ]
+    },
+    "sourceSha256": {
+      "components/SchoolAnnouncements.jsx": "bc0f7a4f7518755ac83d44334e61c7308cb9f40cdc818e1f8e877f74b67754a9",
+      "components/school-announcements-modal.css": "64a84f234e06d05db22da91e1f826a757953375df0b2ee42f189c6ed7929a8ee"
+    },
+    "sourceHashNormalization": "UTF-8 source after CRLF to LF normalization"
+  },
+  "comparison": {
+    "chromium": [
+      {
+        "width": 360,
+        "before": {
+          "panel": 542.8138427734375,
+          "header": 75.33538055419922,
+          "filters": 98.28522491455078,
+          "list": 286.37420654296875,
+          "footer": 80.82342529296875,
+          "cards": 2,
+          "close": {
+            "x": 296.744873046875,
+            "y": 70.295654296875,
+            "width": 33.9259033203125,
+            "height": 33.925865173339844,
+            "bottom": 104.22151947021484
+          },
+          "pagination": [
+            {
+              "x": 114.33100128173828,
+              "y": 549.7479248046875,
+              "width": 28.43785858154297,
+              "height": 28.4378662109375,
+              "bottom": 578.185791015625
+            },
+            {
+              "x": 217.21554565429688,
+              "y": 549.7479248046875,
+              "width": 28.4378662109375,
+              "height": 28.4378662109375,
+              "bottom": 578.185791015625
+            }
+          ]
+        },
+        "after": {
+          "panel": 624,
+          "header": 61.3125,
+          "filters": 61,
+          "list": 444.6875,
+          "footer": 55,
+          "cards": 3,
+          "close": {
+            "x": 299,
+            "y": 17.65625,
+            "width": 44,
+            "height": 44,
+            "bottom": 61.65625
+          },
+          "pagination": [
+            {
+              "x": 180.390625,
+              "y": 582,
+              "width": 44,
+              "height": 44,
+              "bottom": 626
+            },
+            {
+              "x": 299,
+              "y": 582,
+              "width": 44,
+              "height": 44,
+              "bottom": 626
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 375,
+        "before": {
+          "panel": 559.63330078125,
+          "header": 74.52728271484375,
+          "filters": 97.23097229003906,
+          "list": 305.94439697265625,
+          "footer": 79.9564208984375,
+          "cards": 2,
+          "close": {
+            "x": 310.39599609375,
+            "y": 75.15312957763672,
+            "width": 33.56195068359375,
+            "height": 33.56195831298828,
+            "bottom": 108.715087890625
+          },
+          "pagination": [
+            {
+              "x": 122.535400390625,
+              "y": 572.1045532226562,
+              "width": 28.1328125,
+              "height": 28.1328125,
+              "bottom": 600.2373657226562
+            },
+            {
+              "x": 224.3163604736328,
+              "y": 572.1045532226562,
+              "width": 28.1328125,
+              "height": 28.1328125,
+              "bottom": 600.2373657226562
+            }
+          ]
+        },
+        "after": {
+          "panel": 651,
+          "header": 61.3125,
+          "filters": 61,
+          "list": 471.6875,
+          "footer": 55,
+          "cards": 4,
+          "close": {
+            "x": 314,
+            "y": 17.65625,
+            "width": 44,
+            "height": 44,
+            "bottom": 61.65625
+          },
+          "pagination": [
+            {
+              "x": 195.390625,
+              "y": 609,
+              "width": 44,
+              "height": 44,
+              "bottom": 653
+            },
+            {
+              "x": 314,
+              "y": 609,
+              "width": 44,
+              "height": 44,
+              "bottom": 653
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "before": {
+          "panel": 710.00927734375,
+          "header": 74.7231674194336,
+          "filters": 97.48651123046875,
+          "list": 455.653564453125,
+          "footer": 80.16656494140625,
+          "cards": 3,
+          "close": {
+            "x": 325.641845703125,
+            "y": 88.51376342773438,
+            "width": 33.650146484375,
+            "height": 33.65016174316406,
+            "bottom": 122.16392517089844
+          },
+          "pagination": [
+            {
+              "x": 129.86465454101562,
+              "y": 735.6763916015625,
+              "width": 28.206771850585938,
+              "height": 28.20672607421875,
+              "bottom": 763.8831176757812
+            },
+            {
+              "x": 231.9131317138672,
+              "y": 735.6763916015625,
+              "width": 28.206741333007812,
+              "height": 28.20672607421875,
+              "bottom": 763.8831176757812
+            }
+          ]
+        },
+        "after": {
+          "panel": 828,
+          "header": 61.3125,
+          "filters": 61,
+          "list": 648.6875,
+          "footer": 55,
+          "cards": 5,
+          "close": {
+            "x": 329,
+            "y": 17.65625,
+            "width": 44,
+            "height": 44,
+            "bottom": 61.65625
+          },
+          "pagination": [
+            {
+              "x": 210.390625,
+              "y": 786,
+              "width": 44,
+              "height": 44,
+              "bottom": 830
+            },
+            {
+              "x": 329,
+              "y": 786,
+              "width": 44,
+              "height": 44,
+              "bottom": 830
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 430,
+        "before": {
+          "panel": 786.0042724609375,
+          "header": 74.91069793701172,
+          "filters": 97.73118591308594,
+          "list": 531.0101928710938,
+          "footer": 80.36773681640625,
+          "cards": 4,
+          "close": {
+            "x": 365.8135986328125,
+            "y": 94.57809448242188,
+            "width": 33.734619140625,
+            "height": 33.734619140625,
+            "bottom": 128.31271362304688
+          },
+          "pagination": [
+            {
+              "x": 149.70118713378906,
+              "y": 817.5780029296875,
+              "width": 28.277542114257812,
+              "height": 28.27752685546875,
+              "bottom": 845.8555297851562
+            },
+            {
+              "x": 252.00576782226562,
+              "y": 817.5780029296875,
+              "width": 28.277557373046875,
+              "height": 28.27752685546875,
+              "bottom": 845.8555297851562
+            }
+          ]
+        },
+        "after": {
+          "panel": 900,
+          "header": 60,
+          "filters": 61,
+          "list": 722,
+          "footer": 55,
+          "cards": 6,
+          "close": {
+            "x": 369,
+            "y": 25,
+            "width": 44,
+            "height": 44,
+            "bottom": 69
+          },
+          "pagination": [
+            {
+              "x": 250.390625,
+              "y": 866,
+              "width": 44,
+              "height": 44,
+              "bottom": 910
+            },
+            {
+              "x": 369,
+              "y": 866,
+              "width": 44,
+              "height": 44,
+              "bottom": 910
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 1440,
+        "before": {
+          "panel": 755.14111328125,
+          "header": 68.11075592041016,
+          "filters": 61.694549560546875,
+          "list": 559.6928100585938,
+          "footer": 63.66876220703125,
+          "cards": 8,
+          "close": {
+            "x": 1055.124755859375,
+            "y": 90.69102478027344,
+            "width": 33.561767578125,
+            "height": 33.56182861328125,
+            "bottom": 124.25285339355469
+          },
+          "pagination": [
+            {
+              "x": 939.3549194335938,
+              "y": 779.4488525390625,
+              "width": 31.587646484375,
+              "height": 31.58758544921875,
+              "bottom": 811.0364379882812
+            },
+            {
+              "x": 1060.5538330078125,
+              "y": 779.4488525390625,
+              "width": 31.587646484375,
+              "height": 31.58758544921875,
+              "bottom": 811.0364379882812
+            }
+          ]
+        },
+        "after": {
+          "panel": 860,
+          "header": 68,
+          "filters": 135,
+          "list": 592,
+          "footer": 63,
+          "cards": 8,
+          "close": {
+            "x": 1051,
+            "y": 33,
+            "width": 44,
+            "height": 44,
+            "bottom": 77
+          },
+          "pagination": [
+            {
+              "x": 923.21875,
+              "y": 826,
+              "width": 44,
+              "height": 44,
+              "bottom": 870
+            },
+            {
+              "x": 1051,
+              "y": 826,
+              "width": 44,
+              "height": 44,
+              "bottom": 870
+            }
+          ]
+        },
+        "status": "PASS"
+      }
+    ],
+    "webkit": [
+      {
+        "width": 360,
+        "before": {
+          "panel": 544,
+          "header": 75.5,
+          "filters": 98.5,
+          "list": 287.015625,
+          "footer": 80.984375,
+          "cards": 2,
+          "close": {
+            "x": 297,
+            "y": 69.75,
+            "width": 34,
+            "height": 34,
+            "bottom": 103.75
+          },
+          "pagination": [
+            {
+              "x": 114.1875,
+              "y": 550.25,
+              "width": 28.5,
+              "height": 28.5,
+              "bottom": 578.75
+            },
+            {
+              "x": 217.296875,
+              "y": 550.25,
+              "width": 28.5,
+              "height": 28.5,
+              "bottom": 578.75
+            }
+          ]
+        },
+        "after": {
+          "panel": 624,
+          "header": 61.3125,
+          "filters": 61,
+          "list": 444.6875,
+          "footer": 55,
+          "cards": 3,
+          "close": {
+            "x": 299,
+            "y": 17.65625,
+            "width": 44,
+            "height": 44,
+            "bottom": 61.65625
+          },
+          "pagination": [
+            {
+              "x": 180.390625,
+              "y": 582,
+              "width": 44,
+              "height": 44,
+              "bottom": 626
+            },
+            {
+              "x": 299,
+              "y": 582,
+              "width": 44,
+              "height": 44,
+              "bottom": 626
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 375,
+        "before": {
+          "panel": 561.0221557617188,
+          "header": 74.71224975585938,
+          "filters": 97.47225952148438,
+          "list": 306.7191162109375,
+          "footer": 80.139404296875,
+          "cards": 2,
+          "close": {
+            "x": 310.70098876953125,
+            "y": 74.5123062133789,
+            "width": 33.645263671875,
+            "height": 33.64524841308594,
+            "bottom": 108.15755462646484
+          },
+          "pagination": [
+            {
+              "x": 122.37417602539062,
+              "y": 572.697021484375,
+              "width": 28.20263671875,
+              "height": 28.20263671875,
+              "bottom": 600.899658203125
+            },
+            {
+              "x": 224.40773010253906,
+              "y": 572.697021484375,
+              "width": 28.20263671875,
+              "height": 28.20263671875,
+              "bottom": 600.899658203125
+            }
+          ]
+        },
+        "after": {
+          "panel": 651,
+          "header": 61.3125,
+          "filters": 61,
+          "list": 471.6875,
+          "footer": 55,
+          "cards": 4,
+          "close": {
+            "x": 314,
+            "y": 17.65625,
+            "width": 44,
+            "height": 44,
+            "bottom": 61.65625
+          },
+          "pagination": [
+            {
+              "x": 195.390625,
+              "y": 609,
+              "width": 44,
+              "height": 44,
+              "bottom": 653
+            },
+            {
+              "x": 314,
+              "y": 609,
+              "width": 44,
+              "height": 44,
+              "bottom": 653
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 390,
+        "before": {
+          "panel": 711.48974609375,
+          "header": 74.87897491455078,
+          "filters": 97.68978881835938,
+          "list": 456.61920166015625,
+          "footer": 80.3182373046875,
+          "cards": 3,
+          "close": {
+            "x": 325.91424560546875,
+            "y": 87.81819152832031,
+            "width": 33.720306396484375,
+            "height": 33.72032928466797,
+            "bottom": 121.53852081298828
+          },
+          "pagination": [
+            {
+              "x": 129.7288360595703,
+              "y": 736.3302001953125,
+              "width": 28.265579223632812,
+              "height": 28.265625,
+              "bottom": 764.5958251953125
+            },
+            {
+              "x": 231.99008178710938,
+              "y": 736.3302001953125,
+              "width": 28.265594482421875,
+              "height": 28.265625,
+              "bottom": 764.5958251953125
+            }
+          ]
+        },
+        "after": {
+          "panel": 828,
+          "header": 61.3125,
+          "filters": 61,
+          "list": 648.6875,
+          "footer": 55,
+          "cards": 5,
+          "close": {
+            "x": 329,
+            "y": 17.65625,
+            "width": 44,
+            "height": 44,
+            "bottom": 61.65625
+          },
+          "pagination": [
+            {
+              "x": 210.390625,
+              "y": 786,
+              "width": 44,
+              "height": 44,
+              "bottom": 830
+            },
+            {
+              "x": 329,
+              "y": 786,
+              "width": 44,
+              "height": 44,
+              "bottom": 830
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 430,
+        "before": {
+          "panel": 780.2589111328125,
+          "header": 74.3631362915039,
+          "filters": 97.01681518554688,
+          "list": 527.1441650390625,
+          "footer": 79.76495361328125,
+          "cards": 4,
+          "close": {
+            "x": 364.7112121582031,
+            "y": 97.29412078857422,
+            "width": 33.488037109375,
+            "height": 33.48804473876953,
+            "bottom": 130.78216552734375
+          },
+          "pagination": [
+            {
+              "x": 150.17848205566406,
+              "y": 815.0092163085938,
+              "width": 28.07086181640625,
+              "height": 28.07086181640625,
+              "bottom": 843.080078125
+            },
+            {
+              "x": 251.7352752685547,
+              "y": 815.0092163085938,
+              "width": 28.070846557617188,
+              "height": 28.07086181640625,
+              "bottom": 843.080078125
+            }
+          ]
+        },
+        "after": {
+          "panel": 900,
+          "header": 60,
+          "filters": 61,
+          "list": 722,
+          "footer": 55,
+          "cards": 6,
+          "close": {
+            "x": 369,
+            "y": 25,
+            "width": 44,
+            "height": 44,
+            "bottom": 69
+          },
+          "pagination": [
+            {
+              "x": 250.390625,
+              "y": 866,
+              "width": 44,
+              "height": 44,
+              "bottom": 910
+            },
+            {
+              "x": 369,
+              "y": 866,
+              "width": 44,
+              "height": 44,
+              "bottom": 910
+            }
+          ]
+        },
+        "status": "PASS"
+      },
+      {
+        "width": 1440,
+        "before": {
+          "panel": 765,
+          "header": 69,
+          "filters": 62.5,
+          "list": 567,
+          "footer": 64.5,
+          "cards": 8,
+          "close": {
+            "x": 1059.5,
+            "y": 86,
+            "width": 34,
+            "height": 34,
+            "bottom": 120
+          },
+          "pagination": [
+            {
+              "x": 942.21875,
+              "y": 783.75,
+              "width": 32,
+              "height": 32,
+              "bottom": 815.75
+            },
+            {
+              "x": 1065,
+              "y": 783.75,
+              "width": 32,
+              "height": 32,
+              "bottom": 815.75
+            }
+          ]
+        },
+        "after": {
+          "panel": 860,
+          "header": 68,
+          "filters": 134.984375,
+          "list": 592.015625,
+          "footer": 63,
+          "cards": 8,
+          "close": {
+            "x": 1051,
+            "y": 33,
+            "width": 44,
+            "height": 44,
+            "bottom": 77
+          },
+          "pagination": [
+            {
+              "x": 923.21875,
+              "y": 826,
+              "width": 44,
+              "height": 44,
+              "bottom": 870
+            },
+            {
+              "x": 1051,
+              "y": 826,
+              "width": 44,
+              "height": 44,
+              "bottom": 870
+            }
+          ]
+        },
+        "status": "PASS"
+      }
+    ]
+  },
+  "logs": [
+    {
+      "path": "docs/qa/task09-school-announcements-modal/browser-chromium.txt",
+      "sha256": "8a981553fabd57aebbbf25ffc105f9cca329c0dc9277f29225e241b86317615c"
+    },
+    {
+      "path": "docs/qa/task09-school-announcements-modal/browser-webkit.txt",
+      "sha256": "a251e8c6f6e03109c666729b546da7a37d6d0e05c2f129cc700684f75c52f97b"
+    },
+    {
+      "path": "docs/qa/task09-school-announcements-modal/targeted-announcements.txt",
+      "sha256": "5a462055f0c67fd6e66cd44c0d02d478830c916489ac051dea905ea89e4ff2cd"
+    },
+    {
+      "path": "docs/qa/task09-school-announcements-modal/overlay-browser.txt",
+      "sha256": "94c13544703c7d7452ac2be0331a5a0fcdc7e052483666f209434f09c28e5771"
+    },
+    {
+      "path": "docs/qa/task09-school-announcements-modal/task08-smoke.txt",
+      "sha256": "3c837218fe12ea865425528f937ae7361637802e47f901b5165fdf1186815380"
+    },
+    {
+      "path": "docs/qa/task09-school-announcements-modal/before-reproduction.txt",
+      "sha256": "557bed9a21d6f79a7929acc6398cebdc46f3972c9b4b1c27eddefcbd8af0c49d"
+    }
+  ],
+  "fullOfflineSuite": "Final pushed HEAD GitHub PR CI; see PR description",
+  "localBenchmarks": "NOT_RUN",
+  "developmentNotes": [
+    "Original before-mode tests assert reproduced defects; they are not an acceptance PASS for the original UX.",
+    "Initial desktop/tablet scroll assertion assumed overflow even when all ten cards fit; final tests scroll only when overflowing and otherwise assert all ten are present.",
+    "One initial overlay run was interrupted by Vite HMR during file editing; the unchanged suite subsequently passed all 13 tests.",
+    "Final screenshot selection keeps the five requested widths per engine plus measured VisualViewport keyboard before/after; other viewport geometry remains in JSON."
+  ],
+  "limitations": [
+    "No physical iPhone, native picker chrome, real Safari toolbar or hardware safe-area certification.",
+    "At 240px visible height with dates expanded, list space is intentionally very small; search/date/close/pagination remain accessible. Collapse dates or dismiss keyboard for a larger list.",
+    "The expected isolated 503 resource diagnostic is not an unexpected runtime/React error.",
+    "Existing Vite chunk size warning; no bundling/dependency changes."
+  ]
+}

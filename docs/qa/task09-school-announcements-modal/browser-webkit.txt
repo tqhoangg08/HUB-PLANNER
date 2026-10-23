@@ -1,0 +1,21 @@
+ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✔ webkit 360x640: actual modal layout, filters, scroll and dismissal (93034.8965ms)
+✔ webkit 375x667: actual modal layout, filters, scroll and dismissal (51244.2861ms)
+✔ webkit 390x844: actual modal layout, filters, scroll and dismissal (14207.502ms)
+✔ webkit 430x932: actual modal layout, filters, scroll and dismissal (14866.8546ms)
+✔ webkit 768x1024: actual modal layout, filters, scroll and dismissal (6554.156ms)
+✔ webkit 1024x768: actual modal layout, filters, scroll and dismissal (6549.2624ms)
+✔ webkit 1440x900: actual modal layout, filters, scroll and dismissal (12274.4319ms)
+✔ webkit 667x375: actual modal layout, filters, scroll and dismissal (11425.3284ms)
+✔ webkit 390x240: actual modal layout, filters, scroll and dismissal (6807.7372ms)
+✔ webkit after: out-of-order response evidence (3818.15ms)
+✔ webkit: visual viewport offset, safe-area padding and pending loading ownership (10168.9782ms)
+✔ webkit: pagination, debounce, error/empty, focus and internal-root cleanup (15352.6769ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 253332.4528
