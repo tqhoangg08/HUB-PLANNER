@@ -146,6 +146,7 @@ test('state reader uses only Public metadata GETs and the fixed read-only schema
 
 test('wrong account, Auth DB, absent previous version or invalid phase fail before network access',async()=>{
   for(const patch of [{account:'wrong'},{token:''},{phase:'skip'},{phase:'postdeploy',beforeVersion:undefined},{phase:'postdeploy',beforeVersion:after},
+    {phase:'postdeploy',beforeVersion:'bba26eca-7811-4f1a-802e-f6bc7c6f7421'},
     {phase:'postdeploy',beforeVersion:'f5abb252-a042-45e7-9f4e-96bdb550dd8e'},
     {phase:'postdeploy',beforeVersion:'58c94fc8-5bfe-41e3-97f5-d0c39bc8be65'},
     {phase:'postdeploy',beforeVersion:'cd1d81be-966f-4518-8729-0b1c3e5484ce'},
@@ -195,56 +196,56 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
   }
 });
 
-test('predeploy accepts reviewed bba26eca baseline and rejects previous or unknown versions',async()=>{
-  assert.equal(before,'bba26eca-7811-4f1a-802e-f6bc7c6f7421');
-  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-bba26eca.json','utf8'));
-  assert.equal(evidence.version,before);assert.equal(evidence.runId,'39626657658');
-  assert.equal(evidence.sha,'e4740ecada34ad4569104ca4133b01fe586e38b4');
-  assert.equal(evidence.previousVersion,'f5abb252-a042-45e7-9f4e-96bdb550dd8e');
-  assert.equal(evidence.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-f5abb252.json','utf8')).version);
+test('predeploy accepts reviewed 79c4f615 baseline and rejects previous or unknown versions',async()=>{
+  assert.equal(before,'79c4f615-cab1-49be-81b4-6622bfe415d1');
+  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-79c4f615.json','utf8'));
+  assert.equal(evidence.version,before);assert.equal(evidence.runId,'39757483460');
+  assert.equal(evidence.sha,'69672040488df01e8eada26a5e9ec628b51458c3');
+  assert.equal(evidence.previousVersion,'bba26eca-7811-4f1a-802e-f6bc7c6f7421');
+  assert.equal(evidence.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-bba26eca.json','utf8')).version);
   assert.deepEqual(evidence.liveMetadata.deployment.versions,[{version_id:before,percentage:100}]);
   assert.equal(evidence.liveMetadata.version.id,before);
   assert.equal(evidence.liveMetadata.account,PUBLIC_RELEASE_ACCOUNT);
-  assert.equal(evidence.liveMetadata.deployment.id,'46192f2f-2bc4-4381-ae16-5fd979e8c2f9');
+  assert.equal(evidence.liveMetadata.deployment.id,'beef7668-f3a9-4e18-a09e-695caf731c85');
   assert.equal(evidence.liveMetadata.deployment.strategy,'percentage');
-  assert.equal(evidence.liveMetadata.version.number,466);
+  assert.equal(evidence.liveMetadata.version.number,467);
   assert.equal(evidence.liveMetadata.environment,'Production');
-  assert.equal(evidence.liveMetadata.version.createdOn,'2026-10-21T15:42:49.547999Z');
-  assert.equal(evidence.liveMetadata.deployment.createdOn,'2026-10-21T15:42:50.716277Z');
+  assert.equal(evidence.liveMetadata.version.createdOn,'2026-10-22T09:52:27.799019Z');
+  assert.equal(evidence.liveMetadata.deployment.createdOn,'2026-10-22T09:52:28.521439Z');
   assert.equal(evidence.liveMetadata.version.source,'wrangler');
   assert.equal(evidence.liveMetadata.deployment.source,'wrangler');
-  assert.deepEqual(evidence.liveMetadata.dashboardUi,{versionPrefix:'bba26eca',trafficPercent:100,status:'Ready'});
+  assert.deepEqual(evidence.liveMetadata.dashboardUi,{versionPrefix:'79c4f615',trafficPercent:100,status:'Ready'});
   assert.equal(evidence.release.name,'Approved Public-only production release');
   assert.equal(evidence.release.sha,evidence.sha);assert.equal(evidence.release.branch,'main');
   assert.equal(evidence.release.event,'workflow_dispatch');assert.equal(evidence.release.conclusion,'success');
   const job=evidence.release.jobs.find(j=>j.name==='release-public');
   assert.equal(job.conclusion,'success');assert.equal(job.status,'completed');
-  assert.equal(job.id,119315575288);
+  assert.equal(job.id,119754902760);
   assert.equal(evidence.worker,'hub-planner-public-dev-api');
-  assert.equal(evidence.mainAtPreparation,'6f9e5a2c82c1353e6a1eca1a13f2d5a8ad21748f');
-  assert.equal(evidence.task07.merged,true);assert.equal(evidence.task07.number,133);
-  assert.equal(evidence.task07.prUrl,'https://github.com/tqhoangg08/HUB-PLANNER/pull/133');
-  assert.equal(evidence.task07.mergeSha,evidence.mainAtPreparation);
-  assert.equal(evidence.task07.baseSha,evidence.sha);
-  assert.equal(evidence.task07.headSha,'f61824c76370dd820ca66fd1c6b0d3ec05f6abcc');
-  const merge=spawnSync('git',['show','-s','--format=%P%n%s%n%cI',evidence.task07.mergeSha],{encoding:'utf8'});
+  assert.equal(evidence.mainAtPreparation,'030fd7680a1714daaa0dea819a361698279f35fb');
+  assert.equal(evidence.task08.merged,true);assert.equal(evidence.task08.number,135);
+  assert.equal(evidence.task08.prUrl,'https://github.com/tqhoangg08/HUB-PLANNER/pull/135');
+  assert.equal(evidence.task08.mergeSha,evidence.mainAtPreparation);
+  assert.equal(evidence.task08.baseSha,evidence.sha);
+  assert.equal(evidence.task08.headSha,'45da497aa60743f3d7c4227c1050e5aab98d0190');
+  const merge=spawnSync('git',['show','-s','--format=%P%n%s%n%cI',evidence.task08.mergeSha],{encoding:'utf8'});
   assert.equal(merge.status,0,merge.stderr);
   const [parents,subject,committedAt]=merge.stdout.trim().split(/\r?\n/);
-  assert.deepEqual(evidence.task07.parents,[evidence.task07.baseSha,evidence.task07.headSha]);
-  assert.deepEqual(parents.split(' '),evidence.task07.parents);
-  assert.match(subject,/^Merge pull request #133 /);
-  assert.equal(committedAt,evidence.task07.committedAt);
+  assert.deepEqual(evidence.task08.parents,[evidence.task08.baseSha,evidence.task08.headSha]);
+  assert.deepEqual(parents.split(' '),evidence.task08.parents);
+  assert.match(subject,/^Merge pull request #135 /);
+  assert.equal(committedAt,evidence.task08.committedAt);
   assert.ok(Date.parse(evidence.release.updatedAt)<Date.parse(committedAt));
-  assert.ok(Date.parse(committedAt)<=Date.parse(evidence.task07.mergedAt));
-  assert.ok(Date.parse(evidence.release.updatedAt)<Date.parse(evidence.task07.mergedAt),'This baseline is not the Task 07 production release');
+  assert.ok(Date.parse(committedAt)<=Date.parse(evidence.task08.mergedAt));
+  assert.ok(Date.parse(evidence.release.updatedAt)<Date.parse(evidence.task08.mergedAt),'This baseline is not the Task 08 production release');
   assert.equal(evidence.release.runId,evidence.runId);assert.equal(evidence.release.url,evidence.url);
   assert.equal(evidence.url,`https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/${evidence.runId}`);
-  assert.equal(evidence.release.createdAt,'2026-10-21T15:32:45Z');
+  assert.equal(evidence.release.createdAt,'2026-10-22T09:42:23Z');
   assert.equal(evidence.release.startedAt,evidence.release.createdAt);
   assert.equal(evidence.release.status,'completed');assert.equal(evidence.release.attempt,1);
   assert.equal(evidence.release.actorId,252552483);assert.equal(evidence.release.triggeringActorId,252552483);
   const validate=evidence.release.jobs.find(j=>j.name==='validate');
-  assert.equal(validate.id,119313560780);assert.equal(validate.conclusion,'success');assert.equal(validate.status,'completed');
+  assert.equal(validate.id,119753072054);assert.equal(validate.conclusion,'success');assert.equal(validate.status,'completed');
   assert.ok(Date.parse(evidence.release.startedAt)<=Date.parse(validate.startedAt));
   assert.ok(Date.parse(validate.startedAt)<=Date.parse(validate.completedAt));
   assert.ok(Date.parse(validate.completedAt)<=Date.parse(job.startedAt));
@@ -269,7 +270,7 @@ test('predeploy accepts reviewed bba26eca baseline and rejects previous or unkno
   assert.ok(receiptTimes.every((time,index)=>Number.isFinite(time)&&Date.parse(job.startedAt)<=time&&time<=Date.parse(job.completedAt)&&(index===0||receiptTimes[index-1]<=time)));
   assert.ok(evidence.release.receipts.some(line=>line.endsWith(` ${evidence.sha}`)));
   assert.ok(evidence.release.receipts.some(line=>line.includes('Uploaded 55 of 55 assets')));
-  assert.ok(evidence.release.receipts.some(line=>line.includes('Success! Uploaded 55 files (112 already uploaded)')));
+  assert.ok(evidence.release.receipts.some(line=>line.includes('Success! Uploaded 55 files (113 already uploaded)')));
   assert.ok(evidence.release.receipts.some(line=>line.includes('Uploaded hub-planner-public-dev-api')));
   assert.ok(evidence.release.receipts.some(line=>line.includes('Deployed hub-planner-public-dev-api triggers')));
   assert.ok(evidence.release.receipts.some(line=>line.includes(`PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=${before}`)));
@@ -290,7 +291,7 @@ test('predeploy accepts reviewed bba26eca baseline and rejects previous or unkno
   const unknown=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:after,percentage:100}]}]}):undefined);
   await assert.rejects(()=>checkPublicReleaseState(config,opts(unknown)),/UNREVIEWED_PREDEPLOY_VERSION/);
   assert.ok(!unknown.calls.some(c=>c.url.includes('/versions/')));
-  for(const obsoleteVersion of ['f5abb252-a042-45e7-9f4e-96bdb550dd8e','58c94fc8-5bfe-41e3-97f5-d0c39bc8be65','cd1d81be-966f-4518-8729-0b1c3e5484ce','66bc5fd9-55f4-4983-9048-0a271550ef9f','93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
+  for(const obsoleteVersion of ['bba26eca-7811-4f1a-802e-f6bc7c6f7421','f5abb252-a042-45e7-9f4e-96bdb550dd8e','58c94fc8-5bfe-41e3-97f5-d0c39bc8be65','cd1d81be-966f-4518-8729-0b1c3e5484ce','66bc5fd9-55f4-4983-9048-0a271550ef9f','93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
     const obsolete=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:obsoleteVersion,percentage:100}]}]}):undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(obsolete)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!obsolete.calls.some(c=>c.url.includes('/versions/')));
@@ -354,7 +355,7 @@ test('CLI cannot select arbitrary from/to percentages or disable drift checking'
 });
 
 test('baseline pin changes only its UUID and two comments; historical Git evidence stays intact',()=>{
-  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-bba26eca.json','utf8'));
+  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-79c4f615.json','utf8'));
   const git=(...args)=>{const r=spawnSync('git',args,{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout;};
   const normalize=s=>s.replace(/\r\n/g,'\n')
     .replace(/^\/\/ Reviewed release baseline:.*$/m,'// Reviewed release baseline: <REVIEWED_RELEASE>.')
