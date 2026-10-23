@@ -1,9 +1,9 @@
 import { Overlay } from './Overlay';
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building } from 'lucide-react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building, ChevronDown } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { fetchSchoolAnnouncements } from '../utils/announcementsApi';
+import './school-announcements-modal.css';
 
 const ITEMS_PER_PAGE = 10;
 const ANNOUNCEMENT_WIDGET_CACHE_KEY = 'hub_school_announcements_widget_v1';
@@ -72,14 +72,55 @@ const SchoolAnnouncements = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalNews, setModalNews] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [request, setRequest] = useState({ page: 1, search: '', startDate: '', endDate: '' });
+  const { page: currentPage, startDate, endDate } = request;
+  const setCurrentPage = page => setRequest(previous => {
+    const next = typeof page === 'function' ? page(previous.page) : page;
+    return next === previous.page ? previous : { ...previous, page: next };
+  });
   const [inputPage, setInputPage] = useState("1"); 
   const [isLoadingModal, setIsLoadingModal] = useState(false);
 
   // Bộ lọc
   const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dateExpanded, setDateExpanded] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const dialog = useRef(null);
+  const opener = useRef(null);
+  const titleId = useId();
+  const datesId = useId();
+  const closeModal = () => setIsModalOpen(false);
+  const openModal = () => {
+    setDateExpanded(window.matchMedia('(min-width: 640px)').matches);
+    setRequest(previous => previous.search === searchQuery ? previous : { ...previous, search: searchQuery, page: 1 });
+    setIsModalOpen(true);
+  };
+  const changeDate = (field, value) => setRequest(previous => ({ ...previous, [field]: value, page: 1 }));
+  const clearFilters = () => {
+    setSearchQuery('');
+    setRequest({ page: 1, search: '', startDate: '', endDate: '' });
+  };
+  useEffect(() => {
+    if (!isModalOpen) return;
+    dialog.current?.focus({ preventScroll: true });
+    const onKey = event => {
+      if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); closeModal(); }
+      if (event.key !== 'Tab') return;
+      const controls = [...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),a[href],[tabindex="0"]')]
+        .filter(element => element.getClientRects().length);
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) {
+        event.preventDefault(); last?.focus({ preventScroll: true });
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) {
+        event.preventDefault(); first?.focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (opener.current?.isConnected) opener.current.focus({ preventScroll: true });
+    };
+  }, [isModalOpen]);
 
   // 1. FETCH 10 TIN MỚI NHẤT CHO WIDGET BÊN NGOÀI
   useEffect(() => {
@@ -106,45 +147,42 @@ const SchoolAnnouncements = () => {
     fetchNews();
   }, []);
 
-  // 2. FETCH DATA CHO MODAL KHI MỞ HOẶC KHI ĐỔI TRANG/BỘ LỌC
-  const fetchModalNews = async () => {
+  // One applied request owns pagination and filters. Debounce changes search and
+  // page together; an obsolete/closed request cannot publish data or loading.
+  useEffect(() => {
+    if (!isModalOpen || searchQuery === request.search) return;
+    const timer = setTimeout(() => setRequest(previous => ({ ...previous, search: searchQuery, page: 1 })), 500);
+    return () => clearTimeout(timer);
+  }, [isModalOpen, searchQuery, request.search]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    let active = true;
+    const controller = new AbortController();
     setIsLoadingModal(true);
-    try {
-      const pageOffset = (currentPage - 1) * ITEMS_PER_PAGE;
-      const params = new URLSearchParams({
-        resource: 'announcements',
-        limit: String(ITEMS_PER_PAGE),
-        offset: String(pageOffset),
-      });
-      if (searchQuery) params.set('search', searchQuery);
-      if (startDate) params.set('startDate', startDate);
-      if (endDate) params.set('endDate', endDate);
-
-      const response = await fetchSchoolAnnouncements(`/events?${params.toString()}`);
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
-      setModalNews(payload.data || []);
-      setTotalCount(payload.total || 0);
-    } catch (err) {
-      console.error("Lỗi tải Modal thông báo:", err);
-    } finally {
-      setIsLoadingModal(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isModalOpen) fetchModalNews();
-  }, [isModalOpen, currentPage, startDate, endDate]);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      const delayDebounceFn = setTimeout(() => {
-        setCurrentPage(1); 
-        fetchModalNews();
-      }, 500); 
-      return () => clearTimeout(delayDebounceFn);
-    }
-  }, [searchQuery]);
+    setModalError('');
+    setModalNews([]);
+    const params = new URLSearchParams({ resource: 'announcements', limit: String(ITEMS_PER_PAGE), offset: String((request.page - 1) * ITEMS_PER_PAGE) });
+    for (const field of ['search', 'startDate', 'endDate']) if (request[field]) params.set(field, request[field]);
+    (async () => {
+      try {
+        const response = await fetchSchoolAnnouncements('/events?' + params.toString(), { signal: controller.signal });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
+        if (!active) return;
+        setModalNews(payload.data || []);
+        setTotalCount(payload.total || 0);
+      } catch {
+        if (!active) return;
+        setModalNews([]);
+        setTotalCount(0);
+        setModalError('Không tải được thông báo trường. Vui lòng thử lại.');
+      } finally {
+        if (active) setIsLoadingModal(false);
+      }
+    })();
+    return () => { active = false; controller.abort(); };
+  }, [isModalOpen, request]);
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
@@ -213,7 +251,8 @@ const SchoolAnnouncements = () => {
             <span className="truncate">LINK THÔNG BÁO TỪ NGUỒN CHÍNH THỨC</span>
           </h3>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            ref={opener}
+            onClick={openModal}
             className="text-[10px] lg:text-xs text-blue-200 hover:text-white underline shrink-0 cursor-pointer font-medium"
           >
             Xem tất cả
@@ -259,45 +298,49 @@ const SchoolAnnouncements = () => {
         </div>
       </div>
 
-      {isModalOpen && createPortal(
-        <Overlay className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 pt-16 lg:p-10" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+      {isModalOpen && (
+        <Overlay className="announcements-overlay fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center" onClick={closeModal}>
+          <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="announcements-panel bg-white rounded-2xl w-full max-w-4xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             
             {/* Header Modal */}
-            <div className="bg-gradient-to-r from-[#003375] to-blue-700 p-4 sm:p-5 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-lg"><Bell size={20} /></div>
+            <div className="announcements-header bg-gradient-to-r from-[#003375] to-blue-700 text-white flex items-center justify-between shrink-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="hidden sm:block bg-white/20 p-2 rounded-lg"><Bell size={20} /></div>
                 <div>
-                  <h2 className="font-bold text-base sm:text-lg leading-tight">Tra cứu link thông báo</h2>
+                  <h2 id={titleId} className="font-bold text-sm sm:text-lg leading-tight">Tra cứu link thông báo</h2>
                   <p className="text-blue-200 text-[10px] sm:text-xs">Dẫn về nguồn chính thức, không phải cổng thông báo của Nhà trường</p>
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"><X size={20}/></button>
+              <button type="button" aria-label="Đóng tra cứu thông báo" onClick={closeModal} className="announcements-touch shrink-0 text-white hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-all"><X size={20}/></button>
             </div>
 
-            {/* Thanh Tìm kiếm & Lọc */}
-            <div className="p-3 sm:p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row gap-3 shrink-0">
-              <div className="relative flex-1">
-                <input 
-                  type="text" 
-                  placeholder="Nhập tên thông báo cần tìm..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 focus:border-[#003375] focus:ring-2 focus:ring-blue-500/20 outline-none text-sm transition-all"
-                />
-                <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-              </div>
-              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
-                <div className="relative w-full sm:w-36">
-                  <input type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
-                  <Calendar className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
+            {/* Search stays visible; collapsing dates preserves the applied values. */}
+            <div className="announcements-filters border-b border-gray-100 bg-gray-50 shrink-0">
+              <div className="announcements-search-row flex items-center gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <input type="search" aria-label="Tìm thông báo" placeholder="Nhập tên thông báo cần tìm..." value={searchQuery}
+                    onChange={event => setSearchQuery(event.target.value)}
+                    className="announcements-input w-full pl-9 pr-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none" />
+                  <Search className="absolute left-3 top-3.5 text-gray-400 pointer-events-none" size={16} />
                 </div>
-                <div className="hidden sm:flex items-center text-gray-400">-</div>
-                <div className="relative w-full sm:w-36">
-                  <input type="date" value={endDate} onChange={(e) => {setEndDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
-                  <Calendar className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
-                </div>
+                <button type="button" aria-expanded={dateExpanded} aria-controls={datesId} onClick={() => setDateExpanded(value => !value)}
+                  className="announcements-touch flex shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[#003375]">
+                  Bộ lọc ngày{(startDate || endDate) && <span aria-label="Đang lọc ngày"> · {[startDate, endDate].filter(Boolean).length}</span>}
+                  <ChevronDown size={16} className={dateExpanded ? 'rotate-180' : ''} />
+                </button>
               </div>
+              <div id={datesId} hidden={!dateExpanded} className="announcements-dates">
+                <label className="min-w-0 text-xs text-gray-600">Từ ngày
+                  <input type="date" aria-label="Từ ngày" value={startDate} onChange={event => changeDate('startDate', event.target.value)} className="announcements-input w-full min-w-0 rounded-lg border border-gray-200 px-2" />
+                </label>
+                <label className="min-w-0 text-xs text-gray-600">Đến ngày
+                  <input type="date" aria-label="Đến ngày" value={endDate} onChange={event => changeDate('endDate', event.target.value)} className="announcements-input w-full min-w-0 rounded-lg border border-gray-200 px-2" />
+                </label>
+              </div>
+              {(startDate || endDate) && <div className="flex min-w-0 items-center justify-between gap-2 text-xs text-gray-600">
+                <span className="truncate">{startDate || 'Từ đầu'} → {endDate || 'Hiện tại'}</span>
+                <button type="button" className="min-h-[44px] shrink-0 px-2 font-semibold text-[#003375]" onClick={() => setRequest(previous => ({ ...previous, page: 1, startDate: '', endDate: '' }))}>Xóa ngày</button>
+              </div>}
             </div>
 
             {/* Danh sách Data Modal */}
@@ -362,20 +405,22 @@ const SchoolAnnouncements = () => {
             </div>
 
             */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 bg-white">
+            <div className="announcements-list min-h-0 flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 bg-white" tabIndex={0} aria-label="Danh sách thông báo" aria-busy={isLoadingModal}>
               {isLoadingModal ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                   <Filter size={30} className="animate-pulse" />
                   <p className="text-sm font-medium">Đang truy xuất dữ liệu...</p>
                 </div>
+              ) : modalError ? (
+                <div role="alert" className="p-3 text-center text-sm text-gray-600">{modalError}<button type="button" className="announcements-touch block mx-auto font-semibold text-[#003375]" onClick={() => setRequest(previous => ({ ...previous }))}>Thử lại</button></div>
               ) : modalNews.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
                   <Search size={40} className="text-gray-200" />
                   <p className="text-sm font-medium text-gray-500">Không tìm thấy thông báo nào phù hợp.</p>
-                  <button onClick={() => {setSearchQuery(''); setStartDate(''); setEndDate('');}} className="mt-2 text-xs text-[#003375] font-bold hover:underline">Xóa bộ lọc</button>
+                  <button onClick={clearFilters} className="mt-2 text-xs text-[#003375] font-bold hover:underline">Xóa bộ lọc</button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {modalNews.map((item) => {
                     const finalLink = processLinkData(item);
                     const deptName = getDepartmentName(finalLink);
@@ -383,7 +428,7 @@ const SchoolAnnouncements = () => {
                     return (
                       <a 
                         key={item.id} href={finalLink} target="_blank" rel="noreferrer"
-                        className="p-3 sm:p-4 rounded-xl border border-gray-100 bg-white hover:border-blue-300 hover:shadow-md transition-all group flex flex-col justify-between h-full"
+                        className="announcements-card min-w-0 p-2 sm:p-3 rounded-xl border border-gray-100 bg-white hover:border-blue-300 hover:shadow-md transition-all group flex flex-col justify-between h-full"
                       >
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
@@ -397,8 +442,8 @@ const SchoolAnnouncements = () => {
                           </p>
                         </div>
                         
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-                          <div className="text-gray-500 text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5">
+                        <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-50">
+                          <div className="min-w-0 text-gray-500 text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5">
                             <Building size={12} className="text-blue-500/70"/> {deptName}
                           </div>
                           <div className="text-[#003375] text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform shrink-0">
@@ -413,29 +458,32 @@ const SchoolAnnouncements = () => {
             </div>
 
             {/* Thanh Phân trang */}
-            <div className="p-3 sm:p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="announcements-footer border-t border-gray-100 bg-gray-50 shrink-0 flex justify-between items-center gap-1">
               <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
-                Hiển thị <span className="font-bold text-gray-800">{totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo
+                <span className="font-bold text-gray-800">{totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> / <span className="font-bold text-gray-800">{totalCount}</span> tin
               </p>
               
               <div className="flex items-center gap-1 sm:gap-2">
                 <button 
+                  aria-label="Trang trước"
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1 || isLoadingModal}
-                  className="p-1.5 sm:p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="announcements-touch rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft size={16} />
                 </button>
                 
-                <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-[#003375] font-bold text-xs sm:text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-300">
+                <div className="flex items-center gap-1 px-1 rounded-lg bg-blue-50 border border-blue-100 text-[#003375] font-bold text-xs sm:text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-300">
                   <input
                     type="number"
+                    aria-label="Trang thông báo"
+                    inputMode="numeric"
                     value={inputPage}
                     onChange={(e) => setInputPage(e.target.value)}
                     onBlur={handlePageSubmit}
                     onKeyDown={handlePageSubmit}
                     disabled={isLoadingModal}
-                    className="w-8 sm:w-10 text-center bg-white border border-blue-200 rounded outline-none py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="announcements-input w-10 text-center bg-white border border-blue-200 rounded outline-none py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     min="1"
                     max={totalPages}
                   />
@@ -443,9 +491,10 @@ const SchoolAnnouncements = () => {
                 </div>
 
                 <button 
+                  aria-label="Trang sau"
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage >= totalPages || isLoadingModal}
-                  className="p-1.5 sm:p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="announcements-touch rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -453,8 +502,7 @@ const SchoolAnnouncements = () => {
             </div>
 
           </div>
-        </Overlay>,
-        document.body
+        </Overlay>
       )}
     </>
   );

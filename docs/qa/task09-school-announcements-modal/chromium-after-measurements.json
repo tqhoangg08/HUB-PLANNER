@@ -1,0 +1,1548 @@
+[
+  {
+    "width": 360,
+    "height": 640,
+    "beforeScroll": {
+      "window": 796,
+      "internal": 0,
+      "anchor": -796
+    },
+    "initial": {
+      "panel": {
+        "x": 8,
+        "y": 8,
+        "width": 344,
+        "height": 624,
+        "bottom": 632
+      },
+      "header": {
+        "x": 9,
+        "y": 9,
+        "width": 342,
+        "height": 61.3125,
+        "bottom": 70.3125
+      },
+      "filters": {
+        "x": 9,
+        "y": 70.3125,
+        "width": 342,
+        "height": 61,
+        "bottom": 131.3125
+      },
+      "list": {
+        "x": 9,
+        "y": 131.3125,
+        "width": 342,
+        "height": 444.6875,
+        "bottom": 576
+      },
+      "footer": {
+        "x": 9,
+        "y": 576,
+        "width": 342,
+        "height": 55,
+        "bottom": 631
+      },
+      "close": {
+        "x": 299,
+        "y": 17.65625,
+        "width": 44,
+        "height": 44,
+        "bottom": 61.65625
+      },
+      "pagination": [
+        {
+          "x": 180.390625,
+          "y": 582,
+          "width": 44,
+          "height": 44,
+          "bottom": 626
+        },
+        {
+          "x": 299,
+          "y": 582,
+          "width": 44,
+          "height": 44,
+          "bottom": 626
+        }
+      ],
+      "cardsVisible": 3,
+      "listScroll": [
+        0,
+        1164,
+        445
+      ],
+      "scroll": [
+        0,
+        0
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        360,
+        640
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 61,
+      "expanded": 127
+    },
+    "afterScroll": 796,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 375,
+    "height": 667,
+    "beforeScroll": {
+      "window": 782,
+      "internal": 0,
+      "anchor": -782
+    },
+    "initial": {
+      "panel": {
+        "x": 8,
+        "y": 8,
+        "width": 359,
+        "height": 651,
+        "bottom": 659
+      },
+      "header": {
+        "x": 9,
+        "y": 9,
+        "width": 357,
+        "height": 61.3125,
+        "bottom": 70.3125
+      },
+      "filters": {
+        "x": 9,
+        "y": 70.3125,
+        "width": 357,
+        "height": 61,
+        "bottom": 131.3125
+      },
+      "list": {
+        "x": 9,
+        "y": 131.3125,
+        "width": 357,
+        "height": 471.6875,
+        "bottom": 603
+      },
+      "footer": {
+        "x": 9,
+        "y": 603,
+        "width": 357,
+        "height": 55,
+        "bottom": 658
+      },
+      "close": {
+        "x": 314,
+        "y": 17.65625,
+        "width": 44,
+        "height": 44,
+        "bottom": 61.65625
+      },
+      "pagination": [
+        {
+          "x": 195.390625,
+          "y": 609,
+          "width": 44,
+          "height": 44,
+          "bottom": 653
+        },
+        {
+          "x": 314,
+          "y": 609,
+          "width": 44,
+          "height": 44,
+          "bottom": 653
+        }
+      ],
+      "cardsVisible": 4,
+      "listScroll": [
+        0,
+        1164,
+        472
+      ],
+      "scroll": [
+        0,
+        0
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        375,
+        667
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 61,
+      "expanded": 127
+    },
+    "afterScroll": 782,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "beforeScroll": {
+      "window": 694,
+      "internal": 0,
+      "anchor": -694
+    },
+    "initial": {
+      "panel": {
+        "x": 8,
+        "y": 8,
+        "width": 374,
+        "height": 828,
+        "bottom": 836
+      },
+      "header": {
+        "x": 9,
+        "y": 9,
+        "width": 372,
+        "height": 61.3125,
+        "bottom": 70.3125
+      },
+      "filters": {
+        "x": 9,
+        "y": 70.3125,
+        "width": 372,
+        "height": 61,
+        "bottom": 131.3125
+      },
+      "list": {
+        "x": 9,
+        "y": 131.3125,
+        "width": 372,
+        "height": 648.6875,
+        "bottom": 780
+      },
+      "footer": {
+        "x": 9,
+        "y": 780,
+        "width": 372,
+        "height": 55,
+        "bottom": 835
+      },
+      "close": {
+        "x": 329,
+        "y": 17.65625,
+        "width": 44,
+        "height": 44,
+        "bottom": 61.65625
+      },
+      "pagination": [
+        {
+          "x": 210.390625,
+          "y": 786,
+          "width": 44,
+          "height": 44,
+          "bottom": 830
+        },
+        {
+          "x": 329,
+          "y": 786,
+          "width": 44,
+          "height": 44,
+          "bottom": 830
+        }
+      ],
+      "cardsVisible": 5,
+      "listScroll": [
+        0,
+        1164,
+        649
+      ],
+      "scroll": [
+        0,
+        0
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 61,
+      "expanded": 127
+    },
+    "afterScroll": 694,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "beforeScroll": {
+      "window": 650,
+      "internal": 0,
+      "anchor": -650
+    },
+    "initial": {
+      "panel": {
+        "x": 8,
+        "y": 16,
+        "width": 414,
+        "height": 900,
+        "bottom": 916
+      },
+      "header": {
+        "x": 9,
+        "y": 17,
+        "width": 412,
+        "height": 60,
+        "bottom": 77
+      },
+      "filters": {
+        "x": 9,
+        "y": 77,
+        "width": 412,
+        "height": 61,
+        "bottom": 138
+      },
+      "list": {
+        "x": 9,
+        "y": 138,
+        "width": 412,
+        "height": 722,
+        "bottom": 860
+      },
+      "footer": {
+        "x": 9,
+        "y": 860,
+        "width": 412,
+        "height": 55,
+        "bottom": 915
+      },
+      "close": {
+        "x": 369,
+        "y": 25,
+        "width": 44,
+        "height": 44,
+        "bottom": 69
+      },
+      "pagination": [
+        {
+          "x": 250.390625,
+          "y": 866,
+          "width": 44,
+          "height": 44,
+          "bottom": 910
+        },
+        {
+          "x": 369,
+          "y": 866,
+          "width": 44,
+          "height": 44,
+          "bottom": 910
+        }
+      ],
+      "cardsVisible": 6,
+      "listScroll": [
+        0,
+        1164,
+        722
+      ],
+      "scroll": [
+        0,
+        0
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        430,
+        932
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 61,
+      "expanded": 127
+    },
+    "afterScroll": 650,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 768,
+    "height": 1024,
+    "beforeScroll": {
+      "window": 604,
+      "internal": 0,
+      "anchor": -604
+    },
+    "initial": {
+      "panel": {
+        "x": 20,
+        "y": 62,
+        "width": 728,
+        "height": 900,
+        "bottom": 962
+      },
+      "header": {
+        "x": 21,
+        "y": 63,
+        "width": 726,
+        "height": 68,
+        "bottom": 131
+      },
+      "filters": {
+        "x": 21,
+        "y": 131,
+        "width": 726,
+        "height": 135,
+        "bottom": 266
+      },
+      "list": {
+        "x": 21,
+        "y": 266,
+        "width": 726,
+        "height": 632,
+        "bottom": 898
+      },
+      "footer": {
+        "x": 21,
+        "y": 898,
+        "width": 726,
+        "height": 63,
+        "bottom": 961
+      },
+      "close": {
+        "x": 687,
+        "y": 75,
+        "width": 44,
+        "height": 44,
+        "bottom": 119
+      },
+      "pagination": [
+        {
+          "x": 559.21875,
+          "y": 908,
+          "width": 44,
+          "height": 44,
+          "bottom": 952
+        },
+        {
+          "x": 687,
+          "y": 908,
+          "width": 44,
+          "height": 44,
+          "bottom": 952
+        }
+      ],
+      "cardsVisible": 10,
+      "listScroll": [
+        0,
+        634,
+        632
+      ],
+      "scroll": [
+        0,
+        604
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        768,
+        1024
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 69,
+      "expanded": 135
+    },
+    "afterScroll": 604,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 1024,
+    "height": 768,
+    "beforeScroll": {
+      "window": 736,
+      "internal": 0,
+      "anchor": -736
+    },
+    "initial": {
+      "panel": {
+        "x": 120,
+        "y": 20,
+        "width": 784,
+        "height": 728,
+        "bottom": 748
+      },
+      "header": {
+        "x": 121,
+        "y": 21,
+        "width": 782,
+        "height": 68,
+        "bottom": 89
+      },
+      "filters": {
+        "x": 121,
+        "y": 89,
+        "width": 782,
+        "height": 135,
+        "bottom": 224
+      },
+      "list": {
+        "x": 121,
+        "y": 224,
+        "width": 782,
+        "height": 460,
+        "bottom": 684
+      },
+      "footer": {
+        "x": 121,
+        "y": 684,
+        "width": 782,
+        "height": 63,
+        "bottom": 747
+      },
+      "close": {
+        "x": 843,
+        "y": 33,
+        "width": 44,
+        "height": 44,
+        "bottom": 77
+      },
+      "pagination": [
+        {
+          "x": 715.21875,
+          "y": 694,
+          "width": 44,
+          "height": 44,
+          "bottom": 738
+        },
+        {
+          "x": 843,
+          "y": 694,
+          "width": 44,
+          "height": 44,
+          "bottom": 738
+        }
+      ],
+      "cardsVisible": 6,
+      "listScroll": [
+        0,
+        634,
+        460
+      ],
+      "scroll": [
+        0,
+        736
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 69,
+      "expanded": 135
+    },
+    "afterScroll": 736,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 1440,
+    "height": 900,
+    "beforeScroll": {
+      "window": 670,
+      "internal": 0,
+      "anchor": -670
+    },
+    "initial": {
+      "panel": {
+        "x": 328,
+        "y": 20,
+        "width": 784,
+        "height": 860,
+        "bottom": 880
+      },
+      "header": {
+        "x": 329,
+        "y": 21,
+        "width": 782,
+        "height": 68,
+        "bottom": 89
+      },
+      "filters": {
+        "x": 329,
+        "y": 89,
+        "width": 782,
+        "height": 135,
+        "bottom": 224
+      },
+      "list": {
+        "x": 329,
+        "y": 224,
+        "width": 782,
+        "height": 592,
+        "bottom": 816
+      },
+      "footer": {
+        "x": 329,
+        "y": 816,
+        "width": 782,
+        "height": 63,
+        "bottom": 879
+      },
+      "close": {
+        "x": 1051,
+        "y": 33,
+        "width": 44,
+        "height": 44,
+        "bottom": 77
+      },
+      "pagination": [
+        {
+          "x": 923.21875,
+          "y": 826,
+          "width": 44,
+          "height": 44,
+          "bottom": 870
+        },
+        {
+          "x": 1051,
+          "y": 826,
+          "width": 44,
+          "height": 44,
+          "bottom": 870
+        }
+      ],
+      "cardsVisible": 8,
+      "listScroll": [
+        0,
+        634,
+        592
+      ],
+      "scroll": [
+        0,
+        670
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 69,
+      "expanded": 135
+    },
+    "afterScroll": 670,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 667,
+    "height": 375,
+    "beforeScroll": {
+      "window": 928,
+      "internal": 0,
+      "anchor": -928
+    },
+    "initial": {
+      "panel": {
+        "x": 20,
+        "y": 20,
+        "width": 627,
+        "height": 335,
+        "bottom": 355
+      },
+      "header": {
+        "x": 21,
+        "y": 21,
+        "width": 625,
+        "height": 52,
+        "bottom": 73
+      },
+      "filters": {
+        "x": 21,
+        "y": 73,
+        "width": 625,
+        "height": 88,
+        "bottom": 161
+      },
+      "list": {
+        "x": 21,
+        "y": 161,
+        "width": 625,
+        "height": 142,
+        "bottom": 303
+      },
+      "footer": {
+        "x": 21,
+        "y": 303,
+        "width": 625,
+        "height": 51,
+        "bottom": 354
+      },
+      "close": {
+        "x": 594,
+        "y": 25,
+        "width": 44,
+        "height": 44,
+        "bottom": 69
+      },
+      "pagination": [
+        {
+          "x": 466.21875,
+          "y": 307,
+          "width": 44,
+          "height": 44,
+          "bottom": 351
+        },
+        {
+          "x": 594,
+          "y": 307,
+          "width": 44,
+          "height": 44,
+          "bottom": 351
+        }
+      ],
+      "cardsVisible": 1,
+      "listScroll": [
+        0,
+        1079,
+        142
+      ],
+      "scroll": [
+        0,
+        0
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        667,
+        375
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 53,
+      "expanded": 88
+    },
+    "afterScroll": 928,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "width": 390,
+    "height": 240,
+    "beforeScroll": {
+      "window": 996,
+      "internal": 0,
+      "anchor": -996
+    },
+    "initial": {
+      "panel": {
+        "x": 8,
+        "y": 8,
+        "width": 374,
+        "height": 224,
+        "bottom": 232
+      },
+      "header": {
+        "x": 9,
+        "y": 9,
+        "width": 372,
+        "height": 45.3125,
+        "bottom": 54.3125
+      },
+      "filters": {
+        "x": 9,
+        "y": 54.3125,
+        "width": 372,
+        "height": 53,
+        "bottom": 107.3125
+      },
+      "list": {
+        "x": 9,
+        "y": 107.3125,
+        "width": 372,
+        "height": 76.6875,
+        "bottom": 184
+      },
+      "footer": {
+        "x": 9,
+        "y": 184,
+        "width": 372,
+        "height": 47,
+        "bottom": 231
+      },
+      "close": {
+        "x": 329,
+        "y": 9.65625,
+        "width": 44,
+        "height": 44,
+        "bottom": 53.65625
+      },
+      "pagination": [
+        {
+          "x": 210.390625,
+          "y": 186,
+          "width": 44,
+          "height": 44,
+          "bottom": 230
+        },
+        {
+          "x": 329,
+          "y": 186,
+          "width": 44,
+          "height": 44,
+          "bottom": 230
+        }
+      ],
+      "cardsVisible": 0,
+      "listScroll": [
+        0,
+        1164,
+        77
+      ],
+      "scroll": [
+        0,
+        0
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        390,
+        240
+      ]
+    },
+    "filterHeights": {
+      "collapsed": 53,
+      "expanded": 112
+    },
+    "afterScroll": 996,
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-31"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "retained"
+      }
+    ],
+    "errors": [],
+    "writes": []
+  },
+  {
+    "case": "out-of-order",
+    "final": "MỚI\n20/10/2026\n\nnewest: Thông báo học vụ 1 — lịch đăng ký học phần và hướng dẫn sinh viên\n\nPhòng Đào tạo\nXem chi tiết",
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "slow"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "newest"
+      }
+    ]
+  },
+  {
+    "case": "visual-viewport-and-loading",
+    "input": {
+      "x": 17,
+      "y": 94.3125,
+      "width": 256.609375,
+      "height": 44
+    },
+    "constrained": {
+      "panel": {
+        "x": 8,
+        "y": 44,
+        "width": 374,
+        "height": 224,
+        "bottom": 268
+      },
+      "header": {
+        "x": 9,
+        "y": 45,
+        "width": 372,
+        "height": 45.3125,
+        "bottom": 90.3125
+      },
+      "filters": {
+        "x": 9,
+        "y": 90.3125,
+        "width": 372,
+        "height": 112,
+        "bottom": 202.3125
+      },
+      "list": {
+        "x": 9,
+        "y": 202.3125,
+        "width": 372,
+        "height": 17.6875,
+        "bottom": 220
+      },
+      "footer": {
+        "x": 9,
+        "y": 220,
+        "width": 372,
+        "height": 47,
+        "bottom": 267
+      },
+      "close": {
+        "x": 329,
+        "y": 45.65625,
+        "width": 44,
+        "height": 44,
+        "bottom": 89.65625
+      },
+      "pagination": [
+        {
+          "x": 210.390625,
+          "y": 222,
+          "width": 44,
+          "height": 44,
+          "bottom": 266
+        },
+        {
+          "x": 329,
+          "y": 222,
+          "width": 44,
+          "height": 44,
+          "bottom": 266
+        }
+      ],
+      "cardsVisible": 0,
+      "listScroll": [
+        0,
+        21,
+        18
+      ],
+      "scroll": [
+        0,
+        0
+      ],
+      "internalScroll": 0,
+      "overflow": false,
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "pending"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "pending",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "ready",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "ready",
+        "startDate": "2026-10-01"
+      }
+    ],
+    "widgetReads": 2
+  },
+  {
+    "case": "pagination-and-internal-root",
+    "calls": [
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "20"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "40"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "10"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "20"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "latest"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "latest",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "empty",
+        "startDate": "2026-10-01"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "error"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "recover"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "closing"
+      },
+      {
+        "resource": "announcements",
+        "limit": "10",
+        "offset": "0",
+        "search": "closing"
+      }
+    ],
+    "errors": [],
+    "initialScroll": 760,
+    "finalScroll": 760
+  }
+]

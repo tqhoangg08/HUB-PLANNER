@@ -1,0 +1,11 @@
+AUTOMATED_ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+✔ chromium 375: actual schedule actions, geometry, forms, scroll and keyboard (86752.0111ms)
+✔ chromium actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup (26420.2641ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 145609.6028

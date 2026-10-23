@@ -1,0 +1,51 @@
+(node:37840) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ direct D1 crawl inserts once and newest date matches upstream (157.2724ms)
+✔ repeat crawl and queue processing do not enqueue a second push (153.1738ms)
+✔ updates preserve canonical identity, creation, hidden and push state (55.3426ms)
+✔ historical imports are not push eligible and deleted IDs are never reused (24.8678ms)
+✔ same title aliases dedupe and paging/search stay visible-only (14.6436ms)
+✔ production browser API helpers and migrated flows are Supabase-free (157.9709ms)
+✔ event UI leaves push delivery to the server queue (115.6632ms)
+✔ schedule and public event reads do not inherit legacy API headers (176.2405ms)
+✔ account password compatibility route requires Better Auth before upstream access (294.3102ms)
+✔ account password compatibility route ignores browser email and forwards server identity (28.7211ms)
+✔ announcement crawler parses real card dates and discovers bounded pagination (58.6268ms)
+✔ announcement crawler refuses undated items instead of manufacturing a fresh date (10.7879ms)
+✔ announcement crawler retains a dated legacy WebForms notice without using a synthetic date (6.4756ms)
+✔ announcement crawler accepts an advertised empty terminal page without masking a first-page layout failure (413.1513ms)
+✔ announcement crawler paginates in resumable chunks below the Workflow subrequest ceiling (633.8187ms)
+(node:32392) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ announcement query uses safe defaults (11.2545ms)
+✔ default announcement listing keeps the visibility/order index usable (36.6653ms)
+✔ announcement query clamps limit and offset (5.7188ms)
+✔ announcement search normalization is stable for Vietnamese text (4.0719ms)
+✔ D1 timestamps preserve time while matching PostgREST formatting (4.303ms)
+✔ announcement runtime has no Supabase source or mirror path (9.8876ms)
+✔ public cache keys are stable across query ordering and isolated by origin (289.656ms)
+✔ course list paging keeps suggestions small and disables their pagination (3.0452ms)
+✔ course totals use metadata only when no real filters are active (2.0089ms)
+✔ course cache keys include advanced schedule filters (8.1651ms)
+✔ course group tokens expand compact follow-up group numbers (46.2207ms)
+✔ course sync URL is incremental and has a bounded page size (1.5829ms)
+✔ public event query matches current API defaults and clamps paging (10.3632ms)
+✔ public event filters normalize search and reject invalid ids (1.3308ms)
+✔ event and announcement cache keys cannot collide (5.6998ms)
+✔ lost-found query validates type, paging and Vietnamese search (2.5106ms)
+✔ lost-found runtime is D1/R2-only and has no source sync transport (5.052ms)
+✔ lost-found cache keys ignore unrelated parameters and stay isolated (5.8419ms)
+✔ announcement crawler writes the production school_announcements shape and deduplicates link/title (135.9097ms)
+✔ backlog announcements are imported without becoming push-eligible (4.4549ms)
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (32.1834ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (2.131ms)
+✔ desktop compensates scrollbar once and preserves existing padding (1.2537ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (258.4249ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33022.6067
