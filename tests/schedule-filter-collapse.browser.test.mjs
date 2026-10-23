@@ -392,7 +392,8 @@ if (!before)
             await page.getByRole('button', { name: 'Xóa tất cả bộ lọc', exact: true }).click();
             assert.match(await count(page), /^0 /);
             assert.equal(await page.locator('#timetable-filter-sidebar input[type=file]').count(), 1, 'PDF input stays mounted inside hidden card');
-            await page.getByRole('button', { name: 'Nhập PDF', exact: true }).click();
+            await page.getByRole('button', { name: 'Thao tác', exact: true }).click();
+            await page.getByRole('menuitem', { name: 'Nhập PDF', exact: true }).click();
             await page.getByText('Laptop / PC', { exact: true }).waitFor();
             assert.equal(await sidebar(page).isVisible(), false);
             clean(f);

@@ -1,0 +1,23 @@
+TAP version 13
+# AUTOMATED_ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+# Subtest: chromium PDF guide to real PDF parser and preview, processing disabled browser
+ok 1 - chromium PDF guide to real PDF parser and preview, processing disabled browser
+  ---
+  duration_ms: 17613.0204
+  type: 'test'
+  ...
+# Subtest: chromium PDF guide to real PDF parser and preview, processing disabled PWA
+ok 2 - chromium PDF guide to real PDF parser and preview, processing disabled PWA
+  ---
+  duration_ms: 9089.5734
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 29779.5116

@@ -1,0 +1,205 @@
+TAP version 13
+# AUTOMATED_ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+# Subtest: webkit 360: actual schedule actions, geometry, forms, scroll and keyboard
+ok 1 - webkit 360: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 98732.7522
+  type: 'test'
+  ...
+# Subtest: webkit 375: actual schedule actions, geometry, forms, scroll and keyboard
+ok 2 - webkit 375: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 24096.9056
+  type: 'test'
+  ...
+# Subtest: webkit 390: actual schedule actions, geometry, forms, scroll and keyboard
+ok 3 - webkit 390: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 27493.665
+  type: 'test'
+  ...
+# Subtest: webkit 430: actual schedule actions, geometry, forms, scroll and keyboard
+ok 4 - webkit 430: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 51172.8596
+  type: 'test'
+  ...
+# Subtest: webkit 768: actual schedule actions, geometry, forms, scroll and keyboard
+ok 5 - webkit 768: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 19923.5973
+  type: 'test'
+  ...
+# Subtest: webkit 1024: actual schedule actions, geometry, forms, scroll and keyboard
+ok 6 - webkit 1024: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 21351.2269
+  type: 'test'
+  ...
+# Subtest: webkit 1440: actual schedule actions, geometry, forms, scroll and keyboard
+ok 7 - webkit 1440: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 24479.9688
+  type: 'test'
+  ...
+# Subtest: webkit disabled {"role":"guest"}
+ok 8 - webkit disabled {"role":"guest"}
+  ---
+  duration_ms: 5492.7503
+  type: 'test'
+  ...
+# Subtest: webkit disabled {"empty":true}
+ok 9 - webkit disabled {"empty":true}
+  ---
+  duration_ms: 4806.973
+  type: 'test'
+  ...
+# Subtest: webkit disabled {"role":"guest","standalone":true}
+ok 10 - webkit disabled {"role":"guest","standalone":true}
+  ---
+  duration_ms: 8350.7853
+  type: 'test'
+  ...
+# Subtest: webkit disabled {"empty":true,"standalone":true}
+ok 11 - webkit disabled {"empty":true,"standalone":true}
+  ---
+  duration_ms: 9686.1953
+  type: 'test'
+  ...
+# Subtest: webkit positioning tracks scroll, orientation and short visual viewport
+ok 12 - webkit positioning tracks scroll, orientation and short visual viewport
+  ---
+  duration_ms: 12523.5641
+  type: 'test'
+  ...
+# Subtest: webkit admin management unchanged and student actions gated
+ok 13 - webkit admin management unchanged and student actions gated
+  ---
+  duration_ms: 3537.3832
+  type: 'test'
+  ...
+# Subtest: webkit auditor management unchanged and student actions gated
+ok 14 - webkit auditor management unchanged and student actions gated
+  ---
+  duration_ms: 3553.1744
+  type: 'test'
+  ...
+# Subtest: webkit actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup
+ok 15 - webkit actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup
+  ---
+  duration_ms: 72559.3336
+  type: 'test'
+  ...
+# {"case":"PDF","standalone":false,"errors":["Unexpected token ':'"],"debug":"{\\"fileName\\":\\"task08-fixture.pdf\\",\\"fileSize\\":186430,\\"stage\\":\\"hub-layout-parsed\\",\\"pages\\":2,\\"directParser\\":{\\"isHubSchedule\\":true,\\"detectedCourseCount\\":11,\\"parsedCourseCount\\":11,\\"completeCourseCount\\":11},\\"courseCount\\":11,\\"at\\":\\"2026-10-23T03:05:36.685Z\\"}","body":"HUB PLANNER\\n\\nHỖ TRỢ SINH VIÊN\\n\\n\\nbrowser\\nLocal timetable fixture\\nMở bộ lọc\\n(1)\\nXem danh sách lớp\\nBộ lọc nâng cao\\nHK1 (2026-2027)\\nXóa tất cả bộ lọc\\nThời khóa biểu\\n\\nXem và quản lý lịch học của bạn\\n\\nLịch cá nhân\\nKế hoạch\\nTuần\\nTháng\\nHôm nay\\nTổng quát\\n\\nThao tác\\nTHỨ 2\\nTHỨ 3\\nTHỨ 4\\nTHỨ 5\\nTHỨ 6\\nTHỨ 7\\nTHỨ CN\\n\\nSÁNG\\n07:00\\n|\\n11:05\\t\\nFixture subject 0\\nFIX0 • Đợt 1\\nP. Fixture\\n07:00 - 11:05\\n\\nCHIỀU\\n13:00\\n|\\n17:05\\t\\n\\nĐã lưu (1)\\nFixture route away\\n\\nWEB DESIGNED BY TQHOANGG\\n\\nHUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.\\n\\nĐiều khoản sử dụng\\n•\\nChính sách bảo mật"}
+# Subtest: webkit PDF guide to real PDF parser and preview, processing disabled browser
+not ok 16 - webkit PDF guide to real PDF parser and preview, processing disabled browser
+  ---
+  duration_ms: 15170.9469
+  type: 'test'
+  location: 'C:\\Users\\tqhoa\\.codex\\worktrees\\task01-release-preflight\\HUB-PLANNER\\tests\\schedule-actions-dropdown.browser.test.mjs:178:51'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+
+    + [
+    +   "Unexpected token ':'"
+    + ]
+    - []
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: "Unexpected token ':'"
+  operator: 'deepStrictEqual'
+  stack: |-
+    clean (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/schedule-actions-dropdown.browser.test.mjs:85:28)
+    TestContext.<anonymous> (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/schedule-actions-dropdown.browser.test.mjs:189:230)
+    async Test.run (node:internal/test_runner/test:1113:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# {"case":"PDF","standalone":true,"errors":["Unexpected token ':'"],"debug":"{\\"fileName\\":\\"task08-fixture.pdf\\",\\"fileSize\\":186430,\\"stage\\":\\"hub-layout-parsed\\",\\"pages\\":2,\\"directParser\\":{\\"isHubSchedule\\":true,\\"detectedCourseCount\\":11,\\"parsedCourseCount\\":11,\\"completeCourseCount\\":11},\\"courseCount\\":11,\\"at\\":\\"2026-10-23T03:06:00.201Z\\"}","body":"uổi 6\\n\\nGiờ học:\\n–\\n\\nBuổi 7\\n\\nGiờ học:\\n–\\n\\nBuổi 8\\n\\nGiờ học:\\n–\\n\\nBuổi 9\\n\\nGiờ học:\\n–\\n\\nBuổi 10\\n\\nGiờ học:\\n–\\n\\nBuổi 11\\n\\nGiờ học:\\n–\\n\\nBuổi 12\\n\\nGiờ học:\\n–\\nGIẢNG VIÊN\\n\\nMôn ngoài hệ thống\\n7\\nMÔN HỌC\\nTín chỉ9 buổi dự kiến\\n\\nLịch dự kiến — vui lòng kiểm tra\\n\\nThêm buổi\\nÁp dụng\\nÁp dụng\\n\\nBuổi 1\\n\\nGiờ học:\\n–\\n\\nBuổi 2\\n\\nGiờ học:\\n–\\n\\nBuổi 3\\n\\nGiờ học:\\n–\\n\\nBuổi 4\\n\\nGiờ học:\\n–\\n\\nBuổi 5\\n\\nGiờ học:\\n–\\n\\nBuổi 6\\n\\nGiờ học:\\n–\\n\\nBuổi 7\\n\\nGiờ học:\\n–\\n\\nBuổi 8\\n\\nGiờ học:\\n–\\n\\nBuổi 9\\n\\nGiờ học:\\n–\\nGIẢNG VIÊN\\n\\nMôn ngoài hệ thống\\n8\\nMÔN HỌC\\nTín chỉ9 buổi dự kiến\\n\\nLịch dự kiến — vui lòng kiểm tra\\n\\nThêm buổi\\nÁp dụng\\nÁp dụng\\n\\nBuổi 1\\n\\nGiờ học:\\n–\\n\\nBuổi 2\\n\\nGiờ học:\\n–\\n\\nBuổi 3\\n\\nGiờ học:\\n–\\n\\nBuổi 4\\n\\nGiờ học:\\n–\\n\\nBuổi 5\\n\\nGiờ học:\\n–\\n\\nBuổi 6\\n\\nGiờ học:\\n–\\n\\nBuổi 7\\n\\nGiờ học:\\n–\\n\\nBuổi 8\\n\\nGiờ học:\\n–\\n\\nBuổi 9\\n\\nGiờ học:\\n–\\nGIẢNG VIÊN\\n\\nMôn ngoài hệ thống\\n9\\nMÔN HỌC\\nTín chỉ3 buổi dự kiến\\n\\nLịch dự kiến — vui lòng kiểm tra\\n\\nThêm buổi\\nÁp dụng\\nÁp dụng\\n\\nBuổi 1\\n\\nGiờ học:\\n–\\n\\nBuổi 2\\n\\nGiờ học:\\n–\\n\\nBuổi 3\\n\\nGiờ học:\\n–\\nGIẢNG VIÊN\\n\\nMôn ngoài hệ thống\\n10\\nMÔN HỌC\\nTín chỉ6 buổi dự kiến\\n\\nLịch dự kiến — vui lòng kiểm tra\\n\\nThêm buổi\\nÁp dụng\\nÁp dụng\\n\\nBuổi 1\\n\\nGiờ học:\\n–\\n\\nBuổi 2\\n\\nGiờ học:\\n–\\n\\nBuổi 3\\n\\nGiờ học:\\n–\\n\\nBuổi 4\\n\\nGiờ học:\\n–\\n\\nBuổi 5\\n\\nGiờ học:\\n–\\n\\nBuổi 6\\n\\nGiờ học:\\n–\\nGIẢNG VIÊN\\n\\nMôn ngoài hệ thống\\n11\\nMÔN HỌC\\nTín chỉ3 buổi dự kiến\\n\\nLịch dự kiến — vui lòng kiểm tra\\n\\nThêm buổi\\nÁp dụng\\nÁp dụng\\n\\nBuổi 1\\n\\nGiờ học:\\n–\\n\\nBuổi 2\\n\\nGiờ học:\\n–\\n\\nBuổi 3\\n\\nGiờ học:\\n–\\nGIẢNG VIÊN\\n\\nMôn ngoài hệ thống\\n\\n2 môn chưa đủ mã, tên, tín chỉ, giảng viên hoặc lịch học hợp lệ.\\n\\n11 môn sẽ thay thế lịch hiện tại\\nHủy\\nXác nhận nhập\\n\\n✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖"}
+# Subtest: webkit PDF guide to real PDF parser and preview, processing disabled PWA
+not ok 17 - webkit PDF guide to real PDF parser and preview, processing disabled PWA
+  ---
+  duration_ms: 47546.984
+  type: 'test'
+  location: 'C:\\Users\\tqhoa\\.codex\\worktrees\\task01-release-preflight\\HUB-PLANNER\\tests\\schedule-actions-dropdown.browser.test.mjs:178:51'
+  failureType: 'testCodeFailure'
+  error: |-
+    locator.click: Timeout 30000ms exceeded.
+    Call log:
+    [2m  - waiting for getByRole('button', { name: 'Thao tác', exact: true })[22m
+    [2m    - locator resolved to <button type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="_r_1_" class="schedule-actions-trigger">…</button>[22m
+    [2m  - attempting click action[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is visible, enabled and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <span class="mb-1 block text-[10px] font-bold uppercase text-slate-400 lg:hidden">Môn học</span> from <div data-overlay-root="" class="overlay-root fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is visible, enabled and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <button disabled type="button" class="h-8 rounded-md border border-slate-300 px-2 text-[11px] font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Áp dụng</button> from <div data-overlay-root="" class="overlay-root fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 20ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is visible, enabled and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <span class="mb-1 block text-[10px] font-bold uppercase text-slate-400 lg:hidden">Môn học</span> from <div data-overlay-root="" class="overlay-root fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 100ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div data-overlay-root="" class="overlay-root fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">…</div> intercepts pointer events[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is visible, enabled and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <button disabled type="button" class="h-8 rounded-md border border-slate-300 px-2 text-[11px] font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">Áp dụng</button> from <div data-overlay-root="" class="overlay-root fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">…</div> subtree intercepts pointer events[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+    [2m    - waiting for element to be visible, enabled and stable[22m
+    [2m    - element is visible, enabled and stable[22m
+    [2m    - scrolling into view if needed[22m
+    [2m    - done scrolling[22m
+    [2m    - <span class="mb-1 block text-[10px] font-bold uppercase text-slate-400 lg:hidden">Môn học</span> from <div data-overlay-root="" class="overlay-root fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">…</div> subtree intercepts pointer events[22m
+    [2m  2 × retrying click action[22m
+    [2m      - waiting 500ms[22m
+    [2m      - waiting for element to be visible, enabled and stable[22m
+    [2m      - element is visible, enabled and stable[22m
+    [2m      - scrolling into view if needed[22m
+    [2m      - done scrolling[22m
+    [2m      - <div data-overlay-root="" class="overlay-root fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">…</div> intercepts pointer events[22m
+    [2m  - retrying click action[22m
+    [2m    - waiting 500ms[22m
+
+  code: 'ERR_TEST_FAILURE'
+  name: 'TimeoutError'
+  stack: |-
+    show (C:\Users\tqhoa\.codex\worktrees\task01-release-preflight\HUB-PLANNER\tests\schedule-actions-dropdown.browser.test.mjs:108:142)
+    async TestContext.<anonymous> (C:\Users\tqhoa\.codex\worktrees\task01-release-preflight\HUB-PLANNER\tests\schedule-actions-dropdown.browser.test.mjs:185:2)
+  ...
+# Subtest: webkit week/month dropdown ownership, plans and contextual labels remain reachable
+ok 18 - webkit week/month dropdown ownership, plans and contextual labels remain reachable
+  ---
+  duration_ms: 21544.08
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 16
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 478394.688

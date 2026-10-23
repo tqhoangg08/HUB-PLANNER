@@ -1,0 +1,118 @@
+TAP version 13
+# Subtest: chromium 360: actual schedule actions, geometry, forms, scroll and keyboard
+ok 1 - chromium 360: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 47998.9226
+  type: 'test'
+  ...
+# Subtest: chromium 375: actual schedule actions, geometry, forms, scroll and keyboard
+ok 2 - chromium 375: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 14206.0099
+  type: 'test'
+  ...
+# Subtest: chromium 390: actual schedule actions, geometry, forms, scroll and keyboard
+ok 3 - chromium 390: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 13716.8502
+  type: 'test'
+  ...
+# Subtest: chromium 430: actual schedule actions, geometry, forms, scroll and keyboard
+ok 4 - chromium 430: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 12760.2041
+  type: 'test'
+  ...
+# Subtest: chromium 768: actual schedule actions, geometry, forms, scroll and keyboard
+ok 5 - chromium 768: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 10660.1438
+  type: 'test'
+  ...
+# Subtest: chromium 1024: actual schedule actions, geometry, forms, scroll and keyboard
+ok 6 - chromium 1024: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 10453.0064
+  type: 'test'
+  ...
+# Subtest: chromium 1440: actual schedule actions, geometry, forms, scroll and keyboard
+ok 7 - chromium 1440: actual schedule actions, geometry, forms, scroll and keyboard
+  ---
+  duration_ms: 12933.0316
+  type: 'test'
+  ...
+# Subtest: chromium disabled {"role":"guest"}
+ok 8 - chromium disabled {"role":"guest"}
+  ---
+  duration_ms: 2806.6836
+  type: 'test'
+  ...
+# Subtest: chromium disabled {"empty":true}
+ok 9 - chromium disabled {"empty":true}
+  ---
+  duration_ms: 3944.2003
+  type: 'test'
+  ...
+# Subtest: chromium disabled {"role":"guest","standalone":true}
+ok 10 - chromium disabled {"role":"guest","standalone":true}
+  ---
+  duration_ms: 2729.5429
+  type: 'test'
+  ...
+# Subtest: chromium disabled {"empty":true,"standalone":true}
+ok 11 - chromium disabled {"empty":true,"standalone":true}
+  ---
+  duration_ms: 3217.358
+  type: 'test'
+  ...
+# Subtest: chromium positioning tracks scroll, orientation and short visual viewport
+ok 12 - chromium positioning tracks scroll, orientation and short visual viewport
+  ---
+  duration_ms: 9002.4147
+  type: 'test'
+  ...
+# Subtest: chromium admin management unchanged and student actions gated
+ok 13 - chromium admin management unchanged and student actions gated
+  ---
+  duration_ms: 6057.0442
+  type: 'test'
+  ...
+# Subtest: chromium auditor management unchanged and student actions gated
+ok 14 - chromium auditor management unchanged and student actions gated
+  ---
+  duration_ms: 7647.1589
+  type: 'test'
+  ...
+# Subtest: chromium actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup
+ok 15 - chromium actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup
+  ---
+  duration_ms: 24182.3953
+  type: 'test'
+  ...
+# Subtest: chromium PDF guide to real PDF parser and preview, processing disabled browser
+ok 16 - chromium PDF guide to real PDF parser and preview, processing disabled browser
+  ---
+  duration_ms: 31981.351
+  type: 'test'
+  ...
+# Subtest: chromium PDF guide to real PDF parser and preview, processing disabled PWA
+ok 17 - chromium PDF guide to real PDF parser and preview, processing disabled PWA
+  ---
+  duration_ms: 18978.5144
+  type: 'test'
+  ...
+# Subtest: chromium week/month dropdown ownership, plans and contextual labels remain reachable
+ok 18 - chromium week/month dropdown ownership, plans and contextual labels remain reachable
+  ---
+  duration_ms: 21984.5428
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 340977.5938

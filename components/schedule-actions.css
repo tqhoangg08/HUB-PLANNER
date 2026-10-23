@@ -1,0 +1,29 @@
+.schedule-actions { flex-shrink: 0; }
+.schedule-actions-trigger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 44px; min-height: 44px; padding: 8px 12px;
+  border: 1px solid #d0dbea; border-radius: 10px;
+  background: #fff; color: #003375; font-size: 13px; font-weight: 700;
+  white-space: nowrap; cursor: pointer;
+}
+.schedule-actions-trigger:hover, .schedule-actions-trigger[aria-expanded="true"] { background: #eff5fc; }
+.schedule-actions-trigger:focus-visible, .schedule-actions-menu button:focus-visible { outline: 2px solid #0056c7; outline-offset: -2px; }
+.schedule-actions-menu {
+  --actions-safe-top: env(safe-area-inset-top, 0px);
+  --actions-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --actions-safe-left: env(safe-area-inset-left, 0px);
+  --actions-safe-right: env(safe-area-inset-right, 0px);
+  position: fixed; z-index: 95000; box-sizing: border-box;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 6px; border: 1px solid #d0dbea; border-radius: 12px;
+  background: #fff; color: #003375; box-shadow: 0 8px 30px #001b4933;
+  scroll-padding: 6px;
+}
+.schedule-actions-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px;
+  padding: 10px; border-radius: 7px; text-align: left; font-size: 13px;
+  line-height: 20px; font-weight: 600; cursor: pointer;
+}
+.schedule-actions-menu button:hover:not(:disabled), .schedule-actions-menu button:focus-visible { background: #eff5fc; }
+.schedule-actions-menu button:disabled { color: #64748b; opacity: .65; cursor: not-allowed; }
+.schedule-actions-menu svg { flex-shrink: 0; }
