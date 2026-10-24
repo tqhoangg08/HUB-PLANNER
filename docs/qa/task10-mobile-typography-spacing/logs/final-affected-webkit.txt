@@ -1,0 +1,59 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5175/
+Loading /learning PWA
+Navigated /learning
+{"errors":["Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached"],"writes":[],"body":""}
+Fixture /learning: locator.waitFor: Timeout 20000ms exceeded.
+Call log:
+[2m  - waiting for locator('#mode')[22m
+
+{"errors":["Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached","Failed to load resource: Timeout was reached"],"writes":[],"url":"http://127.0.0.1:5175/learning?role=student&appPreview=1"}
+✖ webkit accept /learning PWA student (94076.5705ms)
+Loading /learning?tab=schedule PWA
+Navigated /learning?tab=schedule
+Mode /learning?tab=schedule
+Fonts /learning?tab=schedule
+Rendered /learning?tab=schedule
+URL=http://127.0.0.1:5175/learning?tab=schedule&role=student&appPreview=1
+✔ webkit accept /learning?tab=schedule PWA student (63810.832ms)
+Loading /events PWA
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5175/events?role=student&appPreview=1
+✔ webkit accept /events PWA student (30603.5336ms)
+Loading /lost-found PWA
+Navigated /lost-found
+Mode /lost-found
+Fonts /lost-found
+Rendered /lost-found
+URL=http://127.0.0.1:5175/lost-found?role=student&appPreview=1
+✔ webkit accept /lost-found PWA student (29767.7637ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit real announcement and contribution forms: keyboard viewport, focus and scroll (45407.5613ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 277055.1336
+
+✖ failing tests:
+
+test at tests\mobile-design.browser.test.mjs:449:184
+✖ webkit accept /learning PWA student (94076.5705ms)
+  locator.waitFor: Timeout 20000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('#mode')[22m
+
+      at fixture (<workspace>\tests\mobile-design.browser.test.mjs:292:33)
+      at async TestContext.<anonymous> (<workspace>\tests\mobile-design.browser.test.mjs:452:13) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for locator('#mode')" ]
+  }

@@ -1,0 +1,21 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5174/
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit real announcement and contribution forms: keyboard viewport, focus and scroll (32201.5095ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit actual PWA AI and Ticket controls: input size, touch, draft and scroll (40488.0415ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 77876.3827

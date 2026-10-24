@@ -1,0 +1,16 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5174/
+Loading /learning PWA
+Navigated /learning
+Mode /learning
+Fonts /learning
+Rendered /learning
+URL=http://127.0.0.1:5174/learning?role=student&appPreview=1
+✔ webkit accept /learning PWA student (33419.6862ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 38458.7201

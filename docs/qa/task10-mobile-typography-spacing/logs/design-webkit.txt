@@ -1,0 +1,334 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5174/
+Loading /profiles/search?q=fixture student
+Navigated /profiles/search?q=fixture
+Mode /profiles/search?q=fixture
+Fonts /profiles/search?q=fixture
+Rendered /profiles/search?q=fixture
+URL=http://127.0.0.1:5174/profiles/search?q=fixture&role=student
+✔ webkit accept /profiles/search?q=fixture browser student (10118.6926ms)
+Loading /profiles/search?q=fixture PWA
+Navigated /profiles/search?q=fixture
+Mode /profiles/search?q=fixture
+Fonts /profiles/search?q=fixture
+Rendered /profiles/search?q=fixture
+URL=http://127.0.0.1:5174/profiles/search?q=fixture&role=student&appPreview=1
+✔ webkit accept /profiles/search?q=fixture PWA student (12815.7886ms)
+Loading /scholarships student
+Navigated /scholarships
+Mode /scholarships
+Fonts /scholarships
+Rendered /scholarships
+URL=http://127.0.0.1:5174/scholarships?role=student
+✔ webkit accept /scholarships browser student (11941.073ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5174/dashboard?role=student
+✔ webkit accept /dashboard browser student (171749.5756ms)
+Loading /schedule student
+Navigated /schedule
+Mode /schedule
+Fonts /schedule
+Rendered /schedule
+URL=http://127.0.0.1:5174/schedule?role=student
+✔ webkit accept /schedule browser student (16687.297ms)
+Loading /events student
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5174/events?role=student
+✔ webkit accept /events browser student (22729.2665ms)
+Loading /lost-found student
+Navigated /lost-found
+Mode /lost-found
+Fonts /lost-found
+Rendered /lost-found
+URL=http://127.0.0.1:5174/lost-found?role=student
+✔ webkit accept /lost-found browser student (19520.6821ms)
+Loading /handbook/contacts student
+Navigated /handbook/contacts
+Mode /handbook/contacts
+Fonts /handbook/contacts
+Rendered /handbook/contacts
+URL=http://127.0.0.1:5174/handbook/contacts?role=student
+✔ webkit accept /handbook/contacts browser student (18393.2346ms)
+Loading /handbook/feedback student
+Navigated /handbook/feedback
+Mode /handbook/feedback
+Fonts /handbook/feedback
+Rendered /handbook/feedback
+URL=http://127.0.0.1:5174/handbook/feedback?role=student
+✔ webkit accept /handbook/feedback browser student (16871.9728ms)
+Loading /support/new student
+Navigated /support/new
+Mode /support/new
+Fonts /support/new
+Rendered /support/new
+URL=http://127.0.0.1:5174/support/new?role=student
+✔ webkit accept /support/new browser student (14229.6786ms)
+Loading /profile/000000000001 student
+Navigated /profile/000000000001
+Mode /profile/000000000001
+Fonts /profile/000000000001
+Rendered /profile/000000000001
+URL=http://127.0.0.1:5174/profile/000000000001?role=student
+✔ webkit accept /profile/000000000001 browser student (16198.9711ms)
+Loading /support student
+Navigated /support
+Mode /support
+Fonts /support
+Rendered /support
+URL=http://127.0.0.1:5174/support?role=student
+✔ webkit accept /support browser student (20916.4195ms)
+Loading /handbook/scholarships student
+Navigated /handbook/scholarships
+Mode /handbook/scholarships
+Fonts /handbook/scholarships
+Rendered /handbook/scholarships
+URL=http://127.0.0.1:5174/handbook/scholarships?role=student
+✔ webkit accept /handbook/scholarships browser student (14064.7123ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5174/mobile-home?role=student&appPreview=1
+✔ webkit accept /mobile-home PWA student (43998.9998ms)
+Loading /learning PWA
+Navigated /learning
+Mode /learning
+Fonts /learning
+Rendered /learning
+URL=http://127.0.0.1:5174/learning?role=student&appPreview=1
+✔ webkit accept /learning PWA student (53307.4938ms)
+Loading /learning?tab=schedule PWA
+Navigated /learning?tab=schedule
+Mode /learning?tab=schedule
+Fonts /learning?tab=schedule
+Rendered /learning?tab=schedule
+URL=http://127.0.0.1:5174/learning?tab=schedule&role=student&appPreview=1
+✔ webkit accept /learning?tab=schedule PWA student (22346.5013ms)
+Loading /events PWA
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5174/events?role=student&appPreview=1
+✔ webkit accept /events PWA student (18406.173ms)
+Loading /lost-found PWA
+Navigated /lost-found
+Mode /lost-found
+Fonts /lost-found
+Rendered /lost-found
+URL=http://127.0.0.1:5174/lost-found?role=student&appPreview=1
+✔ webkit accept /lost-found PWA student (23621.7098ms)
+Loading /profile/000000000001 PWA
+Navigated /profile/000000000001
+Mode /profile/000000000001
+Fonts /profile/000000000001
+Rendered /profile/000000000001
+URL=http://127.0.0.1:5174/profile/000000000001?role=student&appPreview=1
+✔ webkit accept /profile/000000000001 PWA student (20363.0869ms)
+Loading /handbook/contacts PWA
+Navigated /handbook/contacts
+Mode /handbook/contacts
+Fonts /handbook/contacts
+Rendered /handbook/contacts
+URL=http://127.0.0.1:5174/handbook/contacts?role=student&appPreview=1
+✔ webkit accept /handbook/contacts PWA student (18372.2604ms)
+Loading /handbook/feedback PWA
+Navigated /handbook/feedback
+Mode /handbook/feedback
+Fonts /handbook/feedback
+Rendered /handbook/feedback
+URL=http://127.0.0.1:5174/handbook/feedback?role=student&appPreview=1
+✔ webkit accept /handbook/feedback PWA student (21300.4897ms)
+Loading /dashboard admin
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5174/dashboard?role=admin
+✔ webkit accept /dashboard browser admin (10521.8059ms)
+Loading /dashboard auditor
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5174/dashboard?role=auditor
+✔ webkit accept /dashboard browser auditor (10700.3196ms)
+Loading /events admin
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5174/events?role=admin
+✔ webkit accept /events browser admin (10683.1885ms)
+Loading /events auditor
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5174/events?role=auditor
+✔ webkit accept /events browser auditor (10399.7525ms)
+Loading /admin/support admin
+Navigated /admin/support
+Mode /admin/support
+Fonts /admin/support
+Rendered /admin/support
+URL=http://127.0.0.1:5174/admin/support?role=admin
+✔ webkit accept /admin/support browser admin (7365.3298ms)
+Loading /admin/support auditor
+Navigated /admin/support
+Mode /admin/support
+Fonts /admin/support
+Rendered /admin/support
+URL=http://127.0.0.1:5174/admin/support?role=auditor
+✔ webkit accept /admin/support browser auditor (6339.7107ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5174/dashboard?role=guest
+✔ webkit accept /dashboard browser guest (21852.8528ms)
+Loading /events guest
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5174/events?role=guest
+✔ webkit accept /events browser guest (12748.9976ms)
+Loading /support guest
+Navigated /support
+Mode /support
+Fonts /support
+Rendered /support
+URL=http://127.0.0.1:5174/support?role=guest
+✔ webkit accept /support browser guest (11805.0304ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5174/mobile-home?role=guest&appPreview=1
+✔ webkit accept /mobile-home PWA guest (32499.198ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 320x568 browser (25996.2755ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit design matrix 320x568 PWA (31883.2744ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 360x640 browser (20468.3947ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit design matrix 360x640 PWA (26797.3853ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 375x667 browser (23513.9244ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit design matrix 375x667 PWA (26268.524ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 390x844 browser (18578.1427ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit design matrix 390x844 PWA (30317.4861ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 430x932 browser (16785.8417ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit design matrix 430x932 PWA (23160.6722ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 768x1024 browser (9834.1481ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 1024x768 browser (9452.3201ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 1440x900 browser (14375.1907ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit design matrix 667x375 browser (17221.5646ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit design matrix 667x375 PWA (22465.8901ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit real announcement and contribution forms: keyboard viewport, focus and scroll (15015.3263ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit PWA bottom navigation, final content and touch ownership (11032.1599ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ webkit actual PWA AI and Ticket controls: input size, touch, draft and scroll (21830.7943ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1091050.929

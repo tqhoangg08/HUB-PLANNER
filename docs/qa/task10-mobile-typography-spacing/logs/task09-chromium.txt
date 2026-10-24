@@ -1,0 +1,21 @@
+ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+✔ chromium 360x640: actual modal layout, filters, scroll and dismissal (92531.7075ms)
+✔ chromium 375x667: actual modal layout, filters, scroll and dismissal (11613.5992ms)
+✔ chromium 390x844: actual modal layout, filters, scroll and dismissal (9139.3035ms)
+✔ chromium 430x932: actual modal layout, filters, scroll and dismissal (6718.4271ms)
+✔ chromium 768x1024: actual modal layout, filters, scroll and dismissal (5996.9501ms)
+✔ chromium 1024x768: actual modal layout, filters, scroll and dismissal (9882.6828ms)
+✔ chromium 1440x900: actual modal layout, filters, scroll and dismissal (13057.1349ms)
+✔ chromium 667x375: actual modal layout, filters, scroll and dismissal (8725.6501ms)
+✔ chromium 390x240: actual modal layout, filters, scroll and dismissal (11976.9245ms)
+✔ chromium after: out-of-order response evidence (5575.5067ms)
+✔ chromium: visual viewport offset, safe-area padding and pending loading ownership (7872.9275ms)
+✔ chromium: pagination, debounce, error/empty, focus and internal-root cleanup (14098.9287ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 223790.4449

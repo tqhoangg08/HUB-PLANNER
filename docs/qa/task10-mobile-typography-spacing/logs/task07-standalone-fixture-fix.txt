@@ -1,0 +1,27 @@
+✔ webkit: plan A/B, week/month, result selection and PWA remain available (23610.9683ms)
+ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✖ webkit: visual viewport offset, safe-area padding and pending loading ownership (10929.9509ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41394.9048
+
+✖ failing tests:
+
+test at tests\school-announcements-modal.browser.test.mjs:193:14
+✖ webkit: visual viewport offset, safe-area padding and pending loading ownership (10929.9509ms)
+  AssertionError [ERR_ASSERTION]: {"constrained":{"panel":{"x":8,"y":44,"width":374,"height":224,"bottom":268},"header":{"x":9,"y":45,"width":372,"height":58.390625,"bottom":103.390625},"filters":{"x":9,"y":103.390625,"width":372,"height":102.609375,"bottom":206},"list":{"x":9,"y":206,"width":372,"height":14,"bottom":220},"footer":{"x":9,"y":220,"width":372,"height":47,"bottom":267},"close":{"x":329,"y":52.1875,"width":44,"height":44,"bottom":96.1875},"pagination":[{"x":208.625,"y":222,"width":44,"height":44,"bottom":266},{"x":329,"y":222,"width":44,"height":44,"bottom":266}],"cardsVisible":0,"listScroll":[0,19,14],"scroll":[0,0],"internalScroll":0,"overflow":false,"viewport":[390,844]},"searchBox":{"x":17,"y":107.390625,"width":219.546875,"height":44},"dateBox":{"x":17,"y":173.390625,"width":174,"height":44}}
+      at TestContext.<anonymous> (file:///<workspace>/tests/school-announcements-modal.browser.test.mjs:208:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

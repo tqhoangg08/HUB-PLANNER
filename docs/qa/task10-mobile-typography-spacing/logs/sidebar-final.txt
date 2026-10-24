@@ -1,0 +1,18 @@
+✔ chromium browser student 375x667: drawer, isolation, scroll, focus, route and resize (16796.1711ms)
+✔ chromium browser guest 375x667: drawer, isolation, scroll, focus, route and resize (8937.495ms)
+✔ chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize (9759.6813ms)
+✔ chromium browser auditor 390x844: drawer, isolation, scroll, focus, route and resize (9138.1456ms)
+✔ chromium: higher overlay ownership, existing AI draft and viewport geometry (4205.9794ms)
+✔ webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize (21750.7488ms)
+✔ webkit browser guest 375x667: drawer, isolation, scroll, focus, route and resize (16754.1173ms)
+✔ webkit browser admin 375x667: drawer, isolation, scroll, focus, route and resize (27313.3002ms)
+✔ webkit browser auditor 390x844: drawer, isolation, scroll, focus, route and resize (22219.6398ms)
+✔ webkit: higher overlay ownership, existing AI draft and viewport geometry (6507.5854ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 149105.9013

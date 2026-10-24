@@ -1,0 +1,51 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ chromium accept /dashboard browser student (12706.6634ms)
+Loading /learning PWA
+Navigated /learning
+Mode /learning
+Fonts /learning
+Rendered /learning
+URL=http://127.0.0.1:5173/learning?role=student&appPreview=1
+✔ chromium accept /learning PWA student (48661.2483ms)
+Loading /learning?tab=schedule PWA
+Navigated /learning?tab=schedule
+Mode /learning?tab=schedule
+Fonts /learning?tab=schedule
+Rendered /learning?tab=schedule
+URL=http://127.0.0.1:5173/learning?tab=schedule&role=student&appPreview=1
+✔ chromium accept /learning?tab=schedule PWA student (30264.2921ms)
+Loading /events PWA
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5173/events?role=student&appPreview=1
+✔ chromium accept /events PWA student (39727.0915ms)
+Loading /lost-found PWA
+Navigated /lost-found
+Mode /lost-found
+Fonts /lost-found
+Rendered /lost-found
+URL=http://127.0.0.1:5173/lost-found?role=student&appPreview=1
+✔ chromium accept /lost-found PWA student (20441.7316ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ chromium accept /dashboard browser guest (12759.7161ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 171065.5226
