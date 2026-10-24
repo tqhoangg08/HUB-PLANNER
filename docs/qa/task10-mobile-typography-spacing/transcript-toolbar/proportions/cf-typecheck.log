@@ -1,0 +1,3 @@
+
+> hub-grade-planner@0.0.0 cf:typecheck
+> tsc -p cloudflare/tsconfig.json --noEmit

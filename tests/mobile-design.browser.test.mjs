@@ -83,6 +83,36 @@ const campaign = {
   scoreColumns: []
 };
 const records = [];
+async function transcriptScale(page) {
+  return page.evaluate(() => {
+    const read = e => {
+      const r = e.getBoundingClientRect(), s = getComputedStyle(e);
+      return { size: parseFloat(s.fontSize), weight: s.fontWeight, width: r.width, height: r.height, x: r.x, y: r.y };
+    };
+    const bar = document.querySelector('[data-transcript-toolbar]');
+    return {
+      title: read(bar.querySelector('h2')),
+      semester: read(document.querySelector('[data-transcript-editable] select')),
+      gap: parseFloat(getComputedStyle(bar.querySelector('.transcript-toolbar__actions')).gap),
+      buttons: [...bar.querySelectorAll('button')].filter(b => b.getClientRects().length).map(b => ({ ...read(b), label: b.textContent, more: b.classList.contains('transcript-toolbar__more'), icon: read(b.querySelector('svg')) }))
+    };
+  });
+}
+function assertTranscriptScale(scale, width) {
+  const mobile = width < 768, target = mobile ? 44 : 40;
+  assert.ok(Math.abs(scale.title.size - (mobile ? 18 : 20)) < .02, JSON.stringify(scale));
+  assert.equal(scale.title.weight, '600');
+  assert.ok(Math.abs(scale.semester.size - (mobile ? 16 : 17)) < .02, JSON.stringify(scale));
+  assert.equal(scale.semester.weight, '600');
+  assert.equal(scale.gap, 8);
+  for (const b of scale.buttons) {
+    assert.ok(Math.abs(b.size - 14) < .02 && b.weight === '600', JSON.stringify(b));
+    assert.ok(Math.abs(b.height - target) < .1 && b.width >= target, JSON.stringify(b));
+    if (b.more) assert.equal(b.width, target);
+    assert.equal(b.icon.width, 16);
+    assert.equal(b.icon.height, 16);
+  }
+}
 test(`${engine} transcript toolbar responsive actions and keyboard`, { timeout: 180000 }, async () => {
   const f = await fixture('/dashboard'), p = f.page;
   try {
@@ -93,9 +123,12 @@ test(`${engine} transcript toolbar responsive actions and keyboard`, { timeout: 
       await p.setViewportSize({ width, height: 900 });
       await bar.scrollIntoViewIfNeeded();
       const g = await bar.evaluate(e => ({ height: e.getBoundingClientRect().height, buttons: [...e.querySelectorAll('button')].filter(b => b.getClientRects().length).map(b => { const r = b.getBoundingClientRect(); return { label: b.getAttribute('aria-label') || b.textContent, x: r.x, y: r.y, width: r.width, height: r.height, right: r.right }; }), font: getComputedStyle(e).fontFamily }));
-      measurements.push({ width, ...g });
+      const scale = await transcriptScale(p);
+      assertTranscriptScale(scale, width);
+      measurements.push({ width, ...g, scale });
       assert.equal(g.buttons.length, width < 768 ? 2 : 4);
-      assert.ok(g.buttons.every(b => b.width >= 44 && b.height >= 44 && b.right <= width + 1));
+      const target = width < 768 ? 44 : 40;
+      assert.ok(g.buttons.every(b => b.width >= target && b.height >= target && b.right <= width + 1));
       assert.ok(Math.max(...g.buttons.map(b => b.y)) - Math.min(...g.buttons.map(b => b.y)) < 1, 'actions stay on one row');
       assert.ok(g.font.includes('Inter'));
       assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
@@ -144,6 +177,34 @@ test(`${engine} transcript toolbar responsive actions and keyboard`, { timeout: 
     assert.deepEqual(f.errors, []);
     assert.deepEqual(f.writes, []);
     records.push({ scenario: 'transcript responsive toolbar', measurements });
+  } finally { await f.context.close(); }
+});
+test(`${engine} transcript toolbar proportions for empty and editing states`, { timeout: 180000 }, async () => {
+  const f = await fixture('/dashboard?emptySemester=1'), p = f.page;
+  const measurements = [];
+  try {
+    const bar = p.locator('[data-transcript-toolbar]');
+    for (const width of [320, 375, 390, 430, 1440]) {
+      await p.setViewportSize({ width, height: 900 });
+      await bar.getByRole('button', { name: 'Nhập bảng điểm', exact: true }).waitFor();
+      await bar.scrollIntoViewIfNeeded();
+      const empty = await transcriptScale(p);
+      assertTranscriptScale(empty, width);
+      await p.screenshot({ path: `${out}/${engine}-scale-empty-${width}.png`, scale: 'css' });
+      await bar.getByRole('button', { name: 'Thao tác bảng điểm' }).click();
+      await p.getByRole('menuitem', { name: 'Chỉnh sửa thủ công' }).click();
+      await bar.getByRole('button', { name: 'Lưu', exact: true }).waitFor();
+      const editing = await transcriptScale(p);
+      assertTranscriptScale(editing, width);
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+      await p.screenshot({ path: `${out}/${engine}-scale-save-${width}.png`, scale: 'css' });
+      measurements.push({ width, empty, editing });
+      await bar.getByRole('button', { name: 'Thao tác bảng điểm' }).click();
+      await p.getByRole('menuitem', { name: 'Hủy chỉnh sửa' }).click();
+    }
+    records.push({ scenario: 'transcript typography proportions', measurements });
+    assert.deepEqual(f.errors, []);
+    assert.deepEqual(f.writes, []);
   } finally { await f.context.close(); }
 });
 test(`${engine} transcript toolbar save retry preserves draft and cancel`, { timeout: 180000 }, async () => {

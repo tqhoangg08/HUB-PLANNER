@@ -39,6 +39,16 @@ artwork may be smaller. Inline prose links use `ui-inline-link`, not an artifici
 44px inline box. Give icon-only controls accessible names. Keep visible keyboard
 focus and test hit testing, not just bounding boxes.
 
+### Transcript hierarchy
+
+The browser transcript is a scoped density variant: its section heading is
+18px/600 on mobile and 20px/600 on desktop; semester selectors are 16px/600
+and 17px/600 respectively. Toolbar labels remain 14px/600 with 16px icons and
+8px between actions. Mobile controls keep >=44px touch areas; desktop toolbar
+controls use a 40px minimum and a 40px square overflow trigger. Text can grow
+and wrap rather than being clipped. This does not change other headings,
+global input sizes, PWA components or document/PDF styling.
+
 44px is **HUB Planner's product contract**, informed by
 [Apple's 44-point guidance](https://developer.apple.com/design/tips/).
 [Android recommends 48dp](https://support.google.com/accessibility/android/answer/7101858?hl=en),

@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "397694017a1a86369856b9a9e269efda583b2266966529f8afa3dc9ad99105e1"
+      "sha256NormalizedLF": "3d465e8feb72a615448e67200c94cd063bd7837fadf753593fb5705a56082700"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -512,7 +512,7 @@
     },
     {
       "path": "tests/mobile-design-harness.tsx",
-      "sha256NormalizedLF": "025e4250582aa8beacf3990ab97dfeb1f5f6c9a06ba05cefc49b357fa905dc77"
+      "sha256NormalizedLF": "15484adbaf42e72ce2dbd082cb80c4f6969e98c4670e1956776e6327691def4d"
     },
     {
       "path": "tests/mobile-design-measurements.mjs",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "2a7921041d0633eb38c1a8e9736b1c963fbd7bf5b27f896411c4b2bcb190838b"
+      "sha256NormalizedLF": "81ce0aaa4f57b98f2ec4473d008ad7b6d7fa3d44a03eba3a904f160750c528b3"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -540,7 +540,7 @@
     },
     {
       "path": "components/transcript-toolbar.css",
-      "sha256NormalizedLF": "923c02a4fb35378a0023aaf31c27e71c64b040a54c6fd3da4a524c02bed7516e"
+      "sha256NormalizedLF": "10d5bbbaf610122c55704295673c08c1872ac1a90d9bbbf521203de3b2ebcc2b"
     }
   ],
   "safety": {
@@ -589,5 +589,18 @@
       "realDeviceAcceptance": "NOT_VERIFIED"
     },
     "note": "Prior full-matrix evidence remains historical; this follow-up reruns the affected actual Dashboard contexts and toolbar scenarios only."
+  },
+  "transcriptProportionFollowup": {
+    "evidence": "transcript-toolbar/proportions/validation.json",
+    "beforeSha": "a35a420455c48afebfe4a31d58148e29bb0438eb",
+    "results": {
+      "chromium": "6/6 PASS",
+      "webkit": "6/6 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing large-chunk warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Current scoped density supersedes the previous toolbar size measurements; historical measurements remain preserved."
   }
 }

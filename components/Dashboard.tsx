@@ -773,7 +773,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     }}
                     aria-disabled={isReadOnly}
                     tabIndex={isReadOnly ? -1 : 0}
-                    className={`ui-input text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
+                    className={`ui-input transcript-semester-title font-semibold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
                         !isValidFormat
                         ? 'text-red-600 border-red-400 hover:border-red-600' 
                         : 'text-[#003375] border-transparent hover:border-[#003375]/50 focus:border-[#003375]'

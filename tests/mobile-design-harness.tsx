@@ -17,7 +17,13 @@ function Fixture() {
   // Fixture identity persists across real NavLink navigation, like the app session.
   const [role] = useState(() => new URLSearchParams(location.search).get('role') || 'student');
   const [userMenu, setUserMenu] = useState(false);
-  const [data, setData] = useState(() => new URLSearchParams(location.search).has('emptyTranscript') ? { ...student.data, semesters: [] } : structuredClone(student.data));
+  const [data, setData] = useState(() => {
+    const query = new URLSearchParams(location.search);
+    const data = structuredClone(student.data);
+    if (query.has('emptyTranscript')) data.semesters = [];
+    else if (query.has('emptySemester')) data.semesters = data.semesters.map(semester => ({ ...semester, subjects: [] }));
+    return data;
+  });
   const saveAttempts = useRef(0);
   const [importOpens, setImportOpens] = useState(0);
   const isAdmin = role === 'admin',
