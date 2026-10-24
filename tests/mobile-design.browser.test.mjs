@@ -83,6 +83,82 @@ const campaign = {
   scoreColumns: []
 };
 const records = [];
+test(`${engine} semester header compact geometry and independent metric scroll`, { timeout: 180000 }, async () => {
+  const f = await fixture('/dashboard?emptySemester=1'), p = f.page, measurements = [];
+  try {
+    const header = p.locator('[data-semester-header]').first();
+    const strip = header.getByRole('group', { name: 'Thông tin học kỳ' });
+    for (const width of [320, 360, 375, 390, 430, 768, 1440]) {
+      await p.setViewportSize({ width, height: 900 });
+      await header.scrollIntoViewIfNeeded();
+      await strip.focus();
+      for (let i=0;i<16;i++) await p.keyboard.press('ArrowLeft');
+      await p.waitForFunction(()=>document.querySelector('.semester-metrics').scrollLeft <= 1);
+      const g = await header.evaluate(e => {
+        const read = x => { const r=x.getBoundingClientRect();return { x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom }; };
+        const s=getComputedStyle(e), row=e.querySelector('.semester-heading'), m=e.querySelector('.semester-metrics'), title=e.querySelector('.semester-title-picker');
+        return { box:read(e),heading:read(row),title:read(title),titleFont:parseFloat(getComputedStyle(e.querySelector('.semester-title-copy')).fontSize),remove:read(e.querySelector('[data-semester-delete]')),summary:read(e.querySelector('.semester-summary')),gap:parseFloat(s.rowGap),padding:parseFloat(s.paddingTop)+parseFloat(s.paddingBottom),border:parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth),strip:{...read(m),client:m.clientWidth,scroll:m.scrollWidth,children:[...m.children].map(c=>({...read(c),client:c.clientWidth,scroll:c.scrollWidth,font:parseFloat(getComputedStyle(c).fontSize),label:c.textContent.trim()}))} };
+      });
+      assert.equal(g.strip.children.length, 5);
+      assert.ok(Math.abs(g.titleFont-(width<768?16:17))<.02);
+      assert.ok(g.strip.children.every(c => c.scroll <= c.client + 1 && c.font >= 12 - .02), JSON.stringify(g));
+      assert.ok(Math.max(...g.strip.children.map(c=>c.y))-Math.min(...g.strip.children.map(c=>c.y)) < 1, 'Five metrics never wrap');
+      assert.ok(Math.max(...g.strip.children.map(c=>c.width))-Math.min(...g.strip.children.map(c=>c.width)) > 8, 'Widths follow content');
+      assert.ok(Math.abs(g.box.height-(g.padding+g.border+g.heading.height+g.summary.height+g.gap)) < 1 || width >= 1200, 'No empty header row/min-height');
+      assert.ok(Math.abs(g.remove.y+g.remove.height/2-(g.title.y+g.title.height/2)) < 1, 'Delete shares title row');
+      if (width < 768) assert.ok(g.remove.width >= 44 && g.remove.height >= 44);
+      assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth > innerWidth + 1), false);
+      await p.screenshot({ path:`${out}/${engine}-semester-after-${width}.png`,scale:'css' });
+      if (g.strip.scroll > g.strip.client + 1) {
+        const before = await p.evaluate(()=>({x:scrollX,y:scrollY}));
+        const box = await strip.boundingBox();
+        // Mobile WebKit does not expose wheel in Playwright. Focused native
+        // horizontal scrolling exercises the same overflow container on both engines.
+        for (let i=0;i<16;i++) await p.keyboard.press('ArrowRight');
+        await p.waitForFunction(()=>{const e=document.querySelector('.semester-metrics');return e.scrollLeft >= e.scrollWidth-e.clientWidth-1;});
+        const last = await strip.locator('.semester-metric').last().boundingBox();
+        assert.ok(last.x+last.width <= box.x+box.width+1);
+        assert.deepEqual(await p.evaluate(()=>({x:scrollX,y:scrollY})),before);
+      }
+      measurements.push({width,...g});
+    }
+    records.push({scenario:'semester header geometry',measurements});
+    assert.deepEqual(f.errors,[]); assert.deepEqual(f.writes,[]);
+  } finally { await f.context.close(); }
+});
+test(`${engine} semester header native selection training score and delete confirmation`, { timeout: 180000 }, async () => {
+  const f=await fixture('/dashboard?emptySemester=1'),p=f.page;
+  try {
+    const bar=p.locator('[data-transcript-toolbar]'),card=p.locator('[data-semester-card]').first();
+    assert.equal(await card.getByRole('button',{name:'Xóa học kỳ',exact:true}).isDisabled(),true);
+    await bar.getByRole('button',{name:'Thao tác bảng điểm'}).click();
+    await p.getByRole('menuitem',{name:'Chỉnh sửa thủ công'}).click();
+    const select=card.getByRole('combobox',{name:'Chọn học kỳ'});
+    await select.selectOption('Học kỳ 2 Năm học 2026-2027');
+    assert.equal(await card.locator('.semester-title-copy').innerText(),'Học kỳ 2 Năm học 2026-2027');
+    const score=card.getByRole('spinbutton',{name:'Điểm rèn luyện'});
+    await score.fill('100');
+    for (const viewport of [{width:320,height:640},{width:667,height:375},{width:390,height:844}]) {
+      await p.setViewportSize(viewport);
+      assert.equal(await score.inputValue(),'100');
+      assert.ok(await score.evaluate(e=>{const s=getComputedStyle(e),c=document.createElement('canvas').getContext('2d');c.font=`${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;return parseFloat(s.fontSize)>=15.99&&e.clientWidth>=c.measureText(e.value).width+16;}));
+    }
+    const remove=card.getByRole('button',{name:'Xóa học kỳ',exact:true});
+    const cancelled=p.waitForEvent('dialog').then(async d=>{assert.equal(d.type(),'confirm');assert.equal(d.message(),'Bạn có chắc muốn xóa học kỳ này không?');await d.dismiss();});
+    await remove.click();await cancelled;
+    assert.equal(await p.locator('[data-semester-card]').count(),1);
+    assert.equal(await score.inputValue(),'100');
+    const confirmed=p.waitForEvent('dialog').then(d=>d.accept());
+    await remove.click();await confirmed;
+    await p.waitForFunction(()=>!document.querySelector('[data-semester-card]'));
+    await bar.getByRole('button',{name:'Thao tác bảng điểm'}).click();
+    await p.getByRole('menuitem',{name:'Hủy chỉnh sửa'}).click();
+    await card.waitFor();
+    assert.equal(await card.getByRole('spinbutton',{name:'Điểm rèn luyện'}).inputValue(),'90');
+    assert.equal(await select.inputValue(),'Học kỳ 1 Năm học 2026-2027');
+    assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+  } finally { await f.context.close(); }
+});
 async function transcriptScale(page) {
   return page.evaluate(() => {
     const read = e => {

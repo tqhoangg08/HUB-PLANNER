@@ -59,6 +59,14 @@ stretching across the banner. Equal mobile columns retain aligned text and
 targets; text can wrap and grow under enlargement. The existing callbacks and
 login route remain unchanged. This is scoped to `ui-guest-action`.
 
+Semester summaries use five content-sized metric cells on a single horizontal
+track. Preserve metadata/input font roles; allow this track alone to scroll
+instead of compressing labels or wrapping cells. Keep delete next to the native
+semester picker in the heading, with confirmation and the existing edit/role
+restrictions. Native selector semantics remain; a wrapping visual caption
+prevents the title being shortened to make room for the delete target. Numeric
+fields must accommodate their full permitted value (including ĐRL `100`).
+
 44px is **HUB Planner's product contract**, informed by
 [Apple's 44-point guidance](https://developer.apple.com/design/tips/).
 [Android recommends 48dp](https://support.google.com/accessibility/android/answer/7101858?hl=en),

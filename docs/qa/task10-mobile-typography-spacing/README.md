@@ -77,6 +77,10 @@ Chromium and WebKit tested 320/360/375/390/430/1440px, equal frames and font siz
 
 The later owner request to make this pair smaller is covered by [compact guest action evidence](guest-actions-compact/README.md): 32px painted surfaces, 13px labels and independent >=44px mobile hit areas. The initial alignment measurements above remain historical; both alignment and the original handlers are preserved.
 
+## Follow-up: semester header and metric track
+
+[Semester header evidence](semester-header/README.md) covers the five natural-width summary cells, independent horizontal scrolling, removal of the old delete row, native semester selection and confirmation before local draft/staff deletion. Calculations, original handlers after confirmation, permissions and PWA implementation remain unchanged.
+
 ## Follow-up: contextual transcript toolbar
 
 The mobile-browser transcript now shows one contextual primary action and an overflow menu; desktop retains direct import and print actions. Save errors and retry are separate from report. See [the focused report, measurements, before/after screenshots and validation](transcript-toolbar/README.md). This later UI change has its own unchanged-handler proof and affected-route regression evidence; the earlier whole-source AST comparison describes its earlier source snapshot.

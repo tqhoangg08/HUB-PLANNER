@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "fbca48cb5bc5cb977175670fc72d9ed7274f32acd8f93ddf984c75282cf66a33"
+      "sha256NormalizedLF": "f499f8b11a75c03ee9c039e74bfa06d71a4520a4d089a8734544cba5923ab8d6"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "949a5f93fc75264c3d2ab4a689e36522f784ee881d3587e5ddce30c089b09c50"
+      "sha256NormalizedLF": "0586958cfc99ec05de22d01214a54d716523992d2910367346cdae5a2d972a51"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -541,6 +541,10 @@
     {
       "path": "components/transcript-toolbar.css",
       "sha256NormalizedLF": "5643f0b1fd01540c8b187a922910e910385d5367f1cd62bb41c178987cacb3dc"
+    },
+    {
+      "path": "components/semester-header.css",
+      "sha256NormalizedLF": "af99367817092b090225fd615afccf82a55043795d972c9c5ae3c759e8460e97"
     }
   ],
   "safety": {
@@ -628,5 +632,19 @@
       "diffCheck": "PASS"
     },
     "note": "Compact 32px painted surfaces, 13px/500 labels, >=44px real mobile hit areas and a label-sized row. Earlier banner sizing remains historical."
+  },
+  "semesterHeaderFollowup": {
+    "evidence": "semester-header/validation.json",
+    "beforeSha": "7feb99346107c347b4e11fa4c3c94b27fe010500",
+    "results": {
+      "chromium": "4/4 PASS",
+      "webkit": "4/4 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Natural-width, one-row metric scroller, delete in heading and confirmation in local draft/staff branch; calculation/permission/data semantics preserved."
   }
 }

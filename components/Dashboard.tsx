@@ -32,6 +32,7 @@ import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { TranscriptToolbar } from './TranscriptToolbar';
+import './semester-header.css';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { resolveTotalCreditsRequired } from '../utils/programs';
 import { AdminStudentManagement } from './AdminStudentManagement';
@@ -761,11 +762,20 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   }, [semester.subjects, searchTerm, sortOrder]);
 
   return (
-    <div onMouseDownCapture={handleReadOnlyEditableClick} className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || isValidFormat ? 'border-gray-300' : 'border-red-400'}`}>
-      <div className={`px-3 py-3 sm:px-6 sm:py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 ${isValidFormat ? headerColor : 'bg-red-50/30 border-red-300'} rounded-t-xl ${isValidFormat ? 'border-b' : 'border-b-0'}`}>
-        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-            <div className="relative group flex-1 max-w-md flex items-center min-w-0" data-transcript-editable="true">
-                <select 
+    <div data-semester-card={semester.id} onMouseDownCapture={handleReadOnlyEditableClick} className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || isValidFormat ? 'border-gray-300' : 'border-red-400'}`}>
+      <div data-semester-header className={`semester-header ${isValidFormat ? headerColor : 'bg-red-50/30 border-red-300'} rounded-t-xl ${isValidFormat ? 'border-b' : 'border-b-0'}`}>
+        <div className="semester-heading">
+            <div className="semester-title-picker relative group flex-1 min-w-0" data-transcript-editable="true">
+                <div className="semester-title-caption">
+                    <span className={`semester-title-copy ${!isValidFormat ? 'semester-title-copy--invalid' : ''}`} aria-hidden="true">{isValidFormat ? semester.name : '👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)'}</span>
+                    {hasData && isValidFormat && (
+                        <span className="ui-meta text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border border-gray-300 bg-white text-gray-700 whitespace-nowrap shrink-0">
+                            {classification}
+                        </span>
+                    )}
+                </div>
+                <select
+                    aria-label="Chọn học kỳ"
                     value={isValidFormat ? semester.name : ''}
                     onChange={(event) => {
                         if (isReadOnly) return;
@@ -773,7 +783,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     }}
                     aria-disabled={isReadOnly}
                     tabIndex={isReadOnly ? -1 : 0}
-                    className={`ui-input transcript-semester-title font-semibold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
+                    className={`ui-input transcript-semester-title semester-title-native font-semibold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
                         !isValidFormat
                         ? 'text-red-600 border-red-400 hover:border-red-600' 
                         : 'text-[#003375] border-transparent hover:border-[#003375]/50 focus:border-[#003375]'
@@ -798,14 +808,13 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 </select>
                 <ChevronDown className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!isValidFormat ? 'text-red-500' : 'text-[#003375]'}`} />
             </div>
-            {hasData && isValidFormat && (
-                <span className={`ui-meta text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border border-gray-300 bg-white text-gray-700 whitespace-nowrap shrink-0`}>
-                    {classification}
-                </span>
-            )}
+
+            <button type="button" aria-label="Xóa học kỳ" data-semester-delete onClick={onRemoveSemester} disabled={isReadOnly} className="ui-muted ui-danger-text ui-action semester-remove text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all p-1.5 sm:p-2 rounded-lg active:scale-90 disabled:opacity-40 disabled:pointer-events-none" title="Xóa học kỳ">
+                <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+            </button>
         </div>
 
-        <div className="ui-meta flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 text-[11px] sm:text-sm relative z-10">
+        <div className="semester-summary ui-meta text-[11px] sm:text-sm relative z-10">
               {FEATURE_FORECAST_TOOLS && hasData && isValidFormat && (
                   <div className="relative">
                       <button 
@@ -913,43 +922,43 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   </div>
               )}
 
-            <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-300 transition-transform hover:scale-105">
-                <span className="text-gray-500 font-medium flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">TC:</span></span>
-                <span className="font-bold text-gray-800">{isValidFormat ? totalRegisteredCredits : '-'} <span className="ui-meta sm:hidden font-medium text-[10px] text-gray-500">TC</span></span>
-            </div>
+            <div className="semester-metrics" role="group" aria-label="Thông tin học kỳ" tabIndex={0}>
+                <div className="semester-metric flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300">
+                    <span className="text-gray-500 font-medium flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">TC:</span></span>
+                    <span className="font-bold text-gray-800">{isValidFormat ? totalRegisteredCredits : '-'} <span className="ui-meta sm:hidden font-medium text-[10px] text-gray-500">TC</span></span>
+                </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-300 transition-transform hover:scale-105">
-                <span className="text-gray-500 font-medium">GPA(4):</span>
-                <span className="font-bold text-[#003375]">{hasData && isValidFormat ? semGPA4.toFixed(2) : '-'}</span>
-            </div>
+                <div className="semester-metric flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300">
+                    <span className="text-gray-500 font-medium">GPA(4):</span>
+                    <span className="font-bold text-[#003375]">{hasData && isValidFormat ? semGPA4.toFixed(2) : '-'}</span>
+                </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-300 transition-transform hover:scale-105">
-                <span className="text-gray-500 font-medium">GPA(10):</span>
-                <span className="font-bold text-[#990000]">{hasData && isValidFormat ? semGPA10.toFixed(2) : '-'}</span>
-            </div>
+                <div className="semester-metric flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300">
+                    <span className="text-gray-500 font-medium">GPA(10):</span>
+                    <span className="font-bold text-[#990000]">{hasData && isValidFormat ? semGPA10.toFixed(2) : '-'}</span>
+                </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 bg-white pl-2 pr-1 py-0.5 sm:pl-3 sm:pr-1 sm:py-1 rounded-lg border border-gray-300 transition-transform hover:scale-105" data-transcript-editable="true">
-                <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
-                <input 
-                    type="number" min="0" max="100" placeholder="0"
-                    disabled={!isValidFormat}
-                    readOnly={isReadOnly}
-                    aria-readonly={isReadOnly}
-                    className="ui-input w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-[#003375] focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
-                    value={semester.trainingScore ?? ''}
-                    onChange={(e) => handleTrainingScoreChange(e.target.value)}
-                    onKeyDown={(e) => { if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault(); }}
-                />
-            </div>
+                <div className="semester-metric semester-metric--training flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300" data-transcript-editable="true">
+                    <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
+                    <input
+                        type="number" min="0" max="100" placeholder="0"
+                        disabled={!isValidFormat}
+                        readOnly={isReadOnly}
+                        aria-readonly={isReadOnly}
+                        aria-label="Điểm rèn luyện"
+                        inputMode="numeric"
+                        className="ui-input semester-training-input text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-[#003375] focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
+                        value={semester.trainingScore ?? ''}
+                        onChange={(e) => handleTrainingScoreChange(e.target.value)}
+                        onKeyDown={(e) => { if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault(); }}
+                    />
+                </div>
 
-            <div className={`ui-meta flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-bold ${isValidFormat ? scholarshipStatus.className : 'bg-gray-100 text-gray-400 border-gray-300'}`}>
-                <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
+                <div className={`semester-metric ui-meta flex items-center gap-1 sm:gap-2 rounded-lg border text-[11px] sm:text-sm font-bold ${isValidFormat ? scholarshipStatus.className : 'bg-gray-100 text-gray-400 border-gray-300'}`}>
+                    <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
+                </div>
             </div>
-            
-             <button onClick={onRemoveSemester} disabled={isReadOnly} className="ui-muted ui-danger-text ui-action ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all p-1.5 sm:p-2 rounded-lg active:scale-90 disabled:opacity-40 disabled:pointer-events-none" title="Xóa học kỳ">
-             <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-            </button>
         </div>
       </div>
 
@@ -1891,6 +1900,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
 
     const handleLocalRemoveSemester = (index: number) => {
+        if ((selectedUserOverview || isTranscriptEditing) && !window.confirm('Bạn có chắc muốn xóa học kỳ này không?')) return;
         if (selectedUserOverview) {
             const newSems = activeData.semesters.filter((_, i) => i !== index);
             const newData = { ...activeData, semesters: newSems };
