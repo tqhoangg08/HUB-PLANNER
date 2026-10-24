@@ -1,0 +1,518 @@
+{
+  "base": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
+  "reportedIssue": "Guest preview banner login label sits above the center of its button",
+  "reproduced": {
+    "width": 320,
+    "buttonFonts": [
+      14,
+      12
+    ],
+    "loginTextCenterOffset": 11.09375,
+    "framesEqual": true
+  },
+  "fix": "Use the same ui-action role, flex centering and equal auto grid columns on mobile; preserve the existing desktop flex layout, callback and /login route",
+  "engines": {
+    "chromium": {
+      "scenario": "guest banner action alignment",
+      "measurements": [
+        {
+          "width": 320,
+          "row": {
+            "x": 27.5,
+            "y": 280.796875,
+            "width": 265,
+            "height": 51.6875,
+            "right": 292.5,
+            "bottom": 332.484375
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 280.796875,
+              "width": 128.5,
+              "height": 51.6875,
+              "right": 156,
+              "bottom": 332.484375,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 288.046875,
+              "textH": 36.59375,
+              "textCenterOffset": 0.296875,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 164,
+              "y": 280.796875,
+              "width": 128.5,
+              "height": 51.6875,
+              "right": 292.5,
+              "bottom": 332.484375,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 288.046875,
+              "textH": 36.59375,
+              "textCenterOffset": 0.296875,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 360,
+          "row": {
+            "x": 27.5,
+            "y": 263.296875,
+            "width": 305,
+            "height": 44,
+            "right": 332.5,
+            "bottom": 307.296875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 263.296875,
+              "width": 148.5,
+              "height": 44,
+              "right": 176,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.5,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 184,
+              "y": 263.296875,
+              "width": 148.5,
+              "height": 44,
+              "right": 332.5,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.5,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 375,
+          "row": {
+            "x": 27.5,
+            "y": 263.296875,
+            "width": 320,
+            "height": 44,
+            "right": 347.5,
+            "bottom": 307.296875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 263.296875,
+              "width": 156,
+              "height": 44,
+              "right": 183.5,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.5,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 191.5,
+              "y": 263.296875,
+              "width": 156,
+              "height": 44,
+              "right": 347.5,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.5,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 390,
+          "row": {
+            "x": 27.5,
+            "y": 240.046875,
+            "width": 335,
+            "height": 44,
+            "right": 362.5,
+            "bottom": 284.046875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 240.046875,
+              "width": 163.5,
+              "height": 44,
+              "right": 191,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.25,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 199,
+              "y": 240.046875,
+              "width": 163.5,
+              "height": 44,
+              "right": 362.5,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.25,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 430,
+          "row": {
+            "x": 27.5,
+            "y": 240.046875,
+            "width": 375,
+            "height": 44,
+            "right": 402.5,
+            "bottom": 284.046875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 240.046875,
+              "width": 183.5,
+              "height": 44,
+              "right": 211,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.25,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 219,
+              "y": 240.046875,
+              "width": 183.5,
+              "height": 44,
+              "right": 402.5,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.25,
+              "textH": 17,
+              "textCenterOffset": 0.296875,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 1440,
+          "row": {
+            "x": 1169.875,
+            "y": 148.828125,
+            "width": 230.625,
+            "height": 26.5,
+            "right": 1400.5,
+            "bottom": 175.328125
+          },
+          "children": [
+            {
+              "x": 1169.875,
+              "y": 148.828125,
+              "width": 117.203125,
+              "height": 26.5,
+              "right": 1287.078125,
+              "bottom": 175.328125,
+              "font": 10.5,
+              "line": "14px",
+              "textY": 155.078125,
+              "textH": 13,
+              "textCenterOffset": 0.5,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 1294.078125,
+              "y": 148.828125,
+              "width": 106.421875,
+              "height": 26.5,
+              "right": 1400.5,
+              "bottom": 175.328125,
+              "font": 10.5,
+              "line": "14px",
+              "textY": 155.078125,
+              "textH": 13,
+              "textCenterOffset": 0.5,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        }
+      ]
+    },
+    "webkit": {
+      "scenario": "guest banner action alignment",
+      "measurements": [
+        {
+          "width": 320,
+          "row": {
+            "x": 27.5,
+            "y": 280.796875,
+            "width": 265,
+            "height": 51.6875,
+            "right": 292.5,
+            "bottom": 332.484375
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 280.796875,
+              "width": 128.5,
+              "height": 51.6875,
+              "right": 156,
+              "bottom": 332.484375,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 288.34375,
+              "textH": 36.59375,
+              "textCenterOffset": 0,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 164,
+              "y": 280.796875,
+              "width": 128.5,
+              "height": 51.6875,
+              "right": 292.5,
+              "bottom": 332.484375,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 288.34375,
+              "textH": 36.59375,
+              "textCenterOffset": 0,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 360,
+          "row": {
+            "x": 27.5,
+            "y": 263.296875,
+            "width": 305,
+            "height": 44,
+            "right": 332.5,
+            "bottom": 307.296875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 263.296875,
+              "width": 148.5,
+              "height": 44,
+              "right": 176,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.796875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 184,
+              "y": 263.296875,
+              "width": 148.5,
+              "height": 44,
+              "right": 332.5,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.796875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 375,
+          "row": {
+            "x": 27.5,
+            "y": 263.296875,
+            "width": 320,
+            "height": 44,
+            "right": 347.5,
+            "bottom": 307.296875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 263.296875,
+              "width": 156,
+              "height": 44,
+              "right": 183.5,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.796875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 191.5,
+              "y": 263.296875,
+              "width": 156,
+              "height": 44,
+              "right": 347.5,
+              "bottom": 307.296875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 276.796875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 390,
+          "row": {
+            "x": 27.5,
+            "y": 240.046875,
+            "width": 335,
+            "height": 44,
+            "right": 362.5,
+            "bottom": 284.046875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 240.046875,
+              "width": 163.5,
+              "height": 44,
+              "right": 191,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.546875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 199,
+              "y": 240.046875,
+              "width": 163.5,
+              "height": 44,
+              "right": 362.5,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.546875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 430,
+          "row": {
+            "x": 27.5,
+            "y": 240.046875,
+            "width": 375,
+            "height": 44,
+            "right": 402.5,
+            "bottom": 284.046875
+          },
+          "children": [
+            {
+              "x": 27.5,
+              "y": 240.046875,
+              "width": 183.5,
+              "height": 44,
+              "right": 211,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.546875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 219,
+              "y": 240.046875,
+              "width": 183.5,
+              "height": 44,
+              "right": 402.5,
+              "bottom": 284.046875,
+              "font": 14,
+              "line": "19.6px",
+              "textY": 253.546875,
+              "textH": 17,
+              "textCenterOffset": 0,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        },
+        {
+          "width": 1440,
+          "row": {
+            "x": 1163.875,
+            "y": 148.828125,
+            "width": 230.625,
+            "height": 26.484375,
+            "right": 1394.5,
+            "bottom": 175.3125
+          },
+          "children": [
+            {
+              "x": 1163.875,
+              "y": 148.828125,
+              "width": 117.203125,
+              "height": 26.484375,
+              "right": 1281.078125,
+              "bottom": 175.3125,
+              "font": 10.5,
+              "line": "14px",
+              "textY": 155.5703125,
+              "textH": 13,
+              "textCenterOffset": 0,
+              "label": "Cập nhật thông tin"
+            },
+            {
+              "x": 1288.078125,
+              "y": 148.828125,
+              "width": 106.421875,
+              "height": 26.484375,
+              "right": 1394.5,
+              "bottom": 175.3125,
+              "font": 10.5,
+              "line": "14px",
+              "textY": 155.5703125,
+              "textH": 13,
+              "textCenterOffset": 0,
+              "label": "Đăng nhập ngay"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

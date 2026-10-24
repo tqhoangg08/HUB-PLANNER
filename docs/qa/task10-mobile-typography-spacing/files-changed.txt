@@ -26,6 +26,7 @@ docs/design/mobile-typography-spacing-standard.md
 docs/qa/task10-mobile-typography-spacing/README.md
 docs/qa/task10-mobile-typography-spacing/announcement-before-layer-fix.png
 docs/qa/task10-mobile-typography-spacing/announcement-keyboard.png
+docs/qa/task10-mobile-typography-spacing/banner-alignment.json
 docs/qa/task10-mobile-typography-spacing/baseline-summary.json
 docs/qa/task10-mobile-typography-spacing/chromium-after-1440-browser.png
 docs/qa/task10-mobile-typography-spacing/chromium-after-320-pwa-normal.png
@@ -41,6 +42,9 @@ docs/qa/task10-mobile-typography-spacing/chromium-after-_learning-pwa.png
 docs/qa/task10-mobile-typography-spacing/chromium-after-_learning_tab_schedule-pwa.png
 docs/qa/task10-mobile-typography-spacing/chromium-after-_lost-found-pwa.png
 docs/qa/task10-mobile-typography-spacing/chromium-after-learning-pwa.png
+docs/qa/task10-mobile-typography-spacing/chromium-banner-after-320.png
+docs/qa/task10-mobile-typography-spacing/chromium-banner-after-390.png
+docs/qa/task10-mobile-typography-spacing/chromium-banner-before-320.png
 docs/qa/task10-mobile-typography-spacing/chromium-before-1440-browser.png
 docs/qa/task10-mobile-typography-spacing/chromium-before-360-browser.png
 docs/qa/task10-mobile-typography-spacing/chromium-before-375-browser.png
@@ -56,6 +60,11 @@ docs/qa/task10-mobile-typography-spacing/control-states.json
 docs/qa/task10-mobile-typography-spacing/desktop-regression.json
 docs/qa/task10-mobile-typography-spacing/files-changed.txt
 docs/qa/task10-mobile-typography-spacing/geometry-and-touch.json
+docs/qa/task10-mobile-typography-spacing/logs/banner-build.txt
+docs/qa/task10-mobile-typography-spacing/logs/banner-cf-typecheck.txt
+docs/qa/task10-mobile-typography-spacing/logs/banner-chromium.txt
+docs/qa/task10-mobile-typography-spacing/logs/banner-typecheck.txt
+docs/qa/task10-mobile-typography-spacing/logs/banner-webkit.txt
 docs/qa/task10-mobile-typography-spacing/logs/build.txt
 docs/qa/task10-mobile-typography-spacing/logs/cloudflare-typecheck.txt
 docs/qa/task10-mobile-typography-spacing/logs/design-chromium.txt
@@ -100,6 +109,8 @@ docs/qa/task10-mobile-typography-spacing/webkit-after-320-pwa-textSpacing.png
 docs/qa/task10-mobile-typography-spacing/webkit-after-_events-pwa.png
 docs/qa/task10-mobile-typography-spacing/webkit-after-_learning_tab_schedule-pwa.png
 docs/qa/task10-mobile-typography-spacing/webkit-after-_lost-found-pwa.png
+docs/qa/task10-mobile-typography-spacing/webkit-banner-after-320.png
+docs/qa/task10-mobile-typography-spacing/webkit-banner-after-390.png
 docs/qa/task10-mobile-typography-spacing/webkit-gpa-tip-375.png
 docs/qa/task10-mobile-typography-spacing/webkit-ticket-form.png
 features/scholarships/scholarship.css

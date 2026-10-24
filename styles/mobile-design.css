@@ -250,3 +250,8 @@
   }
   .ui-gpa-tip > span { display: none; }
 }
+
+@media (max-width: 767px) {
+  .ui-guest-actions { gap: var(--ui-space-2); }
+  .ui-guest-actions > .ui-action { white-space: normal; overflow-wrap: anywhere; text-align: center; }
+}

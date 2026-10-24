@@ -1139,3 +1139,87 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} GPA target
     await f.context.close();
   }
 });
+if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} guest banner actions share typography and geometric text centering`, {
+  timeout: 180000
+}, async () => {
+  const f = await fixture('/dashboard', false, 'guest', 390, 844),
+    p = f.page;
+  try {
+    const login = p.getByRole('link', {
+        name: 'Đăng nhập ngay',
+        exact: true
+      }),
+      update = p.getByRole('button', {
+        name: 'Cập nhật thông tin',
+        exact: true
+      }),
+      row = login.locator('..');
+    const measurements = [];
+    for (const width of [320, 360, 375, 390, 430, 1440]) {
+      await p.setViewportSize({
+        width,
+        height: 900
+      });
+      await row.scrollIntoViewIfNeeded();
+      const g = await row.evaluate(e => {
+        const rect = x => {
+          const r = x.getBoundingClientRect();
+          return {
+            x: r.x,
+            y: r.y,
+            width: r.width,
+            height: r.height,
+            right: r.right,
+            bottom: r.bottom
+          };
+        };
+        return {
+          row: rect(e),
+          children: [...e.children].map(c => {
+            const r = document.createRange();
+            r.selectNodeContents(c);
+            const t = r.getBoundingClientRect(),
+              s = getComputedStyle(c),
+              b = rect(c);
+            return {
+              ...b,
+              font: parseFloat(s.fontSize),
+              line: s.lineHeight,
+              textY: t.y,
+              textH: t.height,
+              textCenterOffset: Math.abs(t.y + t.height / 2 - (b.y + b.height / 2)),
+              label: c.textContent.trim()
+            };
+          })
+        };
+      });
+      measurements.push({
+        width,
+        ...g
+      });
+      await p.screenshot({
+        path: `${out}/${engine}-guest-actions-${width}.png`,
+        scale: 'css'
+      });
+      if (width < 768) {
+        const [a, b] = g.children;
+        assert.ok(Math.abs(a.width - b.width) < 1, JSON.stringify(g));
+        assert.ok(Math.abs(a.y - b.y) < 1 && Math.abs(a.height - b.height) < 1, JSON.stringify(g));
+        assert.equal(a.font, b.font, JSON.stringify(g));
+        assert.ok(g.children.every(c => c.width >= 44 && c.height >= 44 && c.textCenterOffset < 2), JSON.stringify(g));
+        assert.ok(a.x >= g.row.x && b.right <= g.row.right + 1, JSON.stringify(g));
+      }
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+    }
+    records.push({
+      scenario: 'guest banner action alignment',
+      measurements
+    });
+    assert.deepEqual(f.errors, []);
+    assert.deepEqual(f.writes, []);
+    await login.click();
+    assert.equal(new URL(p.url()).pathname, '/login');
+  } finally {
+    await f.context.close();
+  }
+});

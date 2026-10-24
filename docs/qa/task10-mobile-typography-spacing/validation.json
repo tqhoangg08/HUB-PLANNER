@@ -334,6 +334,22 @@
       "passed": 0,
       "failed": 1,
       "log": "logs/placeholder-reproduction.txt"
+    },
+    {
+      "name": "guest-banner-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"guest banner actions\" tests/mobile-design.browser.test.mjs",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/banner-chromium.txt"
+    },
+    {
+      "name": "guest-banner-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"guest banner actions\" tests/mobile-design.browser.test.mjs",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/banner-webkit.txt"
     }
   ],
   "finalResults": {
@@ -351,7 +367,8 @@
     "diffCheck": "PASS: git diff --check; staged diff check",
     "githubCI": "Verify exact pushed PR HEAD externally; reported in PR checks/body to avoid changing HEAD to record its own CI",
     "modalOwnership": "PASS: closed AI launcher yields to active Overlay; visible modal controls own their hit points; closing Ticket restores launcher and preserves AI draft",
-    "nativeInputs": "PASS: all-native-control fontsize guard on final Dashboard variants; GPA tip bounds/value/focus checks on both engines"
+    "nativeInputs": "PASS: all-native-control fontsize guard on final Dashboard variants; GPA tip bounds/value/focus checks on both engines",
+    "guestBannerAlignment": "PASS: Chromium + WebKit; 320/360/375/390/430/1440px; same font size, equal frames, text center offset <2px and /login navigation preserved"
   },
   "failureProvenance": [
     "Intermediate failures are preserved; no failed composite run is labelled an all-pass run",
@@ -375,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "bef9b9ecce56b0b845b3c845952540b2c377fa47cf195784308abec242ae549b"
+      "sha256NormalizedLF": "0ce21b840c4aaf5383241fd2629c1248285c17f09be5b3d57d23a468f4bf5c4a"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -487,7 +504,7 @@
     },
     {
       "path": "styles/mobile-design.css",
-      "sha256NormalizedLF": "22dad2877dd0c1b3ae1740200fffd13d820d302c23b92b8dc23a04bd24e8e4e8"
+      "sha256NormalizedLF": "72b136476995075b1d50098a3df27a27a8521aa01e2652f974d3656a14b4240f"
     },
     {
       "path": "tests/mobile-design-harness.html",
@@ -507,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "e6f92448f08b7967e35564a72dc7c13e42b03b4e5215546f4f68c3bbd4dec334"
+      "sha256NormalizedLF": "bb20617409c650a353f5a0a0652940a967835b98a16e81bc6edfaff7db06229c"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -531,5 +548,22 @@
     "Intrinsically two-dimensional timetable/data tables retain internal scrolling; ordinary page overflow is rejected",
     "Inline/contextual legal/source links and dense numeric editors are recorded separately from important 44px independent actions",
     "Hovered/selected/focus samples are scoped, not an exhaustive assistive-technology/state certification"
+  ],
+  "followupChecks": [
+    {
+      "check": "typecheck",
+      "exitCode": 0,
+      "log": "logs/banner-typecheck.txt"
+    },
+    {
+      "check": "cf:typecheck",
+      "exitCode": 0,
+      "log": "logs/banner-cf-typecheck.txt"
+    },
+    {
+      "check": "build",
+      "exitCode": 0,
+      "log": "logs/banner-build.txt"
+    }
   ]
 }

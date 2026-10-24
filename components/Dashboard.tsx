@@ -2465,13 +2465,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <p>Bạn đang dùng thử với tư cách khách. <strong>Đăng nhập để lưu dữ liệu vĩnh viễn.</strong></p>
                                 )}
                             </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
+                            <div className="ui-guest-actions grid grid-flow-col auto-cols-fr gap-2 w-full sm:flex sm:w-auto">
                                 {isLocked && (
-                                    <button onClick={() => onRequireOnboarding && onRequireOnboarding()} className="ui-action flex-1 sm:flex-none px-3 py-1.5 bg-white border border-[#003375] text-[#003375] text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors">
+                                    <button onClick={() => onRequireOnboarding && onRequireOnboarding()} className="ui-action flex items-center justify-center min-w-0 flex-1 sm:flex-none px-3 py-1.5 bg-white border border-[#003375] text-[#003375] text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors">
                                         Cập nhật thông tin
                                     </button>
                                 )}
-                                <Link to="/login" onClick={playClick} className="ui-meta flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] border border-transparent text-white text-xs font-bold rounded-lg hover:bg-[#002855] transition-colors text-center">
+                                <Link to="/login" onClick={playClick} className="ui-action flex items-center justify-center min-w-0 flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] border border-transparent text-white text-xs font-bold rounded-lg hover:bg-[#002855] transition-colors text-center">
                                     Đăng nhập ngay
                                 </Link>
                             </div>

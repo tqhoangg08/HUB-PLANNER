@@ -68,3 +68,9 @@ The final all-native-control audit found the shared GPA target editor inheriting
 [GPA tip at 320px](chromium-gpa-tip-320.png) · [WebKit GPA tip](webkit-gpa-tip-375.png)
 
 The GPA tip is anchored inside the mobile visible area instead of below a low-on-page input. Its close action and full copy stay on screen at 320/375px, with internal scroll available in shorter viewports. Both engines assert the entire tip's bounds, input value preservation and Escape focus behavior. This positioning is local to the tip; desktop keeps its existing anchored popover.
+
+## Follow-up: guest banner action alignment
+
+The reported visual mismatch was reproduced against the committed PR: both button frames were equal, but the login link inherited `ui-meta` at 12px while its neighbour used `ui-action` at 14px. Its text centre was 11.09px above the button centre at 320px. Both actions now use the same action role and flex centering; mobile uses equal grid columns while desktop keeps its existing flex arrangement. No login/onboarding handler or route changed.
+
+Chromium and WebKit tested 320/360/375/390/430/1440px, equal frames and font size, text centering within 2px, >=44px touch areas, overflow and actual /login navigation. See [measurements](banner-alignment.json), [before](chromium-banner-before-320.png), [Chromium after](chromium-banner-after-390.png) and [WebKit after](webkit-banner-after-390.png).
