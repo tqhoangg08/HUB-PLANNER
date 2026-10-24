@@ -75,7 +75,8 @@
     "test:overlay:browser": "node --test tests/overlay-scroll-lock.browser.test.mjs",
     "test:overlay:mobile": "node --test tests/mobile-overlay-acceptance.browser.test.mjs",
     "test:scholarships:performance": "node --test --test-concurrency=1 --experimental-strip-types tests/scholarship-facets-optimization.test.ts tests/scholarship-phase2.test.ts",
-    "test:rankings:performance": "node --test --test-concurrency=1 --experimental-strip-types tests/rankings-phase3.test.ts"
+    "test:rankings:performance": "node --test --test-concurrency=1 --experimental-strip-types tests/rankings-phase3.test.ts",
+    "test:design:browser": "node --test tests/mobile-design.browser.test.mjs"
   },
   "dependencies": {
     "@axiomhq/winston": "^1.4.0",

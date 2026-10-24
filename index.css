@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/mobile-design.css";
 
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -37,7 +38,9 @@
    existing compact 13px desktop controls, labels and 38px field geometry. */
 @media (hover: none) and (pointer: coarse) {
   .event-contribution-form :is(input:not([type="checkbox"]):not([type="hidden"]), select, textarea) {
-    font-size: 16px;
+    font-size: var(--ui-font-input);
+    min-height: max(var(--ui-touch), 2.75em);
+    height: auto;
   }
 }
 
@@ -2512,8 +2515,7 @@
     border-color: rgba(255, 255, 255, 0.72);
   }
 
-  .platform-ios .ios-blue-glass,
-  .platform-ios .mobile-handbook-header {
+  .platform-ios .ios-blue-glass {
     position: relative;
     background: linear-gradient(145deg, rgba(0, 59, 122, 0.94), rgba(11, 94, 215, 0.78)) !important;
     -webkit-backdrop-filter: none;
@@ -3218,7 +3220,7 @@ body.mobile-standalone .mobile-app-root *::after {
   }
 
   html.mobile-browser .desktop-page-scroll {
-    padding-top: 64px !important;
+    padding-top: var(--mobile-browser-header-height, 64px) !important;
     background-color: #F8FAFC !important;
   }
 
@@ -3394,8 +3396,8 @@ html.mobile-browser .mobile-browser-drawer-scroll {
   }
 
   html.mobile-browser main {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: var(--ui-space-4);
+    padding-right: var(--ui-space-4);
   }
 
   html.mobile-browser .desktop-page-main {
@@ -3572,7 +3574,7 @@ html.mobile-browser .mobile-browser-drawer-scroll {
     border-radius: 14px !important;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
     color: #0D1B3E !important;
-    font-size: 14px !important;
+    font-size: var(--ui-font-input) !important;
     min-height: 48px !important;
     padding-left: 14px !important;
     padding-right: 14px !important;
@@ -3592,7 +3594,7 @@ html.mobile-browser .mobile-browser-drawer-scroll {
 
   .account-settings-sheet .account-settings-body p {
     color: #7B8AA6 !important;
-    font-size: 11px !important;
+    font-size: var(--ui-font-meta) !important;
     line-height: 1.45 !important;
   }
 
@@ -3607,7 +3609,7 @@ html.mobile-browser .mobile-browser-drawer-scroll {
 
   .account-settings-sheet .account-settings-footer button {
     border-radius: 16px !important;
-    font-size: 14px !important;
+    font-size: var(--ui-font-secondary) !important;
     min-height: 52px;
   }
 }
@@ -3654,7 +3656,7 @@ html.mobile-browser .mobile-browser-drawer-scroll {
     border-radius: 16px !important;
     background: #F8FAFC !important;
     color: #0D1B3E !important;
-    font-size: 14px !important;
+    font-size: var(--ui-font-input) !important;
     padding: 12px 14px !important;
   }
 
@@ -3672,7 +3674,7 @@ html.mobile-browser .mobile-browser-drawer-scroll {
   .mobile-handbook-page .mobile-handbook-content button[type="submit"] {
     min-height: 52px;
     border-radius: 16px !important;
-    font-size: 14px !important;
+    font-size: var(--ui-font-secondary) !important;
     font-weight: 900 !important;
   }
 
@@ -3730,7 +3732,7 @@ html.mobile-browser .mobile-browser-drawer-scroll {
   }
 
   .mobile-handbook-page .mobile-handbook-content .max-w-6xl > .bg-white:first-child p {
-    font-size: 14px !important;
+    font-size: var(--ui-font-secondary) !important;
     line-height: 1.7 !important;
   }
 
@@ -3813,14 +3815,14 @@ html.mobile-browser .mobile-browser-drawer-scroll {
 
   .mobile-handbook-page .mobile-handbook-content .min-h-screen section h2 {
     color: #0D1B3E !important;
-    font-size: 17px !important;
+    font-size: var(--ui-font-section) !important;
     line-height: 1.25 !important;
     text-transform: none !important;
   }
 
   .mobile-handbook-page .mobile-handbook-content .min-h-screen section p {
     color: #475569 !important;
-    font-size: 14px !important;
+    font-size: var(--ui-font-secondary) !important;
     line-height: 1.7 !important;
   }
 }

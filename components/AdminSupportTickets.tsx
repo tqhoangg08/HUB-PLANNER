@@ -123,7 +123,7 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
     <section className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-2 py-2 sm:py-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="mb-1 text-2xl font-black leading-tight tracking-normal text-[#003375] sm:text-[28px]">
+          <h2 className="ui-section-title mb-1 text-2xl font-black leading-tight tracking-normal text-[#003375] sm:text-[28px]">
                     Hỗ trợ Sinh viên
                 </h2>
           <p className="mt-1 text-sm text-slate-500">Quản lý ticket hỗ trợ 1-1 giữa user và admin/auditor.</p>
@@ -133,7 +133,7 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
             type="button"
             onClick={handleResolveAll}
             disabled={resolvingAll || loading}
-            className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+            className="ui-action inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
           >
             {resolvingAll ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
             Đã xử lý tất cả
@@ -145,9 +145,9 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
       </div>
 
       <div className="grid gap-2 rounded-xl border border-slate-100 bg-white p-2 sm:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <label className="relative">
+        <label className="ui-secondary relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Tìm theo tiêu đề, email, MSSV" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} className="ui-input h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Tìm theo tiêu đề, email, MSSV" />
         </label>
         <SelectFilter value={status} onChange={(value) => { setPage(1); setStatus(value as SupportTicketStatus | 'all'); }} items={statuses} labels={SUPPORT_STATUS_LABELS} allLabel="Tất cả trạng thái" />
         <SelectFilter value={category} onChange={(value) => { setPage(1); setCategory(value as SupportTicketCategory | 'all'); }} items={categories} labels={SUPPORT_CATEGORY_LABELS} allLabel="Tất cả loại vấn đề" />
@@ -165,7 +165,7 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
           <div>
-            <div className="hidden grid-cols-[1.5fr_1fr_0.8fr_0.8fr_1fr] gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-slate-500 md:grid">
+            <div className="ui-meta hidden grid-cols-[1.5fr_1fr_0.8fr_0.8fr_1fr] gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-slate-500 md:grid">
               <span>Ticket</span>
               <span>User</span>
               <span>Trạng thái</span>
@@ -175,21 +175,21 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
             {tickets.map((ticket) => (
               <Link key={ticket.id} to={`/admin/support/${ticket.id}`} className="grid gap-2 border-b border-slate-100 px-3 py-3 transition hover:bg-blue-50/40 md:grid-cols-[1.5fr_1fr_0.8fr_0.8fr_1fr] md:items-center">
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-black text-slate-950">{ticket.subject}</h2>
-                  <p className="mt-1 text-[11px] font-bold text-slate-500">{SUPPORT_CATEGORY_LABELS[ticket.category]}</p>
+                  <h2 className="ui-section-title truncate text-sm font-black text-slate-950">{ticket.subject}</h2>
+                  <p className="ui-meta mt-1 text-[11px] font-bold text-slate-500">{SUPPORT_CATEGORY_LABELS[ticket.category]}</p>
                 </div>
-                <div className="min-w-0 text-xs font-bold text-slate-600">
+                <div className="ui-meta min-w-0 text-xs font-bold text-slate-600">
                   <p className="truncate">{ticket.user?.full_name || ticket.user?.email || 'User'}</p>
                   <p className="truncate text-slate-400">{ticket.user?.student_code || ticket.user?.email || ticket.user_id}</p>
                 </div>
-                <span className="w-fit rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-700">{SUPPORT_STATUS_LABELS[ticket.status]}</span>
-                <span className="text-xs font-black text-slate-600">{SUPPORT_PRIORITY_LABELS[ticket.priority]}</span>
-                <span className="text-xs font-bold text-slate-500">{formatDateTime(ticket.last_message_at || ticket.updated_at)}</span>
+                <span className="ui-meta w-fit rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-700">{SUPPORT_STATUS_LABELS[ticket.status]}</span>
+                <span className="ui-meta text-xs font-black text-slate-600">{SUPPORT_PRIORITY_LABELS[ticket.priority]}</span>
+                <span className="ui-meta text-xs font-bold text-slate-500">{formatDateTime(ticket.last_message_at || ticket.updated_at)}</span>
               </Link>
             ))}
           </div>
           <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-xs font-bold text-slate-500">
+            <span className="ui-meta text-xs font-bold text-slate-500">
               Hiển thị {firstVisibleTicket}-{lastVisibleTicket} trong {total} ticket
             </span>
             <div className="flex items-center gap-1">
@@ -197,7 +197,7 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
                 type="button"
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
                 disabled={page === 1 || loading}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40"
+                className="ui-action grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Trang trước"
               >
                 <ChevronLeft size={16} />
@@ -207,13 +207,13 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
                 return (
                   <React.Fragment key={pageNumber}>
                     {previousPageNumber && pageNumber - previousPageNumber > 1 && (
-                      <span className="px-1 text-xs font-black text-slate-400">…</span>
+                      <span className="ui-meta px-1 text-xs font-black text-slate-400">…</span>
                     )}
                     <button
                       type="button"
                       onClick={() => setPage(pageNumber)}
                       disabled={loading}
-                      className={`h-8 min-w-8 rounded-lg px-2 text-xs font-black transition ${
+                      className={`ui-action h-8 min-w-8 rounded-lg px-2 text-xs font-black transition ${
                         pageNumber === page
                           ? 'bg-[#003375] text-white'
                           : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#003375]'
@@ -228,7 +228,7 @@ const AdminTicketList = ({ isAdmin }: { isAdmin: boolean }) => {
                 type="button"
                 onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                 disabled={page === totalPages || loading}
-                className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40"
+                className="ui-action grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Trang sau"
               >
                 <ChevronRight size={16} />
@@ -248,9 +248,9 @@ const SelectFilter = ({ value, onChange, items, labels, allLabel }: {
   labels: Record<string, string>;
   allLabel: string;
 }) => (
-  <label className="relative">
+  <label className="ui-secondary relative">
     <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-    <select value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50">
+    <select value={value} onChange={(event) => onChange(event.target.value)} className="ui-input h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm font-bold outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50">
       <option value="all">{allLabel}</option>
       {items.map((item) => <option key={item} value={item}>{labels[item]}</option>)}
     </select>
@@ -293,21 +293,21 @@ const AdminTicketControls = ({ ticketId }: { ticketId: string }) => {
   return (
     <section className="rounded-xl border border-slate-100 bg-white px-3 py-2">
       <div className="grid gap-2 md:grid-cols-[1fr_1fr_1.4fr_auto]">
-        <label className="grid gap-1">
-          <span className="text-[11px] font-black uppercase text-slate-500">Trạng thái</span>
-          <select disabled={saving} value={ticket.status} onChange={(event) => updateField({ status: event.target.value as SupportTicketStatus })} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold">
+        <label className="ui-secondary grid gap-1">
+          <span className="ui-meta text-[11px] font-black uppercase text-slate-500">Trạng thái</span>
+          <select disabled={saving} value={ticket.status} onChange={(event) => updateField({ status: event.target.value as SupportTicketStatus })} className="ui-input h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold">
             {statuses.map((item) => <option key={item} value={item}>{SUPPORT_STATUS_LABELS[item]}</option>)}
           </select>
         </label>
-        <label className="grid gap-1">
-          <span className="text-[11px] font-black uppercase text-slate-500">Ưu tiên</span>
-          <select disabled={saving} value={ticket.priority} onChange={(event) => updateField({ priority: event.target.value as SupportTicketPriority })} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold">
+        <label className="ui-secondary grid gap-1">
+          <span className="ui-meta text-[11px] font-black uppercase text-slate-500">Ưu tiên</span>
+          <select disabled={saving} value={ticket.priority} onChange={(event) => updateField({ priority: event.target.value as SupportTicketPriority })} className="ui-input h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold">
             {priorities.map((item) => <option key={item} value={item}>{SUPPORT_PRIORITY_LABELS[item]}</option>)}
           </select>
         </label>
-        <label className="grid gap-1">
-          <span className="text-[11px] font-black uppercase text-slate-500">Gán ticket</span>
-          <select disabled={saving} value={ticket.assigned_to || ''} onChange={(event) => updateField({ assigned_to: event.target.value || null })} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold">
+        <label className="ui-secondary grid gap-1">
+          <span className="ui-meta text-[11px] font-black uppercase text-slate-500">Gán ticket</span>
+          <select disabled={saving} value={ticket.assigned_to || ''} onChange={(event) => updateField({ assigned_to: event.target.value || null })} className="ui-input h-9 rounded-lg border border-slate-200 px-3 text-sm font-bold">
             <option value="">Chưa gán</option>
             {staff.map((member) => <option key={member.id} value={member.id}>{member.full_name || member.email || member.id} ({member.role})</option>)}
           </select>
@@ -316,7 +316,7 @@ const AdminTicketControls = ({ ticketId }: { ticketId: string }) => {
           type="button"
           disabled={saving || isSupportTicketClosed(ticket.status)}
           onClick={markResolved}
-          className="h-9 self-end rounded-lg bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500"
+          className="ui-action h-9 self-end rounded-lg bg-emerald-700 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500"
         >
           Đánh dấu đã xử lý xong
         </button>

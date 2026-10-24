@@ -104,6 +104,8 @@ for (const engine of Object.keys(browsers)) {
         await open(page);
         assert.deepEqual(await positions(page), before);
         const firstHeader = await visibleHeader(page);
+        const navFonts = await dialog(page).locator('a').evaluateAll(elements => elements.filter(e=>e.getClientRects().length).map(e=>({name:e.getAttribute('aria-label')||e.textContent.trim(),font:parseFloat(getComputedStyle(e).fontSize)})));
+        assert.ok(navFonts.every(e=>e.font>=13.99),JSON.stringify(navFonts));
         assert.equal(await page.locator('#root').evaluate(element => element.inert), true);
         const layer = page.locator('.mobile-sidebar-layer');
         assert.equal(await layer.evaluate(element => { const r = element.getBoundingClientRect(); return Math.abs(r.height - visualViewport.height) < 1 && Math.abs(r.y - visualViewport.offsetTop) < 1; }), true);
@@ -193,6 +195,7 @@ for (const engine of Object.keys(browsers)) {
         await page.evaluate(() => window.sidebarHarness.navigate('/events'));
         await dialog(page).waitFor({ state: 'detached' });
         assert.equal(await page.locator('#root').evaluate(element => element.inert), false);
+        await page.locator('#page-anchor').filter({ hasText: '/events' }).waitFor();
         await open(page); await resize(page, 1440, 900);
         await dialog(page).waitFor({ state: 'detached' });
         assert.equal(await page.evaluate(() => document.body.style.overflow), '');

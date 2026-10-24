@@ -159,29 +159,29 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="text-sm font-extrabold leading-tight text-[#003375]">{copy.title}</h3>
-              {!compact && <p className="mt-0.5 text-xs leading-relaxed text-gray-600">{copy.body}</p>}
+              <h3 className="ui-card-title text-sm font-extrabold leading-tight text-[#003375]">{copy.title}</h3>
+              {!compact && <p className="ui-secondary mt-0.5 text-xs leading-relaxed text-gray-600">{copy.body}</p>}
             </div>
             <button
               type="button"
               onClick={handleDismiss}
-              className="-mr-1 -mt-1 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
+              className="ui-action -mr-1 -mt-1 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
               aria-label="Ẩn nhắc thông báo"
             >
               <X size={15} />
             </button>
           </div>
 
-          {compact && <p className="mt-0.5 text-xs leading-relaxed text-gray-600">{copy.body}</p>}
+          {compact && <p className="ui-secondary mt-0.5 text-xs leading-relaxed text-gray-600">{copy.body}</p>}
 
-          {error && <p className="mt-2 text-[11px] font-semibold leading-relaxed text-red-600">{error}</p>}
+          {error && <p className="ui-meta mt-2 text-[11px] font-semibold leading-relaxed text-red-600">{error}</p>}
 
           <div className="mt-2 flex items-center gap-2">
             <button
               type="button"
               onClick={handleEnable}
               disabled={saving || blocked}
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#003375] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="ui-action inline-flex items-center justify-center gap-1.5 rounded-md bg-[#003375] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-gray-300"
             >
               {saving && <Loader2 size={13} className="animate-spin" />}
               {iosInstallRequired ? 'Cách cài trên iPhone/iPad' : blocked ? 'Đang bị chặn' : copy.cta}

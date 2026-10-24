@@ -1,0 +1,7072 @@
+{
+  "source": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
+  "engine": "Chromium 155.0.8059.85",
+  "actualRouteContexts": 31,
+  "matrixNormalContexts": 15,
+  "observations": [
+    {
+      "route": "/profiles/search?q=fixture",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Web designed by tqhoangg",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Điều khoản sử dụng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Chính sách bảo mật",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/profiles/search?q=fixture",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": true,
+      "smallMeaningful": [
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 17.5
+        }
+      ],
+      "smallTargets": [],
+      "contrastFailures": [
+        {
+          "text": "Bấm vào một sinh viên để xem hồ sơ công khai.",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 4.248753019441409,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 469,
+            "worst": {
+              "x": 28,
+              "y": 92,
+              "background": [
+                234,
+                241,
+                249
+              ],
+              "ink": [
+                106,
+                114,
+                130
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 14,
+              "y": 88
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/scholarships",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Tra cứu sinh viên",
+          "size": 11,
+          "line": 16
+        },
+        {
+          "text": "Vuốt ngang để xem đầy đủ",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng số: 1 kết quả",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Số dòng",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Trang 1 / 1",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Nguồn tài liệu: Nguồn kiểm thử · Fixture only",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở menu học bổng",
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Xóa bộ lọc",
+          "width": 86.515625,
+          "height": 38
+        },
+        {
+          "name": "Mở bộ lọc",
+          "width": 93.921875,
+          "height": 38
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "/ 4.0",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "TC",
+          "size": 10,
+          "line": 15
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 362,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 111.3125,
+          "height": 26.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 50.484375,
+          "height": 26.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 44.59375,
+          "height": 26.5
+        },
+        {
+          "name": "Nhập điểm PDFNhập",
+          "width": 62.515625,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/schedule",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Mở bộ lọc (1)",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "(1)",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Xem danh sách lớp",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Bộ lọc nâng cao",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "HK1 (2026-2027)",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Xóa tất cả bộ lọc",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Xem và quản lý lịch học của bạn",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Lịch cá nhân",
+          "width": 79.5,
+          "height": 21
+        },
+        {
+          "name": "Kế hoạch",
+          "width": 79.5,
+          "height": 21
+        },
+        {
+          "name": "Tuần",
+          "width": 48.40625,
+          "height": 23
+        },
+        {
+          "name": "Tháng",
+          "width": 53.8125,
+          "height": 21
+        },
+        {
+          "name": "Hôm nay",
+          "width": 68.140625,
+          "height": 26.5
+        },
+        {
+          "name": "",
+          "width": 27.5,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Sáng",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.759825433189636,
+            "minimum": 4.5,
+            "foreground": [
+              255,
+              105,
+              0,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "07:00\n|\n11:05",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.486693258117688,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "Chiều",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 4.373607645460073,
+            "minimum": 4.5,
+            "foreground": [
+              97,
+              95,
+              255,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "13:00\n|\n17:05",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.486693258117688,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/events",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "*Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lạ",
+          "size": 11,
+          "line": 17.875
+        },
+        {
+          "text": "Đăng ký",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Nhận thông báo để biết sự kiện mới và hạn đăng ký kịp lúc.",
+          "size": 10.5,
+          "line": 17.0625
+        },
+        {
+          "text": "Cách cài trên iPhone/iPad",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Chưa có ảnh",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đoàn trường",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Sắp diễn ra",
+          "size": 10,
+          "line": 15
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Đăng ký",
+          "width": 76.96875,
+          "height": 27.5
+        },
+        {
+          "name": "Ẩn nhắc thông báo",
+          "width": 22,
+          "height": 22
+        },
+        {
+          "name": "Cách cài trên iPhone/iPad",
+          "width": 152.640625,
+          "height": 24.5
+        },
+        {
+          "name": "Tất cả",
+          "width": 50.703125,
+          "height": 28
+        },
+        {
+          "name": "Đã tham gia (0)",
+          "width": 104.546875,
+          "height": 28
+        },
+        {
+          "name": "Mục I",
+          "width": 46.421875,
+          "height": 28
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Chưa có ảnh",
+          "contrast": {
+            "index": 19,
+            "status": "FAIL",
+            "ratio": 1.6344697344055534,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 83,
+            "worst": {
+              "x": 164,
+              "y": 424,
+              "background": [
+                203,
+                205,
+                209
+              ],
+              "ink": [
+                153,
+                161,
+                175
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 163.15625,
+              "y": 415.421875
+            }
+          }
+        },
+        {
+          "text": "Ngày hội sinh viên kiểm thử",
+          "contrast": {
+            "index": 20,
+            "status": "FAIL",
+            "ratio": 4.113447022169084,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 368,
+            "worst": {
+              "x": 165,
+              "y": 461,
+              "background": [
+                122,
+                125,
+                134
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 28.25,
+              "y": 460.9375
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/lost-found",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Nhận thông báo khi có tin thất lạc hoặc nhặt được mới được duyệt.",
+          "size": 10.5,
+          "line": 17.0625
+        },
+        {
+          "text": "Cách cài trên iPhone/iPad",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Không có ảnh",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "18/10/2026",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Nhặt được",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Khu vực: Thư viện",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "",
+          "width": 36,
+          "height": 36
+        },
+        {
+          "name": "Gửi thông tin",
+          "width": 319,
+          "height": 36
+        },
+        {
+          "name": "Tin báo mất",
+          "width": 123.171875,
+          "height": 28.5
+        },
+        {
+          "name": "Tin nhặt được",
+          "width": 134.609375,
+          "height": 28.5
+        },
+        {
+          "name": "Ẩn nhắc thông báo",
+          "width": 22,
+          "height": 22
+        },
+        {
+          "name": "Cách cài trên iPhone/iPad",
+          "width": 152.640625,
+          "height": 24.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Không có ảnh",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.4896676501012487,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              249,
+              250,
+              251,
+              1
+            ]
+          }
+        },
+        {
+          "text": "Yêu cầu xóa/gỡ",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 4.360401627538955,
+            "minimum": 4.5,
+            "foreground": [
+              231,
+              0,
+              11,
+              1
+            ],
+            "background": [
+              254,
+              242,
+              242,
+              1
+            ]
+          }
+        },
+        {
+          "text": "Báo cáo",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 4.360401627538955,
+            "minimum": 4.5,
+            "foreground": [
+              231,
+              0,
+              11,
+              1
+            ],
+            "background": [
+              254,
+              242,
+              242,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/handbook/contacts",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Web designed by tqhoangg",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Điều khoản sử dụng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Chính sách bảo mật",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/handbook/feedback",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Web designed by tqhoangg",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Điều khoản sử dụng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Chính sách bảo mật",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "*",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 3.7974890601205153,
+            "minimum": 4.5,
+            "foreground": [
+              251,
+              44,
+              54,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/support/new",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Hỗ trợ",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Gợi ý nhanh",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Không nhập được bảng điểm",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Mất dữ liệu bảng điểm",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Không thấy sự kiện",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Lỗi thời khóa biểu",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Lỗi tìm đồ thất lạc",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Ticket của tôi",
+          "width": 362,
+          "height": 17.5
+        },
+        {
+          "name": "Không nhập được bảng điểm",
+          "width": 170.546875,
+          "height": 26.5
+        },
+        {
+          "name": "Mất dữ liệu bảng điểm",
+          "width": 136.96875,
+          "height": 26.5
+        },
+        {
+          "name": "Không thấy sự kiện",
+          "width": 122.875,
+          "height": 26.5
+        },
+        {
+          "name": "Lỗi thời khóa biểu",
+          "width": 113.8125,
+          "height": 26.5
+        },
+        {
+          "name": "Lỗi tìm đồ thất lạc",
+          "width": 113.828125,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/profile/000000000001",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Web designed by tqhoangg",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Điều khoản sử dụng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Chính sách bảo mật",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Cập nhật hồ sơ",
+          "width": 139.953125,
+          "height": 31.5
+        },
+        {
+          "name": "Sao chép link",
+          "width": 132.6875,
+          "height": 33.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/support",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Hỗ trợ",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tất cả",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Mới",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đang xử lý",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đã giải quyết",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đã đóng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Web designed by tqhoangg",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Tất cả",
+          "width": 53.03125,
+          "height": 24.5
+        },
+        {
+          "name": "Mới",
+          "width": 40.375,
+          "height": 24.5
+        },
+        {
+          "name": "Đang xử lý",
+          "width": 76.171875,
+          "height": 24.5
+        },
+        {
+          "name": "Đã giải quyết",
+          "width": 88.875,
+          "height": 24.5
+        },
+        {
+          "name": "Đã đóng",
+          "width": 64.140625,
+          "height": 24.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/handbook/scholarships",
+      "pwa": false,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "* Điều kiện: Tích lũy tối thiểu 15 tín chỉ/kỳ, ĐRL 80 trở lên, không rớt môn nào, không bị kỷ luật.",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Web designed by tqhoangg",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Điều khoản sử dụng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Chính sách bảo mật",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "3.6 - 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 3.2103724992615703,
+            "minimum": 4.5,
+            "foreground": [
+              0,
+              166,
+              62,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Cập nhật",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Cập nhật",
+          "width": 67.515625,
+          "height": 31.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.098673597300266,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 399,
+            "worst": {
+              "x": 39,
+              "y": 84,
+              "background": [
+                241,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.8404288844808745,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 40,
+            "worst": {
+              "x": 75,
+              "y": 159,
+              "background": [
+                111,
+                149,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 39,
+              "y": 126.765625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.778661919657966,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 77,
+            "worst": {
+              "x": 162,
+              "y": 133,
+              "background": [
+                87,
+                131,
+                253
+              ],
+              "ink": [
+                221.4,
+                230.2,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 119.640625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.2164541703253833,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 387,
+            "worst": {
+              "x": 274,
+              "y": 150,
+              "background": [
+                143,
+                172,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 139.640625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.147622966747495,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 96,
+            "worst": {
+              "x": 202,
+              "y": 185,
+              "background": [
+                147,
+                175,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 170.890625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/learning",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Tổng quan",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "GPA tích lũy",
+          "size": 11.5,
+          "line": 14.375
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tín chỉ tích lũy",
+          "size": 11.5,
+          "line": 14.375
+        },
+        {
+          "text": "Mục tiêu: 125",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "125",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Xem bảng xếp hạng môn học của bạn",
+          "size": 10.5,
+          "line": 14.4375
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Thông báo",
+          "width": 42,
+          "height": 42
+        },
+        {
+          "name": "Điểm số & Lộ trình",
+          "width": 167,
+          "height": 40
+        },
+        {
+          "name": "Lịch học & Thi",
+          "width": 167,
+          "height": 40
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Quản lý học tập",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.124118968674796,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 158,
+            "worst": {
+              "x": 25,
+              "y": 59,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "Lịch học & Thi",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.4655953831984405,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 140,
+            "worst": {
+              "x": 251,
+              "y": 107,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 250.4375,
+              "y": 103.390625
+            }
+          }
+        },
+        {
+          "text": "Tổng quan",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.239134524597158,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 112,
+            "worst": {
+              "x": 31,
+              "y": 155,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 0,
+              "y": 153.390625
+            }
+          }
+        },
+        {
+          "text": "GPA tích lũy",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 3.440085095875631,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 118,
+            "worst": {
+              "x": 37,
+              "y": 198,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 35,
+              "y": 195.953125
+            }
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "index": 7,
+            "status": "FAIL",
+            "ratio": 1.9001601067249363,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 38,
+            "worst": {
+              "x": 106,
+              "y": 237,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                176,
+                188,
+                218
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 103.4375,
+              "y": 233.390625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/learning?tab=schedule",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Lịch học hôm nay",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa có lịch sắp tới",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Trống",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Môn đã lưu",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Lịch hôm nay",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tuần",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tháng",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tổng quát",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Thông báo",
+          "width": 42,
+          "height": 42
+        },
+        {
+          "name": "Điểm số & Lộ trình",
+          "width": 167,
+          "height": 40
+        },
+        {
+          "name": "Lịch học & Thi",
+          "width": 167,
+          "height": 40
+        },
+        {
+          "name": "",
+          "width": 30,
+          "height": 30
+        },
+        {
+          "name": "Tuần",
+          "width": 46.859375,
+          "height": 26.25
+        },
+        {
+          "name": "Tháng",
+          "width": 54.34375,
+          "height": 26.25
+        },
+        {
+          "name": "",
+          "width": 31,
+          "height": 31
+        },
+        {
+          "name": "Tổng quát",
+          "width": 247.5,
+          "height": 31
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Quản lý học tập",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.124118968674796,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 158,
+            "worst": {
+              "x": 25,
+              "y": 59,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "Điểm số & Lộ trình",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.4655953831984405,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 197,
+            "worst": {
+              "x": 81,
+              "y": 105,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 64.375,
+              "y": 103.390625
+            }
+          }
+        },
+        {
+          "text": "Lịch học hôm nay",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.1934620767644613,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 170,
+            "worst": {
+              "x": 53,
+              "y": 170,
+              "background": [
+                237,
+                242,
+                250
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 160.390625
+            }
+          }
+        },
+        {
+          "text": "Ca học tiếp theo",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 3.2665749687993566,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 243,
+            "worst": {
+              "x": 151,
+              "y": 217,
+              "background": [
+                94,
+                136,
+                254
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 35,
+              "y": 201.390625
+            }
+          }
+        },
+        {
+          "text": "Trống",
+          "contrast": {
+            "index": 7,
+            "status": "FAIL",
+            "ratio": 1.6982836572573115,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 45,
+            "worst": {
+              "x": 339,
+              "y": 219,
+              "background": [
+                177,
+                198,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 302.65625,
+              "y": 201.390625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/events",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Nhận thông báo để biết sự kiện mới và hạn đăng ký kịp lúc.",
+          "size": 10.5,
+          "line": 17.0625
+        },
+        {
+          "text": "Bật nhắc sự kiện",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng quan",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Sự kiện mở",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Đang nhận đăng ký",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Đã lưu",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Sự kiện quan tâm",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Hoạt động mới cho sinh viên HUB",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 42,
+          "height": 42
+        },
+        {
+          "name": "",
+          "width": 42,
+          "height": 42
+        },
+        {
+          "name": "Ẩn nhắc thông báo",
+          "width": 22,
+          "height": 22
+        },
+        {
+          "name": "Bật nhắc sự kiện",
+          "width": 105.234375,
+          "height": 24.5
+        },
+        {
+          "name": "Tất cả",
+          "width": 54.546875,
+          "height": 30.5
+        },
+        {
+          "name": "Đã tham gia (0)",
+          "width": 103.71875,
+          "height": 30.5
+        },
+        {
+          "name": "Mục I",
+          "width": 50.46875,
+          "height": 30.5
+        },
+        {
+          "name": "Mục II",
+          "width": 53.609375,
+          "height": 30.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Điểm rèn luyện & hoạt động",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.124118968674796,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 266,
+            "worst": {
+              "x": 39,
+              "y": 57,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "Tổng quan",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.239134524597158,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 113,
+            "worst": {
+              "x": 33,
+              "y": 203,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 201.578125
+            }
+          }
+        },
+        {
+          "text": "Sự kiện mở",
+          "contrast": {
+            "index": 6,
+            "status": "FAIL",
+            "ratio": 3.440085095875631,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 90,
+            "worst": {
+              "x": 37,
+              "y": 247,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 35,
+              "y": 239.078125
+            }
+          }
+        },
+        {
+          "text": "Đang nhận đăng ký",
+          "contrast": {
+            "index": 8,
+            "status": "FAIL",
+            "ratio": 2.4655953831984405,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 149,
+            "worst": {
+              "x": 35,
+              "y": 313,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 35,
+              "y": 309.828125
+            }
+          }
+        },
+        {
+          "text": "Đã lưu",
+          "contrast": {
+            "index": 9,
+            "status": "FAIL",
+            "ratio": 3.440085095875631,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 52,
+            "worst": {
+              "x": 215,
+              "y": 247,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 214.25,
+              "y": 239.078125
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/lost-found",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Tổng quan",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tin đang mở",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "0 báo mất • 1 nhặt được",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Đã giải quyết",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tổng tin đã hoàn tất",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Lưu ý: Thông tin bạn gửi sẽ được Ban quản trị kiểm duyệt trước khi hiển thị. Không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân,",
+          "size": 10.8,
+          "line": 16.2
+        },
+        {
+          "text": "Lưu ý:",
+          "size": 10.8,
+          "line": 16.2
+        },
+        {
+          "text": "Tất cả",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 42,
+          "height": 42
+        },
+        {
+          "name": "",
+          "width": 42,
+          "height": 42
+        },
+        {
+          "name": "Tin báo mất",
+          "width": 167,
+          "height": 40
+        },
+        {
+          "name": "Tin nhặt được",
+          "width": 167,
+          "height": 40
+        },
+        {
+          "name": "",
+          "width": 30,
+          "height": 30
+        },
+        {
+          "name": "Tất cả",
+          "width": 54.546875,
+          "height": 30.5
+        },
+        {
+          "name": "Thẻ SV",
+          "width": 60.171875,
+          "height": 30.5
+        },
+        {
+          "name": "Chìa khóa",
+          "width": 75.0625,
+          "height": 30.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Đồ thất lạc nội bộ",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.124118968674796,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 176,
+            "worst": {
+              "x": 35,
+              "y": 57,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "Tin nhặt được",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.4655953831984405,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 147,
+            "worst": {
+              "x": 252,
+              "y": 107,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 251.203125,
+              "y": 103.390625
+            }
+          }
+        },
+        {
+          "text": "Tổng quan",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.239134524597158,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 113,
+            "worst": {
+              "x": 33,
+              "y": 151,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 149.890625
+            }
+          }
+        },
+        {
+          "text": "Tin đang mở",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 3.440085095875631,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 101,
+            "worst": {
+              "x": 35,
+              "y": 195,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 35,
+              "y": 187.390625
+            }
+          }
+        },
+        {
+          "text": "0 báo mất • 1 nhặt được",
+          "contrast": {
+            "index": 7,
+            "status": "FAIL",
+            "ratio": 2.4655953831984405,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 167,
+            "worst": {
+              "x": 35,
+              "y": 262,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                154,
+                165,
+                192
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 35,
+              "y": 258.140625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/profile/000000000001",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "000000000001@st.buh.edu.vn",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Sinh viên HUB",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Khóa",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "MSSV",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Lớp",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tài khoản",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Họ tên, MSSV, ngành học",
+          "size": 10.3,
+          "line": 14.1625
+        },
+        {
+          "text": "Làm mới bảng điểm, lịch cá nhân",
+          "size": 10.3,
+          "line": 14.1625
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 42,
+          "height": 42
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tài khoản & cài đặt",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.124118968674796,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 184,
+            "worst": {
+              "x": 21,
+              "y": 59,
+              "background": [
+                242,
+                244,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "000000000001@st.buh.edu.vn",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 3.440085095875631,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 261,
+            "worst": {
+              "x": 118,
+              "y": 132,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 115.25,
+              "y": 128.890625
+            }
+          }
+        },
+        {
+          "text": "Khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 3.440085095875631,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 39,
+            "worst": {
+              "x": 56,
+              "y": 217,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 32.5,
+              "y": 212.390625
+            }
+          }
+        },
+        {
+          "text": "MSSV",
+          "contrast": {
+            "index": 7,
+            "status": "FAIL",
+            "ratio": 3.440085095875631,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 56,
+            "worst": {
+              "x": 151,
+              "y": 217,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 128.125,
+              "y": 212.390625
+            }
+          }
+        },
+        {
+          "text": "000000000001",
+          "contrast": {
+            "index": 8,
+            "status": "FAIL",
+            "ratio": 3.4423244355482554,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 200,
+            "worst": {
+              "x": 136,
+              "y": 248,
+              "background": [
+                242,
+                251,
+                247
+              ],
+              "ink": [
+                0,
+                153,
+                111
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 128.125,
+              "y": 240.390625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/handbook/contacts",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 17.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 42,
+          "height": 42
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Thông tin liên hệ các phòng ban",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.8852338427597313,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 268,
+            "worst": {
+              "x": 285,
+              "y": 47,
+              "background": [
+                55,
+                115,
+                198
+              ],
+              "ink": [
+                219,
+                234,
+                254
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 71,
+              "y": 37.75
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/handbook/feedback",
+      "pwa": true,
+      "role": "student",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.",
+          "size": 10,
+          "line": 17.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 42,
+          "height": 42
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Đóng góp ý tưởng phát triển",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 4.049575240314412,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 249,
+            "worst": {
+              "x": 271,
+              "y": 47,
+              "background": [
+                50,
+                112,
+                196
+              ],
+              "ink": [
+                219,
+                234,
+                254
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 71,
+              "y": 37.75
+            }
+          }
+        },
+        {
+          "text": "*",
+          "contrast": {
+            "index": 6,
+            "status": "FAIL",
+            "ratio": 3.8075296430448775,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 6,
+            "worst": {
+              "x": 130,
+              "y": 193,
+              "background": [
+                255,
+                255,
+                255
+              ],
+              "ink": [
+                251,
+                44,
+                54
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 129.234375,
+              "y": 188.5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "role": "admin",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 8,
+          "line": 10
+        },
+        {
+          "text": "Hồ sơ sinh viên",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Sự kiện chưa đóng",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Sự kiện chờ duyệt",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Báo cáo cần xem",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Ticket mới",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Thông báo mới",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Báo cáo: 20 mục gần nhất mỗi loại. Thông báo mới: trong 5 mục gần nhất.",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Làm mới",
+          "width": 99.625,
+          "height": 35
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "role": "auditor",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 8,
+          "line": 10
+        },
+        {
+          "text": "Sự kiện chưa đóng",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Sự kiện chờ duyệt",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Báo cáo cần xem",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Ticket mới",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Thông báo mới",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Báo cáo: 20 mục gần nhất mỗi loại. Thông báo mới: trong 5 mục gần nhất.",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Ưu tiên từ hàng đợi sự kiện, báo cáo và hỗ trợ.",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Làm mới",
+          "width": 99.625,
+          "height": 35
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/events",
+      "pwa": false,
+      "role": "admin",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 8,
+          "line": 10
+        },
+        {
+          "text": "Tổng sự kiện",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đang mở đăng ký",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Sắp diễn ra",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đã đóng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tìm kiếm",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Học kỳ (theo ngày diễn ra)",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Loại hình",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Tất cả sự kiện",
+          "width": 90.09375,
+          "height": 38
+        },
+        {
+          "name": "Đang mở đăng ký",
+          "width": 110.953125,
+          "height": 38
+        },
+        {
+          "name": "Sắp diễn ra",
+          "width": 73.5625,
+          "height": 38
+        },
+        {
+          "name": "Đã đóng",
+          "width": 56.921875,
+          "height": 38
+        },
+        {
+          "name": "Tất cả",
+          "width": 50.96875,
+          "height": 26.5
+        },
+        {
+          "name": "Tháng này",
+          "width": 72.984375,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/events",
+      "pwa": false,
+      "role": "auditor",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 8,
+          "line": 10
+        },
+        {
+          "text": "Tổng sự kiện",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đang mở đăng ký",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Sắp diễn ra",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đã đóng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tìm kiếm",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Học kỳ (theo ngày diễn ra)",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Loại hình",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Tất cả sự kiện",
+          "width": 90.09375,
+          "height": 38
+        },
+        {
+          "name": "Đang mở đăng ký",
+          "width": 110.953125,
+          "height": 38
+        },
+        {
+          "name": "Sắp diễn ra",
+          "width": 73.5625,
+          "height": 38
+        },
+        {
+          "name": "Đã đóng",
+          "width": 56.921875,
+          "height": 38
+        },
+        {
+          "name": "Tất cả",
+          "width": 50.96875,
+          "height": 26.5
+        },
+        {
+          "name": "Tháng này",
+          "width": 72.984375,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/admin/support",
+      "pwa": false,
+      "role": "admin",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 8,
+          "line": 10
+        },
+        {
+          "text": "Đã xử lý tất cả",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Đã xử lý tất cả",
+          "width": 117.015625,
+          "height": 31.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Đã xử lý tất cả",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 3.653219070031898,
+            "minimum": 4.5,
+            "foreground": [
+              255,
+              255,
+              255,
+              1
+            ],
+            "background": [
+              0,
+              153,
+              102,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/admin/support",
+      "pwa": false,
+      "role": "auditor",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 8,
+          "line": 10
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "role": "guest",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Cập nhật thông tin",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đăng nhập ngay",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "/ 4.0",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Cập nhật thông tin",
+          "width": 166,
+          "height": 26.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 111.3125,
+          "height": 26.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 50.484375,
+          "height": 26.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 44.59375,
+          "height": 26.5
+        },
+        {
+          "name": "Nhập điểm PDFNhập",
+          "width": 62.515625,
+          "height": 26.5
+        },
+        {
+          "name": "Xếp hạng 👑",
+          "width": 100.71875,
+          "height": 25.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/events",
+      "pwa": false,
+      "role": "guest",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "*Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lạ",
+          "size": 11,
+          "line": 17.875
+        },
+        {
+          "text": "Đăng ký",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa có ảnh",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đoàn trường",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Sắp diễn ra",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "III",
+          "size": 9,
+          "line": 13.5
+        },
+        {
+          "text": "+0",
+          "size": 9,
+          "line": 13.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Đăng ký",
+          "width": 76.96875,
+          "height": 27.5
+        },
+        {
+          "name": "Tất cả",
+          "width": 50.703125,
+          "height": 28
+        },
+        {
+          "name": "Đã tham gia (0)",
+          "width": 104.546875,
+          "height": 28
+        },
+        {
+          "name": "Mục I",
+          "width": 46.421875,
+          "height": 28
+        },
+        {
+          "name": "Mục II",
+          "width": 49.8125,
+          "height": 28
+        },
+        {
+          "name": "Mục III",
+          "width": 53.203125,
+          "height": 28
+        },
+        {
+          "name": "Mục IV",
+          "width": 55.328125,
+          "height": 28
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Chưa có ảnh",
+          "contrast": {
+            "index": 16,
+            "status": "FAIL",
+            "ratio": 1.6179609450799597,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 78,
+            "worst": {
+              "x": 196,
+              "y": 425,
+              "background": [
+                202,
+                204,
+                208
+              ],
+              "ink": [
+                153,
+                161,
+                175
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 163.15625,
+              "y": 414.734375
+            }
+          }
+        },
+        {
+          "text": "Ngày hội sinh viên kiểm thử",
+          "contrast": {
+            "index": 17,
+            "status": "FAIL",
+            "ratio": 4.113447022169084,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 389,
+            "worst": {
+              "x": 165,
+              "y": 461,
+              "background": [
+                122,
+                125,
+                134
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 28.25,
+              "y": 460.25
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/support",
+      "pwa": false,
+      "role": "guest",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Hỗ trợ",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tất cả",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Mới",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đang xử lý",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đã giải quyết",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Đã đóng",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Web designed by tqhoangg",
+          "size": 10.5,
+          "line": 14
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Tất cả",
+          "width": 53.03125,
+          "height": 24.5
+        },
+        {
+          "name": "Mới",
+          "width": 40.375,
+          "height": 24.5
+        },
+        {
+          "name": "Đang xử lý",
+          "width": 76.171875,
+          "height": 24.5
+        },
+        {
+          "name": "Đã giải quyết",
+          "width": 88.875,
+          "height": 24.5
+        },
+        {
+          "name": "Đã đóng",
+          "width": 64.140625,
+          "height": 24.5
+        }
+      ],
+      "contrastFailures": []
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "role": "guest",
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Mở khóa đồng bộ GPA, TKB và thông báo học vụ.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Đăng nhập",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.098673597300266,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 399,
+            "worst": {
+              "x": 39,
+              "y": 84,
+              "background": [
+                241,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.8404288844808745,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 40,
+            "worst": {
+              "x": 75,
+              "y": 159,
+              "background": [
+                111,
+                149,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 39,
+              "y": 126.765625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.778661919657966,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 77,
+            "worst": {
+              "x": 162,
+              "y": 133,
+              "background": [
+                87,
+                131,
+                253
+              ],
+              "ink": [
+                221.4,
+                230.2,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 119.640625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.2164541703253833,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 387,
+            "worst": {
+              "x": 274,
+              "y": 150,
+              "background": [
+                143,
+                172,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 139.640625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.147622966747495,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 96,
+            "worst": {
+              "x": 202,
+              "y": 185,
+              "background": [
+                147,
+                175,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 170.890625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        320,
+        568
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "/ 4.0",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "TC",
+          "size": 10,
+          "line": 15
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 292,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 111.3125,
+          "height": 26.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 50.484375,
+          "height": 26.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 44.59375,
+          "height": 26.5
+        },
+        {
+          "name": "Nhập điểm PDFNhập",
+          "width": 62.515625,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "viewport": [
+        320,
+        568
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Cập nhật",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Cập nhật",
+          "width": 67.515625,
+          "height": 31.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.098673597300266,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 402,
+            "worst": {
+              "x": 51,
+              "y": 82,
+              "background": [
+                241,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.801348447846931,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 40,
+            "worst": {
+              "x": 73,
+              "y": 174,
+              "background": [
+                114,
+                150,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 39,
+              "y": 141.890625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.630123035782919,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 77,
+            "worst": {
+              "x": 162,
+              "y": 133,
+              "background": [
+                95,
+                137,
+                253
+              ],
+              "ink": [
+                223,
+                231.4,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 119.640625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 1.9735753095158017,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 386,
+            "worst": {
+              "x": 274,
+              "y": 156,
+              "background": [
+                159,
+                183,
+                251
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 139.640625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.081335675298532,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 96,
+            "worst": {
+              "x": 202,
+              "y": 185,
+              "background": [
+                151,
+                178,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 170.890625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        360,
+        640
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "/ 4.0",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "TC",
+          "size": 10,
+          "line": 15
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 332,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 111.3125,
+          "height": 26.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 50.484375,
+          "height": 26.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 44.59375,
+          "height": 26.5
+        },
+        {
+          "name": "Nhập điểm PDFNhập",
+          "width": 62.515625,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "viewport": [
+        360,
+        640
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Cập nhật",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Cập nhật",
+          "width": 67.515625,
+          "height": 31.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.098673597300266,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 400,
+            "worst": {
+              "x": 53,
+              "y": 82,
+              "background": [
+                241,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.801348447846931,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 40,
+            "worst": {
+              "x": 75,
+              "y": 174,
+              "background": [
+                114,
+                150,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 39,
+              "y": 141.890625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.7510971579697214,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 77,
+            "worst": {
+              "x": 162,
+              "y": 133,
+              "background": [
+                89,
+                132,
+                253
+              ],
+              "ink": [
+                221.8,
+                230.4,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 119.640625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.1252796127891815,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 387,
+            "worst": {
+              "x": 274,
+              "y": 156,
+              "background": [
+                149,
+                176,
+                251
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 139.640625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.16891192934291,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 96,
+            "worst": {
+              "x": 202,
+              "y": 185,
+              "background": [
+                146,
+                174,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 170.890625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        375,
+        667
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "/ 4.0",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "TC",
+          "size": 10,
+          "line": 15
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 347,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 111.3125,
+          "height": 26.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 50.484375,
+          "height": 26.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 44.59375,
+          "height": 26.5
+        },
+        {
+          "name": "Nhập điểm PDFNhập",
+          "width": 62.515625,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "viewport": [
+        375,
+        667
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Cập nhật",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Cập nhật",
+          "width": 67.515625,
+          "height": 31.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.098673597300266,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 400,
+            "worst": {
+              "x": 53,
+              "y": 82,
+              "background": [
+                241,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.801348447846931,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 40,
+            "worst": {
+              "x": 67,
+              "y": 180,
+              "background": [
+                114,
+                150,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 39,
+              "y": 141.890625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.778661919657966,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 77,
+            "worst": {
+              "x": 162,
+              "y": 133,
+              "background": [
+                87,
+                131,
+                253
+              ],
+              "ink": [
+                221.4,
+                230.2,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 119.640625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.16891192934291,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 387,
+            "worst": {
+              "x": 272,
+              "y": 156,
+              "background": [
+                146,
+                174,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 139.640625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.212267498176698,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 96,
+            "worst": {
+              "x": 202,
+              "y": 183,
+              "background": [
+                144,
+                172,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 170.890625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "/ 4.0",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "TC",
+          "size": 10,
+          "line": 15
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 362,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 111.3125,
+          "height": 26.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 50.484375,
+          "height": 26.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 44.59375,
+          "height": 26.5
+        },
+        {
+          "name": "Nhập điểm PDFNhập",
+          "width": 62.515625,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "viewport": [
+        390,
+        844
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Cập nhật",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Cập nhật",
+          "width": 67.515625,
+          "height": 31.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.098673597300266,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 399,
+            "worst": {
+              "x": 39,
+              "y": 84,
+              "background": [
+                241,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.8404288844808745,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 40,
+            "worst": {
+              "x": 75,
+              "y": 159,
+              "background": [
+                111,
+                149,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 39,
+              "y": 126.765625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.778661919657966,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 77,
+            "worst": {
+              "x": 162,
+              "y": 133,
+              "background": [
+                87,
+                131,
+                253
+              ],
+              "ink": [
+                221.4,
+                230.2,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 119.640625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.2164541703253833,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 387,
+            "worst": {
+              "x": 274,
+              "y": 150,
+              "background": [
+                143,
+                172,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 139.640625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.147622966747495,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 96,
+            "worst": {
+              "x": 202,
+              "y": 185,
+              "background": [
+                147,
+                175,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 170.890625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        430,
+        932
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "/ 4.0",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "8.00",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "TC",
+          "size": 10,
+          "line": 15
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Mở menu",
+          "width": 32.5,
+          "height": 32.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 402,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 111.3125,
+          "height": 26.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 50.484375,
+          "height": 26.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 44.59375,
+          "height": 26.5
+        },
+        {
+          "name": "Nhập điểm PDFNhập",
+          "width": 62.515625,
+          "height": 26.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "viewport": [
+        430,
+        932
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Cập nhật",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Cập nhật",
+          "width": 67.515625,
+          "height": 31.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.092923504771122,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 391,
+            "worst": {
+              "x": 75,
+              "y": 70,
+              "background": [
+                240,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 21,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.8453944542897007,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 40,
+            "worst": {
+              "x": 67,
+              "y": 147,
+              "background": [
+                110,
+                149,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 39,
+              "y": 108.890625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.855881885401909,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 77,
+            "worst": {
+              "x": 162,
+              "y": 115,
+              "background": [
+                83,
+                128,
+                253
+              ],
+              "ink": [
+                220.6,
+                229.6,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 101.765625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.5448271936382953,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 387,
+            "worst": {
+              "x": 272,
+              "y": 138,
+              "background": [
+                126,
+                159,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 121.765625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.238573139983706,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 102,
+            "worst": {
+              "x": 202,
+              "y": 168,
+              "background": [
+                142,
+                171,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 113.25,
+              "y": 153.015625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        768,
+        1024
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "F",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Mục tiêu: 125",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 18,
+          "height": 18
+        },
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "F",
+          "width": 24.5,
+          "height": 24.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 195.625,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 139.75,
+          "height": 33.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 90.796875,
+          "height": 33.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 127.03125,
+          "height": 33.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.601766988456806,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              255,
+              255,
+              255,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        1024,
+        768
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Mục tiêu: 125",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "125",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 31.5,
+          "height": 31.5
+        },
+        {
+          "name": "",
+          "width": 18,
+          "height": 18
+        },
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "F",
+          "width": 28,
+          "height": 28
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 195.625,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 53.296875,
+          "height": 14
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 139.75,
+          "height": 33.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 90.796875,
+          "height": 33.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.601766988456806,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              255,
+              255,
+              255,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        1440,
+        900
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Mục tiêu: 125",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "125",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 31.5,
+          "height": 31.5
+        },
+        {
+          "name": "",
+          "width": 18,
+          "height": 18
+        },
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "F",
+          "width": 28,
+          "height": 28
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 195.625,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 53.296875,
+          "height": 14
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 139.75,
+          "height": 33.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 90.796875,
+          "height": 33.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.601766988456806,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              255,
+              255,
+              255,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/dashboard",
+      "pwa": false,
+      "viewport": [
+        667,
+        375
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Hỗ trợ sinh viên",
+          "size": 9,
+          "line": 11.25
+        },
+        {
+          "text": "F",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Nhìn lại kỳ học vừa qua",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Tổng GPA tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Hệ 10: 8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "8.00",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Tổng TC tích lũy",
+          "size": 10.5,
+          "line": 14
+        },
+        {
+          "text": "Mục tiêu: 125",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "",
+          "width": 18,
+          "height": 18
+        },
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "F",
+          "width": 24.5,
+          "height": 24.5
+        },
+        {
+          "name": "Nhìn lại kỳ học vừa qua",
+          "width": 195.625,
+          "height": 33
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 50.75,
+          "height": 15
+        },
+        {
+          "name": "Sửa bảng điểm",
+          "width": 139.75,
+          "height": 33.5
+        },
+        {
+          "name": "Báo lỗiLỗi",
+          "width": 90.796875,
+          "height": 33.5
+        },
+        {
+          "name": "In bảng điểmIn",
+          "width": 127.03125,
+          "height": 33.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "•",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 1.40729739166645,
+            "minimum": 4.5,
+            "foreground": [
+              209,
+              213,
+              220,
+              1
+            ],
+            "background": [
+              248,
+              250,
+              252,
+              1
+            ]
+          }
+        },
+        {
+          "text": "/ 4.0",
+          "contrast": {
+            "status": "FAIL",
+            "ratio": 2.594906041951718,
+            "minimum": 4.5,
+            "foreground": [
+              153,
+              161,
+              175,
+              1
+            ],
+            "background": [
+              254.58823529411765,
+              254.7058823529412,
+              254.8235294117647,
+              1
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "route": "/mobile-home",
+      "pwa": true,
+      "viewport": [
+        667,
+        375
+      ],
+      "overflow": false,
+      "smallMeaningful": [
+        {
+          "text": "Xin chào,",
+          "size": 11,
+          "line": 16.5
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Chưa chọn ngành",
+          "size": 10,
+          "line": 15
+        },
+        {
+          "text": "Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Xem tin",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.",
+          "size": 10.5,
+          "line": 14.4375
+        },
+        {
+          "text": "Cập nhật",
+          "size": 10.5,
+          "line": 15.75
+        },
+        {
+          "text": "Tra cứu danh sách & học bổng cá nhân",
+          "size": 11,
+          "line": 16.5
+        }
+      ],
+      "smallTargets": [
+        {
+          "name": "Mở thông báo",
+          "width": 41,
+          "height": 41
+        },
+        {
+          "name": "Xem tin",
+          "width": 60.703125,
+          "height": 34
+        },
+        {
+          "name": "Cập nhật",
+          "width": 67.515625,
+          "height": 31.5
+        },
+        {
+          "name": "Xem tất cả",
+          "width": 68.078125,
+          "height": 23.5
+        }
+      ],
+      "contrastFailures": [
+        {
+          "text": "Tất cả tiện ích sinh viên trong một màn hình",
+          "contrast": {
+            "index": 1,
+            "status": "FAIL",
+            "ratio": 3.092923504771122,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 408,
+            "worst": {
+              "x": 192,
+              "y": 70,
+              "background": [
+                240,
+                243,
+                248
+              ],
+              "ink": [
+                123,
+                138,
+                176
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 139.5,
+              "y": 55.390625
+            }
+          }
+        },
+        {
+          "text": "F",
+          "contrast": {
+            "index": 2,
+            "status": "FAIL",
+            "ratio": 2.874911130597221,
+            "minimum": 3,
+            "method": "painted",
+            "samples": 50,
+            "worst": {
+              "x": 194,
+              "y": 123,
+              "background": [
+                109,
+                148,
+                253
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 157.5,
+              "y": 90.890625
+            }
+          }
+        },
+        {
+          "text": "Xin chào,",
+          "contrast": {
+            "index": 3,
+            "status": "FAIL",
+            "ratio": 2.880931678585954,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 72,
+            "worst": {
+              "x": 280,
+              "y": 115,
+              "background": [
+                82,
+                127,
+                253
+              ],
+              "ink": [
+                220.4,
+                229.4,
+                254.6
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 231.75,
+              "y": 101.765625
+            }
+          }
+        },
+        {
+          "text": "Sinh viên kiểm thử",
+          "contrast": {
+            "index": 4,
+            "status": "FAIL",
+            "ratio": 2.5190782743638223,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 382,
+            "worst": {
+              "x": 394,
+              "y": 126,
+              "background": [
+                127,
+                160,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 231.75,
+              "y": 109.765625
+            }
+          }
+        },
+        {
+          "text": "Chưa rõ khóa",
+          "contrast": {
+            "index": 5,
+            "status": "FAIL",
+            "ratio": 2.238573139983706,
+            "minimum": 4.5,
+            "method": "painted",
+            "samples": 101,
+            "worst": {
+              "x": 322,
+              "y": 124,
+              "background": [
+                142,
+                171,
+                252
+              ],
+              "ink": [
+                255,
+                255,
+                255
+              ]
+            },
+            "revealedByScroll": true,
+            "revealedAt": {
+              "x": 231.75,
+              "y": 109.015625
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -148,7 +148,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
         <button
             type="button"
             onClick={() => { playClick(); onClick?.(); }}
-            className="flex min-h-[58px] w-full items-center justify-between gap-3 border-b border-[#F0F3F9] bg-white px-3.5 py-2.5 text-left last:border-0 active:bg-[#F8FAFD]"
+            className="ui-action flex min-h-[58px] w-full items-center justify-between gap-3 border-b border-[#F0F3F9] bg-white px-3.5 py-2.5 text-left last:border-0 active:bg-[#F8FAFD]"
         >
             <div className="flex min-w-0 items-center gap-3">
                 <span className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[13px] ${iconClassName}`}>
@@ -156,11 +156,11 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                 </span>
                 <span className="min-w-0">
                     <span className={`block text-[13.2px] font-black leading-tight ${isDestructive ? 'text-[#E11D48]' : 'text-[#0D1B3E]'}`}>{title}</span>
-                    {subtitle && <span className="mt-0.5 block truncate text-[10.3px] font-semibold leading-snug text-[#9AA5C0]">{subtitle}</span>}
+                    {subtitle && <span className="ui-meta ui-muted mt-0.5 block truncate text-[10.3px] font-semibold leading-snug text-[#9AA5C0]">{subtitle}</span>}
                 </span>
             </div>
             <span className="flex shrink-0 items-center gap-1.5">
-                {rightText && <span className="text-[10.5px] font-bold text-[#9AA5C0]">{rightText}</span>}
+                {rightText && <span className="ui-muted ui-meta text-[10.5px] font-bold text-[#9AA5C0]">{rightText}</span>}
                 <ChevronRight size={18} strokeWidth={2.5} className="text-[#C0CBDF]" />
             </span>
         </button>
@@ -181,11 +181,11 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             <button
                 type="button"
                 onClick={() => updateNotificationPref(prefKey)}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#EEF2FF] bg-[#F8FAFD] p-3.5 text-left active:bg-[#EEF2FF]"
+                className="ui-action flex w-full items-center justify-between gap-3 rounded-2xl border border-[#EEF2FF] bg-[#F8FAFD] p-3.5 text-left active:bg-[#EEF2FF]"
             >
                 <span className="min-w-0">
                     <span className="block text-[13px] font-black text-[#0D1B3E]">{title}</span>
-                    <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-[#7B8AB0]">{subtitle}</span>
+                    <span className="ui-muted ui-meta mt-0.5 block text-[11px] font-semibold leading-snug text-[#7B8AB0]">{subtitle}</span>
                 </span>
                 <span className={`relative h-7 w-12 shrink-0 rounded-full p-0.5 transition-colors ${enabled ? 'bg-[#1A56FF]' : 'bg-[#DDE3F0]'}`}>
                     <span className={`block h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -199,16 +199,16 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E]">
                 <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0" aria-hidden="true" />
 
-                <div className="px-6 pb-4 pt-1">
+                <div className="ui-page-gutter px-6 pb-4 pt-1">
                     <div className="flex items-start justify-between">
                         <div>
-                            <h1 className="text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Cá nhân</h1>
-                            <p className="mt-1 text-[13px] font-semibold text-[#7B8AB0]">Tài khoản & cài đặt</p>
+                            <h1 className="ui-page-title text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Cá nhân</h1>
+                            <p className="ui-muted ui-secondary mt-1 text-[13px] font-semibold text-[#7B8AB0]">Tài khoản & cài đặt</p>
                         </div>
                         <button
                             type="button"
                             onClick={() => { playClick(); setShowNotificationSettings(true); }}
-                            className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"
+                            className="ui-action relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"
                             title="Thông báo"
                         >
                             <Bell size={19} />
@@ -217,8 +217,8 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                     </div>
                 </div>
 
-                <div className="px-6 pb-8">
-                    <section className="mb-3 rounded-[22px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                <div className="ui-page-gutter px-6 pb-8">
+                    <section className="ui-card-space mb-3 rounded-[22px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
                         <div className="flex items-center gap-3.5">
                             <div
                                 className={`flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[22px] border border-[#EEF2FF] text-[28px] font-black ${isColorAvatar ? `${getAvatarColorClass(avatarUrl)} text-white` : 'bg-[#F8FAFD] text-[#1A56FF]'}`}
@@ -230,10 +230,10 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                                 )}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <h2 className="truncate text-[18px] font-black leading-tight text-[#0D1B3E]">{loading ? 'Đang tải...' : displayName}</h2>
-                                <p className="mt-1 truncate text-[11px] font-semibold text-[#7B8AB0]">{displaySub}</p>
+                                <h2 className="ui-section-title truncate text-[18px] font-black leading-tight text-[#0D1B3E]">{loading ? 'Đang tải...' : displayName}</h2>
+                                <p className="ui-muted ui-secondary mt-1 truncate text-[11px] font-semibold text-[#7B8AB0]">{displaySub}</p>
                                 {!isGuest && (
-                                    <div className="mt-2 inline-flex h-[24px] items-center gap-1 rounded-full border border-[#D6E4FF] bg-[#EEF2FF] px-2.5 text-[10px] font-black text-[#1A56FF]">
+                                    <div className="ui-meta mt-2 inline-flex h-[24px] items-center gap-1 rounded-full border border-[#D6E4FF] bg-[#EEF2FF] px-2.5 text-[10px] font-black text-[#1A56FF]">
                                         <CheckCircle2 size={12} strokeWidth={2.4} />
                                         Sinh viên HUB
                                     </div>
@@ -242,46 +242,46 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                         </div>
                     </section>
 
-                    <div className="mb-3 grid grid-cols-[0.82fr_1.28fr_1fr] gap-2.5">
-                        <div className="min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
-                            <div className="flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
+                    <div className="ui-profile-facts mb-3 grid grid-cols-[0.82fr_1.28fr_1fr] gap-2.5">
+                        <div className="ui-card-space min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                            <div className="ui-muted ui-meta flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
                                 <span className="grid h-5 w-5 place-items-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"><GraduationCap size={12} strokeWidth={2.3} /></span>
                                 Khóa
                             </div>
                             <div className="mt-3 rounded-xl bg-[#F5F8FF] px-2 py-2 text-center text-[18px] font-black leading-none text-[#1A56FF]">{cohort}</div>
                         </div>
-                        <div className="min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
-                            <div className="flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
+                        <div className="ui-card-space min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                            <div className="ui-muted ui-meta flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
                                 <span className="grid h-5 w-5 place-items-center rounded-lg bg-[#EDFAF3] text-[#00A876]"><Hash size={12} strokeWidth={2.5} /></span>
                                 MSSV
                             </div>
-                            <div className="mt-3 rounded-xl bg-[#F2FBF7] px-2 py-2 text-center text-[12.5px] font-black leading-none tracking-normal text-[#00996F]" title={studentCode}>
+                            <div className="ui-readable mt-3 rounded-xl bg-[#F2FBF7] px-2 py-2 text-center text-[12.5px] font-black leading-none tracking-normal text-[#006B4F]" title={studentCode}>
                                 {studentCode}
                             </div>
                         </div>
-                        <div className="min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
-                            <div className="flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
+                        <div className="ui-card-space min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                            <div className="ui-muted ui-meta flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
                                 <span className="grid h-5 w-5 place-items-center rounded-lg bg-[#F5EEFF] text-[#7B2FFF]"><Users size={12} strokeWidth={2.4} /></span>
                                 Lớp
                             </div>
-                            <div className="mt-3 truncate rounded-xl bg-[#F8F3FF] px-2 py-2 text-center text-[12.5px] font-black leading-none tracking-normal text-[#7B2FFF]" title={className}>{className}</div>
+                            <div className="ui-readable mt-3 truncate rounded-xl bg-[#F8F3FF] px-2 py-2 text-center text-[12.5px] font-black leading-none tracking-normal text-[#7B2FFF]" title={className}>{className}</div>
                         </div>
                     </div>
 
-                    <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tài khoản</div>
+                    <div className="ui-muted ui-meta mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tài khoản</div>
                     <div className="mb-3 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
                         <MenuItem icon={User} iconClassName="bg-[#FFF4E5] text-[#F59E0B]" title="Cập nhật thông tin" subtitle="Họ tên, MSSV, ngành học" onClick={() => setShowAccountSettings?.(true)} />
                         <MenuItem icon={Trash2} iconClassName="bg-[#FFF0F3] text-[#E11D48]" title="Xóa dữ liệu" subtitle="Làm mới bảng điểm, lịch cá nhân" isDestructive onClick={() => handleRequestReset?.()} />
                     </div>
 
-                    <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Hệ thống</div>
+                    <div className="ui-muted ui-meta mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Hệ thống</div>
                     <div className="mb-3 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
                         <MenuItem icon={Moon} iconClassName="bg-[#FFF1F4] text-[#E11D48]" title="Giao diện" subtitle="Chủ đề mặc định" rightText="Mặc định" onClick={handleComingSoon} />
                         <MenuItem icon={Bell} iconClassName="bg-[#F1EAFF] text-[#7B2FFF]" title="Cài đặt thông báo" subtitle="Trường, sự kiện, tìm đồ, hệ thống" rightText={`${enabledNotificationCount}/4 bật`} onClick={() => setShowNotificationSettings(true)} />
                         <MenuItem icon={RefreshCw} iconClassName="bg-[#EEF2FF] text-[#1A56FF]" title="Xóa bộ nhớ đệm" subtitle="Không đăng xuất tài khoản" onClick={handleClearCache} />
                     </div>
 
-                    <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Về HUB Planner</div>
+                    <div className="ui-muted ui-meta mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Về HUB Planner</div>
                     <div className="mb-3 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
                         <MenuItem icon={Info} iconClassName="bg-[#F4F6FA] text-[#64748B]" title="Giới thiệu" subtitle="Về chúng mình" onClick={() => navigate('/handbook/about')} />
                         <MenuItem icon={HelpCircle} iconClassName="bg-[#F4F6FA] text-[#64748B]" title="Gửi phản hồi & góp ý" subtitle="Báo lỗi, đề xuất tính năng" onClick={() => navigate('/handbook/feedback')} />
@@ -291,11 +291,11 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                     </div>
 
                     {!isGuest ? (
-                        <button type="button" onClick={handleLogout} className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[18px] border border-[#FFE0E8] bg-white text-[13px] font-black text-[#E11D48] shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:bg-[#FFF0F3]">
+                        <button type="button" onClick={handleLogout} className="ui-action flex h-[50px] w-full items-center justify-center gap-2 rounded-[18px] border border-[#FFE0E8] bg-white text-[13px] font-black text-[#E11D48] shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:bg-[#FFF0F3]">
                             <LogOut size={20} strokeWidth={2.4} /> Đăng xuất
                         </button>
                     ) : (
-                        <button type="button" onClick={() => { playClick(); navigate('/login'); }} className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[18px] bg-[#1A56FF] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(26,86,255,0.24)] active:bg-[#174AE0]">
+                        <button type="button" onClick={() => { playClick(); navigate('/login'); }} className="ui-action flex h-[50px] w-full items-center justify-center gap-2 rounded-[18px] bg-[#1A56FF] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(26,86,255,0.24)] active:bg-[#174AE0]">
                             <User size={20} strokeWidth={2.4} /> Đăng nhập
                         </button>
                     )}
@@ -308,10 +308,10 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                         <DragHandle />
                         <div className="flex items-center justify-between border-b border-gray-100 px-5 pb-3 pt-2">
                             <div>
-                                <h3 className="text-lg font-black text-[#003375]">Cài đặt thông báo</h3>
-                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Chọn những loại thông báo bạn muốn nhận.</p>
+                                <h3 className="ui-card-title text-lg font-black text-[#003375]">Cài đặt thông báo</h3>
+                                <p className="ui-secondary mt-0.5 text-[11px] font-semibold text-gray-500">Chọn những loại thông báo bạn muốn nhận.</p>
                             </div>
-                            <button type="button" onClick={() => setShowNotificationSettings(false)} className="rounded-full bg-gray-100 p-2 text-gray-500 active:scale-95">
+                            <button type="button" onClick={() => setShowNotificationSettings(false)} className="ui-action rounded-full bg-gray-100 p-2 text-gray-500 active:scale-95">
                                 <X size={18} />
                             </button>
                         </div>
@@ -324,7 +324,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                         </div>
 
                         <div className="border-t border-gray-100 bg-white px-4 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))]">
-                            <button type="button" onClick={() => { playClick(); setShowNotificationSettings(false); }} className="h-[50px] w-full rounded-2xl bg-[#003375] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(0,51,117,0.18)] active:bg-[#002855]">
+                            <button type="button" onClick={() => { playClick(); setShowNotificationSettings(false); }} className="ui-action h-[50px] w-full rounded-2xl bg-[#003375] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(0,51,117,0.18)] active:bg-[#002855]">
                                 Lưu lựa chọn
                             </button>
                         </div>

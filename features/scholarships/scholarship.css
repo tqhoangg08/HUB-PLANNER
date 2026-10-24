@@ -168,3 +168,26 @@
 @media (forced-colors:active) {
   .scholarship-shell :is(select.scholarship-input,.scholarship-pager select) { appearance:auto; background-image:none; padding-right:12px; }
 }
+
+/* Shared mobile design roles; desktop table density and numeric values stay as-is. */
+@media (max-width: 767px) {
+  .scholarship-shell { font-size: var(--ui-font-secondary); }
+  .scholarship-logo { min-height: var(--ui-touch); }
+  .scholarship-user { width: var(--ui-touch); height: var(--ui-touch); }
+  .scholarship-heading h1 { font-size: var(--ui-font-page); line-height: var(--ui-line-heading); }
+  .scholarship-shell h2 { font-size: var(--ui-font-section); line-height: 1.4; }
+  .scholarship-shell .scholarship-mobile-results h2 { font-size: var(--ui-font-card); }
+  .scholarship-shell :is(.scholarship-input,.scholarship-term select,.scholarship-pager select) {
+    font-size: var(--ui-font-input); min-height: var(--ui-touch); height: auto;
+    border-color: #64748b;
+  }
+  .scholarship-shell :is(.scholarship-button,.scholarship-icon-button,.scholarship-nav-link,.scholarship-filter-toggle) {
+    font-size: var(--ui-font-action); min-width: var(--ui-touch); min-height: var(--ui-touch); height: auto;
+  }
+  .scholarship-shell :is(.scholarship-source,.scholarship-description,.scholarship-filter-heading-main p,.scholarship-mobile-results > span) {
+    font-size: var(--ui-font-meta); line-height: 1.5;
+  }
+  .scholarship-status { font-size: var(--ui-font-secondary); }
+  .scholarship-pager { font-size: var(--ui-font-meta); }
+  .scholarship-filters { padding: var(--ui-space-4); }
+}

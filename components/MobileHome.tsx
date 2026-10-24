@@ -129,41 +129,41 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     };
 
     const featureItems = [
-        { to: '/learning?tab=schedule', label: 'TKB & Thi', icon: CalendarDays, color: 'text-[#1A56FF]', bg: 'bg-[#EEF2FF]' },
+        { to: '/learning?tab=schedule', label: 'TKB & Thi', icon: CalendarDays, color: 'text-[#003375]', bg: 'bg-[#EEF2FF]' },
         { to: '/learning?tab=gpa', label: 'Tính GPA', icon: Calculator, color: 'text-[#00A876]', bg: 'bg-[#EDFAF3]' },
         { to: '/events', label: 'Sự kiện', icon: Clock, color: 'text-[#F59E0B]', bg: 'bg-[#FFF4E5]' },
         { to: '/handbook/clubs', label: 'CLB - Đội', icon: Users, color: 'text-[#7B2FFF]', bg: 'bg-[#F1EAFF]' },
         { to: '/lost-found', label: 'Tìm đồ', icon: Search, color: 'text-[#FF3B5C]', bg: 'bg-[#FFF0F3]' },
         { to: '/lost-found', label: 'Nhặt đồ', icon: Package, color: 'text-[#06B6D4]', bg: 'bg-[#ECFEFF]' },
         { to: '/handbook/feedback', label: 'Góp ý', icon: MessageSquare, color: 'text-[#7B2FFF]', bg: 'bg-[#F1EAFF]' },
-        { to: '/handbook/contacts', label: 'Cẩm nang', icon: Book, color: 'text-[#1A56FF]', bg: 'bg-[#EEF2FF]' },
+        { to: '/handbook/contacts', label: 'Cẩm nang', icon: Book, color: 'text-[#003375]', bg: 'bg-[#EEF2FF]' },
     ];
 
     if (activeScreen === 'all-news') {
         return (
             <div className="mobile-home-page mobile-home-news fixed inset-0 z-[100] flex flex-col bg-[#F2F4F8] animate-slideInRight">
                 <div className="h-[calc(env(safe-area-inset-top)+14px)] shrink-0" aria-hidden="true" />
-                <div className="flex items-center gap-3 px-6 pb-4 pt-1">
+                <div className="ui-page-gutter flex items-center gap-3 px-6 pb-4 pt-1">
                     <button
                         type="button"
                         onClick={() => { playClick(); setActiveScreen('main'); }}
-                        className="grid h-[42px] w-[42px] place-items-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"
+                        className="ui-action grid h-[42px] w-[42px] place-items-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"
                     >
                         <ChevronLeft size={22} />
                     </button>
                     <div>
-                        <h2 className="text-[24px] font-black leading-tight text-[#0D1B3E]">Tin tức HUB</h2>
-                        <p className="mt-0.5 text-[12px] font-semibold text-[#7B8AB0]">Thông báo mới nhất từ trường</p>
+                        <h2 className="ui-section-title text-[24px] font-black leading-tight text-[#0D1B3E]">Tin tức HUB</h2>
+                        <p className="ui-secondary mt-0.5 text-[12px] font-semibold text-[#475569]">Thông báo mới nhất từ trường</p>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-6 pb-[calc(110px+env(safe-area-inset-bottom))] custom-scrollbar">
+                <div className="ui-page-gutter flex-1 overflow-y-auto px-6 pb-[calc(110px+env(safe-area-inset-bottom))] custom-scrollbar">
                     {loadingAllNews ? (
                         <div className="flex justify-center py-12">
-                            <Loader2 className="animate-spin text-[#1A56FF]" size={28} />
+                            <Loader2 className="animate-spin text-[#003375]" size={28} />
                         </div>
                     ) : allNews.length === 0 ? (
-                        <div className="rounded-[22px] border border-dashed border-[#DDE3F0] bg-white py-12 text-center text-sm font-bold text-[#7B8AB0]">Chưa có thông báo nào.</div>
+                        <div className="rounded-[22px] border border-dashed border-[#DDE3F0] bg-white py-12 text-center text-sm font-bold text-[#475569]">Chưa có thông báo nào.</div>
                     ) : (
                         <div className="flex flex-col gap-3">
                             {allNews.map((news) => (
@@ -173,14 +173,14 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                                     target="_blank"
                                     rel="noreferrer"
                                     onClick={playClick}
-                                    className="flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.98]"
+                                    className="ui-action flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.98]"
                                 >
                                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] bg-[#FFF0F3] text-[#E11D48]">
                                         <Newspaper size={21} strokeWidth={2.2} />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                        <span className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.title}</span>
-                                        <span className="mt-1 block text-[10px] font-bold text-[#9AA5C0]">{formatNewsDate(news)}</span>
+                                        <span className="ui-readable ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.title}</span>
+                                        <span className="ui-meta mt-1 block text-[10px] font-bold text-[#475569]">{formatNewsDate(news)}</span>
                                     </span>
                                     <ChevronRight size={18} className="shrink-0 text-[#B0BCDA]" />
                                 </a>
@@ -197,13 +197,13 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E]">
                 <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0" aria-hidden="true" />
 
-                <header className="flex items-start justify-between px-6 pb-3 pt-1">
+                <header className="ui-page-gutter flex items-start justify-between px-6 pb-3 pt-1">
                     <div>
-                        <h1 className="text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Trang chủ</h1>
-                        <p className="mt-1 text-[13px] font-semibold leading-snug text-[#7B8AB0]">Tất cả tiện ích sinh viên trong một màn hình</p>
+                        <h1 className="ui-page-title text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Trang chủ</h1>
+                        <p className="ui-secondary mt-1 text-[13px] font-semibold leading-snug text-[#475569]">Tất cả tiện ích sinh viên trong một màn hình</p>
                     </div>
                     <div className="flex gap-2">
-                        <Link to="/profiles/search" onClick={playClick} className="grid h-[42px] w-[42px] place-items-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95">
+                        <Link to="/profiles/search" onClick={playClick} aria-label="Tìm hồ sơ sinh viên" className="ui-action grid h-[42px] w-[42px] place-items-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95">
                             <Search size={19} />
                         </Link>
                         <div className="relative z-[60] grid h-[42px] w-[42px] place-items-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)]">
@@ -219,40 +219,40 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                     </div>
                 </header>
 
-                <section className="relative mx-6 mb-3 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#1A56FF] to-[#597DFF] p-[18px] text-white shadow-[0_12px_28px_rgba(26,86,255,0.24)]">
+                <section className="ui-home-card relative mx-6 mb-3 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#143B9C] to-[#1944B3] p-[18px] text-white shadow-[0_12px_28px_rgba(26,86,255,0.24)]">
                     <div className="absolute -right-14 -top-16 h-[150px] w-[150px] rounded-full bg-white/10" />
                     <div className="relative z-10 flex items-center gap-3.5">
                         {renderAvatar()}
                         <div className="min-w-0 flex-1">
-                            <div className="text-[11px] font-bold text-white/80">Xin chào,</div>
-                            <div className="mt-1 truncate text-[18px] font-black leading-tight">{displayName}</div>
+                            <div className="ui-meta text-[11px] font-bold text-white">Xin chào,</div>
+                            <div className="ui-readable ui-person-name mt-1 truncate text-[18px] font-black leading-tight">{displayName}</div>
                             <div className="mt-2.5 flex flex-wrap gap-1.5">
-                                <span className="inline-flex h-[25px] items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 text-[10px] font-black">
+                                <span className="ui-meta inline-flex h-[25px] items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 text-[10px] font-black">
                                     <GraduationCap size={13} strokeWidth={2.3} />
                                     {displayCohort || 'Chưa rõ khóa'}
                                 </span>
-                                <span className="inline-flex h-[25px] max-w-full items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 text-[10px] font-black">
+                                <span className="ui-meta inline-flex h-[25px] max-w-full items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2.5 text-[10px] font-black">
                                     <BookOpen size={13} strokeWidth={2.3} />
-                                    <span className="truncate">{displayMajor || 'Chưa chọn ngành'}</span>
+                                    <span className="ui-readable">{displayMajor || 'Chưa chọn ngành'}</span>
                                 </span>
                             </div>
                         </div>
                     </div>
-                    <div className="relative z-10 mt-4 flex items-start justify-between gap-3 rounded-2xl border border-white/25 bg-white/15 p-3">
+                    <div className="ui-card-space relative z-10 mt-4 flex items-start justify-between gap-3 rounded-2xl border border-white/25 bg-white/15 p-3">
                         <div className="min-w-0">
-                            <div className="text-[13px] font-black leading-snug">{realNews.length > 0 ? 'Có thông báo mới từ HUB' : 'Theo dõi tiện ích học tập của bạn'}</div>
-                            <div className="mt-1 text-[10.5px] font-semibold leading-snug text-white/80">Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.</div>
+                            <div className="ui-card-title text-[13px] font-black leading-snug">{realNews.length > 0 ? 'Có thông báo mới từ HUB' : 'Theo dõi tiện ích học tập của bạn'}</div>
+                            <div className="ui-meta mt-1 text-[10.5px] font-semibold leading-snug text-white">Mở lịch, sự kiện và tin tức để cập nhật nhanh trong ngày.</div>
                         </div>
                         {realNews.length > 0 ? (
                             <button
                                 type="button"
                                 onClick={() => { playClick(); setActiveScreen('all-news'); fetchAllNews(); }}
-                                className="flex h-[34px] shrink-0 items-center rounded-xl bg-white px-3 text-[10.5px] font-black text-[#1A56FF] shadow-[0_6px_14px_rgba(13,27,62,0.16)]"
+                                className="ui-action flex h-[34px] shrink-0 items-center rounded-xl bg-white px-3 text-[10.5px] font-black text-[#003375] shadow-[0_6px_14px_rgba(13,27,62,0.16)]"
                             >
                                 Xem tin
                             </button>
                         ) : (
-                            <Link to="/learning?tab=schedule" onClick={playClick} className="flex h-[34px] shrink-0 items-center rounded-xl bg-white px-3 text-[10.5px] font-black text-[#1A56FF] shadow-[0_6px_14px_rgba(13,27,62,0.16)]">
+                            <Link to="/learning?tab=schedule" onClick={playClick} className="ui-action flex h-[34px] shrink-0 items-center rounded-xl bg-white px-3 text-[10.5px] font-black text-[#003375] shadow-[0_6px_14px_rgba(13,27,62,0.16)]">
                                 Xem TKB
                             </Link>
                         )}
@@ -260,20 +260,20 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                 </section>
 
                 {showWarningBox && (
-                    <section className="mx-6 mb-3 flex items-center gap-3 rounded-[20px] border border-[#DAE6FF] bg-gradient-to-br from-white to-[#F3F7FF] p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
-                        <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[15px] bg-[#EEF2FF] text-[#1A56FF]">
+                    <section className="ui-home-card mx-6 mb-3 flex items-center gap-3 rounded-[20px] border border-[#DAE6FF] bg-gradient-to-br from-white to-[#F3F7FF] p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                        <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[15px] bg-[#EEF2FF] text-[#003375]">
                             <Shield size={20} strokeWidth={2.3} />
                         </span>
                         <div className="min-w-0 flex-1">
-                            <div className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">{isGuest ? 'Đăng nhập để lưu dữ liệu cá nhân' : 'Hoàn tất hồ sơ để tính điểm chuẩn hơn'}</div>
-                            <div className="mt-1 text-[10.5px] font-semibold leading-snug text-[#7B8AB0]">{isGuest ? 'Mở khóa đồng bộ GPA, TKB và thông báo học vụ.' : 'Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.'}</div>
+                            <div className="ui-card-title text-[12.5px] font-black leading-snug text-[#0D1B3E]">{isGuest ? 'Đăng nhập để lưu dữ liệu cá nhân' : 'Hoàn tất hồ sơ để tính điểm chuẩn hơn'}</div>
+                            <div className="ui-meta mt-1 text-[10.5px] font-semibold leading-snug text-[#475569]">{isGuest ? 'Mở khóa đồng bộ GPA, TKB và thông báo học vụ.' : 'Cập nhật khóa, ngành và lớp để đồng bộ GPA, TKB, ĐRL.'}</div>
                         </div>
                         {isGuest ? (
-                            <Link to="/login" onClick={playClick} className="flex h-9 shrink-0 items-center rounded-xl bg-[#1A56FF] px-3 text-[10.5px] font-black text-white shadow-[0_6px_14px_rgba(26,86,255,0.20)]">
+                            <Link to="/login" onClick={playClick} className="ui-action flex h-9 shrink-0 items-center rounded-xl bg-[#1A56FF] px-3 text-[10.5px] font-black text-white shadow-[0_6px_14px_rgba(26,86,255,0.20)]">
                                 Đăng nhập
                             </Link>
                         ) : (
-                            <button onClick={() => { playClick(); onRequireOnboarding?.(); }} className="h-9 shrink-0 rounded-xl bg-[#1A56FF] px-3 text-[10.5px] font-black text-white shadow-[0_6px_14px_rgba(26,86,255,0.20)]">
+                            <button onClick={() => { playClick(); onRequireOnboarding?.(); }} className="ui-action h-9 shrink-0 rounded-xl bg-[#1A56FF] px-3 text-[10.5px] font-black text-white shadow-[0_6px_14px_rgba(26,86,255,0.20)]">
                                 Cập nhật
                             </button>
                         )}
@@ -283,22 +283,22 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                 <Link
                     to="/scholarships"
                     onClick={playClick}
-                    className="mx-6 mb-3 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-xs hover:border-gray-300 transition-colors"
+                    className="ui-home-card mx-6 mb-3 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-xs hover:border-gray-300 transition-colors"
                 >
                     <div className="flex items-center gap-3">
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0052cc]">
                             <Award size={20} strokeWidth={2} />
                         </span>
                         <div className="min-w-0">
-                            <div className="text-[13px] font-bold text-gray-900 leading-tight">Học bổng sinh viên</div>
-                            <div className="mt-0.5 text-[11px] text-gray-500">Tra cứu danh sách & học bổng cá nhân</div>
+                            <div className="ui-card-title text-[13px] font-bold text-gray-900 leading-tight">Học bổng sinh viên</div>
+                            <div className="ui-meta ui-muted mt-0.5 text-[11px] text-gray-500">Tra cứu danh sách & học bổng cá nhân</div>
                         </div>
                     </div>
-                    <ChevronRight size={18} className="text-gray-400 shrink-0" />
+                    <ChevronRight size={18} className="ui-muted text-gray-400 shrink-0" />
                 </Link>
 
-                <h2 className="mb-3 mt-5 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Chức năng nổi bật</h2>
-                <section className="grid grid-cols-4 gap-x-2 gap-y-4 px-6">
+                <h2 className="ui-page-gutter ui-section-title mb-3 mt-5 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#475569]">Chức năng nổi bật</h2>
+                <section className="ui-page-gutter grid grid-cols-4 gap-x-2 gap-y-4 px-6">
                     {featureItems.map((item) => {
                         const Icon = item.icon;
                         return (
@@ -308,28 +308,28 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                                         <Icon size={22} strokeWidth={2.1} />
                                     </span>
                                 </span>
-                                <span className="text-center text-[10.5px] font-bold leading-tight text-[#5F6B82]">{item.label}</span>
+                                <span className="ui-secondary text-center text-[10.5px] font-bold leading-tight text-[#475569]">{item.label}</span>
                             </Link>
                         );
                     })}
                 </section>
 
-                <div className="mb-3 mt-6 flex items-center justify-between px-6">
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tin tức từ trường (HUB)</h2>
+                <div className="ui-page-gutter mb-3 mt-6 flex items-center justify-between px-6">
+                    <h2 className="ui-section-title text-[11px] font-black uppercase tracking-[0.08em] text-[#475569]">Tin tức từ trường (HUB)</h2>
                     <button
                         onClick={() => { playClick(); setActiveScreen('all-news'); fetchAllNews(); }}
-                        className="py-1 pl-3 text-[11px] font-black text-[#1A56FF]"
+                        className="ui-action py-1 pl-3 text-[11px] font-black text-[#003375]"
                     >
                         Xem tất cả
                     </button>
                 </div>
 
                 {loadingNews ? (
-                    <div className="mx-6 flex justify-center rounded-[20px] bg-white py-10 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
-                        <Loader2 className="animate-spin text-[#1A56FF]" size={24} />
+                    <div className="ui-section-inset mx-6 flex justify-center rounded-[20px] bg-white py-10 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                        <Loader2 className="animate-spin text-[#003375]" size={24} />
                     </div>
                 ) : (
-                    <section className="flex flex-col gap-3 px-6">
+                    <section className="ui-page-gutter flex flex-col gap-3 px-6">
                         {displayNews.map((news) => (
                             <a
                                 key={news.id}
@@ -337,14 +337,14 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                                 target="_blank"
                                 rel="noreferrer"
                                 onClick={playClick}
-                                className="flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.98]"
+                                className="ui-action flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.98]"
                             >
                                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] bg-[#FFF0F3] text-[#E11D48]">
                                     <Newspaper size={21} strokeWidth={2.2} />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.title}</span>
-                                    <span className="mt-1 block text-[10px] font-bold text-[#9AA5C0]">{formatNewsDate(news)}</span>
+                                    <span className="ui-readable ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.title}</span>
+                                    <span className="ui-meta mt-1 block text-[10px] font-bold text-[#475569]">{formatNewsDate(news)}</span>
                                 </span>
                                 <ChevronRight size={18} className="shrink-0 text-[#B0BCDA]" />
                             </a>

@@ -98,12 +98,19 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
     const handleResize = () => {
         setPos(prev => {
             const newX = prev.x > window.innerWidth / 2 ? getDockedX() : 10;
-            const newY = Math.min(Math.max(10, prev.y), window.innerHeight - 80);
+            // Keep the existing drag position within the readable area when text or
+            // viewport resizing makes the PWA navigation taller.
+            const nav = document.querySelector('.mobile-bottom-nav');
+            const bottomEdge = nav ? nav.getBoundingClientRect().top - 72 : window.innerHeight - 80;
+            const newY = Math.min(Math.max(10, prev.y), Math.max(10, bottomEdge));
             return { x: newX, y: newY };
         });
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const nav = document.querySelector('.mobile-bottom-nav');
+    const navObserver = nav ? new ResizeObserver(handleResize) : null;
+    if (nav) navObserver?.observe(nav);
+    return () => { window.removeEventListener('resize', handleResize); navObserver?.disconnect(); };
   }, []);
 
   const onDragStart = (e: React.MouseEvent | React.TouchEvent) => {
@@ -358,11 +365,12 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
               <div className="mobile-ai-bubble relative w-56 bg-white text-gray-800 text-[11px] font-medium p-3 rounded-2xl shadow-xl border border-blue-100">
                   <button 
                       onClick={(e) => { e.stopPropagation(); playClick(); setBubbleDismissed(true); setShowBubble(false); }} 
-                      className="absolute -top-2 -right-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full p-1 shadow-sm transition-colors"
+                      aria-label="Ẩn gợi ý AI"
+                      className="ui-action absolute top-1 right-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full p-1 shadow-sm transition-colors"
                   >
                       <X size={12}/>
                   </button>
-                  <p>✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖</p>
+                  <p className="ui-meta pr-[44px]">✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖</p>
                   
                   {/* Mũi tên chỉ vào icon */}
                   <div 
@@ -377,6 +385,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
       {/* DRAGGABLE CHAT BUBBLE ICON */}
       <div
         className="mobile-ai-advisor mobile-ai-drag-surface"
+        data-ai-open={isOpen}
         onMouseDown={onDragStart}
         onMouseMove={onDragMove}
         onMouseUp={onDragEnd}
@@ -400,6 +409,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
                     setShowHistory(false); 
                 } 
             }}
+            aria-label={isOpen ? 'Đóng trợ lý AI' : 'Mở trợ lý AI'}
             className={`mobile-ai-button w-14 h-14 bg-[#003375] hover:bg-[#002855] text-white rounded-full shadow-[0_4px_20px_rgba(0,51,117,0.3)] flex items-center justify-center border-2 border-white transition-transform ${isDragging ? 'scale-90 cursor-grabbing' : 'cursor-grab hover:scale-105 active:scale-95 animate-float'} ${isOpen ? 'scale-90 bg-[#002855]' : ''}`}
         >
             {isOpen ? <X size={24} /> : <Sparkles size={24} className="text-yellow-300" />}
@@ -433,13 +443,13 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
             <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-white shrink-0 relative z-10 shadow-sm">
               <div className="flex items-center gap-2.5">
                   <Sparkles size={20} className="text-yellow-400" />
-                  <h3 className="font-extrabold text-[17px] text-[#003375]">
+                  <h3 className="ui-card-title font-extrabold text-[17px] text-[#003375]">
                       Trợ lý AI HUB
                   </h3>
               </div>
               <div className="flex items-center gap-2">
                   {userId && (
-                      <button onClick={() => { playClick(); setShowHistory(true); }} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors active:scale-95" title="Lịch sử">
+                      <button onClick={() => { playClick(); setShowHistory(true); }} className="ui-action ui-icon-control p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors active:scale-95" title="Lịch sử">
                           <History size={20} />
                       </button>
                   )}
@@ -592,7 +602,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
 
                             {chatHistory.map((msg, idx) => (
                             <div key={idx} className={`flex flex-col w-full ${msg.role === 'user' ? 'items-end pl-12' : 'items-start pr-10'} ${!msg.isHistory ? 'animate-message' : ''}`}>
-                                <div className={`px-4 py-2.5 text-[15px] leading-relaxed shadow-sm relative ${
+                                <div className={`ui-body px-4 py-2.5 text-[15px] leading-relaxed shadow-sm relative ${
                                     msg.role === 'user' 
                                         ? 'bg-[#003375] text-white rounded-2xl rounded-tr-sm' 
                                         : 'bg-white text-gray-800 rounded-2xl rounded-tl-sm border border-gray-100'
@@ -656,7 +666,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
                                     }
                                 }}
                             />
-                            <button type="submit" disabled={loading || loadingHistory || !hasAIConsent || !customPrompt.trim()} className="bg-[#003375] text-white w-11 h-11 rounded-full shrink-0 disabled:opacity-50 active:scale-90 shadow-sm flex items-center justify-center transition-transform">
+                            <button aria-label="Gửi câu hỏi AI" type="submit" disabled={loading || loadingHistory || !hasAIConsent || !customPrompt.trim()} className="ui-action ui-icon-control bg-[#003375] text-white w-11 h-11 rounded-full shrink-0 disabled:opacity-50 active:scale-90 shadow-sm flex items-center justify-center transition-transform">
                                 {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={18} className="mr-0.5 mt-0.5" />}
                             </button>
                         </form>

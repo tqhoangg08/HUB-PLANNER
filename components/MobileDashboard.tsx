@@ -116,10 +116,10 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
         <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md p-0 overflow-hidden animate-scaleIn shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
-                    <h3 className="font-bold text-lg flex items-center gap-2">
+                    <h3 className="ui-card-title font-bold text-lg flex items-center gap-2">
                         <AlertTriangle size={20}/> Báo cáo lỗi / Góp ý
                     </h3>
-                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    <button onClick={onClose} className="ui-action hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                 </div>
                 <div className="p-6">
                     {statusMsg && (
@@ -129,27 +129,27 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                     )}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-800 mb-1">Lỗi ở đâu? (Tính năng/Khu vực) <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Lỗi ở đâu? (Tính năng/Khu vực) <span className="ui-danger-text text-red-500">*</span></label>
                             <input
                                 type="text" required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm"
                                 placeholder="VD: Tính điểm hệ 4, Nhập PDF, Bảng xếp hạng..."
                                 value={location} onChange={e => setLocation(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-800 mb-1">Mô tả chi tiết <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Mô tả chi tiết <span className="ui-danger-text text-red-500">*</span></label>
                             <textarea
                                 rows={4} required
-                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
                                 placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải hoặc góp ý của bạn..."
                                 value={description} onChange={e => setDescription(e.target.value)}
                             ></textarea>
                         </div>
                         <div className="space-y-3 pt-2">
                             <div className="flex gap-3">
-                                <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Hủy</button>
-                                <button type="submit" className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+                                <button type="button" onClick={onClose} className="ui-action flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Hủy</button>
+                                <button type="submit" className="ui-action flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
                                     Tạo ticket hỗ trợ
                                 </button>
                             </div>
@@ -169,26 +169,26 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
         <Overlay className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
+                    <h3 className="ui-card-title font-bold text-gray-900 flex items-center gap-2 text-base">
                         <AlertTriangle size={18} className="text-[#990000]" /> Danh sách môn chưa đạt ({subjects.length})
                     </h3>
-                    <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
+                    <button onClick={onClose} className="ui-action p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
                 </div>
                 <div className="p-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
                     <div className="space-y-3">
                         {subjects.map((sub, idx) => {
                              const avg = calculateSubjectAverage(sub);
                              return (
-                                <div key={idx} className="bg-white border border-gray-300 rounded-lg p-3 flex justify-between items-center hover:border-[#990000]/30 transition-colors">
+                                <div key={idx} className="ui-card-space bg-white border border-gray-300 rounded-lg p-3 flex justify-between items-center hover:border-[#990000]/30 transition-colors">
                                     <div>
-                                        <p className="font-bold text-gray-800 text-sm">{sub.name}</p>
-                                        <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                                        <p className="ui-secondary font-bold text-gray-800 text-sm">{sub.name}</p>
+                                        <div className="ui-meta flex gap-3 mt-1 text-xs text-gray-500">
                                             <span className="bg-gray-100 px-2 py-0.5 rounded font-medium">{sub.credits} tín chỉ</span>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <span className="block text-xl font-bold text-[#990000]">{avg?.toFixed(1) || '0.0'}</span>
-                                        <span className="text-[10px] text-[#990000] font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">R?T MÔN</span>
+                                        <span className="ui-meta text-[10px] text-[#990000] font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">R?T MÔN</span>
                                     </div>
                                 </div>
                              )
@@ -196,7 +196,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
                     </div>
                 </div>
                 <div className="p-3 border-t border-gray-300 bg-white">
-                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
+                    <button onClick={onClose} className="ui-action w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
                 </div>
             </div>
         </Overlay>, document.body
@@ -211,20 +211,20 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
         <Overlay className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
-                    <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
+                    <h3 className="ui-card-title font-bold text-gray-900 flex items-center gap-2 text-base">
                         <Calendar size={18} className="text-[#003375]" /> Tổng kết từng năm học
                     </h3>
-                    <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
+                    <button onClick={onClose} className="ui-action p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
                 </div>
                 <div className="p-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
                     <div className="space-y-3">
                         {stats.map((year) => {
                             const yearClass = year.combinedClassification || 'Chưa đủ dữ liệu';
                             return (
-                                <div key={year.yearId} className="bg-white border border-gray-300 rounded-lg p-3 hover:border-[#003375]/30 transition-colors">
+                                <div key={year.yearId} className="ui-card-space bg-white border border-gray-300 rounded-lg p-3 hover:border-[#003375]/30 transition-colors">
                                     <div className="flex justify-between gap-3 items-center mb-2 pb-2 border-b border-gray-300">
                                         <span className="font-bold text-gray-800 text-sm">{year.label}</span>
-                                        <div className="flex flex-col items-end text-xs font-bold">
+                                        <div className="ui-meta flex flex-col items-end text-xs font-bold">
                                             <span className={year.hasData ? 'text-[#003375]' : 'text-gray-400'}>
                                                 GPA(4): {year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}
                                             </span>
@@ -233,7 +233,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-gray-600">
+                                    <div className="ui-meta flex flex-wrap justify-between items-center gap-2 text-xs text-gray-600">
                                         <div className="flex flex-wrap gap-2">
                                             <span className="bg-gray-100 px-2 py-1 rounded font-medium">TC: {year.totalCredits}</span>
                                             <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 font-medium">Đạt: {year.passedCredits}</span>
@@ -256,7 +256,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                     </div>
                 </div>
                 <div className="p-3 border-t border-gray-300 bg-white">
-                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
+                    <button onClick={onClose} className="ui-action w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
                 </div>
             </div>
         </Overlay>, document.body
@@ -294,7 +294,7 @@ const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val:
   return (
     <input
       type="number" min="0" max="10" step="0.1"
-      className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent p-1 text-center font-medium transition-all hover:border-blue-300"
+      className="ui-input w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent p-1 text-center font-medium transition-all hover:border-blue-300"
       placeholder="-"
       value={localValue}
       onChange={handleChange}
@@ -524,7 +524,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <select
                     value={isValidFormat ? semester.name : ''}
                     onChange={handleNameChange}
-                    className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
+                    className={`ui-input text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
                         !isValidFormat
                         ? 'text-red-600 border-red-400 hover:border-red-600'
                         : 'text-[#003375] border-transparent hover:border-[#003375]/50 focus:border-[#003375]'
@@ -535,7 +535,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     )}
 
                     {!isValidFormat && (
-                         <option value="" disabled className="text-red-500 font-bold">Vui lòng chọn lại tên học kỳ (sai định dạng)</option>
+                         <option value="" disabled className="ui-danger-text text-red-500 font-bold">Vui lòng chọn lại tên học kỳ (sai định dạng)</option>
                     )}
 
                     {allSemesterOptions.map(opt => {
@@ -550,18 +550,18 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <ChevronDown className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!isValidFormat ? 'text-red-500' : 'text-[#003375]'}`} />
             </div>
             {hasData && isValidFormat && (
-                <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border bg-white/60 border-current shadow-sm text-gray-700 whitespace-nowrap shrink-0`}>
+                <span className={`ui-meta text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border bg-white/60 border-current shadow-sm text-gray-700 whitespace-nowrap shrink-0`}>
                     {classification}
                 </span>
             )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 text-[11px] sm:text-sm relative z-10">
+        <div className="ui-meta flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 text-[11px] sm:text-sm relative z-10">
               {FEATURE_FORECAST_TOOLS && hasData && isValidFormat && (
                   <div className="relative">
                       <button
                           onClick={handleOpenRankMenu}
-                          className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${showRankMenu ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                          className={`ui-action flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${showRankMenu ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
                           title="Xếp hạng dự báo"
                       >
                           <Crown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${rankingResult ? "fill-yellow-500 text-yellow-600" : "text-gray-400"}`}/>
@@ -571,62 +571,62 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                       {false && showRankMenu && (
                           <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] overflow-hidden animate-fadeIn origin-top-left md:origin-top-right">
                               <div className="bg-[#003375] px-4 py-3 text-white flex justify-between items-center shrink-0">
-                                  <h4 className="font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> Xếp hạng dự báo</h4>
-                                  <button onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
+                                  <h4 className="ui-card-title font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> Xếp hạng dự báo</h4>
+                                  <button onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }} className="ui-action hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
                               </div>
                               <div className="p-0">
                                   {rankingLoading ? (
                                       <div className="flex flex-col items-center justify-center py-8 text-[#003375]">
                                           <Loader2 size={32} className="animate-spin mb-2"/>
-                                          <span className="text-xs font-medium">Đang tính toán...</span>
+                                          <span className="ui-meta text-xs font-medium">Đang tính toán...</span>
                                       </div>
                                   ) : rankingResult ? (
                                       <div className="p-4 bg-[#F8FAFC]">
-                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-[#64748B] hover:text-[#0F172A] mb-3 transition-colors"><ChevronLeft size={14}/> Chọn kỳ khác</button>
+                                          <button onClick={() => resetResult()} className="ui-action flex items-center gap-1 text-xs text-[#64748B] hover:text-[#0F172A] mb-3 transition-colors"><ChevronLeft size={14}/> Chọn kỳ khác</button>
                                           <div className="space-y-3">
                                               <div>
-                                                  <h4 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h4>
-                                                  <p className="text-xs text-[#64748B] mt-0.5">{mapIdToDisplay(rankingResult.semesterId)}</p>
-                                                  {rankingStatus && <p className="mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
+                                                  <h4 className="ui-card-title text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h4>
+                                                  <p className="ui-secondary text-xs text-[#64748B] mt-0.5">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                                                  {rankingStatus && <p className="ui-secondary mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
                                               </div>
 
                                               <div className="grid grid-cols-2 gap-2">
-                                                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                                                      <p className="text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
-                                                      <p className="mt-1 text-xl font-bold text-[#0F172A]">{semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B]">/ 4.0</span></p>
+                                                  <div className="ui-card-space rounded-lg border border-[#E2E8F0] bg-white p-3">
+                                                      <p className="ui-secondary text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
+                                                      <p className="ui-numeric mt-1 text-xl font-bold text-[#0F172A]">{semGPA4.toFixed(2)} <span className="ui-meta text-xs font-medium text-[#64748B]">/ 4.0</span></p>
                                                   </div>
-                                                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                                                      <p className="text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
-                                                      <p className="mt-1 text-xl font-bold text-[#0F172A]">{semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B]">/ 100</span></p>
+                                                  <div className="ui-card-space rounded-lg border border-[#E2E8F0] bg-white p-3">
+                                                      <p className="ui-secondary text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
+                                                      <p className="ui-numeric mt-1 text-xl font-bold text-[#0F172A]">{semester.trainingScore ?? 0} <span className="ui-meta text-xs font-medium text-[#64748B]">/ 100</span></p>
                                                   </div>
                                               </div>
 
                                               <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
                                                   <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
-                                                      <span className="text-xs font-semibold text-[#64748B]">Top toàn trường</span>
+                                                      <span className="ui-meta text-xs font-semibold text-[#64748B]">Top toàn trường</span>
                                                       <span className="text-sm font-bold text-[#0F172A]">{formatRankingPosition(rankingResult.rank, rankingResult.totalStudents)}</span>
                                                   </div>
                                                   {rankingResult.rankInClass && (
                                                       <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
-                                                          <span className="text-xs font-semibold text-[#64748B]">Top trong lớp</span>
+                                                          <span className="ui-meta text-xs font-semibold text-[#64748B]">Top trong lớp</span>
                                                           <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
                                                       </div>
                                                   )}
                                                   {rankingResult.rankInMajor && (
                                                       <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
-                                                          <span className="text-xs font-semibold text-[#64748B]">Top trong ngành</span>
+                                                          <span className="ui-meta text-xs font-semibold text-[#64748B]">Top trong ngành</span>
                                                           <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
                                                       </div>
                                                   )}
                                                   <div className="flex items-start justify-between gap-3 px-3 py-2">
-                                                      <span className="text-xs font-semibold text-[#64748B]">Ngành</span>
+                                                      <span className="ui-meta text-xs font-semibold text-[#64748B]">Ngành</span>
                                                       <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chưa có dữ liệu'}</span>
                                                   </div>
                                               </div>
 
                                               <div className="rounded-lg border border-emerald-200 bg-[#ECFDF5] p-3">
-                                                  <p className="text-sm font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
-                                                  <p className="mt-1 text-xs leading-5 text-[#334155]">{rankingResult.rankingMode === 'exact'
+                                                  <p className="ui-secondary text-sm font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
+                                                  <p className="ui-meta mt-1 text-xs leading-5 text-[#334155]">{rankingResult.rankingMode === 'exact'
                                                     ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
                                                     : rankingResult.benchmarkSource === 'imported'
                                                       ? scholarshipStatus.label
@@ -636,26 +636,26 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                       </div>
                                   ) : (
                                       <div className="flex flex-col max-h-[300px]">
-                                          <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Chọn nguồn dữ liệu (kỳ học cũ)...</div>
+                                          <div className="ui-meta p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Chọn nguồn dữ liệu (kỳ học cũ)...</div>
                                           <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
                                               {loadingSemesters ? (
-                                                  <div className="py-4 text-center text-xs text-gray-400">Đang tải...</div>
+                                                  <div className="ui-muted ui-meta py-4 text-center text-xs text-gray-400">Đang tải...</div>
                                               ) : availableSemesters.length > 0 ? (
                                                   availableSemesters.map((semId) => {
                                                       const semesterRank = semesterRanks[semId];
                                                       const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải...' : 'Chưa có hạng';
                                                       return (
-                                                      <button key={semId} onClick={() => handleSelectReferenceSemester(semId)} className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group">
+                                                      <button key={semId} onClick={() => handleSelectReferenceSemester(semId)} className="ui-action w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group">
                                                           <span>Dữ liệu {mapIdToDisplay(semId)}{semesterModes[semId] === 'exact' ? ' · Chính thức' : ''} - {rankLabel}</span>
                                                           <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400"/>
                                                       </button>
                                                       );
                                                   })
                                               ) : (
-                                                  <div className="py-6 text-center"><p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu.</p></div>
+                                                  <div className="py-6 text-center"><p className="ui-muted ui-secondary text-xs text-gray-400 mb-2">Chưa có dữ liệu.</p></div>
                                               )}
                                           </div>
-                                          {rankingError && <div className="p-2 bg-red-50 text-red-600 text-xs text-center border-t border-red-100 flex items-center justify-center gap-1"><AlertCircle size={12}/> {rankingError}</div>}
+                                          {rankingError && <div className="ui-danger-text ui-meta p-2 bg-red-50 text-red-600 text-xs text-center border-t border-red-100 flex items-center justify-center gap-1"><AlertCircle size={12}/> {rankingError}</div>}
                                       </div>
                                   )}
                               </div>
@@ -666,7 +666,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">TC:</span></span>
-                <span className="font-bold text-gray-800">{isValidFormat ? totalRegisteredCredits : '-'} <span className="sm:hidden font-medium text-[10px] text-gray-500">TC</span></span>
+                <span className="font-bold text-gray-800">{isValidFormat ? totalRegisteredCredits : '-'} <span className="ui-meta sm:hidden font-medium text-[10px] text-gray-500">TC</span></span>
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
@@ -684,19 +684,19 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <input
                     type="number" min="0" max="100" placeholder="0"
                     disabled={!isValidFormat}
-                    className="w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-blue-400 focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
+                    className="ui-input w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-blue-400 focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
                     value={semester.trainingScore ?? ''}
                     onChange={(e) => handleTrainingScoreChange(e.target.value)}
                     onKeyDown={(e) => { if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault(); }}
                 />
             </div>
 
-            <div className={`flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm text-[11px] sm:text-sm font-bold ${isValidFormat ? scholarshipStatus.className : 'bg-gray-100 text-gray-400'}`}>
+            <div className={`ui-meta flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm text-[11px] sm:text-sm font-bold ${isValidFormat ? scholarshipStatus.className : 'bg-gray-100 text-gray-400'}`}>
                 <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
             </div>
 
-             <button onClick={onRemoveSemester} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 sm:p-2 rounded-full active:scale-90 hover:shadow-md" title="Xóa học kỳ">
+             <button onClick={onRemoveSemester} className="ui-muted ui-danger-text ui-action ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 sm:p-2 rounded-full active:scale-90 hover:shadow-md" title="Xóa học kỳ">
              <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             </button>
         </div>
@@ -717,13 +717,13 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <BarChart2 size={18} />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-base font-bold sm:text-lg">Xếp hạng học kỳ</h4>
-                  <p className="mt-0.5 text-xs text-white/75">Chọn học kỳ để xem xếp hạng và đánh giá học bổng.</p>
+                  <h4 className="ui-card-title text-base font-bold sm:text-lg">Xếp hạng học kỳ</h4>
+                  <p className="ui-secondary mt-0.5 text-xs text-white/75">Chọn học kỳ để xem xếp hạng và đánh giá học bổng.</p>
                 </div>
               </div>
               <button
                 onClick={() => { setShowRankMenu(false); setIsSemesterChooserOpen(false); resetSemesterRanks(); resetResult(); }}
-                className="rounded-full p-2 transition-colors hover:bg-white/20"
+                className="ui-action rounded-full p-2 transition-colors hover:bg-white/20"
                 title="Đóng"
               >
                 <X size={20} />
@@ -732,7 +732,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
             <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[320px_1fr]">
               <aside className="border-b border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4 lg:border-b-0 lg:border-r">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">Học kỳ so sánh</p>
+                <p className="ui-secondary text-xs font-bold uppercase tracking-wide text-[#64748B]">Học kỳ so sánh</p>
 
                 <button
                   type="button"
@@ -740,11 +740,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     playClick();
                     setIsSemesterChooserOpen((value) => !value);
                   }}
-                  className="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white px-3 py-2.5 text-left text-[#003375] shadow-sm transition-colors hover:bg-blue-50"
+                  className="ui-action mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white px-3 py-2.5 text-left text-[#003375] shadow-sm transition-colors hover:bg-blue-50"
                 >
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Đang xem</p>
-                    <p className="mt-0.5 truncate text-[13px] font-bold leading-snug sm:text-sm">
+                    <p className="ui-secondary text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Đang xem</p>
+                    <p className="ui-secondary mt-0.5 truncate text-[13px] font-bold leading-snug sm:text-sm">
                       {rankingResult ? mapIdToDisplay(rankingResult.semesterId) : 'Chọn học kỳ'}
                     </p>
                   </div>
@@ -767,7 +767,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                           <button
                             key={semId}
                             onClick={() => handleSelectReferenceSemester(semId)}
-                            className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors sm:py-3 ${
+                            className={`ui-action w-full rounded-xl border px-3 py-2.5 text-left transition-colors sm:py-3 ${
                               isSelected
                                 ? 'border-blue-300 bg-blue-50 text-[#003375]'
                                 : 'border-[#E2E8F0] bg-white text-[#334155] hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]'
@@ -777,7 +777,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                               <span className="text-[13px] font-bold leading-snug sm:text-sm">{mapIdToDisplay(semId)}{semesterModes[semId] === 'exact' ? ' · Chính thức' : ''}</span>
                               <ChevronRight size={16} className="shrink-0" />
                             </div>
-                            <div className="mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-1 sm:text-xs">Hạng: {rankLabel}</div>
+                            <div className="ui-meta mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-1 sm:text-xs">Hạng: {rankLabel}</div>
                           </button>
                         );
                       })
@@ -798,63 +798,63 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <div>
                     <div className="mb-3 sm:mb-4">
                       <h5 className="text-lg font-bold text-[#0F172A] sm:text-2xl">Xếp hạng học kỳ</h5>
-                      <p className="mt-1 text-xs text-[#64748B] sm:text-sm">{mapIdToDisplay(rankingResult.semesterId)}</p>
-                      {rankingStatus && <p className="mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
+                      <p className="ui-secondary mt-1 text-xs text-[#64748B] sm:text-sm">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                      {rankingStatus && <p className="ui-secondary mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
                     </div>
 
                     <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-3 text-[#003375] sm:mb-4 sm:px-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Xếp hạng nổi bật</p>
-                      <p className="mt-1 text-base font-extrabold leading-snug text-[#0F172A] sm:text-xl">
+                      <p className="ui-secondary text-xs font-bold uppercase tracking-wide text-blue-700">Xếp hạng nổi bật</p>
+                      <p className="ui-numeric mt-1 text-base font-extrabold leading-snug text-[#0F172A] sm:text-xl">
                         {formatRankingPosition(rankingResult.rank, rankingResult.totalStudents)} toàn trường
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-[#003375]">Bạn đang nằm trong {schoolTopPercentLabel} toàn trường</p>
+                      <p className="ui-secondary mt-1 text-sm font-semibold text-[#003375]">Bạn đang nằm trong {schoolTopPercentLabel} toàn trường</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4">
-                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">GPA học kỳ</p>
-                        <p className="mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
-                          {semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B] sm:text-sm">/ 4.0</span>
+                        <p className="ui-secondary text-xs font-semibold text-[#64748B] sm:text-sm">GPA học kỳ</p>
+                        <p className="ui-numeric mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
+                          {semGPA4.toFixed(2)} <span className="ui-meta text-xs font-medium text-[#64748B] sm:text-sm">/ 4.0</span>
                         </p>
                       </div>
                       <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4">
-                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">Điểm rèn luyện</p>
-                        <p className="mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
-                          {semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B] sm:text-sm">/ 100</span>
+                        <p className="ui-secondary text-xs font-semibold text-[#64748B] sm:text-sm">Điểm rèn luyện</p>
+                        <p className="ui-numeric mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
+                          {semester.trainingScore ?? 0} <span className="ui-meta text-xs font-medium text-[#64748B] sm:text-sm">/ 100</span>
                         </p>
                       </div>
                     </div>
 
                     <div className="mt-3 overflow-hidden rounded-xl border border-[#E2E8F0] sm:mt-4">
                       <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
-                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top toàn trường</span>
+                        <span className="ui-meta text-xs font-semibold text-[#64748B] sm:text-sm">Top toàn trường</span>
                         <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">{formatRankingPosition(rankingResult.rank, rankingResult.totalStudents)}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
-                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Tỷ lệ toàn trường</span>
+                        <span className="ui-meta text-xs font-semibold text-[#64748B] sm:text-sm">Tỷ lệ toàn trường</span>
                         <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">{schoolTopPercentLabel}</span>
                       </div>
                       {rankingResult.rankInClass && (
                         <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
-                          <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top trong lớp</span>
+                          <span className="ui-meta text-xs font-semibold text-[#64748B] sm:text-sm">Top trong lớp</span>
                           <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
                         </div>
                       )}
                       {rankingResult.rankInMajor && (
                         <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
-                          <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top trong ngành</span>
+                          <span className="ui-meta text-xs font-semibold text-[#64748B] sm:text-sm">Top trong ngành</span>
                           <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
                         </div>
                       )}
                       <div className="flex items-start justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3">
-                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Ngành</span>
+                        <span className="ui-meta text-xs font-semibold text-[#64748B] sm:text-sm">Ngành</span>
                         <span className="min-w-0 text-right text-sm font-semibold text-[#0F172A] sm:text-base">{rankingResult.major || 'Chưa có dữ liệu'}</span>
                       </div>
                     </div>
 
                     <div className={`mt-3 rounded-xl border p-3 sm:mt-4 sm:p-4 ${scholarshipRankAssessment.className}`}>
-                      <p className="text-sm font-bold text-[#0F172A] sm:text-base">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
-                      <p className="mt-1 text-xs leading-5 text-[#334155] sm:text-sm sm:leading-6">
+                      <p className="ui-secondary text-sm font-bold text-[#0F172A] sm:text-base">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
+                      <p className="ui-secondary mt-1 text-xs leading-5 text-[#334155] sm:text-sm sm:leading-6">
                         {rankingResult.rankingMode === 'exact'
                           ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
                           : rankingResult.benchmarkSource === 'imported'
@@ -864,7 +864,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     </div>
 
                     {rankingError && (
-                      <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                      <div className="ui-danger-text mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                         <AlertCircle size={14} />
                         {rankingError}
                       </div>
@@ -874,9 +874,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-center">
                     <BarChart2 size={36} className="mb-3 text-[#94A3B8]" />
                     <h5 className="text-lg font-bold text-[#0F172A]">Chọn học kỳ để xem xếp hạng</h5>
-                    <p className="mt-1 max-w-md text-sm text-[#64748B]">Danh sách học kỳ nằm ở cột bên trái. Chọn một kỳ để xem top toàn trường, lớp, ngành và đánh giá học bổng.</p>
+                    <p className="ui-body mt-1 max-w-md text-sm text-[#64748B]">Danh sách học kỳ nằm ở cột bên trái. Chọn một kỳ để xem top toàn trường, lớp, ngành và đánh giá học bổng.</p>
                     {rankingError && (
-                      <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                      <div className="ui-danger-text mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                         <AlertCircle size={14} />
                         {rankingError}
                       </div>
@@ -895,17 +895,17 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
           <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
             <div className="flex items-start justify-between gap-3 bg-[#003375] px-4 py-3 text-white">
               <div>
-                <h4 className="flex items-center gap-2 text-base font-bold">
+                <h4 className="ui-card-title flex items-center gap-2 text-base font-bold">
                   <BarChart2 size={16} />
                   Xếp hạng học kỳ
                 </h4>
-                <p className="mt-1 text-xs text-white/75">
+                <p className="ui-secondary mt-1 text-xs text-white/75">
                   Chọn kỳ so sánh và xem xếp hạng học bổng theo dữ liệu hiện có.
                 </p>
               </div>
               <button
                 onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }}
-                className="rounded-full p-1.5 transition-colors hover:bg-white/20"
+                className="ui-action rounded-full p-1.5 transition-colors hover:bg-white/20"
                 title="Đóng"
               >
                 <X size={16} />
@@ -922,12 +922,12 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <h5 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
-                    <p className="mt-1 text-xs text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
-                    {rankingStatus && <p className="mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
+                    <p className="ui-secondary mt-1 text-xs text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                    {rankingStatus && <p className="ui-secondary mt-1 text-xs text-[#64748B]">{rankingStatus}</p>}
                   </div>
                   <button
                     onClick={() => resetResult()}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
+                    className="ui-action inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
                   >
                     <ChevronLeft size={14} />
                     Chọn kỳ khác
@@ -935,46 +935,46 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                    <p className="text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
-                    <p className="mt-1 text-xl font-bold text-[#0F172A]">
-                      {semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B]">/ 4.0</span>
+                  <div className="ui-card-space rounded-lg border border-[#E2E8F0] bg-white p-3">
+                    <p className="ui-secondary text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
+                    <p className="ui-numeric mt-1 text-xl font-bold text-[#0F172A]">
+                      {semGPA4.toFixed(2)} <span className="ui-meta text-xs font-medium text-[#64748B]">/ 4.0</span>
                     </p>
                   </div>
-                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                    <p className="text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
-                    <p className="mt-1 text-xl font-bold text-[#0F172A]">
-                      {semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B]">/ 100</span>
+                  <div className="ui-card-space rounded-lg border border-[#E2E8F0] bg-white p-3">
+                    <p className="ui-secondary text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
+                    <p className="ui-numeric mt-1 text-xl font-bold text-[#0F172A]">
+                      {semester.trainingScore ?? 0} <span className="ui-meta text-xs font-medium text-[#64748B]">/ 100</span>
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-2 overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
                   <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
-                    <span className="text-xs font-semibold text-[#64748B]">Top toàn trường</span>
+                    <span className="ui-meta text-xs font-semibold text-[#64748B]">Top toàn trường</span>
                     <span className="text-sm font-bold text-[#0F172A]">{formatRankingPosition(rankingResult.rank, rankingResult.totalStudents)}</span>
                   </div>
                   {rankingResult.rankInClass && (
                     <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
-                      <span className="text-xs font-semibold text-[#64748B]">Top trong lớp</span>
+                      <span className="ui-meta text-xs font-semibold text-[#64748B]">Top trong lớp</span>
                       <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
                     </div>
                   )}
                   {rankingResult.rankInMajor && (
                     <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
-                      <span className="text-xs font-semibold text-[#64748B]">Top trong ngành</span>
+                      <span className="ui-meta text-xs font-semibold text-[#64748B]">Top trong ngành</span>
                       <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
                     </div>
                   )}
                   <div className="flex items-start justify-between gap-3 px-3 py-2">
-                    <span className="text-xs font-semibold text-[#64748B]">Ngành</span>
+                    <span className="ui-meta text-xs font-semibold text-[#64748B]">Ngành</span>
                     <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chưa có dữ liệu'}</span>
                   </div>
                 </div>
 
                 <div className="mt-2 rounded-lg border border-emerald-200 bg-[#ECFDF5] p-3">
-                  <p className="text-sm font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
-                  <p className="mt-1 text-xs leading-5 text-[#334155]">
+                  <p className="ui-secondary text-sm font-bold text-[#0F172A]">{rankingResult.rankingMode === 'exact' ? 'Kết quả học bổng theo dữ liệu kỳ' : 'Đánh giá học bổng'}</p>
+                  <p className="ui-meta mt-1 text-xs leading-5 text-[#334155]">
                     {rankingResult.rankingMode === 'exact'
                       ? rankingResult.scholarshipStatus || 'Chưa có dữ liệu'
                       : rankingResult.benchmarkSource === 'imported'
@@ -987,7 +987,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
               <div className="bg-[#F8FAFC] p-3">
                 <div className="mb-3">
                   <h5 className="text-base font-bold text-[#0F172A]">Chọn học kỳ so sánh</h5>
-                  <p className="mt-1 text-xs text-[#64748B]">Dữ liệu xếp hạng sẽ được áp dụng cho học kỳ bạn chọn.</p>
+                  <p className="ui-secondary mt-1 text-xs text-[#64748B]">Dữ liệu xếp hạng sẽ được áp dụng cho học kỳ bạn chọn.</p>
                 </div>
                 {loadingSemesters ? (
                   <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Đang tải...</div>
@@ -1000,7 +1000,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         <button
                           key={semId}
                           onClick={() => handleSelectReferenceSemester(semId)}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-3 text-left text-sm font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
+                          className="ui-action flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-3 text-left text-sm font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
                         >
                           <span>Dữ liệu {mapIdToDisplay(semId)}{semesterModes[semId] === 'exact' ? ' · Chính thức' : ''} - {rankLabel}</span>
                           <ChevronRight size={16} className="shrink-0 text-[#003375]" />
@@ -1012,7 +1012,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Chưa có dữ liệu.</div>
                 )}
                 {rankingError && (
-                  <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                  <div className="ui-danger-text mt-3 flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                     <AlertCircle size={14} />
                     {rankingError}
                   </div>
@@ -1027,7 +1027,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         <>
             {semester.subjects.length > 0 && (
                 <div className="px-3 py-2 sm:px-6 sm:py-2 bg-gray-50/50 border-b border-gray-100 flex flex-row gap-2 justify-between sm:justify-end items-center">
-                    <button onClick={handleSortToggle} className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="Sắp xếp theo điểm">
+                    <button onClick={handleSortToggle} className={`ui-action shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="Sắp xếp theo điểm">
                         {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao → Thấp</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Thấp → Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sắp xếp</span></>)}
                     </button>
 
@@ -1038,7 +1038,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 playClick();
                                 setShowScoreColumns((value) => !value);
                             }}
-                            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all active:scale-95 sm:px-3 sm:text-sm ${
+                            className={`ui-action flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all active:scale-95 sm:px-3 sm:text-sm ${
                                 showScoreColumns ? 'border-blue-200 bg-blue-50 text-[#003375] shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                             }`}
                             title="Ẩn/hiện cột điểm"
@@ -1050,7 +1050,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         {showScoreColumns && (
                             <div className="absolute left-0 top-full z-30 mt-2 w-36 rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
                                 {scoreColumnConfig.map((column) => (
-                                    <label key={column.key} className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-[#003375]">
+                                    <label key={column.key} className="ui-meta flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-[#003375]">
                                         <span>{column.label}</span>
                                         <input
                                             type="checkbox"
@@ -1068,28 +1068,28 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     </div>
 
                     <div className="relative flex-1 sm:w-64 sm:flex-none">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <input type="text" placeholder="Tìm môn học..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                        {searchTerm && (<button onClick={() => { playClick(); setSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:scale-110 transition-transform"><X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /></button>)}
+                        <Search className="ui-muted absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <input type="text" placeholder="Tìm môn học..." className="ui-input w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        {searchTerm && (<button onClick={() => { playClick(); setSearchTerm(''); }} className="ui-muted ui-action absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:scale-110 transition-transform"><X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /></button>)}
                     </div>
                 </div>
             )}
 
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                <thead className="text-xs text-white uppercase bg-[#003375] border-b border-[#002855]">
+                <thead className="ui-meta text-xs text-white uppercase bg-[#003375] border-b border-[#002855]">
                     <tr>
-                        <th className="px-3 py-3 w-10 text-center">STT</th>
+                        <th className="ui-meta px-3 py-3 w-10 text-center">STT</th>
                         {visibleScoreColumnConfig.map((column) => (
-                            <th key={column.key} className="px-2 py-3 w-14 text-center">{column.label}</th>
+                            <th key={column.key} className="ui-meta px-2 py-3 w-14 text-center">{column.label}</th>
                         ))}
-                        <th className="px-3 py-3 min-w-[180px]">Môn học</th>
-                        <th className="px-2 py-3 w-12 text-center">TC</th>
-                        <th className="px-2 py-3 w-14 text-center">TB(10)</th>
-                        <th className="px-2 py-3 w-14 text-center">Chữ</th>
-                        <th className="px-2 py-3 w-14 text-center">TB(4)</th>
-                        <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
-                        <th className="px-2 py-3 w-8"></th>
+                        <th className="ui-meta px-3 py-3 min-w-[180px]">Môn học</th>
+                        <th className="ui-meta px-2 py-3 w-12 text-center">TC</th>
+                        <th className="ui-meta px-2 py-3 w-14 text-center">TB(10)</th>
+                        <th className="ui-meta px-2 py-3 w-14 text-center">Chữ</th>
+                        <th className="ui-meta px-2 py-3 w-14 text-center">TB(4)</th>
+                        <th className="ui-meta px-3 py-3 w-20 text-center">Trạng thái</th>
+                        <th className="ui-meta px-2 py-3 w-8"></th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1126,9 +1126,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 ))}
 
                                 <td className="px-3 py-2">
-                                    <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
+                                    <input type="text" className="ui-input w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
                                     <div className="flex items-center gap-2 mt-1">
-                                        <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
+                                        <label className="ui-meta text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
                                             <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1" />
                                             Không tính GPA
                                         </label>
@@ -1136,15 +1136,15 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 </td>
 
                                 <td className="px-1 py-2">
-                                    <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
+                                    <input type="number" className="ui-input w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
                                 </td>
 
                                 <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
                                 <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
                                 <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
-                                <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
+                                <td className="px-3 py-2 text-center"><span className={`ui-meta px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
                                 <td className="px-2 py-2 text-center">
-                                    <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
+                                    <button onClick={() => removeSubject(subject.id)} className="ui-muted ui-danger-text ui-action text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
                                 </td>
                             </tr>
                         );
@@ -1156,15 +1156,15 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 </table>
             </div>
             {!isReadOnly && (
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-xl flex justify-between items-center">
-                <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn học</button>
+            <div className="ui-page-gutter px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-xl flex justify-between items-center">
+                <button onClick={addSubject} className="ui-action flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn học</button>
             </div> )}
         </>
       ) : (
           <div className="p-8 text-center bg-red-50/40 border-t border-red-100 flex flex-col items-center justify-center rounded-b-xl">
               <ShieldAlert className="text-red-400 mb-2 w-10 h-10 animate-pulse" />
-              <p className="text-red-600 font-bold mb-1">Nội dung học kỳ đang bị khóa</p>
-              <p className="text-red-500/80 text-xs max-w-sm">Tên học kỳ không hợp lệ. Vui lòng chọn một tên học kỳ có sẵn trong danh sách phía trên để mở khóa tính năng nhập điểm!</p>
+              <p className="ui-danger-text ui-secondary text-red-600 font-bold mb-1">Nội dung học kỳ đang bị khóa</p>
+              <p className="ui-danger-text ui-body text-red-500/80 text-xs max-w-sm">Tên học kỳ không hợp lệ. Vui lòng chọn một tên học kỳ có sẵn trong danh sách phía trên để mở khóa tính năng nhập điểm!</p>
           </div>
       )}
     </div>
@@ -1243,7 +1243,7 @@ const NativeSegmentedTabs = ({
   ];
 
   return (
-    <div className="relative mx-6 mb-5 grid grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-white p-1 shadow-[0_2px_14px_rgba(13,27,62,0.08)]">
+    <div className="ui-section-inset relative mx-6 mb-5 grid grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-white p-1 shadow-[0_2px_14px_rgba(13,27,62,0.08)]">
       <span
         aria-hidden="true"
         className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_5px_14px_rgba(26,86,255,0.34)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${activeTab === 'schedule' ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
@@ -1256,10 +1256,10 @@ const NativeSegmentedTabs = ({
             key={tab.id}
             type="button"
             onClick={() => onTabChange(tab.id)}
-            className={`relative z-10 flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-colors duration-300 ${
+            className={`ui-action relative z-10 flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-colors duration-300 ${
               isActive
                 ? 'text-white'
-                : 'text-[#9AA5C0] active:bg-slate-50'
+                : 'text-[#475569] active:bg-slate-50'
             }`}
           >
             <Icon size={14} strokeWidth={2.5} />
@@ -1291,12 +1291,12 @@ const NativeStatCard = ({
   icon: React.ReactNode;
 }) => {
   return (
-    <div className="min-w-0 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+    <div className="ui-card-space min-w-0 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="min-w-0 text-[11.5px] font-bold leading-tight text-[#7B8AB0]">{title}</span>
+        <span className="ui-meta ui-muted min-w-0 text-[11.5px] font-bold leading-tight text-[#7B8AB0]">{title}</span>
         <div
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-            tone === 'green' ? 'bg-[#EDFAF3] text-[#00C07F]' : 'bg-[#EEF2FF] text-[#1A56FF]'
+            tone === 'green' ? 'bg-[#EDFAF3] text-[#007A50]' : 'bg-[#EEF2FF] text-[#1A56FF]'
           }`}
         >
           {icon}
@@ -1304,13 +1304,13 @@ const NativeStatCard = ({
       </div>
       <div className="flex items-baseline gap-1">
         <span
-          className={`text-[28px] font-black leading-none tracking-normal ${tone === 'green' ? 'text-[#00C07F]' : 'text-[#1A56FF]'}`}
+          className={`text-[28px] font-black leading-none tracking-normal ${tone === 'green' ? 'text-[#007A50]' : 'text-[#1A56FF]'}`}
         >
           {value}
         </span>
-        <span className="text-[12px] font-bold text-[#B0BCDA]">{suffix}</span>
+        <span className="text-[12px] font-bold text-[#475569]">{suffix}</span>
       </div>
-      <div className="mt-2 text-[11px] font-semibold text-[#7B8AB0]">
+      <div className="ui-meta ui-muted mt-2 text-[11px] font-semibold text-[#7B8AB0]">
         {subLabel}: <span className="font-black text-[#0D1B3E]">{subValue}</span>
       </div>
       <div className={`mt-2.5 h-1 overflow-hidden rounded-full ${tone === 'green' ? 'bg-emerald-50' : 'bg-[#EEF2FF]'}`}>
@@ -1340,18 +1340,18 @@ const NativeFeatureCard = ({
   <button
     type="button"
     onClick={onClick}
-    className="min-w-0 rounded-[20px] bg-white p-3 text-left shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.99]"
+    className="ui-action min-w-0 rounded-[20px] bg-white p-3 text-left shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.99]"
   >
     <div className="mb-3 flex items-center justify-between gap-2 text-[12px] font-black text-[#0D1B3E]">
       <span className="truncate">{title}</span>
       {icon}
     </div>
     <div className="flex flex-col items-center gap-1.5 px-1 pb-1 text-center">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F0F2F8] text-[#7B8AB0]">
+      <div className="ui-muted flex h-9 w-9 items-center justify-center rounded-xl bg-[#F0F2F8] text-[#7B8AB0]">
         {locked ? <Lock size={16} strokeWidth={2.2} /> : <ChevronRight size={17} strokeWidth={2.5} />}
       </div>
       <div className="text-[12px] font-black text-[#1A56FF]">{locked ? 'Đăng nhập để xem' : 'Xem chi tiết'}</div>
-      <p className="line-clamp-2 text-[10.5px] font-medium leading-snug text-[#9AA5C0]">{description}</p>
+      <p className="ui-muted ui-secondary line-clamp-2 text-[10.5px] font-medium leading-snug text-[#9AA5C0]">{description}</p>
     </div>
   </button>
 );
@@ -1366,14 +1366,14 @@ const NativeTrendCard = ({
   const hasData = !isLocked && trendData.length > 0;
 
   return (
-    <section className="mx-6 mb-3 rounded-[20px] bg-white px-[18px] py-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+    <section className="ui-section-inset mx-6 mb-3 rounded-[20px] bg-white px-[18px] py-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
       <div className="mb-3.5 flex items-center justify-between gap-3">
-        <h2 className="text-[14px] font-black text-[#0D1B3E]">Xu hướng học tập</h2>
+        <h2 className="ui-section-title text-[14px] font-black text-[#0D1B3E]">Xu hướng học tập</h2>
         <div className="flex items-center gap-2.5">
-          <span className="flex items-center gap-1 text-[10.5px] font-bold text-[#7B8AB0]">
+          <span className="ui-muted ui-meta flex items-center gap-1 text-[10.5px] font-bold text-[#7B8AB0]">
             <i className="h-1.5 w-1.5 rounded-full bg-[#1A56FF]" /> Hệ 4
           </span>
-          <span className="flex items-center gap-1 text-[10.5px] font-bold text-[#7B8AB0]">
+          <span className="ui-muted ui-meta flex items-center gap-1 text-[10.5px] font-bold text-[#7B8AB0]">
             <i className="h-1.5 w-1.5 rounded-full bg-[#FF5C6A]" /> Hệ 10
           </span>
         </div>
@@ -1381,11 +1381,11 @@ const NativeTrendCard = ({
 
       {hasData ? (
         <div className="h-[132px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
+          <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
+            <LineChart data={trendData} margin={{ top: 16, right: 4, bottom: 0, left: 24 }}>
               <CartesianGrid stroke="#EEF2FF" strokeDasharray="4 4" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9AA5C0', fontWeight: 700 }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="gpa4" domain={[0, 4]} tick={{ fontSize: 10, fill: '#9AA5C0' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#475569', fontWeight: 700 }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="gpa4" domain={[0, 4]} tick={{ fontSize: 10, fill: '#475569' }} axisLine={false} tickLine={false} />
               <YAxis yAxisId="gpa10" domain={[0, 10]} hide />
               <RechartsTooltip
                 contentStyle={{
@@ -1404,7 +1404,7 @@ const NativeTrendCard = ({
         <div className="flex h-[112px] flex-col items-center justify-center gap-1.5 rounded-[14px] border border-dashed border-[#DDE3F0] bg-[#F6F8FC] px-5 text-center">
           <Lock size={30} className="text-[#C0CBDF]" strokeWidth={1.9} />
           <div className="text-[13px] font-black text-[#1A56FF]">{isLocked ? 'Biểu đồ đã bị khóa' : 'Chưa có dữ liệu xu hướng'}</div>
-          <p className="text-[11px] font-medium leading-snug text-[#9AA5C0]">
+          <p className="ui-muted ui-secondary text-[11px] font-medium leading-snug text-[#9AA5C0]">
             {isLocked ? 'Đăng nhập để mở khóa và xem biểu đồ xu hướng học tập.' : 'Thêm điểm học kỳ để xem biểu đồ xu hướng học tập.'}
           </p>
         </div>
@@ -1416,7 +1416,7 @@ const NativeTrendCard = ({
 const NativeEvaluationRow = ({ text }: { text?: string }) => (
   <button
     type="button"
-    className="mx-6 mb-4 flex w-[calc(100%-3rem)] items-center justify-between rounded-[20px] bg-white px-[18px] py-4 text-left shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.99]"
+    className="ui-section-inset ui-action mx-6 mb-4 flex w-[calc(100%-3rem)] items-center justify-between rounded-[20px] bg-white px-[18px] py-4 text-left shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.99]"
   >
     <div className="flex min-w-0 items-center gap-3">
       <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#1A56FF]">
@@ -1424,7 +1424,7 @@ const NativeEvaluationRow = ({ text }: { text?: string }) => (
       </div>
       <div className="min-w-0">
         <div className="text-[13.5px] font-black text-[#0D1B3E]">Đánh giá học tập</div>
-        <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-[#9AA5C0]">{text || 'Chưa đủ dữ liệu để đánh giá'}</p>
+        <p className="ui-muted ui-secondary line-clamp-2 text-[11px] font-semibold leading-snug text-[#9AA5C0]">{text || 'Chưa đủ dữ liệu để đánh giá'}</p>
       </div>
     </div>
     <ChevronRight size={18} className="shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
@@ -1464,7 +1464,7 @@ const NativeQuickActions = ({
   if (actions.length === 0) return null;
 
   return (
-    <section className="mx-6 mb-5 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+    <section className="ui-section-inset ui-card-space mx-6 mb-5 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
       <div className="mb-3 text-[13.5px] font-black text-[#0D1B3E]">Công cụ nhanh</div>
       <div className="grid grid-cols-3 gap-2">
         {actions.map((item) => {
@@ -1475,7 +1475,7 @@ const NativeQuickActions = ({
               type="button"
               onClick={item.onClick}
               disabled={item.disabled}
-              className="flex min-h-[58px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[#F6F8FC] px-2 text-center text-[10.5px] font-black leading-tight text-[#0D1B3E] transition active:scale-[0.98] disabled:opacity-50"
+              className="ui-action flex min-h-[58px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[#F6F8FC] px-2 text-center text-[10.5px] font-black leading-tight text-[#0D1B3E] transition active:scale-[0.98] disabled:opacity-50"
             >
               <Icon size={17} className="text-[#1A56FF]" strokeWidth={2.3} />
               <span>{item.disabled ? 'Đang nhập' : item.label}</span>
@@ -1485,7 +1485,7 @@ const NativeQuickActions = ({
         <Link
           to="/handbook/plagiarism"
           onClick={playClick}
-          className="flex min-h-[58px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[#F6F8FC] px-2 text-center text-[10.5px] font-black leading-tight text-[#0D1B3E] transition active:scale-[0.98]"
+          className="ui-meta flex min-h-[58px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[#F6F8FC] px-2 text-center text-[10.5px] font-black leading-tight text-[#0D1B3E] transition active:scale-[0.98]"
         >
           <ShieldCheck size={17} className="text-[#7B2FFF]" strokeWidth={2.3} />
           <span>Check đạo văn</span>
@@ -1551,11 +1551,11 @@ const NativeAdminTools = () => {
   if (tools.length === 0) return null;
 
   return (
-    <section className="mx-6 mb-3 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+    <section className="ui-section-inset ui-card-space mx-6 mb-3 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <div className="text-[13.5px] font-black text-[#0D1B3E]">Công cụ quản trị</div>
-          <p className="mt-0.5 text-[10.5px] font-semibold leading-snug text-[#7B8AB0]">Truy cập nhanh các khu vực kiểm duyệt trên mobile.</p>
+          <p className="ui-muted ui-secondary mt-0.5 text-[10.5px] font-semibold leading-snug text-[#7B8AB0]">Truy cập nhanh các khu vực kiểm duyệt trên mobile.</p>
         </div>
         <ShieldCheck size={18} className="shrink-0 text-[#1A56FF]" strokeWidth={2.4} />
       </div>
@@ -1574,7 +1574,7 @@ const NativeAdminTools = () => {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[12.5px] font-black leading-tight text-[#0D1B3E]">{tool.label}</span>
-                <span className="mt-0.5 line-clamp-2 block text-[10.5px] font-semibold leading-snug text-[#7B8AB0]">{tool.description}</span>
+                <span className="ui-meta ui-muted mt-0.5 line-clamp-2 block text-[10.5px] font-semibold leading-snug text-[#7B8AB0]">{tool.description}</span>
               </span>
               <ChevronRight size={17} className="shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
             </Link>
@@ -1672,19 +1672,19 @@ const NativeTranscriptList = ({
 
   if (semesters.length === 0) {
     return (
-      <section className="mx-6 mb-6 rounded-[20px] bg-white p-5 text-center shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+      <section className="ui-section-inset ui-card-space mx-6 mb-6 rounded-[20px] bg-white p-5 text-center shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
         <div className="text-[14px] font-black text-[#0D1B3E]">Chi tiết bảng điểm</div>
-        <p className="mt-2 text-[12px] font-semibold leading-snug text-[#9AA5C0]">Chưa có dữ liệu học kỳ. Hãy nhập PDF hoặc thêm học kỳ để xem bảng điểm.</p>
+        <p className="ui-muted ui-secondary mt-2 text-[12px] font-semibold leading-snug text-[#9AA5C0]">Chưa có dữ liệu học kỳ. Hãy nhập PDF hoặc thêm học kỳ để xem bảng điểm.</p>
       </section>
     );
   }
 
   return (
-    <section className="mx-6 mb-7">
+    <section className="ui-section-inset mx-6 mb-7">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-[16px] font-black text-[#0D1B3E]">Chi tiết bảng điểm</h2>
-          <p className="text-[11px] font-semibold text-[#9AA5C0]">Hiển thị dạng thẻ để dễ đọc trên điện thoại.</p>
+          <h2 className="ui-section-title text-[16px] font-black text-[#0D1B3E]">Chi tiết bảng điểm</h2>
+          <p className="ui-muted ui-secondary text-[11px] font-semibold text-[#9AA5C0]">Hiển thị dạng thẻ để dễ đọc trên điện thoại.</p>
         </div>
       </div>
 
@@ -1702,14 +1702,14 @@ const NativeTranscriptList = ({
                   value={semester.name}
                   disabled={isReadOnly}
                   onChange={(event) => onUpdateSemester?.(record.originalIndex, { ...semester, name: event.target.value })}
-                  className="w-full rounded-xl border border-[#DDE3F0] bg-[#F6F8FC] px-3 py-2 text-[12px] font-black text-[#1A56FF] outline-none focus:border-[#1A56FF]"
+                  className="ui-input w-full rounded-xl border border-[#DDE3F0] bg-[#F6F8FC] px-3 py-2 text-[12px] font-black text-[#1A56FF] outline-none focus:border-[#1A56FF]"
                 >
                   {!hasValidName && <option value="">Chọn học kỳ</option>}
                   {semesterOptions.map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-[#7B8AB0]">
+                <div className="ui-muted ui-meta mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-[#7B8AB0]">
                   <span>{subjects.length} môn</span>
                   <span className="h-1 w-1 rounded-full bg-[#C0CBDF]" />
                   <span>{semStats.totalCredits || 0} tín chỉ</span>
@@ -1721,7 +1721,7 @@ const NativeTranscriptList = ({
                     type="button"
                     onClick={() => addSubject(record)}
                     disabled={isReadOnly}
-                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]"
+                    className="ui-action flex h-8 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]"
                   >
                     <Plus size={14} /> Thêm môn
                   </button>
@@ -1729,7 +1729,7 @@ const NativeTranscriptList = ({
                     type="button"
                     onClick={() => onRemoveSemester?.(record.originalIndex)}
                     disabled={isReadOnly}
-                    className="flex h-8 items-center justify-center rounded-xl bg-red-50 px-3 text-red-600"
+                    className="ui-danger-text ui-action flex h-8 items-center justify-center rounded-xl bg-red-50 px-3 text-red-600"
                     aria-label="Xóa học kỳ"
                   >
                     <Trash2 size={14} />
@@ -1752,7 +1752,7 @@ const NativeTranscriptList = ({
                             value={draftSubject.name}
                             onChange={(event) => updateDraftSubject(record, { ...draftSubject, name: event.target.value })}
                             placeholder="Tên môn học"
-                            className="h-10 w-full rounded-xl border border-[#DDE3F0] bg-white px-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
+                            className="ui-input h-10 w-full rounded-xl border border-[#DDE3F0] bg-white px-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
                           />
                           <div className="grid grid-cols-5 gap-2">
                             <input
@@ -1760,7 +1760,7 @@ const NativeTranscriptList = ({
                               onChange={(event) => updateDraftSubject(record, { ...draftSubject, credits: Number(event.target.value) || 0 })}
                               type="number"
                               min="0"
-                              className="h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
+                              className="ui-input h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
                               aria-label="Tín chỉ"
                             />
                             {[
@@ -1778,11 +1778,11 @@ const NativeTranscriptList = ({
                                 min="0"
                                 max="10"
                                 step="0.1"
-                                className="h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
+                                className="ui-input h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
                               />
                             ))}
                           </div>
-                          <label className="flex items-center gap-2 text-[11px] font-bold text-[#7B8AB0]">
+                          <label className="ui-meta ui-muted flex items-center gap-2 text-[11px] font-bold text-[#7B8AB0]">
                             <input
                               type="checkbox"
                               checked={draftSubject.isNonGPA}
@@ -1795,14 +1795,14 @@ const NativeTranscriptList = ({
                             <button
                               type="button"
                               onClick={() => updateSubject(record, draftSubject)}
-                              className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#1A56FF] text-[12px] font-black text-white"
+                              className="ui-action flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#1A56FF] text-[12px] font-black text-white"
                             >
                               <Check size={15} /> Lưu
                             </button>
                             <button
                               type="button"
                               onClick={cancelEditSubject}
-                              className="h-9 rounded-xl bg-slate-100 text-[12px] font-black text-slate-600"
+                              className="ui-action h-9 rounded-xl bg-slate-100 text-[12px] font-black text-slate-600"
                             >
                               Đóng
                             </button>
@@ -1815,7 +1815,7 @@ const NativeTranscriptList = ({
                       <div key={subject.id} className="flex items-start justify-between gap-3 px-4 py-3">
                         <div className="min-w-0 flex-1">
                           <div className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{subject.name || 'Môn chưa đặt tên'}</div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold text-[#9AA5C0]">
+                          <div className="ui-muted ui-meta mt-1 flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold text-[#9AA5C0]">
                             <span>{subject.credits || 0} tín chỉ</span>
                             {subject.isNonGPA && (
                               <>
@@ -1827,13 +1827,13 @@ const NativeTranscriptList = ({
                         </div>
                         <div className="shrink-0 text-right">
                           <div className={`text-[15px] font-black leading-none ${scoreColor}`}>{avg === null ? '--' : avg.toFixed(1)}</div>
-                          <div className="mt-1 text-[10.5px] font-black text-[#7B8AB0]">{details ? `${details.letter} · ${details.scale4.toFixed(1)}` : 'Chưa có'}</div>
+                          <div className="ui-meta ui-muted mt-1 text-[10.5px] font-black text-[#7B8AB0]">{details ? `${details.letter} · ${details.scale4.toFixed(1)}` : 'Chưa có'}</div>
                           <div className="mt-2 flex justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => startEditSubject(subject)}
                               disabled={isReadOnly}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"
+                              className="ui-action flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"
                               aria-label="S?a môn"
                             >
                               <Edit3 size={13} />
@@ -1842,7 +1842,7 @@ const NativeTranscriptList = ({
                               type="button"
                               onClick={() => deleteSubject(record, subject.id)}
                               disabled={isReadOnly}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600"
+                              className="ui-danger-text ui-action flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600"
                               aria-label="Xóa môn"
                             >
                               <Trash2 size={13} />
@@ -1854,7 +1854,7 @@ const NativeTranscriptList = ({
                   })}
                 </div>
               ) : (
-                <div className="px-4 py-5 text-center text-[12px] font-semibold text-[#9AA5C0]">Học kỳ này chưa có môn học.</div>
+                <div className="ui-muted px-4 py-5 text-center text-[12px] font-semibold text-[#9AA5C0]">Học kỳ này chưa có môn học.</div>
               )}
             </article>
           );
@@ -1867,11 +1867,11 @@ const NativeTranscriptList = ({
 const NativeAIFloatingButton = () => (
   <button
     type="button"
-    className="absolute bottom-[86px] right-[18px] z-20 flex h-[52px] w-[52px] flex-col items-center justify-center gap-0.5 rounded-[18px] bg-gradient-to-br from-[#1A56FF] to-[#7B2FFF] text-white shadow-[0_8px_22px_rgba(26,86,255,0.45)]"
+    className="ui-action absolute bottom-[86px] right-[18px] z-20 flex h-[52px] w-[52px] flex-col items-center justify-center gap-0.5 rounded-[18px] bg-gradient-to-br from-[#1A56FF] to-[#7B2FFF] text-white shadow-[0_8px_22px_rgba(26,86,255,0.45)]"
     aria-label="M? tr? lý AI"
   >
     <Sparkles size={18} strokeWidth={2.3} />
-    <span className="text-[9px] font-black tracking-wide">AI</span>
+    <span className="ui-meta text-[9px] font-black tracking-wide">AI</span>
   </button>
 );
 
@@ -1889,11 +1889,11 @@ const NativeBottomNavigation = () => {
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <button key={item.label} type="button" className="flex flex-1 flex-col items-center gap-1">
-            <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${item.active ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>
+          <button key={item.label} type="button" className="ui-action flex flex-1 flex-col items-center gap-1">
+            <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${item.active ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#475569]'}`}>
               <Icon size={20} strokeWidth={2.2} />
             </span>
-            <span className={`text-[10px] font-bold ${item.active ? 'text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>{item.label}</span>
+            <span className={`ui-meta text-[10px] font-bold ${item.active ? 'text-[#1A56FF]' : 'text-[#475569]'}`}>{item.label}</span>
           </button>
         );
       })}
@@ -2011,12 +2011,12 @@ const NativeAdminStudentManager = () => {
           type="button"
           onClick={() => goToStudentsPage(studentsPage - 1)}
           disabled={studentsPage <= 0 || loadingStudents}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
+          className="ui-action flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
           aria-label="Trang trước"
         >
           <ChevronLeft size={16} />
         </button>
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11px] font-black text-[#7B8AB0]">
+        <div className="ui-muted ui-meta flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11px] font-black text-[#7B8AB0]">
           <span>Trang</span>
           <input
             type="number"
@@ -2024,7 +2024,7 @@ const NativeAdminStudentManager = () => {
             max={studentTotalPages}
             value={studentsPage + 1}
             onChange={(event) => goToStudentsPage((Number(event.target.value) || 1) - 1)}
-            className="h-9 w-14 rounded-xl border border-[#E5EAF4] bg-white text-center text-[12px] font-black text-[#0D1B3E] outline-none"
+            className="ui-input h-9 w-14 rounded-xl border border-[#E5EAF4] bg-white text-center text-[12px] font-black text-[#0D1B3E] outline-none"
           />
           <span>/ {studentTotalPages}</span>
         </div>
@@ -2032,7 +2032,7 @@ const NativeAdminStudentManager = () => {
           type="button"
           onClick={() => goToStudentsPage(studentsPage + 1)}
           disabled={studentsPage >= studentTotalPages - 1 || loadingStudents}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
+          className="ui-action flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
           aria-label="Trang sau"
         >
           <ChevronRight size={16} />
@@ -2070,19 +2070,19 @@ const NativeAdminStudentManager = () => {
 
   return (
     <main className="relative overflow-visible pb-0">
-      <div className="mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Quản lý sinh viên</div>
+      <div className="ui-page-gutter ui-muted ui-meta mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Quản lý sinh viên</div>
 
-      <section className="mx-6 mb-3 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+      <section className="ui-section-inset ui-card-space mx-6 mb-3 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-[14px] font-black text-[#0D1B3E]">Tìm kiếm hồ sơ</h2>
-            <p className="mt-0.5 text-[11px] font-semibold text-[#7B8AB0]">Nhập MSSV hoặc tên sinh viên.</p>
+            <h2 className="ui-section-title text-[14px] font-black text-[#0D1B3E]">Tìm kiếm hồ sơ</h2>
+            <p className="ui-muted ui-secondary mt-0.5 text-[11px] font-semibold text-[#7B8AB0]">Nhập MSSV hoặc tên sinh viên.</p>
           </div>
           <button
             type="button"
             onClick={() => fetchStudents(query, studentsPage)}
             disabled={loadingStudents || query.length < 2}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#1A56FF] disabled:opacity-50"
+            className="ui-action flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#1A56FF] disabled:opacity-50"
             aria-label="Làm mới"
           >
             <RefreshCw size={16} className={loadingStudents ? 'animate-spin' : ''} />
@@ -2094,29 +2094,29 @@ const NativeAdminStudentManager = () => {
             value={searchValue}
             onChange={(event) => setSearchValue(event.target.value)}
             placeholder="VD: 3123..., Nguyễn Văn A"
-            className="h-10 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-9 pr-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
+            className="ui-input h-10 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-9 pr-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
           />
         </div>
         <select
           value={sortMode}
           onChange={(event) => setSortMode(event.target.value as typeof sortMode)}
-          className="mt-2 h-9 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-[11px] font-black text-[#0D1B3E] outline-none"
+          className="ui-input mt-2 h-9 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-[11px] font-black text-[#0D1B3E] outline-none"
         >
           {sortOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
         </select>
       </section>
 
-      <section className="mx-6 mb-0 space-y-2.5 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+      <section className="ui-section-inset ui-card-space mx-6 mb-0 space-y-2.5 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
         {loadingStudents ? (
-          <div className="p-6 text-center text-[12px] font-bold text-[#7B8AB0]">
+          <div className="ui-muted p-6 text-center text-[12px] font-bold text-[#7B8AB0]">
             <Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={22} /> Đang tìm sinh viên...
           </div>
         ) : query.length < 2 ? (
-          <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-6 text-center text-[12px] font-bold leading-relaxed text-[#7B8AB0]">
+          <div className="ui-muted rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-6 text-center text-[12px] font-bold leading-relaxed text-[#7B8AB0]">
             Nhập ít nhất 2 ký tự để tải danh sách sinh viên phù hợp.
           </div>
         ) : filteredStudents.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-6 text-center text-[12px] font-bold text-[#7B8AB0]">
+          <div className="ui-muted rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-6 text-center text-[12px] font-bold text-[#7B8AB0]">
             Không có sinh viên phù hợp với bộ lọc hiện tại.
           </div>
         ) : (
@@ -2125,13 +2125,13 @@ const NativeAdminStudentManager = () => {
               key={student.id}
               type="button"
               onClick={() => openStudentDetail(student)}
-              className="w-full rounded-[18px] bg-[#F8FAFD] p-4 text-left active:scale-[0.99]"
+              className="ui-action w-full rounded-[18px] bg-[#F8FAFD] p-4 text-left active:scale-[0.99]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="line-clamp-1 text-[13.5px] font-black text-[#0D1B3E]">{student.data?.studentName || student.full_name || 'Chưa có tên'}</h3>
-                  <p className="mt-1 text-[11px] font-bold text-[#7B8AB0]">{student.student_code || student.email || student.id}</p>
-                  <p className="mt-2 line-clamp-2 text-[11px] font-black text-[#1A56FF]">{student.data?.specializationName || student.data?.majorName || 'Chưa cập nhật chuyên ngành'}</p>
+                  <h3 className="ui-card-title line-clamp-1 text-[13.5px] font-black text-[#0D1B3E]">{student.data?.studentName || student.full_name || 'Chưa có tên'}</h3>
+                  <p className="ui-muted ui-secondary mt-1 text-[11px] font-bold text-[#7B8AB0]">{student.student_code || student.email || student.id}</p>
+                  <p className="ui-secondary mt-2 line-clamp-2 text-[11px] font-black text-[#1A56FF]">{student.data?.specializationName || student.data?.majorName || 'Chưa cập nhật chuyên ngành'}</p>
                 </div>
                 <ChevronRight size={18} className="mt-1 shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
               </div>
@@ -2147,29 +2147,29 @@ const NativeAdminStudentManager = () => {
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200" />
             <div className="flex items-start justify-between gap-3 border-b border-[#EEF2FF] p-4">
               <div className="min-w-0">
-                <h2 className="line-clamp-2 text-[17px] font-black leading-tight text-[#0D1B3E]">{selectedStudent.data?.studentName || selectedStudent.full_name || 'Hồ sơ sinh viên'}</h2>
-                <p className="mt-1 text-[11px] font-bold text-[#7B8AB0]">{selectedStudent.student_code || selectedStudent.email}</p>
+                <h2 className="ui-section-title line-clamp-2 text-[17px] font-black leading-tight text-[#0D1B3E]">{selectedStudent.data?.studentName || selectedStudent.full_name || 'Hồ sơ sinh viên'}</h2>
+                <p className="ui-muted ui-secondary mt-1 text-[11px] font-bold text-[#7B8AB0]">{selectedStudent.student_code || selectedStudent.email}</p>
               </div>
-              <button type="button" onClick={() => setSelectedStudent(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F2F4F8] text-[#7B8AB0]">
+              <button type="button" onClick={() => setSelectedStudent(null)} className="ui-muted ui-action flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F2F4F8] text-[#7B8AB0]">
                 <X size={16} />
               </button>
             </div>
             <div className="max-h-[70vh] overflow-y-auto p-4 pb-safe">
-              {loadingDetail && <div className="mb-3 rounded-2xl bg-[#EEF2FF] p-3 text-[11px] font-black text-[#1A56FF]">Đang tải hồ sơ chi tiết...</div>}
+              {loadingDetail && <div className="ui-meta mb-3 rounded-2xl bg-[#EEF2FF] p-3 text-[11px] font-black text-[#1A56FF]">Đang tải hồ sơ chi tiết...</div>}
               <div className="mb-3 grid grid-cols-2 gap-3">
                 <NativeStatCard title="GPA tích lũy" value={selectedStudent.gpa4 ? selectedStudent.gpa4.toFixed(2) : '0.00'} suffix="/ 4" subLabel="Hệ 10" subValue={selectedStudent.gpa10 ? selectedStudent.gpa10.toFixed(2) : '0.00'} progress={(selectedStudent.gpa4 / 4) * 100} tone="blue" icon={<GraduationCap size={15} strokeWidth={2.5} />} />
                 <NativeStatCard title="Tín chỉ" value={`${Math.round(selectedStudent.credits || 0)}`} suffix="TC" subLabel="Học kỳ" subValue={`${selectedStudent.semesterCount || 0}`} progress={Math.min(100, selectedStudent.credits || 0)} tone="green" icon={<BookOpen size={15} strokeWidth={2.5} />} />
               </div>
               <div className="space-y-2">
                 {getUsableSemesters(selectedStudent.data).length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-4 text-center text-[12px] font-bold text-[#7B8AB0]">Sinh viên chưa có dữ liệu học kỳ.</div>
+                  <div className="ui-muted rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-4 text-center text-[12px] font-bold text-[#7B8AB0]">Sinh viên chưa có dữ liệu học kỳ.</div>
                 ) : (
                   getUsableSemesters(selectedStudent.data).map((semester: Semester) => {
                     const semesterStats = calculateSemesterStats(semester.subjects || []);
                     return (
                       <div key={semester.id || semester.name} className="rounded-2xl bg-[#F8FAFD] p-3">
                         <div className="text-[12px] font-black text-[#0D1B3E]">{semester.name}</div>
-                        <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] font-bold text-[#7B8AB0]">
+                        <div className="ui-muted ui-meta mt-1 flex flex-wrap gap-1.5 text-[10px] font-bold text-[#7B8AB0]">
                           <span>{semester.subjects?.length || 0} môn</span>
                           <span>GPA {semesterStats.hasData ? semesterStats.gpa4.toFixed(2) : '--'}</span>
                           <span>{semesterStats.totalCredits || 0} TC</span>
@@ -2229,14 +2229,14 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
       <div className={`mx-auto flex w-full max-w-[430px] flex-col bg-[#F2F4F8] text-[#0D1B3E] ${isManagementUser ? 'min-h-0' : 'min-h-[100dvh]'}`}>
         <NativeStatusSpacer />
 
-        <header className="flex items-start justify-between px-6 pb-4 pt-1">
+        <header className="ui-page-gutter flex items-start justify-between px-6 pb-4 pt-1">
           <div>
-            <h1 className="text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Học tập</h1>
-            <p className="mt-1 text-[13px] font-semibold text-[#7B8AB0]">Quản lý học tập</p>
+            <h1 className="ui-page-title text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Học tập</h1>
+            <p className="ui-muted ui-secondary mt-1 text-[13px] font-semibold text-[#7B8AB0]">Quản lý học tập</p>
           </div>
           <button
             type="button"
-            className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_12px_rgba(13,27,62,0.08)]"
+            className="ui-action relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_12px_rgba(13,27,62,0.08)]"
             aria-label="Thông báo"
           >
             <Bell size={20} strokeWidth={2.2} />
@@ -2255,9 +2255,9 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
           </>
         ) : (
           <main className="relative flex-1 overflow-y-auto pb-[calc(76px+env(safe-area-inset-bottom))]">
-            <div className="mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>
+            <div className="ui-page-gutter ui-muted ui-meta mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>
 
-            <div className="mb-3 grid grid-cols-2 gap-3 px-6">
+            <div className="ui-page-gutter mb-3 grid grid-cols-2 gap-3 px-6">
               <NativeStatCard
                 title="GPA tích lũy"
                 value={formatMobileNumber(stats.gpa4)}
@@ -2280,7 +2280,7 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
               />
             </div>
 
-            <div className="mb-3 grid grid-cols-2 gap-3 px-6">
+            <div className="ui-page-gutter mb-3 grid grid-cols-2 gap-3 px-6">
               <NativeFeatureCard
                 title="BXH môn học"
                 description="Xem bảng xếp hạng môn học của bạn"
@@ -2886,33 +2886,33 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 -mt-2 mb-3 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                         <div>
-                            <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">
+                            <h1 className="ui-page-title text-2xl sm:text-[28px] font-black text-[#003375]">
                                 Quản lý Sinh viên
                             </h1>
-                            <p className="text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
+                            <p className="ui-secondary text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
                         </div>
 
                         <div className="flex flex-col w-full lg:w-auto gap-2">
                             <div className="flex flex-nowrap items-center gap-2 w-full justify-end">
                                 <div className="relative flex-1 lg:w-64 max-w-sm">
-                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                    <Search className="ui-muted absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                     <input
                                         type="text"
                                         placeholder="Nhập ít nhất 2 ký tự để tìm..."
                                         value={adminSearch}
                                         onChange={e => setAdminSearch(e.target.value)}
-                                        className="w-full h-10 pl-8 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-[#003375] outline-none text-sm bg-white font-semibold"
+                                        className="ui-input w-full h-10 pl-8 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-[#003375] outline-none text-sm bg-white font-semibold"
                                     />
                                 </div>
 
                                 <button
                                     onClick={() => { playClick(); setShowAdminFilters(prev => !prev); }}
-                                    className={`h-10 px-3 rounded-xl border text-sm font-bold transition-colors shrink-0 flex items-center gap-1.5 ${showAdminFilters || activeAdminFilterCount > 0 ? 'bg-[#003375] text-white border-[#003375] shadow-sm' : 'bg-white text-[#003375] border-gray-300'}`}
+                                    className={`ui-action h-10 px-3 rounded-xl border text-sm font-bold transition-colors shrink-0 flex items-center gap-1.5 ${showAdminFilters || activeAdminFilterCount > 0 ? 'bg-[#003375] text-white border-[#003375] shadow-sm' : 'bg-white text-[#003375] border-gray-300'}`}
                                 >
                                     <ListFilter size={16} />
                                     <span>Lọc</span>
                                     {activeAdminFilterCount > 0 && (
-                                        <span className={`min-w-5 h-5 rounded-full px-1.5 text-[11px] font-black flex items-center justify-center ${showAdminFilters ? 'bg-white text-[#003375]' : 'bg-[#003375] text-white'}`}>
+                                        <span className={`ui-meta min-w-5 h-5 rounded-full px-1.5 text-[11px] font-black flex items-center justify-center ${showAdminFilters ? 'bg-white text-[#003375]' : 'bg-[#003375] text-white'}`}>
                                             {activeAdminFilterCount}
                                         </span>
                                     )}
@@ -2920,7 +2920,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                                 <button
                                     onClick={() => { playClick(); setShowAdminExcelModal(true); }}
-                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-[#003375] shadow-sm transition-colors hover:bg-blue-50"
+                                    className="ui-action flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-[#003375] shadow-sm transition-colors hover:bg-blue-50"
                                     title="Xuất danh sách Excel"
                                 >
                                     <Download size={18} />
@@ -2929,52 +2929,52 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <button
                                     onClick={() => { playClick(); fetchAdminData(adminSearchQuery, { force: true }); }}
                                     disabled={loadingAdmin || !hasAdminSearchQuery}
-                                    className="h-10 w-10 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-xl shadow-sm transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center"
+                                    className="ui-action h-10 w-10 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-xl shadow-sm transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center"
                                     title="Làm mới danh sách"
                                 >
                                     <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
                                 </button>
 
-                                <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="hidden sm:inline-flex h-10 items-center px-3 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-xl shadow-sm whitespace-nowrap transition-colors shrink-0">
+                                <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="ui-action hidden sm:inline-flex h-10 items-center px-3 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-xl shadow-sm whitespace-nowrap transition-colors shrink-0">
                                     H? so c?a tôi
                                 </button>
                             </div>
 
                             <div className={`${showAdminFilters ? 'grid' : 'hidden'} grid-cols-2 gap-2 w-full rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] animate-fadeIn`}>
                                 <div className="col-span-2 flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Bộ lọc</span>
+                                    <span className="ui-meta text-xs font-black uppercase tracking-wide text-gray-500">Bộ lọc</span>
                                     {activeAdminFilterCount > 0 && (
-                                        <button onClick={() => { playClick(); resetAdminFilters(); }} className="text-xs font-bold text-[#003375]">
+                                        <button onClick={() => { playClick(); resetAdminFilters(); }} className="ui-action text-xs font-bold text-[#003375]">
                                             Xóa lọc
                                         </button>
                                     )}
                                 </div>
                                 <div className="relative">
-                                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                    <Filter className="ui-muted absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                                     <select
                                         value={adminFilterMajor}
                                         onChange={(e) => setAdminFilterMajor(e.target.value)}
-                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
+                                        className="ui-input appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
                                         <option value="all">Tất cả ngành</option>
                                         {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                    <ChevronDown className="ui-muted absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
 
                                 <div className="relative">
-                                    <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                    <ArrowUpDown className="ui-muted absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                                     <select
                                         value={adminSort}
                                         onChange={(e) => setAdminSort(e.target.value as any)}
-                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
+                                        className="ui-input appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
                                     >
                                         <option value="newest">Mới cập nhật</option>
                                         <option value="name_asc">Tên A-Z</option>
                                         <option value="created_desc">Tạo mới nhất</option>
                                         <option value="created_asc">Tạo cũ nhất</option>
                                     </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                    <ChevronDown className="ui-muted absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
                             </div>
                         </div>
@@ -2999,13 +2999,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         <button
                                             key={user.id}
                                             onClick={() => handleOpenAdminUserDetail(user)}
-                                            className="w-full p-3 text-left active:bg-blue-50 transition-colors"
+                                            className="ui-action w-full p-3 text-left active:bg-blue-50 transition-colors"
                                         >
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="min-w-0">
-                                                    <p className="text-[11px] font-black text-[#003375] tracking-wide">{user.student_code || '-'}</p>
-                                                    <h3 className="mt-1 text-sm font-extrabold text-gray-900 leading-snug line-clamp-2">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</h3>
-                                                    <p className="mt-1 text-[11px] font-black text-[#1A56FF] line-clamp-2">{majorLabel}</p>
+                                                    <p className="ui-secondary text-[11px] font-black text-[#003375] tracking-wide">{user.student_code || '-'}</p>
+                                                    <h3 className="ui-card-title mt-1 text-sm font-extrabold text-gray-900 leading-snug line-clamp-2">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</h3>
+                                                    <p className="ui-secondary mt-1 text-[11px] font-black text-[#1A56FF] line-clamp-2">{majorLabel}</p>
                                                 </div>
                                             </div>
                                         </button>
@@ -3021,9 +3021,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         <table className="min-w-[560px] w-full text-sm text-left relative">
                             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-3 font-bold">MSSV</th>
-                                    <th className="px-4 py-3 font-bold">Họ và tên</th>
-                                    <th className="px-4 py-3 font-bold">Chuyên ngành</th>
+                                    <th className="ui-meta px-4 py-3 font-bold">MSSV</th>
+                                    <th className="ui-meta px-4 py-3 font-bold">Họ và tên</th>
+                                    <th className="ui-meta px-4 py-3 font-bold">Chuyên ngành</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -3053,19 +3053,19 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                     {!loadingAdmin && processedAdminUsers.length > 0 && (
                             <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
-                                <span className="text-xs sm:text-sm text-gray-500">
+                                <span className="ui-meta text-xs sm:text-sm text-gray-500">
                                     Đang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viên
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }}
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="ui-action px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Trước
                                     </button>
 
-                                    <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 text-xs font-bold text-[#003375]">
+                                    <div className="ui-meta flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 text-xs font-bold text-[#003375]">
                                         <span>Trang</span>
                                         <input
                                             type="number"
@@ -3083,7 +3083,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') e.currentTarget.blur();
                                             }}
-                                            className="w-10 text-center bg-white border border-blue-200 text-[#003375] rounded outline-none focus:ring-2 focus:ring-[#003375] transition-all appearance-textfield"
+                                            className="ui-input w-10 text-center bg-white border border-blue-200 text-[#003375] rounded outline-none focus:ring-2 focus:ring-[#003375] transition-all appearance-textfield"
                                         />
                                         <span>/ {totalAdminPages}</span>
                                     </div>
@@ -3091,7 +3091,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <button
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalAdminPages, p + 1); setPageInput(newP.toString()); return newP; }); }}
                                         disabled={currentPage === totalAdminPages || processedAdminUsers.length === 0}
-                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="ui-action px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Sau
                                     </button>
@@ -3106,26 +3106,26 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     {isAdmin && (
                         <button
                             onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
-                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+                            className="ui-action mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
                         >
                             <ChevronLeft size={16} /> Quay lại danh sách quản lý
                         </button>
                     )}
 
-                    <h1 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
+                    <h1 className="ui-page-title text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
                 Học tập
             </h1>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <div className="ui-meta flex items-center gap-1.5 text-xs text-gray-500">
                 <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Bảng điểm và lộ trình</span>
             </div>
 
                     {!isGuest && !selectedUserOverview && (
                         <button
                             onClick={() => { playClick(); semesterLookback.open(); }}
-                            className="mt-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 active:scale-[0.98] motion-reduce:transition-none"
+                            className="ui-action mt-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 active:scale-[0.98] motion-reduce:transition-none"
                         >
                             <div className="flex items-center gap-2">
-                                <p className="text-xs font-black uppercase tracking-wide text-[#003375]">Nhìn lại kỳ học vừa qua</p>
+                                <p className="ui-secondary text-xs font-black uppercase tracking-wide text-[#003375]">Nhìn lại kỳ học vừa qua</p>
                                 <Sparkles className="text-yellow-500" size={17} />
                             </div>
                         </button>
@@ -3133,37 +3133,37 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
+                    <div className="ui-card-space bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
-                            <GraduationCap size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
+                            <GraduationCap size={16} className="ui-muted text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
                             <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.gpa4.toFixed(2)}</span>
-                            <span className="text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
+                            <span className="ui-muted ui-meta text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
                         </div>
-                        <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
+                        <div className="ui-meta text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Hệ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
+                    <div className="ui-card-space bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
-                            <BookOpen size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
+                            <BookOpen size={16} className="ui-muted text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
                             <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.passedCredits}</span>
-                            <span className="text-[10px] sm:text-[13px] font-bold text-gray-500">TC</span>
+                            <span className="ui-meta text-[10px] sm:text-[13px] font-bold text-gray-500">TC</span>
                         </div>
-                        <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 truncate">
+                        <div className="ui-meta text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 truncate">
                             Mục tiêu: <span className="font-bold text-gray-700">{totalCreditsRequired}</span>
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
+                    <div className="ui-card-space bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
                             <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
 
@@ -3172,28 +3172,28 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
                                     <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                        <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                        <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                     </div>
                                 </Link>
                             )}
                             {highestSubject ? (
                                 <div className="mt-1">
-                                    <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
+                                    <span className="ui-meta text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
                                     <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                                         <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
-                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Điểm {highestSubject.letter}</span>
+                                        <span className="ui-meta text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Điểm {highestSubject.letter}</span>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">Chưa có dữ liệu</p>
+                                <p className="ui-muted ui-secondary text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">Chưa có dữ liệu</p>
                             )}
                         </div>
                     </div>
 
                     {FEATURE_FORECAST_TOOLS && (
-                    <div className="z-20 bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-visible">
+                    <div className="ui-card-space z-20 bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-visible">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
                             <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
 
@@ -3202,11 +3202,11 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
                                     <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                        <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                        <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                     </div>
                                 </Link>
                             )}
-                            <div className="flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
+                            <div className="ui-meta flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                                 <div className="flex justify-between items-center">
                                     <span className="truncate">Mục tiêu:</span>
                                     <TargetGpaTipInput
@@ -3236,10 +3236,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                 <div className="flex flex-col gap-4 min-h-0">
                     <div className="flex flex-col gap-3 sm:gap-4">
-                        <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
+                        <div className="ui-card-space bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
                             <div className="flex justify-between items-center mb-2 sm:mb-6">
-                                <h3 className="text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
-                                <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
+                                <h3 className="ui-card-title text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
+                                <div className="ui-meta flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Hệ 4</span>
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
                                 </div>
@@ -3248,16 +3248,16 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <div className="flex-1 w-full -ml-5 sm:-ml-4 relative min-h-[100px]">
                                 {isLocked && (
                                     <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
-                                        <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                        <div className="ui-card-space bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
-                                            <p className="text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
-                                            <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
+                                            <p className="ui-secondary text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
+                                            <p className="ui-secondary text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
                                         </div>
                                     </Link>
                                 )}
 
                                 {trendData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
                                         <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                                             <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#6B7280', fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
@@ -3268,26 +3268,26 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         </LineChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chưa có dữ liệu học kỳ</div>
+                                    <div className="ui-muted ui-meta absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chưa có dữ liệu học kỳ</div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
+                        <div className="ui-card-space bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
                             <div className="flex-1 w-full">
-                                <h3 className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                                <h3 className="ui-card-title text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
                                     <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> Đánh giá hệ thống
                                 </h3>
-                                <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-snug">"{trendAnalysis}"</p>
+                                <p className="ui-secondary text-[10px] sm:text-xs text-gray-500 font-medium leading-snug">"{trendAnalysis}"</p>
                             </div>
                             <div className="shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
                                 {failedCount > 0 ? (
-                                    <button onClick={() => { playClick(); setShowFailedModal(true); }} className="w-full sm:w-auto flex items-center justify-between gap-3 px-3 py-2 bg-red-50 text-[#990000] border border-red-100 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors group">
+                                    <button onClick={() => { playClick(); setShowFailedModal(true); }} className="ui-action w-full sm:w-auto flex items-center justify-between gap-3 px-3 py-2 bg-red-50 text-[#990000] border border-red-100 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors group">
                                         <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> Tồn đọng {failedCount} môn nợ</span>
                                         <ChevronRight size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                                     </button>
                                 ) : (
-                                    <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[11px] sm:text-xs font-bold">
+                                    <div className="ui-meta w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[11px] sm:text-xs font-bold">
                                         <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không n? môn</span>
                                     </div>
                                 )}
@@ -3296,20 +3296,20 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                            <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
+                        <div className="ui-card-space bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                            <h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
 
                             <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
                                 {isLocked && (
                                     <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                        <div className="ui-card-space bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                            <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                         </div>
                                     </Link>
                                 )}
                                 {pieData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
                                         <PieChart>
                                             <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
                                                 {pieData.map((entry, index) => (
@@ -3320,29 +3320,29 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         </PieChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
+                                    <div className="ui-muted ui-meta absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                        <div className="ui-card-space bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                             <div className="flex justify-between items-center mb-2 sm:mb-3">
-                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
+                                <h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
                                 {yearlyStats.length > 3 && !isLocked && (
-                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
+                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="ui-action text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
                                 )}
                             </div>
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
                                 {isLocked && (
                                     <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                        <div className="ui-card-space bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                            <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                         </div>
                                     </Link>
                                 )}
-                                <div className="grid grid-cols-6 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
+                                <div className="ui-muted ui-meta grid grid-cols-6 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
                                     <span className="col-span-2">Năm</span>
                                     <span className="text-center">TC</span>
                                     <span className="text-right">GPA(4)</span>
@@ -3350,10 +3350,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <span className="text-right">ĐRL</span>
                                 </div>
                                 {yearlyStats.slice(0, 4).map((year) => (
-                                    <div key={year.yearId} className="grid grid-cols-6 gap-0.5 text-[9px] sm:text-[11px] items-center py-0.5 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
+                                    <div key={year.yearId} className="ui-meta grid grid-cols-6 gap-0.5 text-[9px] sm:text-[11px] items-center py-0.5 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
                                         <span className="col-span-2 min-w-0 pr-1" title={year.label}>
                                             <span className="block truncate font-medium text-gray-700">{year.label.replace('Năm học ', 'NH ')}</span>
-                                            <span className={`block truncate text-[8px] sm:text-[9px] font-bold ${
+                                            <span className={`ui-meta block truncate text-[8px] sm:text-[9px] font-bold ${
                                                 year.combinedClassification ? 'text-emerald-700' : 'text-gray-400'
                                             }`}>
                                                 {year.combinedClassification || 'Chưa đủ ĐRL'}
@@ -3372,12 +3372,12 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                 <div className="pt-2">
                     <div className="flex flex-row justify-between items-center flex-wrap mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
-                        <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
+                        <h2 className="ui-section-title text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
 
                         <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
                             <button
                                 onClick={() => { playClick(); setShowReportModal(true); }}
-                                className="text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
+                                className="ui-danger-text ui-action text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                             >
                                 <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 <span className="hidden sm:inline">Báo lỗi</span>
@@ -3386,7 +3386,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                             <button
                                 onClick={onExportPDF}
-                                className="text-gray-600 bg-white border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
+                                className="ui-action text-gray-600 bg-white border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                             >
                                 <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 <span className="hidden sm:inline">Xuất PDF</span>
@@ -3401,7 +3401,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <button
                                     onClick={onImportPDF}
                                     disabled={isImporting}
-                                    className="bg-white text-[#003375] border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm disabled:opacity-70 active:scale-95"
+                                    className="ui-action bg-white text-[#003375] border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm disabled:opacity-70 active:scale-95"
                                 >
                                     {isImporting ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <FileUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                                     <span className="hidden sm:inline">Nhập điểm PDF</span>
@@ -3437,15 +3437,15 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                         {activeData.semesters.length === 0 && (
                             <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-                                <p className="text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
-                                <button onClick={handleLocalAddSemester} className="text-[#003375] font-bold hover:underline flex items-center justify-center gap-1 mx-auto text-sm transition-colors">
+                                <p className="ui-secondary text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
+                                <button onClick={handleLocalAddSemester} className="ui-action text-[#003375] font-bold hover:underline flex items-center justify-center gap-1 mx-auto text-sm transition-colors">
                                     <Plus size={16} /> Tạo thủ công
                                 </button>
                             </div>
                         )}
 
                         {!isInitialState && nonSummerSemesters.length > 0 && nonSummerSemesters.length < ALL_SEMESTERS.length && (
-                            <button onClick={handleLocalAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
+                            <button onClick={handleLocalAddSemester} className="ui-action w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
                                 <Plus size={18}/> Thêm học kỳ mới
                             </button>
                         )}
