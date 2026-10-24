@@ -1,0 +1,47 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5174/
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit transcript toolbar responsive actions and keyboard (69301.5736ms)
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+✔ webkit transcript toolbar proportions for empty and editing states (33857.2404ms)
+Loading /dashboard?failSaveOnce=1 student
+Navigated /dashboard?failSaveOnce=1
+Mode /dashboard?failSaveOnce=1
+Fonts /dashboard?failSaveOnce=1
+Rendered /dashboard?failSaveOnce=1
+✔ webkit transcript toolbar save retry preserves draft and cancel (9578.9456ms)
+Loading /dashboard?emptyTranscript=1 student
+Navigated /dashboard?emptyTranscript=1
+Mode /dashboard?emptyTranscript=1
+Fonts /dashboard?emptyTranscript=1
+Rendered /dashboard?emptyTranscript=1
+✔ webkit transcript toolbar empty state and existing import flow (30059.7079ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5174/dashboard?role=student
+✔ webkit accept /dashboard browser student (31820.0477ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5174/dashboard?role=guest
+✔ webkit accept /dashboard browser guest (25003.2291ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 208107.0137

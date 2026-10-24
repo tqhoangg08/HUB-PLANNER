@@ -94,23 +94,29 @@ async function transcriptScale(page) {
       title: read(bar.querySelector('h2')),
       semester: read(document.querySelector('[data-transcript-editable] select')),
       gap: parseFloat(getComputedStyle(bar.querySelector('.transcript-toolbar__actions')).gap),
-      buttons: [...bar.querySelectorAll('button')].filter(b => b.getClientRects().length).map(b => ({ ...read(b), label: b.textContent, more: b.classList.contains('transcript-toolbar__more'), icon: read(b.querySelector('svg')) }))
+      buttons: [...bar.querySelectorAll('button')].filter(b => b.getClientRects().length).map(b => {
+        const r = b.getBoundingClientRect();
+        return { ...read(b), label: b.textContent, more: b.classList.contains('transcript-toolbar__more'), icon: read(b.querySelector('svg')), surface: read(b.querySelector('.transcript-toolbar__surface')), ownsPadding: b.contains(document.elementFromPoint(r.x + 2, r.y + 2)) };
+      })
     };
   });
 }
 function assertTranscriptScale(scale, width) {
-  const mobile = width < 768, target = mobile ? 44 : 40;
+  const mobile = width < 768, target = mobile ? 44 : 36;
   assert.ok(Math.abs(scale.title.size - (mobile ? 18 : 20)) < .02, JSON.stringify(scale));
   assert.equal(scale.title.weight, '600');
   assert.ok(Math.abs(scale.semester.size - (mobile ? 16 : 17)) < .02, JSON.stringify(scale));
   assert.equal(scale.semester.weight, '600');
   assert.equal(scale.gap, 8);
   for (const b of scale.buttons) {
-    assert.ok(Math.abs(b.size - 14) < .02 && b.weight === '600', JSON.stringify(b));
+    assert.ok(Math.abs(b.size - 13) < .02 && b.weight === '500', JSON.stringify(b));
     assert.ok(Math.abs(b.height - target) < .1 && b.width >= target, JSON.stringify(b));
     if (b.more) assert.equal(b.width, target);
-    assert.equal(b.icon.width, 16);
-    assert.equal(b.icon.height, 16);
+    assert.equal(b.icon.width, 14);
+    assert.equal(b.icon.height, 14);
+    assert.equal(b.surface.height, 32);
+    if (b.more) assert.equal(b.surface.width, 32);
+    assert.equal(b.ownsPadding, true, 'Transparent padding belongs to the button');
   }
 }
 test(`${engine} transcript toolbar responsive actions and keyboard`, { timeout: 180000 }, async () => {
@@ -127,7 +133,7 @@ test(`${engine} transcript toolbar responsive actions and keyboard`, { timeout: 
       assertTranscriptScale(scale, width);
       measurements.push({ width, ...g, scale });
       assert.equal(g.buttons.length, width < 768 ? 2 : 4);
-      const target = width < 768 ? 44 : 40;
+      const target = width < 768 ? 44 : 36;
       assert.ok(g.buttons.every(b => b.width >= target && b.height >= target && b.right <= width + 1));
       assert.ok(Math.max(...g.buttons.map(b => b.y)) - Math.min(...g.buttons.map(b => b.y)) < 1, 'actions stay on one row');
       assert.ok(g.font.includes('Inter'));
@@ -143,7 +149,9 @@ test(`${engine} transcript toolbar responsive actions and keyboard`, { timeout: 
     await p.setViewportSize({ width: 390, height: 844 });
     await bar.scrollIntoViewIfNeeded();
     const scroll = await p.evaluate(() => scrollY);
-    await more.click();
+    // Tap the invisible padding, outside the smaller painted surface.
+    const hit = await more.boundingBox();
+    await p.touchscreen.tap(hit.x + 2, hit.y + 2);
     const menu = p.getByRole('menu', { name: 'Thao tác bảng điểm' });
     assert.equal(await menu.getByRole('menuitem').count(), 3);
     assert.equal(await menu.getByRole('menuitem').first().evaluate(e => e === document.activeElement), true);

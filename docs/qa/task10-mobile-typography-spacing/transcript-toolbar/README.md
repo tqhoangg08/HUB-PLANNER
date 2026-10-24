@@ -25,3 +25,5 @@ The standalone implementation remains `MobileDashboardNative` through `MobileLea
 ## Latest proportion adjustment
 
 The initial measurements above describe commit `a35a420455c48afebfe4a31d58148e29bb0438eb`. The subsequent owner-requested proportion adjustment keeps that layout and all actions, with mobile 18px/600 and desktop 20px/600 section headings, 16/17px semester selectors, 14px/600 action labels, 16px icons and 8px gaps. Mobile targets remain 44px; desktop toolbar controls are 40px. See [current geometry, screenshots and validation](proportions/README.md). Earlier screenshot/measurement files are preserved as historical evidence.
+
+The later request to make the actual highlighted buttons smaller is implemented by [compact painted surfaces with independent hit-area measurements](compact/README.md). That report supersedes the previous control sizes; heading sizes and all historical evidence are retained.

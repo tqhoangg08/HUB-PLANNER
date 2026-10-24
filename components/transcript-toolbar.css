@@ -11,17 +11,22 @@
 .transcript-toolbar__title { min-width: 0; font-size: 1.428572rem; line-height: 1.4; font-weight: 600; color: #111827; }
 .transcript-toolbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .transcript-toolbar__button {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 40px; padding: 8px 12px; border: 1px solid #d1d5db;
-  border-radius: 8px; background: white; color: #374151;
-  font-size: var(--ui-font-action, 1rem); line-height: 1.4; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 36px; min-width: 36px; padding: 0; border: 0;
+  border-radius: 6px; background: transparent; color: #374151;
+  font-size: .928571rem; line-height: 1.4; font-weight: 500;
 }
-.transcript-toolbar__button:hover, .transcript-toolbar__menu button:hover { background: #f3f4f6; }
+/* The visible surface is compact; the real button retains a separate hit area. */
+.transcript-toolbar__surface { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 32px; min-width: 0; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 6px; background: white; }
+.transcript-toolbar__button:hover > .transcript-toolbar__surface, .transcript-toolbar__menu button:hover { background: #f3f4f6; }
 .transcript-toolbar__button:disabled, .transcript-toolbar__menu button:disabled { opacity: .65; cursor: wait; }
-.transcript-toolbar__button svg, .transcript-toolbar__menu svg { width: 16px; height: 16px; flex-shrink: 0; }
-.transcript-toolbar__primary { background: #003375; border-color: #003375; color: white; }
-.transcript-toolbar__primary:hover { background: #002855; }
-.transcript-toolbar__more { width: 40px; padding: 8px; }
+.transcript-toolbar__button svg { width: 14px; height: 14px; flex-shrink: 0; }
+.transcript-toolbar__menu svg { width: 16px; height: 16px; flex-shrink: 0; }
+.transcript-toolbar__primary { color: white; }
+.transcript-toolbar__primary > .transcript-toolbar__surface { background: #003375; border-color: #003375; }
+.transcript-toolbar__primary:hover > .transcript-toolbar__surface { background: #002855; }
+.transcript-toolbar__more { width: 36px; }
+.transcript-toolbar__more > .transcript-toolbar__surface { width: 32px; padding: 4px; }
 .transcript-toolbar__overflow { position: relative; }
 .transcript-toolbar__menu {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
@@ -45,7 +50,7 @@
 @media (max-width: 767px) {
   .transcript-toolbar { gap: 8px; }
   .transcript-toolbar__title { font-size: var(--ui-font-section, 1.285714rem); overflow-wrap: anywhere; }
-  .transcript-toolbar__button { min-height: 44px; padding-inline: 8px; gap: 4px; }
+  .transcript-toolbar__button { min-height: 44px; min-width: 44px; }
   .transcript-toolbar__more { width: 44px; }
   .transcript-save-error button { min-height: 44px; }
   .transcript-toolbar__desktop { display: none; }

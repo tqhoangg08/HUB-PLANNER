@@ -43,10 +43,13 @@ focus and test hit testing, not just bounding boxes.
 
 The browser transcript is a scoped density variant: its section heading is
 18px/600 on mobile and 20px/600 on desktop; semester selectors are 16px/600
-and 17px/600 respectively. Toolbar labels remain 14px/600 with 16px icons and
-8px between actions. Mobile controls keep >=44px touch areas; desktop toolbar
-controls use a 40px minimum and a 40px square overflow trigger. Text can grow
-and wrap rather than being clipped. This does not change other headings,
+and 17px/600 respectively. The owner's compact toolbar variant uses 13px/500
+labels and 14px icons inside a 32px-high painted surface. The real buttons keep
+>=44px mobile hit areas and >=36px desktop hit areas, with 8px between actions;
+the overflow surface is 32px square. Menu labels retain the 14px action role.
+This scoped density exception applies only to the toolbar's short labels,
+not body copy or other controls. Text can grow and wrap rather than clipping.
+This does not change other headings,
 global input sizes, PWA components or document/PDF styling.
 
 44px is **HUB Planner's product contract**, informed by

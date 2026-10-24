@@ -73,12 +73,12 @@ export function TranscriptToolbar(props: Props) {
         <h2 className="transcript-toolbar__title">Chi tiết bảng điểm</h2>
         <div className="transcript-toolbar__actions">
             {!importPrimary && <button type="button" className="transcript-toolbar__button transcript-toolbar__desktop" onClick={props.onImport} disabled={props.importing} aria-label="Nhập bảng điểm">
-                {props.importing ? <Loader2 className="animate-spin" /> : <FileUp />}<span>Nhập</span>
+                <span className="transcript-toolbar__surface">{props.importing ? <Loader2 className="animate-spin" /> : <FileUp />}<span>Nhập</span></span>
             </button>}
-            <button type="button" className="transcript-toolbar__button transcript-toolbar__desktop" onClick={props.onPrint} aria-label="In bảng điểm"><Printer /><span>In</span></button>
+            <button type="button" className="transcript-toolbar__button transcript-toolbar__desktop" onClick={props.onPrint} aria-label="In bảng điểm"><span className="transcript-toolbar__surface"><Printer /><span>In</span></span></button>
             {props.editable && <button type="button" ref={props.primaryRef} className="transcript-toolbar__button transcript-toolbar__primary" disabled={props.saving || (importPrimary && props.importing)} onClick={props.editing ? props.onSave : importPrimary ? props.onImport : props.onEdit}>
-                {props.saving || (importPrimary && props.importing) ? <Loader2 className="animate-spin" /> : props.editing ? <Check /> : importPrimary ? <FileUp /> : <Pencil />}
-                <span>{props.saving ? 'Đang lưu…' : props.editing ? 'Lưu' : importPrimary ? 'Nhập bảng điểm' : 'Chỉnh sửa'}</span>
+                <span className="transcript-toolbar__surface">{props.saving || (importPrimary && props.importing) ? <Loader2 className="animate-spin" /> : props.editing ? <Check /> : importPrimary ? <FileUp /> : <Pencil />}
+                <span>{props.saving ? 'Đang lưu…' : props.editing ? 'Lưu' : importPrimary ? 'Nhập bảng điểm' : 'Chỉnh sửa'}</span></span>
             </button>}
             <div className="transcript-toolbar__overflow" ref={root} onBlur={event => {
                 // Safari can blur to body before dispatching a menu item's click.
@@ -104,7 +104,7 @@ export function TranscriptToolbar(props: Props) {
             }}>
                 <button type="button" className="transcript-toolbar__button transcript-toolbar__more" ref={trigger} aria-label="Thao tác bảng điểm" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined} onClick={() => setOpen(value => !value)} onKeyDown={event => {
                     if (!open && ['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); setOpen(true); }
-                }}><MoreHorizontal /></button>
+                }}><span className="transcript-toolbar__surface"><MoreHorizontal /></span></button>
                 {open && <div className="transcript-toolbar__menu" data-up={menuLayout.up} style={{ maxHeight: menuLayout.maxHeight }} id={menuId} role="menu" aria-label="Thao tác bảng điểm" ref={menu}>
                     {!importPrimary && <button type="button" role="menuitem" className="transcript-toolbar__mobile-item" disabled={props.importing} onClick={action(props.onImport)}><FileUp />Nhập bảng điểm</button>}
                     <button type="button" role="menuitem" className="transcript-toolbar__mobile-item" onClick={action(props.onPrint)}><Printer />In bảng điểm</button>

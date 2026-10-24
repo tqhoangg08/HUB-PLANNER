@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "81ce0aaa4f57b98f2ec4473d008ad7b6d7fa3d44a03eba3a904f160750c528b3"
+      "sha256NormalizedLF": "e201e2464af4935cea6ce1ee468794b98f4d62dcbf74e95b7656bf9e648e5b40"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -536,11 +536,11 @@
     },
     {
       "path": "components/TranscriptToolbar.tsx",
-      "sha256NormalizedLF": "c524d8a727bbe0d2e7cfe02f110a34cbd5653e6deacf6874057066e0f521c961"
+      "sha256NormalizedLF": "dd4be562fe8a9a2d2de275554a6da74591eca82f6bdaef75397e3f3c96762bc8"
     },
     {
       "path": "components/transcript-toolbar.css",
-      "sha256NormalizedLF": "10d5bbbaf610122c55704295673c08c1872ac1a90d9bbbf521203de3b2ebcc2b"
+      "sha256NormalizedLF": "5643f0b1fd01540c8b187a922910e910385d5367f1cd62bb41c178987cacb3dc"
     }
   ],
   "safety": {
@@ -602,5 +602,18 @@
       "diffCheck": "PASS"
     },
     "note": "Current scoped density supersedes the previous toolbar size measurements; historical measurements remain preserved."
+  },
+  "transcriptCompactFollowup": {
+    "evidence": "transcript-toolbar/compact/validation.json",
+    "beforeSha": "99e712d77fd8a490721fc25a36656f5a4ac02c20",
+    "results": {
+      "chromium": "6/6 PASS",
+      "webkit": "6/6 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Compact 32px painted surfaces inside mobile 44px / desktop 36px real hit areas; prior sizing records are historical."
   }
 }
