@@ -1,4 +1,4 @@
-import { Suspense, StrictMode, useState } from 'react';
+import { Suspense, StrictMode, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom';
 import { ProtectedAppRoutes } from '../app/routing/ProtectedAppRoutes';
@@ -17,6 +17,9 @@ function Fixture() {
   // Fixture identity persists across real NavLink navigation, like the app session.
   const [role] = useState(() => new URLSearchParams(location.search).get('role') || 'student');
   const [userMenu, setUserMenu] = useState(false);
+  const [data, setData] = useState(() => new URLSearchParams(location.search).has('emptyTranscript') ? { ...student.data, semesters: [] } : structuredClone(student.data));
+  const saveAttempts = useRef(0);
+  const [importOpens, setImportOpens] = useState(0);
   const isAdmin = role === 'admin',
     isAuditor = role === 'auditor',
     isGuest = role === 'guest';
@@ -28,11 +31,12 @@ function Fixture() {
     }
   } as any} isGuest={isGuest} isAdmin={isAdmin} isAuditor={isAuditor} viewingUser={null} displayName={`${role} fixture`} studentId="123456" avatarUrl="" avatarSeed="F" adminSearchMssv="" isSearchingUser={false} userMenuOpen={userMenu} showInstallButton={false} passwordSetupSchemaMissing={false} isPrivilegedUser={isAdmin || isAuditor} requiresPasswordSetup={false} setAdminSearchMssv={() => {}} onAdminSearchUser={e => e.preventDefault()} onRequestDeleteAccount={() => {}} onLogout={() => {}} setGuideOpen={() => {}} setActivityLogOpen={() => {}} setUserMenuOpen={setUserMenu} setAccountSettingsOpen={() => {}} onMenuLogout={() => {}} onNavigate={path => navigate(path + location.search)} onInstallApp={() => {}} onPasswordSetupComplete={() => {}} overlays={<AppAiAdvisorOverlay userId={isGuest ? undefined : 'fixture-user'} mobileScreen={mode.isMobileScreen} mobileLayout={mode.useMobileLayout} showHint={false} />}>
     <output id="mode" className="sr-only">{mode.useMobileLayout ? 'standalone' : mode.isMobileBrowser ? 'browser' : 'desktop'}</output>
+    <output id="import-opens" className="sr-only">{importOpens}</output>
     <Suspense fallback={<p>Loading route fixture</p>}><ProtectedAppRoutes {...{
         mobileLayout: mode.useMobileLayout,
-        data: student.data,
+        data,
         studyActions: {
-          setSemesters: () => {},
+          setSemesters: (semesters: any) => setData(previous => ({ ...previous, semesters })),
           setTargetGPA: () => {},
           updateSemester: () => {},
           removeSemester: () => {},
@@ -40,7 +44,7 @@ function Fixture() {
         },
         transcript: {
           exportTranscriptPdf: () => {},
-          openImportGuide: () => {},
+          openImportGuide: () => setImportOpens(count => count + 1),
           isImporting: false,
           fileInputRef: {
             current: null
@@ -62,7 +66,11 @@ function Fixture() {
         setAccountSettingsOpen: () => {},
         onRequestDeleteAccount: () => {},
         onInstallApp: () => {},
-        saveSemestersNow: async () => {}
+        saveSemestersNow: async (semesters: any) => {
+          saveAttempts.current += 1;
+          if (new URLSearchParams(location.search).has('failSaveOnce') && saveAttempts.current === 1) throw new Error('Không thể lưu bảng điểm lúc này');
+          setData(previous => ({ ...previous, semesters }));
+        }
       } as any} /></Suspense>
   </ProtectedAppShell>;
 }

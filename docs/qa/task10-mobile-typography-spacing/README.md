@@ -74,3 +74,7 @@ The GPA tip is anchored inside the mobile visible area instead of below a low-on
 The reported visual mismatch was reproduced against the committed PR: both button frames were equal, but the login link inherited `ui-meta` at 12px while its neighbour used `ui-action` at 14px. Its text centre was 11.09px above the button centre at 320px. Both actions now use the same action role and flex centering; mobile uses equal grid columns while desktop keeps its existing flex arrangement. No login/onboarding handler or route changed.
 
 Chromium and WebKit tested 320/360/375/390/430/1440px, equal frames and font size, text centering within 2px, >=44px touch areas, overflow and actual /login navigation. See [measurements](banner-alignment.json), [before](chromium-banner-before-320.png), [Chromium after](chromium-banner-after-390.png) and [WebKit after](webkit-banner-after-390.png).
+
+## Follow-up: contextual transcript toolbar
+
+The mobile-browser transcript now shows one contextual primary action and an overflow menu; desktop retains direct import and print actions. Save errors and retry are separate from report. See [the focused report, measurements, before/after screenshots and validation](transcript-toolbar/README.md). This later UI change has its own unchanged-handler proof and affected-route regression evidence; the earlier whole-source AST comparison describes its earlier source snapshot.

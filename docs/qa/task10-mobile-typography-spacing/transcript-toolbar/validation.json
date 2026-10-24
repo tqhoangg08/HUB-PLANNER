@@ -1,0 +1,549 @@
+{
+  "observedAt": "2026-10-24T16:17:51.031Z",
+  "beforeSha": "db0ec74657ff22fe029b69f6659fbc66b941e7f2",
+  "mainBase": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
+  "environment": "Local Vite, real Dashboard/ProtectedAppRoutes, React StrictMode, isolated synthetic identity and network fixtures",
+  "before": [
+    {
+      "width": 360,
+      "toolbar": {
+        "height": 91.1875,
+        "actions": [
+          {
+            "text": "Sửa bảng điểm",
+            "width": 136,
+            "height": 44
+          },
+          {
+            "text": "Báo lỗiLỗi",
+            "width": 55,
+            "height": 44
+          },
+          {
+            "text": "In bảng điểmIn",
+            "width": 48,
+            "height": 44
+          },
+          {
+            "text": "Nhập điểm PDFNhập",
+            "width": 71,
+            "height": 44
+          }
+        ]
+      }
+    },
+    {
+      "width": 390,
+      "toolbar": {
+        "height": 91.1875,
+        "actions": [
+          {
+            "text": "Sửa bảng điểm",
+            "width": 136,
+            "height": 44
+          },
+          {
+            "text": "Báo lỗiLỗi",
+            "width": 55,
+            "height": 44
+          },
+          {
+            "text": "In bảng điểmIn",
+            "width": 48,
+            "height": 44
+          },
+          {
+            "text": "Nhập điểm PDFNhập",
+            "width": 71,
+            "height": 44
+          }
+        ]
+      }
+    },
+    {
+      "width": 1440,
+      "toolbar": {
+        "height": 52,
+        "actions": [
+          {
+            "text": "Sửa bảng điểm",
+            "width": 140,
+            "height": 34
+          },
+          {
+            "text": "Báo lỗiLỗi",
+            "width": 91,
+            "height": 34
+          },
+          {
+            "text": "In bảng điểmIn",
+            "width": 127,
+            "height": 34
+          },
+          {
+            "text": "Nhập điểm PDFNhập",
+            "width": 142,
+            "height": 34
+          }
+        ]
+      }
+    }
+  ],
+  "chromium": [
+    {
+      "scenario": "transcript responsive toolbar",
+      "measurements": [
+        {
+          "width": 320,
+          "height": 61.78125,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 144,
+              "y": 436.96875,
+              "width": 108,
+              "height": 44,
+              "right": 252
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 260,
+              "y": 436.96875,
+              "width": 44,
+              "height": 44,
+              "right": 304
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 360,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 184,
+              "y": 384.578125,
+              "width": 108,
+              "height": 44,
+              "right": 292
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 300,
+              "y": 384.578125,
+              "width": 44,
+              "height": 44,
+              "right": 344
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 375,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 199,
+              "y": 384.578125,
+              "width": 108,
+              "height": 44,
+              "right": 307
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 315,
+              "y": 384.578125,
+              "width": 44,
+              "height": 44,
+              "right": 359
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 390,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 214,
+              "y": 384.328125,
+              "width": 108,
+              "height": 44,
+              "right": 322
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 330,
+              "y": 384.328125,
+              "width": 44,
+              "height": 44,
+              "right": 374
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 430,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 254,
+              "y": 384.328125,
+              "width": 108,
+              "height": 44,
+              "right": 362
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 370,
+              "y": 384.328125,
+              "width": 44,
+              "height": 44,
+              "right": 414
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 768,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Nhập bảng điểm",
+              "x": 406.5625,
+              "y": 460.515625,
+              "width": 87.984375,
+              "height": 44,
+              "right": 494.546875
+            },
+            {
+              "label": "In bảng điểm",
+              "x": 502.546875,
+              "y": 460.515625,
+              "width": 64.453125,
+              "height": 44,
+              "right": 567
+            },
+            {
+              "label": "Chỉnh sửa",
+              "x": 575,
+              "y": 460.515625,
+              "width": 120,
+              "height": 44,
+              "right": 695
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 703,
+              "y": 460.515625,
+              "width": 44,
+              "height": 44,
+              "right": 747
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 1440,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Nhập bảng điểm",
+              "x": 1071.5625,
+              "y": 461.265625,
+              "width": 87.984375,
+              "height": 44,
+              "right": 1159.546875
+            },
+            {
+              "label": "In bảng điểm",
+              "x": 1167.546875,
+              "y": 461.265625,
+              "width": 64.453125,
+              "height": 44,
+              "right": 1232
+            },
+            {
+              "label": "Chỉnh sửa",
+              "x": 1240,
+              "y": 461.265625,
+              "width": 120,
+              "height": 44,
+              "right": 1360
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 1368,
+              "y": 461.265625,
+              "width": 44,
+              "height": 44,
+              "right": 1412
+            }
+          ],
+          "font": "Inter, sans-serif"
+        }
+      ]
+    }
+  ],
+  "webkit": [
+    {
+      "scenario": "transcript responsive toolbar",
+      "measurements": [
+        {
+          "width": 320,
+          "height": 61.78125,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 144,
+              "y": 436.46875,
+              "width": 108,
+              "height": 44,
+              "right": 252
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 260,
+              "y": 436.46875,
+              "width": 44,
+              "height": 44,
+              "right": 304
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 360,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 184,
+              "y": 384.078125,
+              "width": 108,
+              "height": 44,
+              "right": 292
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 300,
+              "y": 384.078125,
+              "width": 44,
+              "height": 44,
+              "right": 344
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 375,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 199,
+              "y": 384.078125,
+              "width": 108,
+              "height": 44,
+              "right": 307
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 315,
+              "y": 384.078125,
+              "width": 44,
+              "height": 44,
+              "right": 359
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 390,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 214,
+              "y": 383.828125,
+              "width": 108,
+              "height": 44,
+              "right": 322
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 330,
+              "y": 383.828125,
+              "width": 44,
+              "height": 44,
+              "right": 374
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 430,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Chỉnh sửa",
+              "x": 254,
+              "y": 383.828125,
+              "width": 108,
+              "height": 44,
+              "right": 362
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 370,
+              "y": 383.828125,
+              "width": 44,
+              "height": 44,
+              "right": 414
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 768,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Nhập bảng điểm",
+              "x": 400.5625,
+              "y": 460.765625,
+              "width": 87.984375,
+              "height": 44,
+              "right": 488.546875
+            },
+            {
+              "label": "In bảng điểm",
+              "x": 496.546875,
+              "y": 460.765625,
+              "width": 64.453125,
+              "height": 44,
+              "right": 561
+            },
+            {
+              "label": "Chỉnh sửa",
+              "x": 569,
+              "y": 460.765625,
+              "width": 120,
+              "height": 44,
+              "right": 689
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 697,
+              "y": 460.765625,
+              "width": 44,
+              "height": 44,
+              "right": 741
+            }
+          ],
+          "font": "Inter, sans-serif"
+        },
+        {
+          "width": 1440,
+          "height": 61,
+          "buttons": [
+            {
+              "label": "Nhập bảng điểm",
+              "x": 1065.5625,
+              "y": 460.265625,
+              "width": 87.984375,
+              "height": 44,
+              "right": 1153.546875
+            },
+            {
+              "label": "In bảng điểm",
+              "x": 1161.546875,
+              "y": 460.265625,
+              "width": 64.453125,
+              "height": 44,
+              "right": 1226
+            },
+            {
+              "label": "Chỉnh sửa",
+              "x": 1234,
+              "y": 460.265625,
+              "width": 120,
+              "height": 44,
+              "right": 1354
+            },
+            {
+              "label": "Thao tác bảng điểm",
+              "x": 1362,
+              "y": 460.265625,
+              "width": 44,
+              "height": 44,
+              "right": 1406
+            }
+          ],
+          "font": "Inter, sans-serif"
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "chromiumToolbar": "3/3 PASS on final source",
+    "webkitToolbar": "3/3 PASS on final source",
+    "chromiumDashboard": "2/2 PASS, student and guest with 320px / 200% text / spacing overrides",
+    "webkitDashboard": "2/2 PASS, same stress modes",
+    "modelOverlayPdf": "18/18 PASS",
+    "typecheck": "PASS",
+    "cloudflareTypecheck": "PASS",
+    "build": "PASS (existing chunk-size warning)",
+    "realDeviceAcceptance": "NOT_VERIFIED"
+  },
+  "unchangedHandlerAst": [
+    "handleStartTranscriptEdit",
+    "handleSaveTranscriptEdit",
+    "handleCancelTranscriptEdit",
+    "handleImportTranscriptPdf",
+    "handleImportedTranscriptSemesters",
+    "handleOpenPdfExportModal",
+    "handleLocalSetSemesters",
+    "handleLocalUpdateSemester",
+    "handleLocalRemoveSemester",
+    "handleLocalAddSemester"
+  ],
+  "sourceManifest": [
+    {
+      "path": "components/Dashboard.tsx",
+      "sha256NormalizedLF": "397694017a1a86369856b9a9e269efda583b2266966529f8afa3dc9ad99105e1"
+    },
+    {
+      "path": "components/TranscriptToolbar.tsx",
+      "sha256NormalizedLF": "c524d8a727bbe0d2e7cfe02f110a34cbd5653e6deacf6874057066e0f521c961"
+    },
+    {
+      "path": "components/transcript-toolbar.css",
+      "sha256NormalizedLF": "923c02a4fb35378a0023aaf31c27e71c64b040a54c6fd3da4a524c02bed7516e"
+    },
+    {
+      "path": "tests/mobile-design.browser.test.mjs",
+      "sha256NormalizedLF": "2a7921041d0633eb38c1a8e9736b1c963fbd7bf5b27f896411c4b2bcb190838b"
+    },
+    {
+      "path": "tests/mobile-design-harness.tsx",
+      "sha256NormalizedLF": "025e4250582aa8beacf3990ab97dfeb1f5f6c9a06ba05cefc49b357fa905dc77"
+    }
+  ],
+  "safety": {
+    "pwaImplementation": "MobileLearning still renders MobileDashboardNative; neither changed",
+    "business": "10 existing handler ASTs equal to before SHA; same save/import/print/report callbacks and file input",
+    "api": "No production writes; unexpected fixture writes and console/runtime errors asserted empty",
+    "production": "Unchanged"
+  },
+  "limitations": [
+    "Browser emulation is not physical iPhone acceptance.",
+    "Native OS file chooser not exercised; existing import confirmation/callback is exercised and parser/export model regressions run.",
+    "A WebKit blur-before-click issue in the new menu was found and fixed; final menu click tests pass.",
+    "The screenshot fixture disables animations globally; the SweetAlert test restores its real enter/leave animation and waits for actual dismissal, without editing production alert/Overlay code."
+  ]
+}

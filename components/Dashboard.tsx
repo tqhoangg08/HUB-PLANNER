@@ -31,6 +31,7 @@ import { showAlert, showConfirm } from '../utils/appNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
+import { TranscriptToolbar } from './TranscriptToolbar';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { resolveTotalCreditsRequired } from '../utils/programs';
 import { AdminStudentManagement } from './AdminStudentManagement';
@@ -1822,7 +1823,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const handleReadOnlyTranscriptEditAttempt = async () => {
         await showAlert({
             title: 'Bảng điểm đang ở chế độ xem',
-            message: 'Để chỉnh sửa bảng điểm, bạn hãy bấm nút Sửa bảng điểm ở phía trên cùng khu vực bảng điểm.',
+            message: 'Để chỉnh sửa bảng điểm, bạn hãy bấm nút Chỉnh sửa ở phía trên cùng khu vực bảng điểm.',
             confirmText: 'OK',
             variant: 'info'
         });
@@ -2727,79 +2728,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="pt-2">
-                    <div className="flex flex-row justify-between items-center flex-wrap mb-3 sm:mb-4 gap-2 border-t border-gray-300 pt-4 sm:pt-5 mt-2">
-                        <h2 className="ui-section-title text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
-
-                        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
-                            {!selectedUserOverview && (
-                                isTranscriptEditing ? (
-                                    <>
-                                        <button
-                                            onClick={handleSaveTranscriptEdit}
-                                            disabled={isSavingTranscript}
-                                            className="ui-action bg-[#003375] text-white border border-[#003375] px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-[#002855] transition-colors flex items-center gap-1 sm:gap-2 disabled:opacity-70 active:scale-95"
-                                        >
-                                            {isSavingTranscript ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                            <span>Lưu bảng điểm</span>
-                                        </button>
-                                        <button
-                                            onClick={handleCancelTranscriptEdit}
-                                            disabled={isSavingTranscript}
-                                            className="ui-action bg-white text-gray-600 border border-gray-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 disabled:opacity-70 active:scale-95"
-                                        >
-                                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                            <span>Hủy</span>
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        ref={editTranscriptButtonRef}
-                                        onClick={handleStartTranscriptEdit}
-                                        className="ui-action bg-white text-[#003375] border border-[#003375]/30 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
-                                    >
-                                        <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                        <span>Sửa bảng điểm</span>
-                                    </button>
-                                )
-                            )}
-                            <button
-                                onClick={() => { playClick(); setShowReportModal(true); }}
-                                className="ui-danger-text ui-action text-red-600 bg-red-50 border border-red-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
-                            >
-                                <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                                <span className="hidden sm:inline">Báo lỗi</span>
-                                <span className="sm:hidden">Lỗi</span>
+                    <TranscriptToolbar
+                        hasSubjects={baseActiveData.semesters.some(semester => semester.subjects.length > 0)}
+                        editable={!selectedUserOverview}
+                        editing={isTranscriptEditing}
+                        saving={isSavingTranscript}
+                        importing={isImporting}
+                        primaryRef={editTranscriptButtonRef}
+                        onEdit={handleStartTranscriptEdit}
+                        onSave={handleSaveTranscriptEdit}
+                        onCancel={handleCancelTranscriptEdit}
+                        onImport={handleImportTranscriptPdf}
+                        onPrint={handleOpenPdfExportModal}
+                        onReport={() => { playClick(); setShowReportModal(true); }}
+                    />
+                    <input
+                        type="file" accept=".pdf" ref={fileInputRef} className="hidden"
+                        onChange={(event) => onFileUpload(event, handleImportedTranscriptSemesters)}
+                    />
+                    {transcriptSaveError && isTranscriptEditing && (
+                        <div className="transcript-save-error" role="alert">
+                            <span>{transcriptSaveError}</span>
+                            <button type="button" onClick={handleSaveTranscriptEdit} disabled={isSavingTranscript}>
+                                {isSavingTranscript ? 'Đang lưu…' : 'Thử lại'}
                             </button>
-                            
-                            <button
-                                onClick={handleOpenPdfExportModal}
-                                className="ui-action text-gray-600 bg-white border border-gray-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
-                            >
-                                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                                <span className="hidden sm:inline">In bảng điểm</span>
-                                <span className="sm:hidden">In</span>
-                            </button>
-
-                            <div>
-                                <input
-                                    type="file" accept=".pdf" ref={fileInputRef} className="hidden"
-                                    onChange={(event) => onFileUpload(event, handleImportedTranscriptSemesters)}
-                                />
-                                <button
-                                    onClick={handleImportTranscriptPdf}
-                                    disabled={isImporting}
-                                    className="ui-action bg-white text-[#003375] border border-gray-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 disabled:opacity-70 active:scale-95"
-                                >
-                                    {isImporting ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <FileUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                    <span className="hidden sm:inline">Nhập điểm PDF</span>
-                                    <span className="sm:hidden">Nhập</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    {transcriptSaveError && (
-                        <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-                            {transcriptSaveError}
                         </div>
                     )}
 

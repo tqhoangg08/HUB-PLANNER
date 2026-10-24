@@ -83,6 +83,122 @@ const campaign = {
   scoreColumns: []
 };
 const records = [];
+test(`${engine} transcript toolbar responsive actions and keyboard`, { timeout: 180000 }, async () => {
+  const f = await fixture('/dashboard'), p = f.page;
+  try {
+    const bar = p.locator('[data-transcript-toolbar]');
+    const more = bar.getByRole('button', { name: 'Thao tác bảng điểm', exact: true });
+    const measurements = [];
+    for (const width of [320, 360, 375, 390, 430, 768, 1440]) {
+      await p.setViewportSize({ width, height: 900 });
+      await bar.scrollIntoViewIfNeeded();
+      const g = await bar.evaluate(e => ({ height: e.getBoundingClientRect().height, buttons: [...e.querySelectorAll('button')].filter(b => b.getClientRects().length).map(b => { const r = b.getBoundingClientRect(); return { label: b.getAttribute('aria-label') || b.textContent, x: r.x, y: r.y, width: r.width, height: r.height, right: r.right }; }), font: getComputedStyle(e).fontFamily }));
+      measurements.push({ width, ...g });
+      assert.equal(g.buttons.length, width < 768 ? 2 : 4);
+      assert.ok(g.buttons.every(b => b.width >= 44 && b.height >= 44 && b.right <= width + 1));
+      assert.ok(Math.max(...g.buttons.map(b => b.y)) - Math.min(...g.buttons.map(b => b.y)) < 1, 'actions stay on one row');
+      assert.ok(g.font.includes('Inter'));
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+      await p.screenshot({ path: `${out}/${engine}-transcript-after-${width}.png`, scale: 'css' });
+      if (width === 1440) {
+        await more.focus();
+        await p.keyboard.press('ArrowDown');
+        assert.equal(await p.getByRole('menuitem', { name: 'Báo lỗi', exact: true }).evaluate(e => e === document.activeElement), true);
+        await p.keyboard.press('Escape');
+      }
+    }
+    await p.setViewportSize({ width: 390, height: 844 });
+    await bar.scrollIntoViewIfNeeded();
+    const scroll = await p.evaluate(() => scrollY);
+    await more.click();
+    const menu = p.getByRole('menu', { name: 'Thao tác bảng điểm' });
+    assert.equal(await menu.getByRole('menuitem').count(), 3);
+    assert.equal(await menu.getByRole('menuitem').first().evaluate(e => e === document.activeElement), true);
+    await p.keyboard.press('End');
+    assert.equal(await menu.getByRole('menuitem', { name: 'Báo lỗi', exact: true }).evaluate(e => e === document.activeElement), true);
+    await p.keyboard.press('ArrowUp');
+    assert.equal(await menu.getByRole('menuitem', { name: 'In bảng điểm' }).evaluate(e => e === document.activeElement), true);
+    await p.screenshot({ path: `${out}/${engine}-transcript-menu.png`, scale: 'css' });
+    await p.keyboard.press('Escape');
+    assert.equal(await more.evaluate(e => e === document.activeElement), true);
+    assert.equal(await p.evaluate(() => scrollY), scroll);
+    await more.click();
+    await p.keyboard.press('Shift+Tab');
+    assert.equal(await menu.count(), 0);
+    assert.equal(await bar.getByRole('button', { name: 'Chỉnh sửa', exact: true }).evaluate(e => e === document.activeElement), true);
+    await more.click();
+    await p.keyboard.press('Tab');
+    assert.equal(await menu.count(), 0);
+    assert.equal(await p.evaluate(() => document.activeElement === document.body), false);
+    await more.click();
+    await bar.getByRole('heading').click();
+    assert.equal(await menu.count(), 0);
+    await more.click();
+    await menu.getByRole('menuitem', { name: 'In bảng điểm' }).click();
+    await p.getByRole('heading', { name: 'Chọn phạm vi xuất bảng điểm' }).waitFor();
+    await p.locator('[data-overlay-root]').getByRole('button', { name: 'Đóng', exact: true }).click();
+    await more.click();
+    await menu.getByRole('menuitem', { name: 'Báo lỗi', exact: true }).click();
+    await p.getByRole('heading', { name: 'Báo cáo lỗi / Góp ý' }).waitFor();
+    assert.equal(await menu.count(), 0);
+    assert.deepEqual(f.errors, []);
+    assert.deepEqual(f.writes, []);
+    records.push({ scenario: 'transcript responsive toolbar', measurements });
+  } finally { await f.context.close(); }
+});
+test(`${engine} transcript toolbar save retry preserves draft and cancel`, { timeout: 180000 }, async () => {
+  const f = await fixture('/dashboard?failSaveOnce=1'), p = f.page;
+  try {
+    const bar = p.locator('[data-transcript-toolbar]');
+    await bar.getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
+    const grade = p.locator('input[placeholder="-"]').first();
+    await grade.fill('7.5');
+    await bar.getByRole('button', { name: 'Lưu', exact: true }).click();
+    const error = p.getByRole('alert').filter({ hasText: 'Không thể lưu bảng điểm lúc này' });
+    await error.waitFor();
+    assert.equal(await grade.inputValue(), '7.5');
+    assert.equal(await bar.getByRole('button', { name: 'Lưu', exact: true }).count(), 1);
+    await error.getByRole('button', { name: 'Thử lại' }).click();
+    await bar.getByRole('button', { name: 'Chỉnh sửa', exact: true }).waitFor();
+    assert.equal(await error.count(), 0);
+    assert.equal(await grade.inputValue(), '7.5');
+    await bar.getByRole('button', { name: 'Chỉnh sửa', exact: true }).click();
+    await grade.fill('9');
+    await bar.getByRole('button', { name: 'Thao tác bảng điểm' }).click();
+    await p.getByRole('menuitem', { name: 'Hủy chỉnh sửa' }).click();
+    await bar.getByRole('button', { name: 'Chỉnh sửa', exact: true }).waitFor();
+    assert.equal(await grade.inputValue(), '7.5');
+    assert.deepEqual(f.errors, []);
+    assert.deepEqual(f.writes, []);
+  } finally { await f.context.close(); }
+});
+test(`${engine} transcript toolbar empty state and existing import flow`, { timeout: 180000 }, async () => {
+  const f = await fixture('/dashboard?emptyTranscript=1'), p = f.page;
+  try {
+    // SweetAlert completes dismissal on its real leave animation. The shared
+    // screenshot fixture's global animation:none override must not suppress it.
+    await p.addStyleTag({ content: '.swal2-popup.hub-alert-enter{animation:hubAlertEnter 180ms ease-out!important}.swal2-popup.hub-alert-leave{animation:hubAlertLeave 140ms ease-in forwards!important}' });
+    const bar = p.locator('[data-transcript-toolbar]');
+    assert.equal(await bar.getByRole('button', { name: 'Nhập bảng điểm', exact: true }).count(), 1);
+    await bar.getByRole('button', { name: 'Nhập bảng điểm', exact: true }).click();
+    await p.getByRole('button', { name: 'Bật sửa và nhập PDF' }).click();
+    await p.waitForFunction(() => document.getElementById('import-opens')?.textContent === '1');
+    await p.locator('.swal2-container').waitFor({ state: 'hidden' });
+    await p.waitForFunction(() => getComputedStyle(document.body).position !== 'fixed');
+    await bar.getByRole('button', { name: 'Lưu', exact: true }).waitFor().catch(async error => {
+      console.error(await bar.innerText());
+      await p.screenshot({ path: `${out}/${engine}-transcript-empty-failure.png`, scale: 'css' });
+      throw error;
+    });
+    await bar.getByRole('button', { name: 'Thao tác bảng điểm' }).click();
+    await p.getByRole('menuitem', { name: 'Hủy chỉnh sửa' }).click();
+    await bar.getByRole('button', { name: 'Thao tác bảng điểm' }).click();
+    await p.getByRole('menuitem', { name: 'Chỉnh sửa thủ công' }).click();
+    await bar.getByRole('button', { name: 'Lưu', exact: true }).waitFor();
+    assert.deepEqual(f.errors, []);
+    assert.deepEqual(f.writes, []);
+  } finally { await f.context.close(); }
+});
 test.after(async () => {
   fs.writeFileSync(`${out}/${engine}-${audit ? 'before' : 'after'}-inventory.json`, JSON.stringify(records) + '\n');
   await browser.close();

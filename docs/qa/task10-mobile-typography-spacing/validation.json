@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "0ce21b840c4aaf5383241fd2629c1248285c17f09be5b3d57d23a468f4bf5c4a"
+      "sha256NormalizedLF": "397694017a1a86369856b9a9e269efda583b2266966529f8afa3dc9ad99105e1"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -512,7 +512,7 @@
     },
     {
       "path": "tests/mobile-design-harness.tsx",
-      "sha256NormalizedLF": "06b5a2ad858da3c2a07e8294f3b760d467a387524d60b780a472caa1c6258cee"
+      "sha256NormalizedLF": "025e4250582aa8beacf3990ab97dfeb1f5f6c9a06ba05cefc49b357fa905dc77"
     },
     {
       "path": "tests/mobile-design-measurements.mjs",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "bb20617409c650a353f5a0a0652940a967835b98a16e81bc6edfaff7db06229c"
+      "sha256NormalizedLF": "2a7921041d0633eb38c1a8e9736b1c963fbd7bf5b27f896411c4b2bcb190838b"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -533,6 +533,14 @@
     {
       "path": "tests/schedule-filter-collapse.browser.test.mjs",
       "sha256NormalizedLF": "b4ddf39dc1b5ef59e96193340574d629231d516840a338b01f0850fc2b73dec3"
+    },
+    {
+      "path": "components/TranscriptToolbar.tsx",
+      "sha256NormalizedLF": "c524d8a727bbe0d2e7cfe02f110a34cbd5653e6deacf6874057066e0f521c961"
+    },
+    {
+      "path": "components/transcript-toolbar.css",
+      "sha256NormalizedLF": "923c02a4fb35378a0023aaf31c27e71c64b040a54c6fd3da4a524c02bed7516e"
     }
   ],
   "safety": {
@@ -565,5 +573,21 @@
       "exitCode": 0,
       "log": "logs/banner-build.txt"
     }
-  ]
+  ],
+  "transcriptToolbarFollowup": {
+    "evidence": "transcript-toolbar/validation.json",
+    "sourceBaseline": "db0ec74657ff22fe029b69f6659fbc66b941e7f2",
+    "results": {
+      "chromiumToolbar": "3/3 PASS on final source",
+      "webkitToolbar": "3/3 PASS on final source",
+      "chromiumDashboard": "2/2 PASS, student and guest with 320px / 200% text / spacing overrides",
+      "webkitDashboard": "2/2 PASS, same stress modes",
+      "modelOverlayPdf": "18/18 PASS",
+      "typecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "realDeviceAcceptance": "NOT_VERIFIED"
+    },
+    "note": "Prior full-matrix evidence remains historical; this follow-up reruns the affected actual Dashboard contexts and toolbar scenarios only."
+  }
 }

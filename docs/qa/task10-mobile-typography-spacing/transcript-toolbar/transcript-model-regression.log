@@ -1,0 +1,37 @@
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (1.9937ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (0.5047ms)
+✔ desktop compensates scrollbar once and preserves existing padding (0.2541ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (14.3658ms)
+✔ initial study data contains one valid empty semester (1.3532ms)
+✔ meaningful and complete data are evaluated independently (0.6158ms)
+✔ normalization repairs compact and duplicate semester names (1.2813ms)
+✔ next semester progresses from term two into the next academic year (0.255ms)
+✔ grade saves keep self ownership independent of application role (0.1976ms)
+✔ auditor cannot turn staff visibility into cross-user grade write authority (0.101ms)
+✔ counts all imported subjects across semesters (1.1713ms)
+✔ reconstructs four academic years while preserving imported semesters (0.5229ms)
+✔ uses the supplied fallback year when the parser finds no year range (0.1783ms)
+❌ Lỗi tải font tiếng Việt từ local: Error: Lỗi tải font từ: /fonts/times.ttf
+    at fetchFontBase64 (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/.cache/transcript-pdf-tests/after.mjs:643:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Promise.all (index 0)
+    at async exportTranscriptToPdf (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/.cache/transcript-pdf-tests/after.mjs:670:42)
+    at async TestContext.<anonymous> (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/transcript-pdf-export.test.mjs:151:7)
+    at async Test.run (node:internal/test_runner/test:1113:7)
+    at async TestContext.<anonymous> (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/transcript-pdf-export.test.mjs:148:5)
+    at async Test.run (node:internal/test_runner/test:1113:7)
+    at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+▶ real full/year transcript PDFs remove only stamp artwork and retain academic content, Vietnamese glyphs and layout
+  ✔ full (779.955ms)
+  ✔ year (393.0327ms)
+  ✔ empty data does not download a PDF (26.1082ms)
+  ✔ font failures cancel export rather than produce broken Vietnamese (1.2366ms)
+✔ real full/year transcript PDFs remove only stamp artwork and retain academic content, Vietnamese glyphs and layout (1500.6629ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5008.916
