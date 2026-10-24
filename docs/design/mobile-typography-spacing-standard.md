@@ -52,6 +52,13 @@ not body copy or other controls. Text can grow and wrap rather than clipping.
 This does not change other headings,
 global input sizes, PWA components or document/PDF styling.
 
+The browser guest preview's update/login pair uses the same owner-requested
+compact treatment: 13px/500 labels, 32px painted surfaces, real mobile hit areas
+of at least 44px and 8px between controls. Its row fits its labels instead of
+stretching across the banner. Equal mobile columns retain aligned text and
+targets; text can wrap and grow under enlargement. The existing callbacks and
+login route remain unchanged. This is scoped to `ui-guest-action`.
+
 44px is **HUB Planner's product contract**, informed by
 [Apple's 44-point guidance](https://developer.apple.com/design/tips/).
 [Android recommends 48dp](https://support.google.com/accessibility/android/answer/7101858?hl=en),

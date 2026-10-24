@@ -17,6 +17,7 @@ function Fixture() {
   // Fixture identity persists across real NavLink navigation, like the app session.
   const [role] = useState(() => new URLSearchParams(location.search).get('role') || 'student');
   const [userMenu, setUserMenu] = useState(false);
+  const [onboardingOpens, setOnboardingOpens] = useState(0);
   const [data, setData] = useState(() => {
     const query = new URLSearchParams(location.search);
     const data = structuredClone(student.data);
@@ -38,6 +39,7 @@ function Fixture() {
   } as any} isGuest={isGuest} isAdmin={isAdmin} isAuditor={isAuditor} viewingUser={null} displayName={`${role} fixture`} studentId="123456" avatarUrl="" avatarSeed="F" adminSearchMssv="" isSearchingUser={false} userMenuOpen={userMenu} showInstallButton={false} passwordSetupSchemaMissing={false} isPrivilegedUser={isAdmin || isAuditor} requiresPasswordSetup={false} setAdminSearchMssv={() => {}} onAdminSearchUser={e => e.preventDefault()} onRequestDeleteAccount={() => {}} onLogout={() => {}} setGuideOpen={() => {}} setActivityLogOpen={() => {}} setUserMenuOpen={setUserMenu} setAccountSettingsOpen={() => {}} onMenuLogout={() => {}} onNavigate={path => navigate(path + location.search)} onInstallApp={() => {}} onPasswordSetupComplete={() => {}} overlays={<AppAiAdvisorOverlay userId={isGuest ? undefined : 'fixture-user'} mobileScreen={mode.isMobileScreen} mobileLayout={mode.useMobileLayout} showHint={false} />}>
     <output id="mode" className="sr-only">{mode.useMobileLayout ? 'standalone' : mode.isMobileBrowser ? 'browser' : 'desktop'}</output>
     <output id="import-opens" className="sr-only">{importOpens}</output>
+    <output id="onboarding-opens" className="sr-only">{onboardingOpens}</output>
     <Suspense fallback={<p>Loading route fixture</p>}><ProtectedAppRoutes {...{
         mobileLayout: mode.useMobileLayout,
         data,
@@ -68,7 +70,7 @@ function Fixture() {
         avatarSeed: 'F',
         profileRefreshKey: 0,
         showInstallButton: false,
-        onRequireOnboarding: () => {},
+        onRequireOnboarding: () => setOnboardingOpens(count => count + 1),
         setAccountSettingsOpen: () => {},
         onRequestDeleteAccount: () => {},
         onInstallApp: () => {},

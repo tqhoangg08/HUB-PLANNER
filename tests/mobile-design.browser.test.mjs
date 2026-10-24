@@ -1362,13 +1362,19 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} guest bann
           row: rect(e),
           children: [...e.children].map(c => {
             const r = document.createRange();
-            r.selectNodeContents(c);
+            r.selectNodeContents(c.firstElementChild);
             const t = r.getBoundingClientRect(),
               s = getComputedStyle(c),
               b = rect(c);
+            const ctx = document.createElement('canvas').getContext('2d');
+            ctx.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
             return {
               ...b,
               font: parseFloat(s.fontSize),
+              naturalTextWidth: ctx.measureText(c.textContent.trim()).width,
+              weight: s.fontWeight,
+              surface: rect(c.firstElementChild),
+              ownsPadding: c.contains(document.elementFromPoint(b.x + 2, b.y + 2)),
               line: s.lineHeight,
               textY: t.y,
               textH: t.height,
@@ -1386,6 +1392,7 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} guest bann
         path: `${out}/${engine}-guest-actions-${width}.png`,
         scale: 'css'
       });
+      assert.ok(g.children.every(c => Math.abs(c.font - 13) < .02 && c.weight === '500' && c.surface.height === 32 && c.ownsPadding), JSON.stringify(g));
       if (width < 768) {
         const [a, b] = g.children;
         assert.ok(Math.abs(a.width - b.width) < 1, JSON.stringify(g));
@@ -1402,7 +1409,9 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} guest bann
     });
     assert.deepEqual(f.errors, []);
     assert.deepEqual(f.writes, []);
-    await login.click();
+    await update.click({ position: { x: 2, y: 2 } });
+    await p.waitForFunction(() => document.getElementById('onboarding-opens')?.textContent === '1');
+    await login.click({ position: { x: 2, y: 2 } });
     assert.equal(new URL(p.url()).pathname, '/login');
   } finally {
     await f.context.close();
