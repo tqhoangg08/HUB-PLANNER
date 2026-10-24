@@ -681,6 +681,7 @@ function assertDesign(m) {
   }
   for (const t of m.targets.filter(t => (t.role === 'action' || t.tag === 'BUTTON') && !t.disabled)) assert.ok(t.width >= 43.9 && t.height >= 43.9, `Touch target ${t.name}: ${t.width}x${t.height}`);
   for (const t of m.targets.filter(t => t.role === 'input')) assert.ok(t.font >= 15.99, `Input font: ${t.name} ${t.font}`);
+  for (const t of m.targets.filter(t => ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tag) && !['checkbox', 'radio', 'hidden'].includes(t.type) && !t.disabled)) assert.ok(t.font >= 15.99, JSON.stringify(t));
   assert.ok(m.interLoaded, 'Inter font loaded');
   const failures = m.text.filter(t => t.contrast.status === 'FAIL' && !/^[•·|—–\-:]$/.test(t.text));
   assert.deepEqual(failures.map(t => ({
@@ -1068,6 +1069,71 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} actual PWA
       scroll: before,
       errors: f.errors,
       writes: f.writes
+    });
+  } finally {
+    await f.context.close();
+  }
+});
+if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} GPA target input and readable contextual tip preserve value`, {
+  timeout: 180000
+}, async () => {
+  const f = await fixture('/dashboard', false, 'student', 375, 667),
+    p = f.page;
+  try {
+    const input = p.getByRole('spinbutton', {
+        name: 'GPA mục tiêu',
+        exact: true
+      }),
+      value = await input.inputValue();
+    for (const size of [{
+      width: 375,
+      height: 667
+    }, {
+      width: 320,
+      height: 568
+    }]) {
+      await p.setViewportSize(size);
+      await input.scrollIntoViewIfNeeded();
+      // Escape retains focus; a new focus interaction starts after an explicit blur.
+      await input.blur();
+      await input.focus();
+      const tip = p.getByRole('tooltip');
+      await tip.waitFor();
+      const visibleTip = await tip.boundingBox();
+      assert.ok(visibleTip.y >= 0 && visibleTip.y + visibleTip.height <= size.height + 1, JSON.stringify(visibleTip));
+      assert.ok(await input.evaluate(e => parseFloat(getComputedStyle(e).fontSize) >= 16));
+      assert.equal(await input.inputValue(), value);
+      const close = tip.getByRole('button', {
+          name: 'Đóng mẹo',
+          exact: true
+        }),
+        box = await close.boundingBox();
+      assert.ok(box.width >= 44 && box.height >= 44);
+      assert.equal(await p.getByRole('button', {
+        name: 'Mở trợ lý AI',
+        exact: true
+      }).isVisible(), false);
+      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+      await p.screenshot({
+        path: `${out}/${engine}-gpa-tip-${size.width}.png`,
+        scale: 'css'
+      });
+      await p.keyboard.press('Escape');
+      await tip.waitFor({
+        state: 'hidden'
+      });
+      assert.equal(await input.evaluate(e => document.activeElement === e), true);
+    }
+    await p.screenshot({
+      path: `${out}/${engine}-gpa-target.png`,
+      scale: 'css'
+    });
+    assert.deepEqual(f.errors, []);
+    assert.deepEqual(f.writes, []);
+    records.push({
+      scenario: 'GPA target field',
+      value,
+      font: await input.evaluate(e => getComputedStyle(e).fontSize)
     });
   } finally {
     await f.context.close();

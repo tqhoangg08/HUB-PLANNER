@@ -21,6 +21,7 @@ components/PushNotificationPrompt.tsx
 components/ScheduleBoard.tsx
 components/SchoolAnnouncements.jsx
 components/SupportTickets.tsx
+components/TargetGpaTipInput.tsx
 docs/design/mobile-typography-spacing-standard.md
 docs/qa/task10-mobile-typography-spacing/README.md
 docs/qa/task10-mobile-typography-spacing/announcement-before-layer-fix.png
@@ -48,6 +49,7 @@ docs/qa/task10-mobile-typography-spacing/chromium-before-390-browser.png
 docs/qa/task10-mobile-typography-spacing/chromium-before-430-browser.png
 docs/qa/task10-mobile-typography-spacing/chromium-before-events-pwa.png
 docs/qa/task10-mobile-typography-spacing/chromium-before-learning-pwa.png
+docs/qa/task10-mobile-typography-spacing/chromium-gpa-tip-320.png
 docs/qa/task10-mobile-typography-spacing/contrast.json
 docs/qa/task10-mobile-typography-spacing/contribution-form.png
 docs/qa/task10-mobile-typography-spacing/control-states.json
@@ -72,7 +74,11 @@ docs/qa/task10-mobile-typography-spacing/logs/final-nested-ownership.txt
 docs/qa/task10-mobile-typography-spacing/logs/form-states-chromium.txt
 docs/qa/task10-mobile-typography-spacing/logs/form-states-webkit.txt
 docs/qa/task10-mobile-typography-spacing/logs/frontend-typecheck.txt
+docs/qa/task10-mobile-typography-spacing/logs/gpa-tip-final-chromium.txt
+docs/qa/task10-mobile-typography-spacing/logs/gpa-tip-final-webkit.txt
 docs/qa/task10-mobile-typography-spacing/logs/models-api-ui.txt
+docs/qa/task10-mobile-typography-spacing/logs/native-fields-chromium.txt
+docs/qa/task10-mobile-typography-spacing/logs/native-fields-webkit.txt
 docs/qa/task10-mobile-typography-spacing/logs/overlay-staff-contribution.txt
 docs/qa/task10-mobile-typography-spacing/logs/placeholder-reproduction.txt
 docs/qa/task10-mobile-typography-spacing/logs/sidebar-final.txt
@@ -94,6 +100,7 @@ docs/qa/task10-mobile-typography-spacing/webkit-after-320-pwa-textSpacing.png
 docs/qa/task10-mobile-typography-spacing/webkit-after-_events-pwa.png
 docs/qa/task10-mobile-typography-spacing/webkit-after-_learning_tab_schedule-pwa.png
 docs/qa/task10-mobile-typography-spacing/webkit-after-_lost-found-pwa.png
+docs/qa/task10-mobile-typography-spacing/webkit-gpa-tip-375.png
 docs/qa/task10-mobile-typography-spacing/webkit-ticket-form.png
 features/scholarships/scholarship.css
 index.css

@@ -148,6 +148,8 @@ export function designMeasurements() {
     role: element.classList.contains('ui-action') ? 'action' : element.classList.contains('ui-input') ? 'input' : null,
     font: parseFloat(cssOf(element).fontSize),
     disabled: element.disabled || false,
+    type: element.type,
+    readOnly: element.readOnly,
     ...geometry(element)
   }));
   return {

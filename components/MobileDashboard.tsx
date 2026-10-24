@@ -3207,15 +3207,15 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 </Link>
                             )}
                             <div className="ui-meta flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
-                                <div className="flex justify-between items-center">
-                                    <span className="truncate">Mục tiêu:</span>
+                                <div className="ui-gpa-goal-row flex justify-between items-center">
+                                    <span className="ui-secondary ui-readable">Mục tiêu:</span>
                                     <TargetGpaTipInput
                                         value={activeData.targetGPA}
                                         onChange={handleLocalTargetChange}
                                     />
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="truncate">Hiện tại:</span>
+                                <div className="ui-gpa-goal-row flex justify-between items-center">
+                                    <span className="ui-secondary ui-readable">Hiện tại:</span>
                                     <span className="font-bold text-gray-900">{(Math.floor(stats.rawGPA4 * 100) / 100).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">

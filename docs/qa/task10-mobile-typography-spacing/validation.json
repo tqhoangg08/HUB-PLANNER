@@ -2,7 +2,7 @@
   "task": "10/10",
   "base": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
   "branch": "codex/task10-mobile-typography-spacing",
-  "observedAt": "2026-10-24T11:42:02.166Z",
+  "observedAt": "2026-10-24T12:17:11.401Z",
   "environment": {
     "platform": "Windows",
     "node": "v24.12.0",
@@ -65,6 +65,42 @@
     ]
   },
   "runs": [
+    {
+      "name": "gpa-tip-final-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/gpa-tip-final-chromium.txt"
+    },
+    {
+      "name": "gpa-tip-final-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/gpa-tip-final-webkit.txt"
+    },
+    {
+      "name": "native-fields-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"accept /dashboard|GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 5,
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": "logs/native-fields-chromium.txt"
+    },
+    {
+      "name": "native-fields-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"accept /dashboard|GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 5,
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": "logs/native-fields-webkit.txt"
+    },
     {
       "name": "final-modal-controls-chromium",
       "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"real announcement|PWA AI\" tests/mobile-design.browser.test.mjs",
@@ -312,9 +348,10 @@
     "frontendTypecheck": "PASS (exit 0)",
     "cloudflareTypecheck": "PASS (exit 0)",
     "build": "PASS (exit 0); existing large-chunk warning",
-    "diffCheck": "See final-diff.txt",
+    "diffCheck": "PASS: git diff --check; staged diff check",
     "githubCI": "Verify exact pushed PR HEAD externally; reported in PR checks/body to avoid changing HEAD to record its own CI",
-    "modalOwnership": "PASS: closed AI launcher yields to active Overlay; visible modal controls own their hit points; closing Ticket restores launcher and preserves AI draft"
+    "modalOwnership": "PASS: closed AI launcher yields to active Overlay; visible modal controls own their hit points; closing Ticket restores launcher and preserves AI draft",
+    "nativeInputs": "PASS: all-native-control fontsize guard on final Dashboard variants; GPA tip bounds/value/focus checks on both engines"
   },
   "failureProvenance": [
     "Intermediate failures are preserved; no failed composite run is labelled an all-pass run",
@@ -324,30 +361,6 @@
     "The 3.38:1 announcement placeholder failure was reproduced before its scoped fix"
   ],
   "sourceManifest": [
-    {
-      "path": "styles/mobile-design.css",
-      "sha256NormalizedLF": "8507bd38738fba1ffa21d4819bece3fe1f17be61d7678b4c4a8c0de8162e38bd"
-    },
-    {
-      "path": "tests/mobile-design-harness.html",
-      "sha256NormalizedLF": "f0458354e41b07d7a27a1895d142d4e57dd806e3a68fc12464f4cfb06105ac77"
-    },
-    {
-      "path": "tests/mobile-design-harness.tsx",
-      "sha256NormalizedLF": "06b5a2ad858da3c2a07e8294f3b760d467a387524d60b780a472caa1c6258cee"
-    },
-    {
-      "path": "tests/mobile-design-measurements.mjs",
-      "sha256NormalizedLF": "fd965f70b81186202fba8af143cdf92e9d0046f9095b01f6758e5c53aa210356"
-    },
-    {
-      "path": "tests/mobile-design-painted-contrast.mjs",
-      "sha256NormalizedLF": "f30d537a481bdadd64ae670217fdae64d8f6821a75bcafa9b472586bb5b7994b"
-    },
-    {
-      "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "42bd637fcd2a9b197a360367b07ef7d0002270cfd66ff0da73a834c9759ad735"
-    },
     {
       "path": "components/AdminEventManagementView.tsx",
       "sha256NormalizedLF": "56a07bfaf38a04455f223b5ff2332951d3195574cb706c494770c054d3c20b12"
@@ -362,7 +375,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "2a8912ee773b361d0cf0fbc8cc5b3823298b5d7a9f5d9ff3336037ae0491faa4"
+      "sha256NormalizedLF": "bef9b9ecce56b0b845b3c845952540b2c377fa47cf195784308abec242ae549b"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -386,7 +399,7 @@
     },
     {
       "path": "components/MobileDashboard.tsx",
-      "sha256NormalizedLF": "030702d7738d45c64db5c6751fa0182cc2ce3caff430ee687b3498326206043d"
+      "sha256NormalizedLF": "29bd978d646437ebb184504503160ed7982af1a4d393770979f9e8b451cde99b"
     },
     {
       "path": "components/MobileEvents.tsx",
@@ -441,6 +454,10 @@
       "sha256NormalizedLF": "9b953c02246fc41be8008f5f4d685e7b1ccfa2baf2131aec02d004941204cc8b"
     },
     {
+      "path": "components/TargetGpaTipInput.tsx",
+      "sha256NormalizedLF": "720a188fa774c8effcbe4dfcb2b3ece3dc7379833c42b45f6f57b1e42054e92c"
+    },
+    {
       "path": "features/scholarships/scholarship.css",
       "sha256NormalizedLF": "c66f09abe8a935d7a94db8da836585f7d32f2e675fd1653abb143e76a9c298df"
     },
@@ -467,6 +484,30 @@
     {
       "path": "pages/ProfileSearchPage.jsx",
       "sha256NormalizedLF": "f45dc4fbf6909cdcbcadf59da9862b473646cb582909c90169c248a480faa501"
+    },
+    {
+      "path": "styles/mobile-design.css",
+      "sha256NormalizedLF": "22dad2877dd0c1b3ae1740200fffd13d820d302c23b92b8dc23a04bd24e8e4e8"
+    },
+    {
+      "path": "tests/mobile-design-harness.html",
+      "sha256NormalizedLF": "f0458354e41b07d7a27a1895d142d4e57dd806e3a68fc12464f4cfb06105ac77"
+    },
+    {
+      "path": "tests/mobile-design-harness.tsx",
+      "sha256NormalizedLF": "06b5a2ad858da3c2a07e8294f3b760d467a387524d60b780a472caa1c6258cee"
+    },
+    {
+      "path": "tests/mobile-design-measurements.mjs",
+      "sha256NormalizedLF": "7cc7b5fa7708dbf8fdd310310f8a308d4ca1503b4940188d39ff6219ccdbf34d"
+    },
+    {
+      "path": "tests/mobile-design-painted-contrast.mjs",
+      "sha256NormalizedLF": "f30d537a481bdadd64ae670217fdae64d8f6821a75bcafa9b472586bb5b7994b"
+    },
+    {
+      "path": "tests/mobile-design.browser.test.mjs",
+      "sha256NormalizedLF": "e6f92448f08b7967e35564a72dc7c13e42b03b4e5215546f4f68c3bbd4dec334"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",

@@ -146,6 +146,12 @@
       "after": "4b76e53a0b12f50aacd6917b992daa7f2ec5110bdc69bcfdbfe22ff3fda15122"
     },
     {
+      "file": "components/TargetGpaTipInput.tsx",
+      "businessAstEqual": true,
+      "before": "26cea3761e259745f6c3f2db559beca7d84e788a630ed2d2acadf5d8223b26a3",
+      "after": "26cea3761e259745f6c3f2db559beca7d84e788a630ed2d2acadf5d8223b26a3"
+    },
+    {
       "file": "layouts/DesktopLayout.tsx",
       "businessAstEqual": true,
       "before": "0fb1a3c8b43e4c7d41140db92668cbaae86505fcac84e88e5553b39643dd18ba",
