@@ -63,14 +63,14 @@ const ProfileSearchPage = () => {
   }, [query]);
 
   return (
-    <div className="animate-fadeIn max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="ui-page-gutter w-full min-w-0 animate-fadeIn max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <div className="flex items-center gap-2 text-[#003375] font-bold text-sm uppercase tracking-wide">
           <Search size={18} />
           Tìm sinh viên
         </div>
-        <h1 className="text-3xl sm:text-4xl font-black text-[#003375] mt-2">{title}</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="ui-page-title text-3xl sm:text-4xl font-black text-[#003375] mt-2">{title}</h1>
+        <p className="ui-secondary ui-muted text-gray-500 mt-1">
           Bấm vào một sinh viên để xem hồ sơ công khai.
         </p>
       </div>
@@ -89,8 +89,8 @@ const ProfileSearchPage = () => {
         {!loading && !error && results.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500">
             <ShieldAlert size={42} className="text-gray-300 mb-3" />
-            <p className="font-bold">Không tìm thấy sinh viên phù hợp.</p>
-            <p className="text-sm mt-1">Thử nhập gần đúng MSSV hoặc tên sinh viên.</p>
+            <p className="ui-secondary font-bold">Không tìm thấy sinh viên phù hợp.</p>
+            <p className="ui-secondary text-sm mt-1">Thử nhập gần đúng MSSV hoặc tên sinh viên.</p>
           </div>
         )}
 
@@ -104,7 +104,7 @@ const ProfileSearchPage = () => {
                 <Link
                   key={profile.id}
                   to={`/profile/${encodeURIComponent(profile.student_code)}`}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-blue-50 transition-colors"
+                  className="ui-action min-w-0 flex items-center gap-4 px-4 py-3 hover:bg-blue-50 transition-colors"
                 >
                   <div
                     className={`h-12 w-12 rounded-full text-white flex items-center justify-center font-black shrink-0 overflow-hidden border border-blue-100 ${getAvatarClassName(avatarUrl)}`}
@@ -117,9 +117,9 @@ const ProfileSearchPage = () => {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="font-extrabold text-gray-900 truncate">{profile.full_name || 'Chưa cập nhật tên'}</div>
+                    <div className="ui-card-title ui-readable font-extrabold text-gray-900">{profile.full_name || 'Chưa cập nhật tên'}</div>
                     <div className="flex flex-wrap items-center gap-2 mt-1 text-sm">
-                      <span className="font-bold text-[#003375]">#{profile.student_code}</span>
+                      <span className="ui-numeric break-all font-bold text-[#003375]">#{profile.student_code}</span>
                       {profile.class_name && <span className="text-green-700 bg-green-50 border border-green-100 rounded-full px-2 py-0.5 font-semibold">{profile.class_name}</span>}
                       {(profile.profile_tags || []).slice(0, 2).map((tag) => (
                         <span key={tag} className="text-orange-700 bg-orange-50 border border-orange-100 rounded-full px-2 py-0.5 font-semibold">{tag}</span>
@@ -127,7 +127,7 @@ const ProfileSearchPage = () => {
                     </div>
                   </div>
 
-                  <UserRound size={18} className="text-gray-400 shrink-0" />
+                  <UserRound size={18} className="ui-muted text-gray-400 shrink-0" />
                 </Link>
               );
             })}

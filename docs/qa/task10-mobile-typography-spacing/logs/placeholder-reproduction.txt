@@ -1,0 +1,32 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✖ chromium real announcement and contribution forms: keyboard viewport, focus and scroll (7085.0024ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11893.4768
+
+✖ failing tests:
+
+test at tests\mobile-design.browser.test.mjs:651:3
+✖ chromium real announcement and contribution forms: keyboard viewport, focus and scroll (7085.0024ms)
+  AssertionError [ERR_ASSERTION]: {"name":"Tìm thông báo","font":16,"foreground":"oklch(0.21 0.034 264.665)","background":[249,250,251,1],"placeholder":"oklab(0.21 -0.00316127 -0.0338527 / 0.5)","textContrast":16.98196724143105,"placeholderContrast":3.3805716839244453,"borderContrast":11.613026062789734,"outline":"none","outlineWidth":"1px","outlineContrast":null}
+      at checkFieldContrast (file:///<workspace>/tests/mobile-design.browser.test.mjs:608:46)
+      at async TestContext.<anonymous> (file:///<workspace>/tests/mobile-design.browser.test.mjs:702:7)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

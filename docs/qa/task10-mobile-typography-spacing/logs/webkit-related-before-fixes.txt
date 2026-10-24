@@ -1,0 +1,59 @@
+AUTOMATED_ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✔ webkit 375: actual schedule actions, geometry, forms, scroll and keyboard (35721.5152ms)
+✔ webkit positioning tracks scroll, orientation and short visual viewport (11360.2397ms)
+✔ webkit actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup (98482.9654ms)
+✔ webkit week/month dropdown ownership, plans and contextual labels remain reachable (26072.6407ms)
+✔ webkit 375x667: full collapse, direct filters, results, pagination, focus and persistence (44999.3995ms)
+✖ webkit: plan A/B, week/month, result selection and PWA remain available (20205.9439ms)
+✔ webkit: all sidebar fields, advanced input, chip removals and PDF entry survive collapse (24310.7753ms)
+ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✔ webkit 375x667: actual modal layout, filters, scroll and dismissal (26739.0438ms)
+✔ webkit 667x375: actual modal layout, filters, scroll and dismissal (18345.5894ms)
+✔ webkit after: out-of-order response evidence (6096.1937ms)
+✖ webkit: visual viewport offset, safe-area padding and pending loading ownership (7632.8253ms)
+✔ webkit: pagination, debounce, error/empty, focus and internal-root cleanup (29116.7072ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 10
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 366624.1465
+
+✖ failing tests:
+
+test at tests\schedule-filter-collapse.browser.test.mjs:319:5
+✖ webkit: plan A/B, week/month, result selection and PWA remain available (20205.9439ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + 'browser'
+  - 'standalone'
+
+      at TestContext.<anonymous> (file:///<workspace>/tests/schedule-filter-collapse.browser.test.mjs:346:20)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+      at process.processImmediate (node:internal/timers:472:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'browser',
+    expected: 'standalone',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\school-announcements-modal.browser.test.mjs:193:14
+✖ webkit: visual viewport offset, safe-area padding and pending loading ownership (7632.8253ms)
+  AssertionError [ERR_ASSERTION]: {"constrained":{"panel":{"x":8,"y":44,"width":374,"height":224,"bottom":268},"header":{"x":9,"y":45,"width":372,"height":51.3125,"bottom":96.3125},"filters":{"x":9,"y":96.3125,"width":372,"height":112,"bottom":208.3125},"list":{"x":9,"y":208.3125,"width":372,"height":14,"bottom":222.3125},"footer":{"x":9,"y":222.3125,"width":372,"height":47,"bottom":269.3125},"close":{"x":329,"y":48.65625,"width":44,"height":44,"bottom":92.65625},"pagination":[{"x":208.625,"y":224.3125,"width":44,"height":44,"bottom":268.3125},{"x":329,"y":224.3125,"width":44,"height":44,"bottom":268.3125}],"cardsVisible":0,"listScroll":[0,19,14],"scroll":[0,0],"internalScroll":0,"overflow":false,"viewport":[390,844]},"searchBox":{"x":17,"y":100.3125,"width":233.25,"height":44},"dateBox":{"x":17,"y":166.3125,"width":174,"height":44}}
+      at TestContext.<anonymous> (file:///<workspace>/tests/school-announcements-modal.browser.test.mjs:208:12)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

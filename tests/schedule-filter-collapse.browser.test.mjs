@@ -77,7 +77,8 @@ async function fixture({ width = 375, height = 667, role = 'student', standalone
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (['error', 'warning'].includes(m.type()))
         errors.push(m.text()); });
-    await page.goto(`${base}tests/schedule-filter-collapse-harness.html?role=${role}`, { waitUntil: 'networkidle', timeout: 120000 });
+    await page.goto(`${base}tests/schedule-filter-collapse-harness.html?role=${role}${standalone ? '&appPreview=1' : ''}`, { waitUntil: 'networkidle', timeout: 120000 });
+    await page.waitForFunction(expected => document.querySelector('#mode')?.textContent === expected, standalone ? 'standalone' : width < 768 ? 'browser' : 'desktop');
     return { context, page, calls, errors, writes };
 }
 const frame = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));

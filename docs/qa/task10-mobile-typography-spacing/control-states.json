@@ -1,0 +1,275 @@
+{
+  "method": "Actual focused controls; CSS colour parsed through canvas; alpha compositing against opaque ancestor backgrounds; unknown image/transparent canvas throws. Text/placeholder >=4.5, visible border/focus >=3.",
+  "samples": [
+    {
+      "engine": "chromium",
+      "scenario": "hovered action contrast",
+      "name": "Xem tất cả",
+      "index": 59,
+      "tag": "BUTTON",
+      "text": "Xem tất cả",
+      "classes": "ui-action text-[10px] lg:text-xs text-blue-200 hover:text-white underline shrink-0 cursor-pointer font-medium",
+      "role": "action",
+      "size": 14,
+      "line": 19.6,
+      "font": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "weight": "600",
+      "color": "oklch(0.882 0.059 254.128)",
+      "background": "rgba(0, 0, 0, 0)",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "gap": "normal",
+      "x": 274.75,
+      "y": 311.359375,
+      "width": 71.75,
+      "height": 44,
+      "contrast": {
+        "status": "PASS",
+        "ratio": 8.533301354486584,
+        "minimum": 4.5,
+        "foreground": [
+          190,
+          219,
+          255,
+          1
+        ],
+        "background": [
+          0,
+          51,
+          117,
+          1
+        ]
+      },
+      "clamp": "none",
+      "nowrap": "normal",
+      "scrollWidth": 72,
+      "scrollHeight": 44,
+      "clientWidth": 72,
+      "clientHeight": 44,
+      "clipping": []
+    },
+    {
+      "engine": "chromium",
+      "scenario": "focused field contrast",
+      "name": "Tìm thông báo",
+      "font": 16,
+      "foreground": "oklch(0.21 0.034 264.665)",
+      "background": [
+        249,
+        250,
+        251,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 16.98196724143105,
+      "placeholderContrast": 7.251173872276777,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.553804008368043,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.4128734861003664
+    },
+    {
+      "engine": "chromium",
+      "scenario": "focused field contrast",
+      "name": "VD: Cuộc thi Tiếng Anh Star Awards...",
+      "font": 16,
+      "foreground": "oklch(0.21 0.034 264.665)",
+      "background": [
+        255,
+        255,
+        255,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 17.74659431591738,
+      "placeholderContrast": 7.577663953533317,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.758842787868666,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.701618401398807
+    },
+    {
+      "engine": "chromium",
+      "scenario": "focused field contrast",
+      "name": "Hỏi AI tại đây...",
+      "font": 16,
+      "foreground": "oklch(0.21 0.034 264.665)",
+      "background": [
+        249,
+        250,
+        251,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 16.98196724143105,
+      "placeholderContrast": 7.251173872276777,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.553804008368043,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.701618401398807
+    },
+    {
+      "engine": "chromium",
+      "scenario": "focused field contrast",
+      "name": "Tóm tắt vấn đề",
+      "font": 16,
+      "foreground": "oklch(0.21 0.034 264.665)",
+      "background": [
+        255,
+        255,
+        255,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 17.74659431591738,
+      "placeholderContrast": 7.577663953533317,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.758842787868666,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.701618401398807
+    },
+    {
+      "engine": "webkit",
+      "scenario": "hovered action contrast",
+      "name": "Xem tất cả",
+      "index": 59,
+      "tag": "BUTTON",
+      "text": "Xem tất cả",
+      "classes": "ui-action text-[10px] lg:text-xs text-blue-200 hover:text-white underline shrink-0 cursor-pointer font-medium",
+      "role": "action",
+      "size": 14,
+      "line": 19.6,
+      "font": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+      "weight": "600",
+      "color": "oklch(0.882 0.059 254.128006)",
+      "background": "rgba(0, 0, 0, 0)",
+      "padding": [
+        "0px",
+        "0px",
+        "0px",
+        "0px"
+      ],
+      "gap": "normal",
+      "x": 268.75,
+      "y": 310.859375,
+      "width": 71.75,
+      "height": 44,
+      "contrast": {
+        "status": "PASS",
+        "ratio": 8.533301354486584,
+        "minimum": 4.5,
+        "foreground": [
+          190,
+          219,
+          255,
+          1
+        ],
+        "background": [
+          0,
+          51,
+          117,
+          1
+        ]
+      },
+      "clamp": "none",
+      "nowrap": "normal",
+      "scrollWidth": 72,
+      "scrollHeight": 44,
+      "clientWidth": 72,
+      "clientHeight": 44,
+      "clipping": []
+    },
+    {
+      "engine": "webkit",
+      "scenario": "focused field contrast",
+      "name": "Tìm thông báo",
+      "font": 16,
+      "foreground": "oklch(0.21 0.034 264.665009)",
+      "background": [
+        249,
+        250,
+        251,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 16.98196724143105,
+      "placeholderContrast": 7.251173872276777,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.553804008368043,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.4128734861003664
+    },
+    {
+      "engine": "webkit",
+      "scenario": "focused field contrast",
+      "name": "VD: Cuộc thi Tiếng Anh Star Awards...",
+      "font": 16.000011,
+      "foreground": "oklch(0.21 0.034 264.665009)",
+      "background": [
+        255,
+        255,
+        255,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 17.74659431591738,
+      "placeholderContrast": 7.577663953533317,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.758842787868666,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.701618401398807
+    },
+    {
+      "engine": "webkit",
+      "scenario": "focused field contrast",
+      "name": "Hỏi AI tại đây...",
+      "font": 16.000011,
+      "foreground": "oklch(0.21 0.034 264.665009)",
+      "background": [
+        249,
+        250,
+        251,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 16.98196724143105,
+      "placeholderContrast": 7.251173872276777,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.553804008368043,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.701618401398807
+    },
+    {
+      "engine": "webkit",
+      "scenario": "focused field contrast",
+      "name": "Tóm tắt vấn đề",
+      "font": 16.000011,
+      "foreground": "oklch(0.21 0.034 264.665009)",
+      "background": [
+        255,
+        255,
+        255,
+        1
+      ],
+      "placeholder": "rgb(71, 85, 105)",
+      "textContrast": 17.74659431591738,
+      "placeholderContrast": 7.577663953533317,
+      "borderColour": "rgb(100, 116, 139)",
+      "borderContrast": 4.758842787868666,
+      "outline": "solid",
+      "outlineWidth": "2px",
+      "outlineContrast": 6.701618401398807
+    }
+  ]
+}

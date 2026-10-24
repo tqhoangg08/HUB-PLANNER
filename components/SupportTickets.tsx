@@ -121,7 +121,7 @@ const AttachmentItem = ({ item, compact = false }: {
     <button
       type="button"
       onClick={() => openAttachment(item.id)}
-      className={`flex max-w-full items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-2 py-1.5 text-left transition hover:bg-white/25 ${compact ? 'text-[11px]' : 'text-xs'}`}
+      className={`ui-action flex max-w-full items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-2 py-1.5 text-left transition hover:bg-white/25 ${compact ? 'text-[11px]' : 'text-xs'}`}
     >
       {isImage ? (
         <ImageIcon size={15} className="shrink-0" />
@@ -154,19 +154,19 @@ const PendingAttachmentPreview = ({ files, onRemove }: {
   return (
     <div className="mx-auto mb-2 flex max-w-4xl gap-2 overflow-x-auto pb-1">
       {files.map((item) => (
-        <div key={item.id} className="relative flex min-w-[170px] max-w-[220px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs shadow-sm">
+        <div key={item.id} className="ui-meta relative flex min-w-[170px] max-w-[220px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs shadow-sm">
           {item.previewUrl ? (
             <img src={item.previewUrl} alt="" className="h-9 w-9 rounded-md object-cover" />
           ) : (
-            <div className="grid h-9 w-9 place-items-center rounded-md bg-red-50 text-red-600">
+            <div className="ui-danger-text grid h-9 w-9 place-items-center rounded-md bg-red-50 text-red-600">
               <FileText size={18} />
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate font-black text-slate-700">{item.name}</p>
-            <p className="text-[11px] font-bold text-slate-400">{item.progress > 0 ? `${item.progress}%` : formatAttachmentSize(item.size)}</p>
+            <p className="ui-secondary truncate font-black text-slate-700">{item.name}</p>
+            <p className="ui-muted ui-secondary text-[11px] font-bold text-slate-400">{item.progress > 0 ? `${item.progress}%` : formatAttachmentSize(item.size)}</p>
           </div>
-          <button type="button" onClick={() => onRemove(item.id)} className="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600">
+          <button type="button" onClick={() => onRemove(item.id)} className="ui-danger-text ui-action grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600">
             <X size={14} />
           </button>
         </div>
@@ -181,8 +181,8 @@ const EmptyState = ({ title, body }: { title: string; body: string }) => (
       <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-[#003375]">
         <HelpCircle size={22} />
       </div>
-      <h3 className="text-sm font-black text-slate-900">{title}</h3>
-      <p className="mt-1.5 max-w-md text-sm leading-6 text-slate-500">{body}</p>
+      <h3 className="ui-card-title text-sm font-black text-slate-900">{title}</h3>
+      <p className="ui-secondary mt-1.5 max-w-md text-sm leading-6 text-slate-500">{body}</p>
     </div>
   </div>
 );
@@ -200,9 +200,9 @@ export const SupportTickets: React.FC = () => {
     <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 py-2 sm:py-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-wide text-[#0052cc]">Hỗ trợ</p>
-          <h1 className="text-2xl font-black tracking-normal text-slate-950">Ticket của tôi</h1>
-          <p className="mt-1 text-sm text-slate-500">Trao đổi 1-1 với đội ngũ hỗ trợ.</p>
+          <p className="ui-secondary text-[11px] font-black uppercase tracking-wide text-[#0052cc]">Hỗ trợ</p>
+          <h1 className="ui-page-title text-2xl font-black tracking-normal text-slate-950">Ticket của tôi</h1>
+          <p className="ui-secondary mt-1 text-sm text-slate-500">Trao đổi 1-1 với đội ngũ hỗ trợ.</p>
         </div>
         <Link
           to="/support/new"
@@ -214,12 +214,12 @@ export const SupportTickets: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-slate-100 bg-white p-1.5">
-        <Filter size={15} className="ml-1 shrink-0 text-slate-400" />
-        <button onClick={() => setStatusFilter('all')} className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-black ${statusFilter === 'all' ? 'bg-[#003375] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+        <Filter size={15} className="ui-muted ml-1 shrink-0 text-slate-400" />
+        <button onClick={() => setStatusFilter('all')} className={`ui-action shrink-0 rounded-lg px-3 py-1.5 text-xs font-black ${statusFilter === 'all' ? 'bg-[#003375] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
           Tất cả
         </button>
         {statuses.map((status) => (
-          <button key={status} onClick={() => setStatusFilter(status)} className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-black ${statusFilter === status ? 'bg-[#003375] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+          <button key={status} onClick={() => setStatusFilter(status)} className={`ui-action shrink-0 rounded-lg px-3 py-1.5 text-xs font-black ${statusFilter === status ? 'bg-[#003375] text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
             {SUPPORT_STATUS_LABELS[status]}
           </button>
         ))}
@@ -244,8 +244,8 @@ export const SupportTickets: React.FC = () => {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-black text-slate-950 group-hover:text-[#003375]">{ticket.subject}</h2>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500">
+                  <h2 className="ui-section-title truncate text-sm font-black text-slate-950 group-hover:text-[#003375]">{ticket.subject}</h2>
+                  <div className="ui-meta mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500">
                     <span>{SUPPORT_CATEGORY_LABELS[ticket.category]}</span>
                     <span className="h-1 w-1 rounded-full bg-slate-300" />
                     <span>{SUPPORT_PRIORITY_LABELS[ticket.priority]}</span>
@@ -253,7 +253,7 @@ export const SupportTickets: React.FC = () => {
                     <span>{formatDateTime(ticket.last_message_at || ticket.updated_at)}</span>
                   </div>
                 </div>
-                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-black ${statusClass[ticket.status]}`}>
+                <span className={`ui-meta shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-black ${statusClass[ticket.status]}`}>
                   {SUPPORT_STATUS_LABELS[ticket.status]}
                 </span>
               </div>
@@ -300,17 +300,17 @@ const CreateTicketView = () => {
 
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col py-2 sm:py-3">
-      <button onClick={() => navigate('/support')} className="mb-3 inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-[#003375]">
+      <button onClick={() => navigate('/support')} className="ui-action mb-3 inline-flex items-center gap-2 text-sm font-black text-slate-600 hover:text-[#003375]">
         <ArrowLeft size={17} /> Ticket của tôi
       </button>
       <form onSubmit={handleSubmit} className="rounded-xl border border-slate-100 bg-white p-4 sm:p-5">
         <div className="mb-4">
-          <p className="text-[11px] font-black uppercase tracking-wide text-[#0052cc]">Hỗ trợ</p>
-          <h1 className="text-2xl font-black text-slate-950">Tạo yêu cầu hỗ trợ</h1>
+          <p className="ui-secondary text-[11px] font-black uppercase tracking-wide text-[#0052cc]">Hỗ trợ</p>
+          <h1 className="ui-page-title text-2xl font-black text-slate-950">Tạo yêu cầu hỗ trợ</h1>
         </div>
 
         <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50/60 p-2.5">
-          <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-[#003375]">Gợi ý nhanh</p>
+          <p className="ui-secondary mb-2 text-[11px] font-black uppercase tracking-wide text-[#003375]">Gợi ý nhanh</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {userIssueSuggestions.map((item) => (
               <button
@@ -321,7 +321,7 @@ const CreateTicketView = () => {
                   setCategory(item.category);
                   setMessage(item.message);
                 }}
-                className="shrink-0 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-black text-[#003375] transition hover:bg-blue-100 active:scale-95"
+                className="ui-action shrink-0 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-black text-[#003375] transition hover:bg-blue-100 active:scale-95"
               >
                 {item.label}
               </button>
@@ -330,36 +330,36 @@ const CreateTicketView = () => {
         </div>
 
         <div className="grid gap-3">
-          <label className="grid gap-1.5">
+          <label className="ui-secondary grid gap-1.5">
             <span className="text-sm font-black text-slate-700">Tiêu đề</span>
-            <input value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={160} className="h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Tóm tắt vấn đề bạn đang gặp" />
+            <input value={subject} onChange={(event) => setSubject(event.target.value)} maxLength={160} className="ui-input h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none transition focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Tóm tắt vấn đề bạn đang gặp" />
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1.5">
+            <label className="ui-secondary grid gap-1.5">
               <span className="text-sm font-black text-slate-700">Loại vấn đề</span>
-              <select value={category} onChange={(event) => setCategory(event.target.value as SupportTicketCategory)} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50">
+              <select value={category} onChange={(event) => setCategory(event.target.value as SupportTicketCategory)} className="ui-input h-11 rounded-lg border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50">
                 {categories.map((item) => <option key={item} value={item}>{SUPPORT_CATEGORY_LABELS[item]}</option>)}
               </select>
             </label>
-            <label className="grid gap-1.5">
+            <label className="ui-secondary grid gap-1.5">
               <span className="text-sm font-black text-slate-700">Mức ưu tiên</span>
-              <select value={priority} onChange={(event) => setPriority(event.target.value as SupportTicketPriority)} className="h-11 rounded-lg border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50">
+              <select value={priority} onChange={(event) => setPriority(event.target.value as SupportTicketPriority)} className="ui-input h-11 rounded-lg border border-slate-200 px-3 text-sm font-bold outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50">
                 {priorities.map((item) => <option key={item} value={item}>{SUPPORT_PRIORITY_LABELS[item]}</option>)}
               </select>
             </label>
           </div>
 
-          <label className="grid gap-1.5">
+          <label className="ui-secondary grid gap-1.5">
             <span className="text-sm font-black text-slate-700">Mô tả vấn đề</span>
-            <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={4000} rows={5} className="resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-sm leading-6 outline-none transition focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Mô tả rõ lỗi, thời điểm xảy ra và thao tác bạn đã thử." />
+            <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={4000} rows={5} className="ui-input resize-none rounded-lg border border-slate-200 px-3 py-2.5 text-sm leading-6 outline-none transition focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Mô tả rõ lỗi, thời điểm xảy ra và thao tác bạn đã thử." />
           </label>
         </div>
 
         {error && <div className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</div>}
 
         <div className="sticky bottom-0 mt-4 border-t border-slate-100 bg-white pt-3">
-          <button disabled={submitting} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#003375] px-4 text-sm font-black text-white transition hover:bg-[#002855] disabled:opacity-60 sm:w-auto">
+          <button disabled={submitting} className="ui-action inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#003375] px-4 text-sm font-black text-white transition hover:bg-[#002855] disabled:opacity-60 sm:w-auto">
             {submitting ? <Loader2 size={17} className="animate-spin" /> : <MessageSquarePlus size={17} />}
             Gửi yêu cầu
           </button>
@@ -579,30 +579,30 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
     >
       <header className="shrink-0 border-b border-slate-100 bg-white px-3 py-2.5 sm:rounded-t-xl">
         <div className="flex items-center gap-2.5">
-          <button onClick={() => navigate(isStaff ? '/admin/support' : '/support')} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-[#003375]">
+          <button onClick={() => navigate(isStaff ? '/admin/support' : '/support')} className="ui-action grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-50 text-slate-600 hover:bg-blue-50 hover:text-[#003375]">
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-black text-slate-950">{ticket.subject}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500">
+            <h1 className="ui-page-title truncate text-base font-black text-slate-950">{ticket.subject}</h1>
+            <div className="ui-meta mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500">
               <span>{SUPPORT_CATEGORY_LABELS[ticket.category]}</span>
               <span className={`rounded-full border px-2 py-0.5 ${statusClass[ticket.status]}`}>{SUPPORT_STATUS_LABELS[ticket.status]}</span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">{SUPPORT_PRIORITY_LABELS[ticket.priority]}</span>
             </div>
           </div>
           {(!isStaff || canManageTicket) && <div className="relative shrink-0">
-            <button type="button" onClick={() => setTicketMenuOpen((current) => !current)} className="grid h-8 w-8 place-items-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100" aria-label="Mở thao tác ticket">
+            <button type="button" onClick={() => setTicketMenuOpen((current) => !current)} className="ui-action grid h-8 w-8 place-items-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100" aria-label="Mở thao tác ticket">
               <MoreVertical size={17} />
             </button>
             {ticketMenuOpen && (
               <div className="absolute right-0 top-10 z-20 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl">
                 {!isClosed && (
-                  <button type="button" onClick={markResolved} className="flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-emerald-700 hover:bg-emerald-50">
+                  <button type="button" onClick={markResolved} className="ui-action flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-emerald-700 hover:bg-emerald-50">
                     <CheckCircle2 size={16} /> Đánh dấu đã xử lý xong
                   </button>
                 )}
                 {!isStaff && (
-                  <button type="button" onClick={deleteTicket} className="flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-red-700 hover:bg-red-50">
+                  <button type="button" onClick={deleteTicket} className="ui-action flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-red-700 hover:bg-red-50">
                     <Trash2 size={16} /> Xóa cuộc trò chuyện
                   </button>
                 )}
@@ -619,7 +619,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
               type="button"
               onClick={loadOlder}
               disabled={loadingOlder}
-              className="mx-auto mb-1 inline-flex h-8 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 hover:border-blue-200 hover:text-[#003375] disabled:opacity-60"
+              className="ui-action mx-auto mb-1 inline-flex h-8 items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 hover:border-blue-200 hover:text-[#003375] disabled:opacity-60"
             >
               {loadingOlder ? <Loader2 size={14} className="animate-spin" /> : null}
               Tải tin cũ hơn
@@ -632,10 +632,10 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
             return (
               <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[78%] rounded-xl px-3 py-2 text-sm leading-6 ${mine ? 'rounded-br-sm bg-[#003375] text-white' : 'rounded-bl-sm border border-slate-100 bg-white text-slate-800'} ${message.is_internal_note ? 'border-amber-200 bg-amber-50 text-amber-900' : ''}`}>
-                  {message.is_internal_note && <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-amber-700">Ghi chú nội bộ</p>}
-                  {message.body && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
+                  {message.is_internal_note && <p className="ui-secondary mb-1 text-[10px] font-black uppercase tracking-wide text-amber-700">Ghi chú nội bộ</p>}
+                  {message.body && <p className="ui-secondary whitespace-pre-wrap break-words">{message.body}</p>}
                   <AttachmentList attachments={message.attachments} compact />
-                  <p className={`mt-1 text-[11px] font-bold ${mine && !message.is_internal_note ? 'text-blue-100' : 'text-slate-400'}`}>
+                  <p className={`ui-secondary mt-1 text-[11px] font-bold ${mine && !message.is_internal_note ? 'text-blue-100' : 'text-slate-400'}`}>
                     {message.sender_role === 'user' ? 'User' : 'Hỗ trợ'} · {formatDateTime(message.created_at)}
                   </p>
                 </div>
@@ -645,7 +645,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
           {isStaff && isClosed && ticket.resolved_at && (
             <div className="my-2 flex w-full items-center gap-3 px-1">
               <span className="h-px flex-1 bg-emerald-200" />
-              <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-700">
+              <div className="ui-meta inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-700">
                 <CheckCircle2 size={14} />
                 <span>{resolvedByName} đã đánh dấu đã xử lý</span>
                 <span className="font-bold text-emerald-600/70">· {formatDateTime(ticket.resolved_at)}</span>
@@ -667,9 +667,9 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
       <form onSubmit={handleSend} className={`support-chat-input relative shrink-0 border-t px-3 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2.5 sm:rounded-b-xl ${internalNoteMode ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-white'}`}>
         <PendingAttachmentPreview files={pendingFiles} onRemove={removePendingFile} />
         {internalNoteMode && (
-          <div className="mx-auto mb-2 flex max-w-4xl items-center justify-between rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-black text-amber-700">
+          <div className="ui-meta mx-auto mb-2 flex max-w-4xl items-center justify-between rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-black text-amber-700">
             <span>Đang gửi ghi chú nội bộ. User sẽ không nhìn thấy.</span>
-            <button type="button" onClick={() => setInternalNoteMode(false)} className="text-amber-800 hover:underline">Tắt</button>
+            <button type="button" onClick={() => setInternalNoteMode(false)} className="ui-action text-amber-800 hover:underline">Tắt</button>
           </div>
         )}
 
@@ -688,7 +688,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
           <button
             type="button"
             onClick={() => setFileMenuOpen((current) => !current)}
-            className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:text-[#003375]"
+            className="ui-action grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:text-[#003375]"
             aria-label="Đính kèm file"
             title="Đính kèm ảnh hoặc PDF"
           >
@@ -696,10 +696,10 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
           </button>
           {fileMenuOpen && (
             <div className="absolute bottom-16 left-3 z-30 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white text-sm shadow-xl sm:left-auto">
-              <button type="button" onClick={() => { setFileAccept('image/jpeg,image/png,image/webp'); setFileMenuOpen(false); window.setTimeout(() => fileInputRef.current?.click(), 0); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-slate-700 hover:bg-blue-50">
+              <button type="button" onClick={() => { setFileAccept('image/jpeg,image/png,image/webp'); setFileMenuOpen(false); window.setTimeout(() => fileInputRef.current?.click(), 0); }} className="ui-action flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-slate-700 hover:bg-blue-50">
                 <ImageIcon size={16} /> Gửi ảnh
               </button>
-              <button type="button" onClick={() => { setFileAccept('application/pdf'); setFileMenuOpen(false); window.setTimeout(() => fileInputRef.current?.click(), 0); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-slate-700 hover:bg-blue-50">
+              <button type="button" onClick={() => { setFileAccept('application/pdf'); setFileMenuOpen(false); window.setTimeout(() => fileInputRef.current?.click(), 0); }} className="ui-action flex w-full items-center gap-2 px-3 py-2.5 text-left font-bold text-slate-700 hover:bg-blue-50">
                 <FileText size={16} /> Gửi PDF
               </button>
             </div>
@@ -709,14 +709,14 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
               <button
                 type="button"
                 onClick={() => setQuickOpen((current) => !current)}
-                className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:text-[#003375]"
+                className="ui-action grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:text-[#003375]"
                 aria-label="Mở trả lời nhanh"
               >
                 <Slash size={18} />
               </button>
               {quickOpen && (
                 <div className="absolute bottom-12 left-0 z-20 w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-                  <div className="border-b border-slate-100 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-500">Trả lời nhanh</div>
+                  <div className="ui-meta border-b border-slate-100 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-500">Trả lời nhanh</div>
                   {staffQuickReplies.map((item) => (
                     <button
                       key={item}
@@ -725,7 +725,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
                         setReply((current) => appendText(current, item));
                         setQuickOpen(false);
                       }}
-                      className="block w-full border-b border-slate-50 px-3 py-2.5 text-left text-sm font-semibold leading-5 text-slate-700 last:border-b-0 hover:bg-blue-50 hover:text-[#003375]"
+                      className="ui-action block w-full border-b border-slate-50 px-3 py-2.5 text-left text-sm font-semibold leading-5 text-slate-700 last:border-b-0 hover:bg-blue-50 hover:text-[#003375]"
                     >
                       {item}
                     </button>
@@ -739,7 +739,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
             <button
               type="button"
               onClick={() => setInternalNoteMode((current) => !current)}
-              className={`grid h-10 w-10 place-items-center rounded-full border ${internalNoteMode ? 'border-amber-300 bg-amber-100 text-amber-700' : 'border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:text-amber-700'}`}
+              className={`ui-action grid h-10 w-10 place-items-center rounded-full border ${internalNoteMode ? 'border-amber-300 bg-amber-100 text-amber-700' : 'border-slate-200 bg-white text-slate-700 hover:border-amber-200 hover:text-amber-700'}`}
               aria-label="Bật ghi chú nội bộ"
               title="Internal note"
             >
@@ -762,9 +762,9 @@ export const TicketDetailView = ({ ticketId, isStaff = false, canManageTicket = 
             rows={1}
             maxLength={4000}
             placeholder={internalNoteMode ? 'Nhập ghi chú nội bộ, user sẽ không nhìn thấy...' : 'Nhập phản hồi hoặc dán ảnh vào đây...'}
-            className="min-h-[44px] max-h-[120px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#003375] focus:bg-white focus:ring-4 focus:ring-blue-50"
+            className="ui-input min-h-[44px] max-h-[120px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#003375] focus:bg-white focus:ring-4 focus:ring-blue-50"
           />
-          <button disabled={submitting || (!reply.trim() && pendingFiles.length === 0)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#003375] text-white transition active:scale-95 disabled:opacity-50">
+          <button disabled={submitting || (!reply.trim() && pendingFiles.length === 0)} className="ui-action grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#003375] text-white transition active:scale-95 disabled:opacity-50">
             {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={17} />}
           </button>
         </div>

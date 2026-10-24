@@ -47,16 +47,16 @@ interface MobileLearningProps {
 
 const FailedSubjectsNativeModal = ({ subjects, onClose }: { subjects: Subject[]; onClose: () => void }) => (
     <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/35 px-4 pb-4">
-        <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 shadow-2xl">
+        <div className="ui-card-space w-full max-w-[430px] rounded-[24px] bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                    <h2 className="text-lg font-black text-[#0D1B3E]">Môn cần chú ý</h2>
-                    <p className="text-xs font-semibold text-[#7B8AB0]">Các môn có nguy cơ không đạt hoặc cần cải thiện.</p>
+                    <h2 className="ui-section-title text-lg font-black text-[#0D1B3E]">Môn cần chú ý</h2>
+                    <p className="ui-muted ui-secondary text-xs font-semibold text-[#7B8AB0]">Các môn có nguy cơ không đạt hoặc cần cải thiện.</p>
                 </div>
                 <button
                     type="button"
                     onClick={onClose}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+                    className="ui-action flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
                     aria-label="Đóng"
                 >
                     <X size={18} />
@@ -70,7 +70,7 @@ const FailedSubjectsNativeModal = ({ subjects, onClose }: { subjects: Subject[];
                         return (
                             <div key={subject.id} className="rounded-2xl border border-red-100 bg-red-50/60 p-3">
                                 <div className="text-sm font-black text-[#0D1B3E]">{subject.name || 'Môn chưa đặt tên'}</div>
-                                <div className="mt-1 text-xs font-semibold text-red-700">
+                                <div className="ui-meta mt-1 text-xs font-semibold text-red-700">
                                     Điểm TB: {avg === null ? 'Chưa có' : avg.toFixed(1)} · {subject.credits || 0} tín chỉ
                                 </div>
                             </div>
@@ -354,26 +354,26 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
             />
             {pendingTab && (
                 <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/40 px-4 pb-5">
-                    <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 shadow-2xl">
+                    <div className="ui-card-space w-full max-w-[430px] rounded-[24px] bg-white p-5 shadow-2xl">
                         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
                             <X size={22} />
                         </div>
-                        <h2 className="text-lg font-black text-[#0D1B3E]">Bảng điểm chưa được lưu</h2>
-                        <p className="mt-2 text-sm font-semibold leading-6 text-[#7B8AB0]">
+                        <h2 className="ui-section-title text-lg font-black text-[#0D1B3E]">Bảng điểm chưa được lưu</h2>
+                        <p className="ui-muted ui-body mt-2 text-sm font-semibold leading-6 text-[#7B8AB0]">
                             Bạn đang sửa bảng điểm. Nếu chuyển chức năng bây giờ, các thay đổi chưa lưu sẽ bị bỏ.
                         </p>
                         <div className="mt-5 grid grid-cols-2 gap-3">
                             <button
                                 type="button"
                                 onClick={() => setPendingTab(null)}
-                                className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700"
+                                className="ui-action h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700"
                             >
                                 Ở lại sửa
                             </button>
                             <button
                                 type="button"
                                 onClick={confirmPendingTab}
-                                className="h-11 rounded-2xl bg-[#1A56FF] text-sm font-black text-white"
+                                className="ui-action h-11 rounded-2xl bg-[#1A56FF] text-sm font-black text-white"
                             >
                                 Rời đi
                             </button>
@@ -390,19 +390,19 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
             />
             {FEATURE_FORECAST_TOOLS && showTargetModal && (
                 <Overlay className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/35 px-3 pb-[calc(92px+env(safe-area-inset-bottom))] animate-fadeIn" onClick={() => setShowTargetModal(false)}>
-                    <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 pb-6 shadow-2xl animate-slideUp" onClick={(event) => event.stopPropagation()}>
+                    <div className="ui-card-space w-full max-w-[430px] rounded-[24px] bg-white p-5 pb-6 shadow-2xl animate-slideUp" onClick={(event) => event.stopPropagation()}>
                         <div className="-mt-1 mb-3 flex justify-center">
                             <div className="h-1.5 w-12 rounded-full bg-[#D1D7E3]" />
                         </div>
                         <div className="mb-4 flex items-start justify-between gap-3">
                             <div>
-                                <h2 className="text-lg font-black text-[#0D1B3E]">Dự báo mục tiêu</h2>
-                                <p className="text-xs font-semibold text-[#7B8AB0]">Ước tính điểm cần đạt để chạm GPA mục tiêu.</p>
+                                <h2 className="ui-section-title text-lg font-black text-[#0D1B3E]">Dự báo mục tiêu</h2>
+                                <p className="ui-muted ui-secondary text-xs font-semibold text-[#7B8AB0]">Ước tính điểm cần đạt để chạm GPA mục tiêu.</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={() => setShowTargetModal(false)}
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+                                className="ui-action flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500"
                                 aria-label="Đóng"
                             >
                                 <X size={18} />
@@ -411,15 +411,15 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
 
                         <div className="grid grid-cols-3 gap-2">
                             <div className="rounded-2xl bg-[#F8FAFD] p-3">
-                                <div className="text-[10px] font-black uppercase text-[#7B8AB0]">Hiện tại</div>
+                                <div className="ui-muted ui-meta text-[10px] font-black uppercase text-[#7B8AB0]">Hiện tại</div>
                                 <div className="mt-2 text-xl font-black text-[#0D1B3E]">{stats.gpa4.toFixed(2)}</div>
                             </div>
                             <div className="rounded-2xl bg-[#EEF2FF] p-4">
-                                <div className="text-[10px] font-black uppercase text-[#7B8AB0]">Mục tiêu</div>
+                                <div className="ui-muted ui-meta text-[10px] font-black uppercase text-[#7B8AB0]">Mục tiêu</div>
                                 <div className="mt-2 text-xl font-black text-[#1A56FF]">{targetGPA.toFixed(2)}</div>
                             </div>
                             <div className="rounded-2xl bg-[#EDFAF3] p-4">
-                                <div className="text-[10px] font-black uppercase text-[#7B8AB0]">Cần mỗi TC</div>
+                                <div className="ui-muted ui-meta text-[10px] font-black uppercase text-[#7B8AB0]">Cần mỗi TC</div>
                                 <div className="mt-2 text-xl font-black text-[#00A56F]">
                                     {requiredAnalysis?.isTargetAchieved
                                         ? 'Đã đạt'
@@ -430,7 +430,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                             </div>
                         </div>
 
-                        <label className="mt-4 block text-[11px] font-black uppercase tracking-wide text-[#7B8AB0]">Chỉnh GPA mục tiêu</label>
+                        <label className="ui-muted ui-secondary mt-4 block text-[11px] font-black uppercase tracking-wide text-[#7B8AB0]">Chỉnh GPA mục tiêu</label>
                         <input
                             type="range"
                             min="2"
@@ -448,9 +448,9 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                                 step="0.01"
                                 value={targetGPA}
                                 onChange={(event) => props.onTargetChange(parseFloat(event.target.value) || 0)}
-                                className="h-11 w-28 rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-sm font-black text-[#0D1B3E] outline-none"
+                                className="ui-input h-11 w-28 rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-sm font-black text-[#0D1B3E] outline-none"
                             />
-                            <p className="text-xs font-semibold leading-relaxed text-[#7B8AB0]">
+                            <p className="ui-meta ui-muted text-xs font-semibold leading-relaxed text-[#7B8AB0]">
                                 {requiredAnalysis?.isTargetAchieved
                                     ? 'Bạn đã đạt GPA mục tiêu với dữ liệu hiện tại.'
                                     : requiredAnalysis?.isPossible

@@ -1,0 +1,27 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5174/
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit transcript toolbar responsive actions and keyboard (23112.0265ms)
+Loading /dashboard?failSaveOnce=1 student
+Navigated /dashboard?failSaveOnce=1
+Mode /dashboard?failSaveOnce=1
+Fonts /dashboard?failSaveOnce=1
+Rendered /dashboard?failSaveOnce=1
+✔ webkit transcript toolbar save retry preserves draft and cancel (9527.7093ms)
+Loading /dashboard?emptyTranscript=1 student
+Navigated /dashboard?emptyTranscript=1
+Mode /dashboard?emptyTranscript=1
+Fonts /dashboard?emptyTranscript=1
+Rendered /dashboard?emptyTranscript=1
+✔ webkit transcript toolbar empty state and existing import flow (7913.3003ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 44634.6694

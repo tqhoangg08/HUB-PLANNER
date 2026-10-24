@@ -1,0 +1,41 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium transcript toolbar responsive actions and keyboard (8618.9367ms)
+Loading /dashboard?failSaveOnce=1 student
+Navigated /dashboard?failSaveOnce=1
+Mode /dashboard?failSaveOnce=1
+Fonts /dashboard?failSaveOnce=1
+Rendered /dashboard?failSaveOnce=1
+✔ chromium transcript toolbar save retry preserves draft and cancel (4919.6868ms)
+Loading /dashboard?emptyTranscript=1 student
+Navigated /dashboard?emptyTranscript=1
+Mode /dashboard?emptyTranscript=1
+Fonts /dashboard?emptyTranscript=1
+Rendered /dashboard?emptyTranscript=1
+✔ chromium transcript toolbar empty state and existing import flow (3905.3372ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ chromium accept /dashboard browser student (9461.6657ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ chromium accept /dashboard browser guest (9646.319ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42022.8369

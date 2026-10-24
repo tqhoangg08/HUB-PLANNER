@@ -1,0 +1,27 @@
+.semester-header { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; }
+.semester-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.semester-title-picker { min-height: 36px; border-bottom: 1px dashed #cbd5e1; }
+.semester-title-caption { display: flex; align-items: center; gap: 8px; padding: 4px 24px 4px 0; }
+.semester-title-copy { min-width: 0; flex: 1; font-size: 1.214286rem; font-weight: 600; line-height: 1.4; overflow-wrap: break-word; color: #003375; }
+.semester-title-copy--invalid { color: #dc2626; }
+.semester-header .semester-title-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+.semester-title-picker:focus-within { outline: 2px solid #1d4ed8; outline-offset: 2px; border-radius: 4px; }
+.semester-header .semester-remove { flex-shrink: 0; min-width: 36px; min-height: 36px; margin: 0; }
+.semester-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
+.semester-metrics { display: flex; align-items: stretch; gap: 8px; flex: 1 1 100%; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; }
+.semester-metrics:focus-visible { outline: 2px solid #1d4ed8; outline-offset: -2px; border-radius: 4px; }
+.semester-header .semester-metric { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; gap: 4px; padding: 4px 8px; white-space: nowrap; }
+.semester-header .semester-metric--training { padding-block: 0; padding-right: 4px; }
+.semester-header .semester-training-input { flex-shrink: 0; width: 3.5em; min-width: 44px; min-height: 32px; padding: 0; }
+@media (max-width: 767px) {
+  .semester-title-copy { font-size: var(--ui-font-input); }
+  .semester-title-picker { min-height: 44px; }
+  .semester-header .semester-remove { min-width: 44px; min-height: 44px; }
+  .semester-header .semester-training-input { min-height: max(44px, 2.75em); }
+}
+@media (min-width: 1200px) {
+  .semester-header { flex-direction: row; flex-wrap: wrap; align-items: center; padding-inline: 20px; }
+  .semester-heading { flex: 1 1 300px; }
+  .semester-summary { flex: 0 1 auto; }
+  .semester-metrics { flex-basis: auto; }
+}

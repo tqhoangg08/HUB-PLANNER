@@ -499,14 +499,14 @@ const NotificationBell = ({ currentUserId }) => {
         <span className="font-bold text-gray-700 text-sm">Thông báo</span>
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <button type="button" onClick={markAllRead} className="text-xs text-[#003375] hover:underline font-medium">
+            <button type="button" onClick={markAllRead} className="ui-action text-xs text-[#003375] hover:underline font-medium">
               Đánh dấu đã đọc
             </button>
           )}
           <button
             type="button"
             onClick={() => setShowSettings((prev) => !prev)}
-            className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors ${showSettings ? 'border-[#003375] bg-blue-50 text-[#003375]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}
+            className={`ui-action grid h-8 w-8 place-items-center rounded-lg border transition-colors ${showSettings ? 'border-[#003375] bg-blue-50 text-[#003375]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}
             aria-label="Cài đặt thông báo"
           >
             <Settings size={16} />
@@ -516,7 +516,7 @@ const NotificationBell = ({ currentUserId }) => {
 
       {showSettings && (
         <div className="border-b border-gray-100 bg-white p-3">
-          <p className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">Cài đặt thông báo</p>
+          <p className="ui-secondary mb-2 text-xs font-black uppercase tracking-wide text-gray-500">Cài đặt thông báo</p>
           <div className="space-y-2">
             {preferenceItems.map((item) => {
               const Icon = item.icon;
@@ -530,7 +530,7 @@ const NotificationBell = ({ currentUserId }) => {
                   <button
                     type="button"
                     onClick={() => togglePreference(item.key)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-[#003375]' : 'bg-gray-300'}`}
+                    className={`ui-action relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-[#003375]' : 'bg-gray-300'}`}
                     aria-pressed={enabled}
                   >
                     <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
@@ -543,12 +543,12 @@ const NotificationBell = ({ currentUserId }) => {
                 type="button"
                 onClick={handleTestPush}
                 disabled={isSendingTestPush || !currentUserId}
-                className="w-full rounded-lg bg-[#003375] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#00265a] disabled:cursor-not-allowed disabled:opacity-50"
+                className="ui-action w-full rounded-lg bg-[#003375] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#00265a] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSendingTestPush ? 'Đang gửi...' : 'Gửi thông báo thử'}
               </button>
               {testPushStatus && (
-                <p className="mt-2 text-xs leading-relaxed text-gray-600" role="status">{testPushStatus}</p>
+                <p className="ui-secondary mt-2 text-xs leading-relaxed text-gray-600" role="status">{testPushStatus}</p>
               )}
             </div>
           </div>
@@ -570,8 +570,8 @@ const NotificationBell = ({ currentUserId }) => {
               >
                 <div className="relative shrink-0">{avatar}</div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-800 leading-snug">{message}</p>
-                  <p className="text-[10px] text-gray-400 mt-1 font-medium">
+                  <p className="ui-secondary text-xs sm:text-sm text-gray-800 leading-snug">{message}</p>
+                  <p className="ui-muted ui-secondary text-[10px] text-gray-400 mt-1 font-medium">
                     {formatTime(notif.created_at)} - {formatDate(notif.created_at)}
                   </p>
                 </div>
@@ -585,15 +585,15 @@ const NotificationBell = ({ currentUserId }) => {
       {!isPushEnabled && isPushNotificationSyncAvailable() && (
         <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-gray-700">Thông báo đẩy</span>
-            <span className="text-[10px] text-gray-500">Nhận thông báo khi tắt web</span>
+            <span className="ui-meta text-xs font-bold text-gray-700">Thông báo đẩy</span>
+            <span className="ui-meta text-[10px] text-gray-500">Nhận thông báo khi tắt web</span>
           </div>
 
           <button
             type="button"
             onClick={handleTogglePush}
             disabled={isLoadingPush}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full bg-gray-300 transition-colors duration-300 focus:outline-none ${
+            className={`ui-action relative inline-flex h-5 w-9 items-center rounded-full bg-gray-300 transition-colors duration-300 focus:outline-none ${
               isLoadingPush ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
@@ -615,11 +615,11 @@ const NotificationBell = ({ currentUserId }) => {
           event.preventDefault();
           event.stopPropagation();
         }}
-        className="p-3 relative hover:bg-gray-100 rounded-full transition-colors mt-1 pointer-events-auto touch-manipulation"
+        className="ui-action ui-icon-control p-3 relative hover:bg-gray-100 rounded-full transition-colors mt-1 pointer-events-auto touch-manipulation"
       >
         <Bell size={20} className="text-gray-600" />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 h-4 w-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+          <span className="ui-meta absolute top-1 right-1 h-4 w-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

@@ -1,0 +1,11 @@
+✔ chromium 375x667: full collapse, direct filters, results, pagination, focus and persistence (56681.8843ms)
+✔ chromium: plan A/B, week/month, result selection and PWA remain available (25660.8914ms)
+✔ chromium: all sidebar fields, advanced input, chip removals and PDF entry survive collapse (34747.5265ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 167422.7206

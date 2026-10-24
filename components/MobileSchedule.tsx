@@ -1508,8 +1508,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const studentEditInputClass = "w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50";
   const renderStudentEditField = (label: string, field: React.ReactNode) => (
-    <label className="block space-y-1">
-      <span className="block text-[11px] font-black uppercase tracking-wide text-gray-500">{label}</span>
+    <label className="ui-secondary block space-y-1">
+      <span className="ui-meta block text-[11px] font-black uppercase tracking-wide text-gray-500">{label}</span>
       {field}
     </label>
   );
@@ -1560,12 +1560,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
           type="button"
           onClick={() => onPageChange(Math.max(0, page - 1))}
           disabled={page <= 0 || isLoading}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
+          className="ui-action flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
           aria-label="Trang trước"
         >
           <ChevronLeft size={16} />
         </button>
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11px] font-black text-[#7B8AB0]">
+        <div className="ui-muted ui-meta flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11px] font-black text-[#475569]">
           <span>Trang</span>
           <input
             type="number"
@@ -1573,7 +1573,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             max={totalPages}
             value={currentPage}
             onChange={(event) => goToPage(Number(event.target.value) || 1)}
-            className="h-9 w-14 rounded-xl border border-[#E5EAF4] bg-white text-center text-[12px] font-black text-[#0D1B3E] outline-none"
+            className="ui-input h-9 w-14 rounded-xl border border-[#E5EAF4] bg-white text-center text-[12px] font-black text-[#0D1B3E] outline-none"
           />
           <span>/ {totalPages}</span>
         </div>
@@ -1581,7 +1581,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
           type="button"
           onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
           disabled={page >= totalPages - 1 || isLoading}
-          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
+          className="ui-action flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
           aria-label="Trang sau"
         >
           <ChevronRight size={16} />
@@ -1593,26 +1593,26 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   // mx-0 = khop padding cua MobileDashboardNative; mx-1/mx-2 = hep hon; -mx-1/-mx-2 = sat mep hon.
   const scheduleSideSpacingClass = 'mx-0';
   const nextClassCard = isAuthenticated ? (
-    <div className="mb-3 rounded-[22px] bg-gradient-to-br from-[#1A56FF] to-[#597DFF] p-4 text-white shadow-[0_10px_24px_rgba(26,86,255,0.24)]">
+    <div className="mb-3 rounded-[22px] bg-gradient-to-br from-[#1646B3] to-[#2352C9] p-4 text-white shadow-[0_10px_24px_rgba(26,86,255,0.24)]">
         <div className="mb-3 flex items-start justify-between">
             <div>
                 <div className="text-[15px] font-black">Ca học tiếp theo</div>
-                <div className="mt-1 text-[11px] font-semibold opacity-80">{nextClass ? formatDateStr(nextClass.date) : 'Chưa có lịch sắp tới'}</div>
+                <div className="ui-meta mt-1 text-[11px] font-semibold">{nextClass ? formatDateStr(nextClass.date) : 'Chưa có lịch sắp tới'}</div>
             </div>
-            <div className="rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[10px] font-black">
+            <div className="ui-meta rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[10px] font-black">
                 {nextClass ? getCourseTimeLabel(nextClass.details?.shift)?.split(' - ')[0] || 'Sắp tới' : 'Trống'}
             </div>
         </div>
         {nextClass ? (
-            <div onClick={() => setSelectedCourseInfo({ course: nextClass.course, details: nextClass.details, dateStr: formatDateStr(nextClass.date) })} className="rounded-2xl border border-white/25 bg-white/15 p-3">
+            <div onClick={() => setSelectedCourseInfo({ course: nextClass.course, details: nextClass.details, dateStr: formatDateStr(nextClass.date) })} className="ui-card-space rounded-2xl border border-white/25 bg-white/15 p-3">
                 <div className="text-[13px] font-black leading-snug">{nextClass.course.subject_name}</div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><Clock size={11} className="mr-1 inline" />{getCourseTimeLabel(nextClass.details?.shift) || getShiftDisplay(nextClass.details?.shift)}</span>
-                    <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><MapPin size={11} className="mr-1 inline" />{nextClass.details?.room}</span>
+                    <span className="ui-meta rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><Clock size={11} className="mr-1 inline" />{getCourseTimeLabel(nextClass.details?.shift) || getShiftDisplay(nextClass.details?.shift)}</span>
+                    <span className="ui-meta rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><MapPin size={11} className="mr-1 inline" />{nextClass.details?.room}</span>
                 </div>
             </div>
         ) : (
-            <div className="rounded-2xl border border-white/25 bg-white/15 p-3 text-[12px] font-bold opacity-90">Bạn chưa có môn nào trong học kỳ này.</div>
+            <div className="ui-card-space rounded-2xl border border-white/25 bg-white/15 p-3 ui-secondary text-[12px] font-bold">Bạn chưa có môn nào trong học kỳ này.</div>
         )}
     </div>
   ) : null;
@@ -1622,10 +1622,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         <div className="hidden">
             <div className="flex items-start justify-between gap-4">
                 <div>
-                    <h1 className="text-[30px] font-black leading-none tracking-normal text-[#0D1B3E]">Học tập</h1>
-                    <p className="mt-1 text-[13px] font-medium text-[#7B8AB0]">Lịch học & Thi</p>
+                    <h1 className="ui-page-title text-[30px] font-black leading-none tracking-normal text-[#0D1B3E]">Học tập</h1>
+                    <p className="ui-muted ui-secondary mt-1 text-[13px] font-medium text-[#475569]">Lịch học & Thi</p>
                 </div>
-                <button onClick={fetchMySchedule} className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(0,0,0,0.07)]">
+                <button onClick={fetchMySchedule} className="ui-action relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(0,0,0,0.07)]">
                     <Bell size={20} strokeWidth={2.2} />
                     {todayScheduleCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-[#F2F4F8] bg-[#FF3B5C]" />}
                 </button>
@@ -1633,10 +1633,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         </div>
 
         <div className="hidden">
-            <button className="flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-extrabold text-[#9AA5C0]">
+            <button className="ui-muted ui-action flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-extrabold text-[#9AA5C0]">
                 <BarChart3 size={14} /> Điểm số & Lộ trình
             </button>
-            <button className="flex items-center justify-center gap-1.5 rounded-xl bg-[#1A56FF] py-3 text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(26,86,255,0.35)]">
+            <button className="ui-action flex items-center justify-center gap-1.5 rounded-xl bg-[#1A56FF] py-3 text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(26,86,255,0.35)]">
                 <CalendarDays size={14} /> Lịch học & Thi
             </button>
         </div>
@@ -1644,8 +1644,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         <div className={scheduleSideSpacingClass}>
         {canManageSchedule && !forceManagementView && (
             <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-white p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-                <button onClick={() => { playClick(); setIsAdminView(false); }} className={`rounded-xl py-2 text-xs font-black transition-all ${!isAdminView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Giao diện SV</button>
-                <button onClick={() => { playClick(); setIsAdminView(true); }} className={`rounded-xl py-2 text-xs font-black transition-all ${isAdminView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Quản lý</button>
+                <button onClick={() => { playClick(); setIsAdminView(false); }} className={`ui-action rounded-xl py-2 text-xs font-black transition-all ${!isAdminView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#475569]'}`}>Giao diện SV</button>
+                <button onClick={() => { playClick(); setIsAdminView(true); }} className={`ui-action rounded-xl py-2 text-xs font-black transition-all ${isAdminView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#475569]'}`}>Quản lý</button>
             </div>
         )}
 
@@ -1654,14 +1654,14 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         </div>
 
         {forceManagementView && (
-            <div className="mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+            <div className="ui-card-space mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
                 <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#1A56FF]">
                         <Settings size={18} />
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="text-[13.5px] font-black text-[#0D1B3E]">Quản lý lịch học & thi</div>
-                        <div className="mt-0.5 text-[11px] font-semibold text-[#7B8AB0]">Danh sách học phần hệ thống theo học kỳ và đợt.</div>
+                        <div className="ui-muted ui-meta mt-0.5 text-[11px] font-semibold text-[#475569]">Danh sách học phần hệ thống theo học kỳ và đợt.</div>
                     </div>
                 </div>
             </div>
@@ -1669,24 +1669,24 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
         {!forceManagementView && (
         <>
-        <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.8px] text-[#9AA5C0]">Lịch học hôm nay</div>
+        <div className="ui-muted ui-meta mb-3 text-[11px] font-bold uppercase tracking-[0.8px] text-[#9AA5C0]">Lịch học hôm nay</div>
 
         {nextClassCard}
 
         <div className="mb-3 grid grid-cols-2 gap-3">
-            <div onClick={() => isAuthenticated && setIsMyScheduleModalOpen(true)} className="cursor-pointer rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(0,0,0,0.05)] active:scale-[0.98]">
-                <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+            <div onClick={() => isAuthenticated && setIsMyScheduleModalOpen(true)} className="ui-card-space cursor-pointer rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(0,0,0,0.05)] active:scale-[0.98]">
+                <div className="ui-muted ui-meta flex items-center justify-between text-[11px] font-bold text-[#475569]">
                     Môn đã lưu
                     <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"><BookPlus size={13} /></span>
                 </div>
                 <div className="mt-3 text-2xl font-black tracking-normal text-[#1A56FF]">{currentSemesterSchedule.length}</div>
             </div>
-            <div className="rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
-                <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+            <div className="ui-card-space rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <div className="ui-muted ui-meta flex items-center justify-between text-[11px] font-bold text-[#475569]">
                     Lịch hôm nay
-                    <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[#EDFAF3] text-[#00C07F]"><Clock size={13} /></span>
+                    <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[#EDFAF3] text-[#007A50]"><Clock size={13} /></span>
                 </div>
-                <div className="mt-3 text-2xl font-black tracking-normal text-[#00C07F]">{todayScheduleCount} ca</div>
+                <div className="mt-3 text-2xl font-black tracking-normal text-[#007A50]">{todayScheduleCount} ca</div>
             </div>
         </div>
 
@@ -1696,22 +1696,22 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         </>
         )}
 
-        <div className="mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+        <div className="ui-card-space mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
             <div className="mb-2.5 flex items-center justify-between">
-                <h2 className="flex items-center gap-1.5 text-[13.5px] font-black text-[#0D1B3E]">
+                <h2 className="ui-section-title flex items-center gap-1.5 text-[13.5px] font-black text-[#0D1B3E]">
                     <Search size={16} className="text-[#1A56FF]" /> Tìm kiếm & Lọc
                 </h2>
-                <button onClick={() => fetchCourses({ force: true })} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]">
+                <button onClick={() => fetchCourses({ force: true })} className="ui-action flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]">
                     <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
                 </button>
             </div>
             <div className="mb-2 grid grid-cols-[1fr_0.7fr] gap-2">
-                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
+                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="ui-input h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
                     {SEMESTER_OPTIONS.map(option => (
                         <option key={option.value} value={option.value}>{option.label}</option>
                     ))}
                 </select>
-                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
+                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="ui-input h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
                     <option value="all">Mọi đợt</option>
                     <option value="1">Đợt 1</option>
                     <option value="2">Đợt 2</option>
@@ -1729,7 +1729,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         setSearchTerm(nextSearchTerm);
                         setAdminCoursesPage(0);
                     }}
-                    className="h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none disabled:cursor-not-allowed"
+                    className="ui-input h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none disabled:cursor-not-allowed"
                 />
             </div>
             {!forceManagementView && (
@@ -1773,7 +1773,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                 setAdminCoursesPage(0);
                             }
                         }}
-                        className={`shrink-0 rounded-full px-3.5 py-2 text-[10.5px] font-black ${adminTab === tab.id ? 'bg-[#1A56FF] text-white shadow-[0_6px_14px_rgba(26,86,255,0.25)]' : 'bg-white text-[#7B8AB0] shadow-[0_2px_10px_rgba(0,0,0,0.05)]'}`}
+                        className={`ui-action shrink-0 rounded-full px-3.5 py-2 text-[10.5px] font-black ${adminTab === tab.id ? 'bg-[#1A56FF] text-white shadow-[0_6px_14px_rgba(26,86,255,0.25)]' : 'bg-white text-[#475569] shadow-[0_2px_10px_rgba(0,0,0,0.05)]'}`}
                     >
                         {tab.label}
                     </button>
@@ -1782,7 +1782,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         )}
 
         {isAuthenticated && effectiveAdminView && adminScheduleError && (
-            <div className="mb-3 rounded-[18px] border border-red-100 bg-red-50 p-3 text-[11px] font-bold text-red-600">
+            <div className="ui-danger-text ui-meta mb-3 rounded-[18px] border border-red-100 bg-red-50 p-3 text-[11px] font-bold text-red-600">
                 {adminScheduleError}
             </div>
         )}
@@ -1795,15 +1795,15 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     setAdminEditData({ is_user_added: adminTab === 'user', phase: selectedPhase === 'all' ? '1' : selectedPhase, semester: selectedSemester });
                     setIsAdminEditModalOpen(true);
                 }}
-                className="mb-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#1A56FF] text-[12px] font-black text-white shadow-[0_8px_20px_rgba(26,86,255,0.22)]"
+                className="ui-action mb-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#1A56FF] text-[12px] font-black text-white shadow-[0_8px_20px_rgba(26,86,255,0.22)]"
             >
                 <Plus size={16} /> Thêm môn {adminTab === 'user' ? 'sinh viên' : 'hệ thống'}
             </button>
         )}
 
         {isAuthenticated && availableCourses.length > 0 && (!effectiveAdminView || adminTab === 'system' || adminTab === 'user') && (
-            <div className="mb-0 space-y-2 overflow-visible rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
-                <p className="px-1 text-[11px] font-bold text-[#7B8AB0]">
+            <div className="ui-card-space mb-0 space-y-2 overflow-visible rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <p className="ui-muted ui-secondary px-1 text-[11px] font-bold text-[#475569]">
                     {searchTerm.trim() ? 'Kết quả tìm kiếm' : '10 môn gợi ý'} ({searchTerm.trim() ? adminCoursesTotal : availableCourses.length})
                 </p>
                 {availableCourses
@@ -1812,12 +1812,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     const color = getColorForCourse(course.id);
                     return (
                         <div key={course.id} onClick={() => setSelectedCourseInfo({ course })} className={`relative rounded-[18px] border-l-4 ${color.border} bg-[#F8FAFD] p-3`}>
-                            {!forceManagementView && <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="absolute right-3 top-3 rounded-full bg-[#1A56FF] p-1.5 text-white"><Plus size={14} /></button>}
-                            <h3 className="pr-9 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{course.subject_name}</h3>
+                            {!forceManagementView && <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="ui-action absolute right-3 top-3 rounded-full bg-[#1A56FF] p-1.5 text-white"><Plus size={14} /></button>}
+                            <h3 className="ui-card-title pr-9 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{course.subject_name}</h3>
                             <div className="mt-2 flex flex-wrap gap-1.5">
-                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.course_code}</span>
-                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">T{course.day_of_week} • {course.shift}</span>
-                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">P.{course.room}</span>
+                                <span className="ui-numeric rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.course_code}</span>
+                                <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">T{course.day_of_week} • {course.shift}</span>
+                                <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">P.{course.room}</span>
                             </div>
                             {effectiveAdminView && (
                                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1829,7 +1829,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                             setAdminEditData(course);
                                             setIsAdminEditModalOpen(true);
                                         }}
-                                        className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]"
+                                        className="ui-action flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]"
                                     >
                                         <Edit size={14} /> Chỉnh sửa
                                     </button>
@@ -1840,7 +1840,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                                 event.stopPropagation();
                                                 handleAdminDeleteCourse(course.id);
                                             }}
-                                            className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-red-50 text-[11px] font-black text-red-600"
+                                            className="ui-danger-text ui-action flex h-9 items-center justify-center gap-1.5 rounded-xl bg-red-50 text-[11px] font-black text-red-600"
                                         >
                                             <Trash2 size={14} /> Xóa
                                         </button>
@@ -1856,23 +1856,23 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         )}
 
         {isAuthenticated && effectiveAdminView && adminTab === 'requested' && (
-            <div className="mb-0 space-y-2 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
-                <p className="px-1 text-[11px] font-bold text-[#7B8AB0]">Yêu cầu thêm môn ({courseRequestsTotal})</p>
+            <div className="ui-card-space mb-0 space-y-2 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <p className="ui-muted ui-secondary px-1 text-[11px] font-bold text-[#475569]">Yêu cầu thêm môn ({courseRequestsTotal})</p>
                 {isLoading ? (
-                    <div className="py-6 text-center text-xs font-bold text-[#7B8AB0]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải yêu cầu...</div>
+                    <div className="ui-muted ui-meta py-6 text-center text-xs font-bold text-[#475569]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải yêu cầu...</div>
                 ) : courseRequests.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#7B8AB0]">Không có yêu cầu đang chờ.</div>
+                    <div className="ui-muted ui-meta rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#475569]">Không có yêu cầu đang chờ.</div>
                 ) : courseRequests.map(request => (
                     <div key={request.id} className="rounded-[18px] bg-[#F8FAFD] p-3">
-                        <h3 className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">{request.subject_name}</h3>
+                        <h3 className="ui-card-title text-[12.5px] font-black leading-snug text-[#0D1B3E]">{request.subject_name}</h3>
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                            <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.course_code}</span>
-                            <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.semester}</span>
-                            <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">SV {getCourseRequestStudentCode(request)}</span>
-                            {request.instructor && <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.instructor}</span>}
+                            <span className="ui-numeric rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.course_code}</span>
+                            <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.semester}</span>
+                            <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">SV {getCourseRequestStudentCode(request)}</span>
+                            {request.instructor && <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.instructor}</span>}
                         </div>
                         {(request.scheduleSessions || []).length > 0 && (
-                            <div className="mt-2 rounded-xl border border-[#DDE3F0] bg-white p-2 text-[10.5px] leading-relaxed text-[#56627B]">
+                            <div className="ui-meta mt-2 rounded-xl border border-[#DDE3F0] bg-white p-2 text-[10.5px] leading-relaxed text-[#56627B]">
                                 {(request.scheduleSessions || []).map((session, sessionIndex) => <p key={sessionIndex}><span className="font-black text-[#0D1B3E]">Buổi {sessionIndex + 1}: </span>{formatScheduleSession(session).join(' · ')}</p>)}
                             </div>
                         )}
@@ -1886,7 +1886,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         variant: 'warning',
                                     });
                                 }}
-                                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-[10px] font-black text-amber-700"
+                                className="ui-action mt-2 inline-flex h-8 items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-[10px] font-black text-amber-700"
                             >
                                 <AlertTriangle size={13} />
                                 Trùng môn hệ thống: {request.duplicate_course.course_code}
@@ -1894,8 +1894,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         )}
                         {!isAuditor && (
                             <div className="mt-3 grid grid-cols-2 gap-2">
-                                <button type="button" onClick={() => openCourseRequestEditor(request)} className="h-9 rounded-xl bg-[#1A56FF] text-[11px] font-black text-white">Sửa & thêm</button>
-                                <button type="button" onClick={() => rejectCourseRequest(request)} className="h-9 rounded-xl bg-red-50 text-[11px] font-black text-red-600">Từ chối</button>
+                                <button type="button" onClick={() => openCourseRequestEditor(request)} className="ui-action h-9 rounded-xl bg-[#1A56FF] text-[11px] font-black text-white">Sửa & thêm</button>
+                                <button type="button" onClick={() => rejectCourseRequest(request)} className="ui-danger-text ui-action h-9 rounded-xl bg-red-50 text-[11px] font-black text-red-600">Từ chối</button>
                             </div>
                         )}
                     </div>
@@ -1905,21 +1905,21 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         )}
 
         {isAuthenticated && effectiveAdminView && adminTab === 'user_changed' && (
-            <div className="mb-0 space-y-2 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
-                <p className="px-1 text-[11px] font-bold text-[#7B8AB0]">Môn sinh viên đã chỉnh ({changedCoursesTotal})</p>
+            <div className="ui-card-space mb-0 space-y-2 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <p className="ui-muted ui-secondary px-1 text-[11px] font-bold text-[#475569]">Môn sinh viên đã chỉnh ({changedCoursesTotal})</p>
                 {isLoading ? (
-                    <div className="py-6 text-center text-xs font-bold text-[#7B8AB0]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải dữ liệu...</div>
+                    <div className="ui-muted ui-meta py-6 text-center text-xs font-bold text-[#475569]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải dữ liệu...</div>
                 ) : changedUserScheduleCourses.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#7B8AB0]">Không có môn sinh viên tự chỉnh.</div>
+                    <div className="ui-muted ui-meta rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#475569]">Không có môn sinh viên tự chỉnh.</div>
                 ) : changedUserScheduleCourses.map(course => {
                     const diffs = getChangedCourseDiffs(course);
                     return (
-                        <button key={`${course.user_schedule_id}-${course.id}`} type="button" onClick={() => setSelectedChangedCourse(course)} className="w-full rounded-[18px] bg-[#F8FAFD] p-3 text-left">
-                            <h3 className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{course.subject_name}</h3>
+                        <button key={`${course.user_schedule_id}-${course.id}`} type="button" onClick={() => setSelectedChangedCourse(course)} className="ui-action w-full rounded-[18px] bg-[#F8FAFD] p-3 text-left">
+                            <h3 className="ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{course.subject_name}</h3>
                             <div className="mt-2 flex flex-wrap gap-1.5">
-                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.course_code}</span>
-                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.user?.full_name || course.user?.student_code || 'Sinh viên'}</span>
-                                <span className="rounded-full bg-blue-50 px-2 py-1 text-[9.5px] font-black text-[#1A56FF]">{diffs.length} trường khác</span>
+                                <span className="ui-numeric rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.course_code}</span>
+                                <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.user?.full_name || course.user?.student_code || 'Sinh viên'}</span>
+                                <span className="ui-meta rounded-full bg-blue-50 px-2 py-1 text-[9.5px] font-black text-[#1A56FF]">{diffs.length} trường khác</span>
                             </div>
                         </button>
                     );
@@ -1929,25 +1929,25 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         )}
 
         {isAuthenticated && effectiveAdminView && adminTab === 'student_schedules' && (
-            <div className="mb-0 space-y-2 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+            <div className="ui-card-space mb-0 space-y-2 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
                 {selectedStudentSchedule ? (
                     <>
-                        <button type="button" onClick={() => { setSelectedStudentSchedule(null); setSelectedStudentCourses([]); }} className="mb-1 flex items-center gap-1 text-[11px] font-black text-[#1A56FF]"><ChevronLeft size={14} /> Quay lại danh sách</button>
+                        <button type="button" onClick={() => { setSelectedStudentSchedule(null); setSelectedStudentCourses([]); }} className="ui-action mb-1 flex items-center gap-1 text-[11px] font-black text-[#1A56FF]"><ChevronLeft size={14} /> Quay lại danh sách</button>
                         <div className="rounded-[18px] bg-emerald-50 p-3">
-                            <h3 className="text-[13px] font-black text-[#0D1B3E]">{selectedStudentSchedule.full_name || 'Sinh viên'}</h3>
-                            <p className="mt-1 text-[10.5px] font-bold text-[#7B8AB0]">{selectedStudentSchedule.student_code || selectedStudentSchedule.email}</p>
+                            <h3 className="ui-card-title text-[13px] font-black text-[#0D1B3E]">{selectedStudentSchedule.full_name || 'Sinh viên'}</h3>
+                            <p className="ui-muted ui-secondary mt-1 text-[10.5px] font-bold text-[#475569]">{selectedStudentSchedule.student_code || selectedStudentSchedule.email}</p>
                         </div>
                         {isLoading ? (
-                            <div className="py-6 text-center text-xs font-bold text-[#7B8AB0]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải TKB...</div>
+                            <div className="ui-muted ui-meta py-6 text-center text-xs font-bold text-[#475569]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải TKB...</div>
                         ) : selectedStudentCourses.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#7B8AB0]">Sinh viên chưa lưu môn trong học kỳ này.</div>
+                            <div className="ui-muted ui-meta rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#475569]">Sinh viên chưa lưu môn trong học kỳ này.</div>
                         ) : selectedStudentCourses.map(course => (
                             <div key={`${course.user_schedule_id}-${course.id}`} className="rounded-[18px] bg-[#F8FAFD] p-3">
-                                <h3 className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{course.subject_name}</h3>
+                                <h3 className="ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{course.subject_name}</h3>
                                 <div className="mt-2 flex flex-wrap gap-1.5">
-                                    <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.course_code}</span>
-                                    <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">T{course.day_of_week} • {course.shift}</span>
-                                    <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">P.{course.room}</span>
+                                    <span className="ui-numeric rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.course_code}</span>
+                                    <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">T{course.day_of_week} • {course.shift}</span>
+                                    <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">P.{course.room}</span>
                                 </div>
                             </div>
                         ))}
@@ -1959,11 +1959,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     </>
                 ) : (
                     <>
-                        <p className="px-1 text-[11px] font-bold text-[#7B8AB0]">Quản lý TKB sinh viên ({studentSchedulesTotal})</p>
+                        <p className="ui-muted ui-secondary px-1 text-[11px] font-bold text-[#475569]">Quản lý TKB sinh viên ({studentSchedulesTotal})</p>
                         {isLoading ? (
-                            <div className="py-6 text-center text-xs font-bold text-[#7B8AB0]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải sinh viên...</div>
+                            <div className="ui-muted ui-meta py-6 text-center text-xs font-bold text-[#475569]"><Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={20} />Đang tải sinh viên...</div>
                         ) : studentScheduleSummaries.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#7B8AB0]">Chưa có sinh viên lưu TKB trong học kỳ này.</div>
+                            <div className="ui-muted ui-meta rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#475569]">Chưa có sinh viên lưu TKB trong học kỳ này.</div>
                         ) : studentScheduleSummaries
                             .filter(student => {
                                 const term = searchTerm.trim().toLowerCase();
@@ -1971,11 +1971,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                 return [student.full_name, student.student_code, student.email].some(value => (value || '').toLowerCase().includes(term));
                             })
                             .map(student => (
-                                <button key={student.user_id} type="button" onClick={() => { setSelectedStudentSchedule(student); fetchStudentScheduleCourses(student); }} className="w-full rounded-[18px] bg-[#F8FAFD] p-3 text-left">
-                                    <h3 className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">{student.full_name || 'Sinh viên'}</h3>
+                                <button key={student.user_id} type="button" onClick={() => { setSelectedStudentSchedule(student); fetchStudentScheduleCourses(student); }} className="ui-action w-full rounded-[18px] bg-[#F8FAFD] p-3 text-left">
+                                    <h3 className="ui-card-title text-[12.5px] font-black leading-snug text-[#0D1B3E]">{student.full_name || 'Sinh viên'}</h3>
                                     <div className="mt-2 flex flex-wrap gap-1.5">
-                                        <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{student.student_code || student.email}</span>
-                                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-[9.5px] font-black text-emerald-700">{student.course_count || 0} môn</span>
+                                        <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{student.student_code || student.email}</span>
+                                        <span className="ui-meta rounded-full bg-emerald-50 px-2 py-1 text-[9.5px] font-black text-emerald-700">{student.course_count || 0} môn</span>
                                     </div>
                                 </button>
                             ))}
@@ -1986,8 +1986,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         )}
 
         {isAuthenticated && effectiveAdminView && !isLoading && availableCourses.length === 0 && (adminTab === 'system' || adminTab === 'user') && (
-            <div className="mb-0 flex items-start justify-center rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
-                <div className="w-full rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-5 text-center text-xs font-bold text-[#7B8AB0]">
+            <div className="ui-card-space mb-0 flex items-start justify-center rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <div className="ui-muted ui-meta w-full rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-5 text-center text-xs font-bold text-[#475569]">
                     {adminTab === 'system' && !searchTerm.trim()
                         ? 'Nhập mã học phần hoặc tên môn để xem tối đa 10 gợi ý.'
                         : 'Không có học phần phù hợp với bộ lọc hiện tại.'}
@@ -1998,44 +1998,44 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         {!isAuthenticated ? (
             <div className="rounded-[22px] bg-white p-8 text-center shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#1A56FF]"><Lock size={24} /></div>
-                <p className="text-xs font-medium leading-relaxed text-[#7B8AB0]">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
+                <p className="ui-muted ui-secondary text-xs font-medium leading-relaxed text-[#475569]">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
             </div>
         ) : forceManagementView ? null : (
             <>
                 <div className="mb-4 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
                     <div className="border-b border-[#EEF2FF] p-3.5">
                         <div className="flex items-center justify-between">
-                            <h2 className="flex items-center gap-1.5 text-[15px] font-black text-[#0D1B3E]"><Calendar size={18} className="text-[#1A56FF]" /> Lịch cá nhân</h2>
+                            <h2 className="ui-section-title flex items-center gap-1.5 text-[15px] font-black text-[#0D1B3E]"><Calendar size={18} className="text-[#1A56FF]" /> Lịch cá nhân</h2>
                             <div className="flex rounded-xl bg-[#F2F4F8] p-1">
-                                <button onClick={() => setViewMode('week')} className={`rounded-lg px-3 py-1.5 text-[10.5px] font-black ${viewMode === 'week' ? 'bg-white text-[#1A56FF] shadow-sm' : 'text-[#7B8AB0]'}`}>Tuần</button>
-                                <button onClick={() => setViewMode('month')} className={`rounded-lg px-3 py-1.5 text-[10.5px] font-black ${viewMode === 'month' ? 'bg-white text-[#1A56FF] shadow-sm' : 'text-[#7B8AB0]'}`}>Tháng</button>
+                                <button onClick={() => setViewMode('week')} className={`ui-action rounded-lg px-3 py-1.5 text-[10.5px] font-black ${viewMode === 'week' ? 'bg-white text-[#1A56FF] shadow-sm' : 'text-[#475569]'}`}>Tuần</button>
+                                <button onClick={() => setViewMode('month')} className={`ui-action rounded-lg px-3 py-1.5 text-[10.5px] font-black ${viewMode === 'month' ? 'bg-white text-[#1A56FF] shadow-sm' : 'text-[#475569]'}`}>Tháng</button>
                             </div>
                         </div>
                         <div className="mt-3 flex items-center gap-2">
-                            <button onClick={viewMode === 'week' ? prevWeek : prevMonth} className="flex h-[31px] w-[31px] items-center justify-center rounded-[11px] border border-[#E5EAF4] text-[#7B8AB0]"><ChevronLeft size={14} /></button>
-                            <button onClick={(e) => { e.stopPropagation(); viewMode === 'week' ? setIsWeekDropdownOpen(!isWeekDropdownOpen) : setIsMonthDropdownOpen(!isMonthDropdownOpen); }} className="relative flex h-[31px] flex-1 items-center justify-center rounded-[11px] bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]">
+                            <button onClick={viewMode === 'week' ? prevWeek : prevMonth} className="ui-muted ui-action flex h-[31px] w-[31px] items-center justify-center rounded-[11px] border border-[#E5EAF4] text-[#475569]"><ChevronLeft size={14} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); viewMode === 'week' ? setIsWeekDropdownOpen(!isWeekDropdownOpen) : setIsMonthDropdownOpen(!isMonthDropdownOpen); }} className="ui-action relative flex h-[31px] flex-1 items-center justify-center rounded-[11px] bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]">
                                 {viewMode === 'week' ? (selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`) : `Tháng ${selectedMonthIndex + 1}`}
                             </button>
-                            <button onClick={viewMode === 'week' ? nextWeek : nextMonth} className="flex h-[31px] w-[31px] items-center justify-center rounded-[11px] border border-[#E5EAF4] text-[#7B8AB0]"><ChevronRight size={14} /></button>
+                            <button onClick={viewMode === 'week' ? nextWeek : nextMonth} className="ui-muted ui-action flex h-[31px] w-[31px] items-center justify-center rounded-[11px] border border-[#E5EAF4] text-[#475569]"><ChevronRight size={14} /></button>
                         </div>
-                        <div className="mt-2 text-center text-[10px] font-bold text-[#9AA5C0]">{viewMode === 'week' && selectedWeek !== 0 ? `${weekStartStr} - ${weekEndStr}` : selectedWeek === 0 ? 'Chọn tuần để xem lịch chi tiết' : ''}</div>
+                        <div className="ui-muted ui-meta mt-2 text-center text-[10px] font-bold text-[#9AA5C0]">{viewMode === 'week' && selectedWeek !== 0 ? `${weekStartStr} - ${weekEndStr}` : selectedWeek === 0 ? 'Chọn tuần để xem lịch chi tiết' : ''}</div>
                     </div>
 
                     {viewMode === 'week' ? (
                         <>
                             <div className="grid grid-cols-7 gap-1.5 p-3">
                                 {weekDayLabels.map((label, index) => (
-                                    <button key={label} onClick={() => setSelectedDayIndex(index)} disabled={selectedWeek === 0} className={`flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[15px] ${selectedDayIndex === index && selectedWeek !== 0 ? 'bg-[#1A56FF] text-white shadow-[0_8px_16px_rgba(26,86,255,0.26)]' : 'bg-[#F8FAFD] text-[#7B8AB0]'}`}>
-                                        <span className="text-[9px] font-black uppercase">{label}</span>
-                                        <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black">{currentWeekDates[index]?.slice(0, 2) || '--'}</span>
+                                    <button key={label} onClick={() => setSelectedDayIndex(index)} disabled={selectedWeek === 0} className={`ui-action flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[15px] ${selectedDayIndex === index && selectedWeek !== 0 ? 'bg-[#1A56FF] text-white shadow-[0_8px_16px_rgba(26,86,255,0.26)]' : 'bg-[#F8FAFD] text-[#475569]'}`}>
+                                        <span className="ui-meta text-[9px] font-black uppercase">{label}</span>
+                                        <span className="ui-meta flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black">{currentWeekDates[index]?.slice(0, 2) || '--'}</span>
                                     </button>
                                 ))}
                             </div>
                             <div className="space-y-2 px-3.5 pb-3.5">
                                 {isSemesterHolidayWeek(selectedSemester, selectedWeek) ? (
-                                    <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-center text-xs font-black text-red-600"><Zap className="mx-auto mb-2 fill-current" size={22} />Tuần nghỉ Lễ/Tết, không có lịch học.</div>
+                                    <div className="ui-danger-text ui-meta rounded-2xl border border-red-100 bg-red-50 p-4 text-center text-xs font-black text-red-600"><Zap className="mx-auto mb-2 fill-current" size={22} />Tuần nghỉ Lễ/Tết, không có lịch học.</div>
                                 ) : selectedWeek === 0 ? (
-                                    <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F6F8FC] p-5 text-center text-xs font-bold text-[#7B8AB0]">Chọn một tuần học để xem lịch theo ngày.</div>
+                                    <div className="ui-muted ui-meta rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F6F8FC] p-5 text-center text-xs font-bold text-[#475569]">Chọn một tuần học để xem lịch theo ngày.</div>
                                 ) : (
                                     <>
                                         {[
@@ -2043,7 +2043,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                             { label: 'Buổi chiều', items: selectedAfternoonCourses },
                                         ].map(group => (
                                             <div key={group.label}>
-                                                <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.4px] text-[#9AA5C0]"><span>{group.label}</span><span className="h-px flex-1 bg-[#EEF2FF]" /></div>
+                                                <div className="ui-muted ui-meta mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.4px] text-[#9AA5C0]"><span>{group.label}</span><span className="h-px flex-1 bg-[#EEF2FF]" /></div>
                                                 {group.items.length > 0 ? group.items.map((item: any) => {
                                                     const color = getColorForCourse(item.course.id);
                                                     const itemLabels = getLabelsForDate(item.course, selectedDateFull);
@@ -2051,25 +2051,25 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                                         <div key={`${item.course.id}-${item.details?.id || item.details?.shift || group.label}`} onClick={() => setSelectedCourseInfo({ course: item.course, details: item.details, dateStr: selectedDateFull })} className={`mb-2 rounded-[18px] border-l-4 ${color.border} ${color.bg} p-3`}>
                                                             <div className="flex items-start justify-between gap-3">
                                                                 <div className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">{item.details?.isMakeup ? 'Bù: ' : ''}{item.course.subject_name}</div>
-                                                                <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[9.5px] font-black text-[#1A56FF]">{getShiftDisplay(item.details?.shift)}</span>
+                                                                <span className="ui-meta shrink-0 rounded-full bg-white px-2 py-1 text-[9.5px] font-black text-[#1A56FF]">{getShiftDisplay(item.details?.shift)}</span>
                                                             </div>
                                                             <div className="mt-2 flex flex-wrap gap-1.5">
-                                                                <span className="rounded-full bg-white/75 px-2 py-1 text-[9.5px] font-bold text-[#56627B]"><Clock size={10} className="mr-1 inline" />{getCourseTimeLabel(item.details?.shift) || item.details?.shift}</span>
-                                                                <span className="rounded-full bg-white/75 px-2 py-1 text-[9.5px] font-bold text-[#56627B]"><MapPin size={10} className="mr-1 inline" />{item.details?.room}</span>
-                                                                {itemLabels.slice(0, 2).map(label => <span key={label.id} className={`rounded-full border px-2 py-1 text-[9px] font-bold ${getLabelStyle(label.color)}`}>{label.type === 'Khác' ? label.text : label.type}</span>)}
+                                                                <span className="ui-meta rounded-full bg-white/75 px-2 py-1 text-[9.5px] font-bold text-[#56627B]"><Clock size={10} className="mr-1 inline" />{getCourseTimeLabel(item.details?.shift) || item.details?.shift}</span>
+                                                                <span className="ui-meta rounded-full bg-white/75 px-2 py-1 text-[9.5px] font-bold text-[#56627B]"><MapPin size={10} className="mr-1 inline" />{item.details?.room}</span>
+                                                                {itemLabels.slice(0, 2).map(label => <span key={label.id} className={`ui-meta rounded-full border px-2 py-1 text-[9px] font-bold ${getLabelStyle(label.color)}`}>{label.type === 'Khác' ? label.text : label.type}</span>)}
                                                             </div>
                                                         </div>
                                                     );
-                                                }) : <div className="mb-2 rounded-2xl bg-[#F8FAFD] p-3 text-[11px] font-semibold text-[#9AA5C0]">Không có ca học.</div>}
+                                                }) : <div className="ui-muted ui-meta mb-2 rounded-2xl bg-[#F8FAFD] p-3 text-[11px] font-semibold text-[#9AA5C0]">Không có ca học.</div>}
                                             </div>
                                         ))}
                                         {selectedDayExams.map(exam => (
                                             <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam, dateStr: selectedDateFull })} className="rounded-[18px] border-l-4 border-l-[#FF3B5C] bg-[#FFF0F3] p-3">
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">Lịch thi: {exam.subject_name}</div>
-                                                    <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-black text-[#E11D48]">{exam.exam_shift}</span>
+                                                    <span className="ui-meta rounded-full bg-white px-2 py-1 text-[9.5px] font-black text-[#E11D48]">{exam.exam_shift}</span>
                                                 </div>
-                                                <div className="mt-2 flex gap-1.5 text-[9.5px] font-bold text-[#56627B]"><span className="rounded-full bg-white/75 px-2 py-1">{getExamTime(exam.exam_shift)}</span><span className="rounded-full bg-white/75 px-2 py-1">Phòng {exam.exam_room || exam.room}</span></div>
+                                                <div className="ui-meta mt-2 flex gap-1.5 text-[9.5px] font-bold text-[#56627B]"><span className="rounded-full bg-white/75 px-2 py-1">{getExamTime(exam.exam_shift)}</span><span className="rounded-full bg-white/75 px-2 py-1">Phòng {exam.exam_room || exam.room}</span></div>
                                             </div>
                                         ))}
                                     </>
@@ -2078,7 +2078,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         </>
                     ) : (
                         <div className="grid grid-cols-7 gap-px bg-[#EEF2FF] p-px">
-                            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => <div key={d} className="bg-[#F8FAFD] py-2 text-center text-[9px] font-black uppercase text-[#1A56FF]">{d}</div>)}
+                            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => <div key={d} className="ui-meta bg-[#F8FAFD] py-2 text-center text-[9px] font-black uppercase text-[#1A56FF]">{d}</div>)}
                             {renderMonthDays().map((date, idx) => {
                                 if (!date) return <div key={`empty-${idx}`} className="min-h-[70px] bg-[#F8FAFD]" />;
                                 const dayCourses = getCoursesForDate(date, mySchedule);
@@ -2087,7 +2087,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                 const dateStr = formatDateStr(date);
                                 return (
                                     <div key={date.toISOString()} className="min-h-[72px] bg-white p-1">
-                                        <div className={`mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${isToday ? 'bg-[#1A56FF] text-white' : 'text-[#56627B]'}`}>{date.getDate()}</div>
+                                        <div className={`ui-meta mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${isToday ? 'bg-[#1A56FF] text-white' : 'text-[#56627B]'}`}>{date.getDate()}</div>
                                         {[...dayCourses.slice(0, 2), ...dayExams.slice(0, 1).map(exam => ({ course: exam, details: null }))].map((item: any, i) => (
                                             <div key={i} onClick={() => setSelectedCourseInfo({ course: item.course, details: item.details, dateStr })} className="mb-0.5 truncate rounded bg-[#EEF2FF] px-1 py-0.5 text-[7px] font-bold text-[#1A56FF]">{item.course.subject_name}</div>
                                         ))}
@@ -2099,18 +2099,18 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 </div>
 
                 {false && currentSemesterSchedule.length > 0 && (
-                    <div className="mx-6 mb-4 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                    <div className="ui-section-inset ui-card-space mx-6 mb-4 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
                         <div className="mb-2.5 flex items-center justify-between">
-                            <h2 className="flex items-center gap-1.5 text-sm font-black text-[#0D1B3E]"><List size={16} className="text-[#1A56FF]" /> Môn dã luu</h2>
-                            <button onClick={() => setIsMyScheduleModalOpen(true)} className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[10px] font-black text-[#1A56FF]">{currentSemesterSchedule.length} môn</button>
+                            <h2 className="ui-section-title flex items-center gap-1.5 text-sm font-black text-[#0D1B3E]"><List size={16} className="text-[#1A56FF]" /> Môn dã luu</h2>
+                            <button onClick={() => setIsMyScheduleModalOpen(true)} className="ui-action rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[10px] font-black text-[#1A56FF]">{currentSemesterSchedule.length} môn</button>
                         </div>
                         <div className="space-y-2">
                             {currentSemesterSchedule.slice(0, 3).map((course, index) => (
                                 <div key={course.id} onClick={() => setSelectedCourseInfo({ course })} className="flex items-center gap-2.5 border-t border-[#EEF2FF] pt-2 first:border-t-0 first:pt-0">
                                     <span className={`h-9 w-2.5 rounded-full ${index % 2 === 0 ? 'bg-[#1A56FF]' : 'bg-[#00C07F]'}`} />
                                     <div className="min-w-0 flex-1">
-                                        <div className="truncate text-xs font-black text-[#0D1B3E]">{course.subject_name}</div>
-                                        <div className="mt-0.5 truncate text-[10px] font-semibold text-[#9AA5C0]">{course.course_code} • T{course.day_of_week} • Tiết {course.shift} • {course.room}</div>
+                                        <div className="ui-meta truncate text-xs font-black text-[#0D1B3E]">{course.subject_name}</div>
+                                        <div className="ui-numeric ui-muted mt-0.5 truncate text-[10px] font-semibold text-[#9AA5C0]">{course.course_code} • T{course.day_of_week} • Tiết {course.shift} • {course.room}</div>
                                     </div>
                                 </div>
                             ))}
@@ -2126,18 +2126,18 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         {/* --- HEADER TKB --- */}
         <div className="relative top-0 z-40 bg-[#F8FAFC] px-0.3 pt-5.5 pb-2 mb-2 space-y-3">
             <div>
-                <h1 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
+                <h1 className="ui-page-title text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
                     Thời khóa biểu
                 </h1>
-                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <div className="ui-meta flex items-center gap-1.5 text-xs text-gray-500">
                     <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Lịch học & Thi</span>
                 </div>
             </div>
 
             {canManageSchedule && (
                 <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1 border border-gray-200">
-                    <button onClick={() => { playClick(); setIsAdminView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isAdminView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Giao diện SV</button>
-                    <button onClick={() => { playClick(); setIsAdminView(true); }} className={`py-2 rounded-xl text-xs font-black transition-all ${isAdminView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Quản lý</button>
+                    <button onClick={() => { playClick(); setIsAdminView(false); }} className={`ui-action py-2 rounded-xl text-xs font-black transition-all ${!isAdminView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Giao diện SV</button>
+                    <button onClick={() => { playClick(); setIsAdminView(true); }} className={`ui-action py-2 rounded-xl text-xs font-black transition-all ${isAdminView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Quản lý</button>
                 </div>
             )}
         </div>
@@ -2146,12 +2146,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
         {/* --- KHUNG TÌM KIẾM & LỌC --- */}
         <div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 space-y-2.5">
+            <div className="ui-card-space bg-white rounded-xl border border-gray-200 shadow-sm p-3 space-y-2.5">
                 <div className="flex justify-between items-center mb-1">
-                    <h2 className="text-sm font-bold text-[#003375] flex items-center gap-1.5">
+                    <h2 className="ui-section-title text-sm font-bold text-[#003375] flex items-center gap-1.5">
                         <Search size={16} className="text-[#990000]" /> Tìm kiếm & Lọc
                     </h2>
-                    <button onClick={() => fetchCourses({ force: true })} className="p-1.5 bg-gray-50 text-[#003375] rounded-lg active:bg-gray-100 border border-gray-200 shadow-sm" title="Làm mới">
+                    <button onClick={() => fetchCourses({ force: true })} className="ui-action p-1.5 bg-gray-50 text-[#003375] rounded-lg active:bg-gray-100 border border-gray-200 shadow-sm" title="Làm mới">
                         <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
                     </button>
                 </div>
@@ -2159,14 +2159,14 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 {/* Dòng 1: Dropdown học kỳ & đợt */}
                 <div className="flex gap-2">
                     <div className="flex-1">
-                        <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] font-bold text-[#003375] bg-gray-50 disabled:cursor-not-allowed appearance-none">
+                        <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="ui-input w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] font-bold text-[#003375] bg-gray-50 disabled:cursor-not-allowed appearance-none">
                             {SEMESTER_OPTIONS.map(option => (
                                 <option key={option.value} value={option.value}>{option.label}</option>
                             ))}
                         </select>
                     </div>
                     <div className="w-[35%]">
-                        <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] font-bold text-gray-700 bg-gray-50 disabled:cursor-not-allowed appearance-none">
+                        <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="ui-input w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] font-bold text-gray-700 bg-gray-50 disabled:cursor-not-allowed appearance-none">
                             <option value="all">Mọi đợt</option>
                             <option value="1">Đợt 1</option>
                             <option value="2">Đợt 2</option>
@@ -2176,21 +2176,21 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
                 {/* Dòng 2: Ô nhập tìm kiếm gọn gàng */}
                 <div className="relative">
-                    <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setAdminCoursesPage(0); }} className="w-full pl-8 pr-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] bg-gray-50 focus:ring-1 focus:ring-[#003375] disabled:cursor-not-allowed"/>
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                    <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setAdminCoursesPage(0); }} className="ui-input w-full pl-8 pr-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] bg-gray-50 focus:ring-1 focus:ring-[#003375] disabled:cursor-not-allowed"/>
+                    <Search className="ui-muted absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
 
                 {/* Dòng 3: Cụm nút action gọn gàng bằng icon */}
                 <div className="flex gap-2 pt-1">
-                    <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex-1 py-1.5 bg-red-50 text-red-600 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-red-100 border border-red-100 disabled:opacity-50 transition-colors shadow-sm">
-                        <AlertTriangle size={16}/> <span className="text-[10px] font-bold">Báo lỗi</span>
+                    <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="ui-danger-text ui-action flex-1 py-1.5 bg-red-50 text-red-600 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-red-100 border border-red-100 disabled:opacity-50 transition-colors shadow-sm">
+                        <AlertTriangle size={16}/> <span className="ui-meta text-[10px] font-bold">Báo lỗi</span>
                     </button>
-                    <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-emerald-100 border border-emerald-100 disabled:opacity-50 transition-colors shadow-sm">
-                        <BookPlus size={16}/> <span className="text-[10px] font-bold">Thêm môn</span>
+                    <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="ui-action flex-1 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-emerald-100 border border-emerald-100 disabled:opacity-50 transition-colors shadow-sm">
+                        <BookPlus size={16}/> <span className="ui-meta text-[10px] font-bold">Thêm môn</span>
                     </button>
-                    <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="flex-[1.2] py-1.5 bg-gray-100 text-gray-700 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-gray-200 border border-gray-200 disabled:opacity-50 transition-colors shadow-sm relative">
+                    <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="ui-action flex-[1.2] py-1.5 bg-gray-100 text-gray-700 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-gray-200 border border-gray-200 disabled:opacity-50 transition-colors shadow-sm relative">
                         {isProcessingPdf ? <Loader2 size={16} className="animate-spin text-blue-600"/> : <FileUp size={16}/>}
-                        <span className="text-[10px] font-bold">{isProcessingPdf ? 'Đang xử lý...' : 'Nhập từ PDF'}</span>
+                        <span className="ui-meta text-[10px] font-bold">{isProcessingPdf ? 'Đang xử lý...' : 'Nhập từ PDF'}</span>
                     </button>
                     <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
                 </div>
@@ -2199,7 +2199,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             {/* DANH SÁCH MÔN HỌC TÌM KIẾM ĐƯỢC */}
             {isAuthenticated && availableCourses.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2.5 max-h-[300px] overflow-y-auto custom-scrollbar bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm">
-                    <p className="text-[11px] text-gray-500 font-bold px-1">
+                    <p className="ui-secondary text-[11px] text-gray-500 font-bold px-1">
                         {searchTerm.trim() ? 'Kết quả tìm kiếm' : '10 môn gợi ý'} ({searchTerm.trim() ? adminCoursesTotal : availableCourses.length})
                     </p>
                     {availableCourses.map((course) => {
@@ -2208,14 +2208,14 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             <div key={course.id} className={`bg-gray-50 border border-gray-200 border-l-4 ${color.border} rounded-lg p-2.5 relative`} onClick={() => setSelectedCourseInfo({ course })}>
                                 <div className="flex justify-between items-start">
                                     <div className="pr-8">
-                                        <h3 className={`font-bold text-[13px] leading-tight line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
-                                        <p className="text-[10px] text-gray-500 font-medium mt-1">{course.course_code} • Đợt {course.phase || '1'}</p>
+                                        <h3 className={`ui-card-title font-bold text-[13px] leading-tight line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
+                                        <p className="ui-numeric text-[10px] text-gray-500 font-medium mt-1">{course.course_code} • Đợt {course.phase || '1'}</p>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="absolute top-2 right-2 text-white bg-[#003375] p-1.5 rounded active:scale-95 disabled:opacity-50"><Plus size={14}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="ui-action absolute top-2 right-2 text-white bg-[#003375] p-1.5 rounded active:scale-95 disabled:opacity-50"><Plus size={14}/></button>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 mt-2">
-                                    <div className="text-[9px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><Clock size={10}/> T{course.day_of_week} ({course.shift})</div>
-                                    <div className="text-[9px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><MapPin size={10}/> P. {course.room}</div>
+                                    <div className="ui-meta text-[9px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><Clock size={10}/> T{course.day_of_week} ({course.shift})</div>
+                                    <div className="ui-meta text-[9px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><MapPin size={10}/> P. {course.room}</div>
                                 </div>
                             </div>
                         );
@@ -2232,41 +2232,41 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-4 shadow-sm border border-blue-100">
                         <Lock size={24} />
                     </div>
-                    <p className="text-xs text-gray-500 font-medium leading-relaxed">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
+                    <p className="ui-secondary text-xs text-gray-500 font-medium leading-relaxed">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
                 </div>
             ) : (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col mb-6">
                     <div className="p-3 border-b border-gray-100 bg-white">
-                        <h2 className="text-base font-extrabold text-[#003375] flex items-center justify-center gap-1.5 mb-3">
+                        <h2 className="ui-section-title text-base font-extrabold text-[#003375] flex items-center justify-center gap-1.5 mb-3">
                             <Calendar size={18} className="text-[#990000]" /> Lịch cá nhân
                         </h2>
 
                         <div className="flex flex-wrap items-center justify-center gap-2">
                             <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 shrink-0">
-                                <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tuần</button>
-                                <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tháng</button>
+                                <button onClick={() => setViewMode('week')} className={`ui-action px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tuần</button>
+                                <button onClick={() => setViewMode('month')} className={`ui-action px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tháng</button>
                             </div>
 
                             {/* Nút Hôm nay */}
-                            <button onClick={goToToday} className="px-2.5 py-1 text-[11px] font-bold bg-blue-50 text-[#003375] rounded-md hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm shrink-0 active:scale-95">
+                            <button onClick={goToToday} className="ui-action px-2.5 py-1 text-[11px] font-bold bg-blue-50 text-[#003375] rounded-md hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm shrink-0 active:scale-95">
                                 Hôm nay
                             </button>
 
                             {viewMode === 'week' ? (
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                        <button onClick={prevWeek} className="p-1.5 active:bg-gray-50 text-gray-600 border-r border-gray-200"><ChevronLeft size={14}/></button>
-                                        <button onClick={nextWeek} className="p-1.5 active:bg-gray-50 text-gray-600"><ChevronRight size={14}/></button>
+                                        <button onClick={prevWeek} className="ui-action p-1.5 active:bg-gray-50 text-gray-600 border-r border-gray-200"><ChevronLeft size={14}/></button>
+                                        <button onClick={nextWeek} className="ui-action p-1.5 active:bg-gray-50 text-gray-600"><ChevronRight size={14}/></button>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-[#003375] shadow-sm relative">
+                                    <button onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="ui-action flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-[#003375] shadow-sm relative">
                                         {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`}
-                                        <ChevronDown size={12} className="text-gray-400"/>
+                                        <ChevronDown size={12} className="ui-muted text-gray-400"/>
                                         {isWeekDropdownOpen && (
                                             <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 shadow-xl rounded-lg max-h-[200px] overflow-y-auto z-50 py-1 text-left">
-                                                <div onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="px-3 py-2 text-xs active:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Tổng quát</div>
+                                                <div onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="ui-meta px-3 py-2 text-xs active:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Tổng quát</div>
                                                 {Array.from({length: selectedSemesterMaxWeek}, (_, i) => i + 1).map(w => (
-                                                    <div key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`px-3 py-2 text-xs active:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                                        Tuần {w} <span className="text-[9px] text-gray-400 ml-1 font-normal block">({getWeekDates(w)[0]} - {getWeekDates(w)[6]})</span>
+                                                    <div key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`ui-meta px-3 py-2 text-xs active:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                                        Tuần {w} <span className="ui-muted ui-meta text-[9px] text-gray-400 ml-1 font-normal block">({getWeekDates(w)[0]} - {getWeekDates(w)[6]})</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -2276,16 +2276,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             ) : (
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                        <button onClick={prevMonth} className="p-1.5 active:bg-gray-50 text-gray-600 border-r border-gray-200"><ChevronLeft size={14}/></button>
-                                        <button onClick={nextMonth} className="p-1.5 active:bg-gray-50 text-gray-600"><ChevronRight size={14}/></button>
+                                        <button onClick={prevMonth} className="ui-action p-1.5 active:bg-gray-50 text-gray-600 border-r border-gray-200"><ChevronLeft size={14}/></button>
+                                        <button onClick={nextMonth} className="ui-action p-1.5 active:bg-gray-50 text-gray-600"><ChevronRight size={14}/></button>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-[#003375] shadow-sm relative">
+                                    <button onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="ui-action flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-[#003375] shadow-sm relative">
                                         {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)}
-                                        <ChevronDown size={12} className="text-gray-400"/>
+                                        <ChevronDown size={12} className="ui-muted text-gray-400"/>
                                         {isMonthDropdownOpen && (
                                             <div className="absolute top-full left-0 mt-1 w-28 bg-white border border-gray-200 shadow-xl rounded-lg max-h-[200px] overflow-y-auto z-50 py-1 text-left">
                                                 {selectedSemesterMonths.map((_, m) => (
-                                                    <div key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`px-3 py-2 text-xs active:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                                    <div key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`ui-meta px-3 py-2 text-xs active:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
                                                         {getSemesterMonthLabel(selectedSemester, m)}
                                                     </div>
                                                 ))}
@@ -2296,14 +2296,14 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             )}
                         </div>
                         {selectedWeek !== 0 && viewMode === 'week' && (
-                            <div className="text-center mt-2"><span className="text-[9px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">{weekStartStr} - {weekEndStr}</span></div>
+                            <div className="text-center mt-2"><span className="ui-meta text-[9px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">{weekStartStr} - {weekEndStr}</span></div>
                         )}
                     </div>
 
                     <div className="flex-1 overflow-x-auto custom-scrollbar bg-white relative">
                         {isSemesterHolidayWeek(selectedSemester, selectedWeek) && viewMode === 'week' && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 px-4 text-center">
-                                <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl font-bold text-xs border border-red-200 shadow-sm flex flex-col items-center gap-2">
+                                <div className="ui-danger-text ui-meta bg-red-50 text-red-600 px-4 py-3 rounded-xl font-bold text-xs border border-red-200 shadow-sm flex flex-col items-center gap-2">
                                     <Zap size={24} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
                                 </div>
                             </div>
@@ -2313,14 +2313,14 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             <table className="w-full min-w-[700px] border-collapse table-fixed">
                                 <thead>
                                     <tr>
-                                        <th className="w-[40px] border-b-2 border-r border-gray-200 bg-[#f8fafc]"></th>
+                                        <th className="ui-meta w-[40px] border-b-2 border-r border-gray-200 bg-[#f8fafc]"></th>
                                         {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                             const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
                                             return (
-                                            <th key={day} className={`py-2 border-b-2 border-r border-gray-200 ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
+                                            <th key={day} className={`ui-meta py-2 border-b-2 border-r border-gray-200 ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
                                                 <div className={`flex flex-col items-center gap-1 ${isTodayCol ? 'text-[#003375]' : 'text-gray-700'}`}>
-                                                    <span className="font-extrabold text-[11px] uppercase">T{day === 8 ? 'CN' : day}</span>
-                                                    {selectedWeek !== 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${isTodayCol ? 'bg-[#003375] text-white font-bold' : 'text-gray-500'}`}>{currentWeekDates[index]}</span>}
+                                                    <span className="ui-meta font-extrabold text-[11px] uppercase">T{day === 8 ? 'CN' : day}</span>
+                                                    {selectedWeek !== 0 && <span className={`ui-meta text-[9px] px-1.5 py-0.5 rounded-full ${isTodayCol ? 'bg-[#003375] text-white font-bold' : 'text-gray-500'}`}>{currentWeekDates[index]}</span>}
                                                 </div>
                                             </th>
                                             );
@@ -2331,7 +2331,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                     {['S', 'C'].map((shift) => (
                                         <tr key={shift}>
                                             <td className="border-r border-b border-gray-200 text-center align-middle bg-[#f8fafc] py-2">
-                                                <span className={`block text-[9px] font-black uppercase ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'Sáng' : 'Chiều'}</span>
+                                                <span className={`ui-meta block text-[9px] font-black uppercase ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'Sáng' : 'Chiều'}</span>
                                             </td>
                                             {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                                 const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
@@ -2372,7 +2372,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                                                 const cellLabels = getLabelsForDate(course, cellDateFull);
                                                                 return (
                                                                 <div key={`${course.id}-${slotDetails.isMakeup ? slotDetails.id : 'regular'}`} onClick={() => setSelectedCourseInfo({ course, details: slotDetails, dateStr: cellDateFull })} className={`border-l-4 ${color.border} ${color.bg} rounded-lg p-1.5 cursor-pointer w-full shrink-0 shadow-sm relative`}>
-                                                                    <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateFull }); }} className="absolute top-1 right-1 bg-white/90 text-blue-600 rounded p-0.5 shadow-sm border border-blue-100 active:scale-95" title="Gắn nhãn">
+                                                                    <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateFull }); }} className="ui-action absolute top-1 right-1 bg-white/90 text-blue-600 rounded p-0.5 shadow-sm border border-blue-100 active:scale-95" title="Gắn nhãn">
                                                                         <Tag size={9}/>
                                                                     </button>
                                                                     {cellLabels.length > 0 && (
@@ -2384,19 +2384,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                                                             ))}
                                                                         </div>
                                                                     )}
-                                                                    <h4 className={`font-bold ${color.text} text-[9px] leading-tight line-clamp-2 mb-1 pr-4`}>{course.subject_name}</h4>
+                                                                    <h4 className={`ui-card-title font-bold ${color.text} text-[9px] leading-tight line-clamp-2 mb-1 pr-4`}>{course.subject_name}</h4>
                                                                     {slotDetails.isMakeup && (
-                                                                        <div className={`text-[8px] ${color.label} font-bold mb-0.5`}>Học bù {slotDetails.originalDate?.substring(0, 5)}</div>
+                                                                        <div className={`ui-meta text-[8px] ${color.label} font-bold mb-0.5`}>Học bù {slotDetails.originalDate?.substring(0, 5)}</div>
                                                                     )}
-                                                                    <div className={`text-[8px] ${color.label} font-semibold flex items-center gap-0.5`}><MapPin size={8}/> P.{slotDetails.room}</div>
+                                                                    <div className={`ui-meta text-[8px] ${color.label} font-semibold flex items-center gap-0.5`}><MapPin size={8}/> P.{slotDetails.room}</div>
                                                                 </div>
                                                                 );
                                                             })}
                                                             {slotExams.map(exam => (
                                                                 <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam, dateStr: cellDateFull })} className="border-l-2 border-l-red-500 bg-red-50 rounded-md p-1.5 cursor-pointer w-full shrink-0 shadow-sm">
-                                                                    <div className="text-[7px] font-black text-white uppercase mb-0.5 bg-red-500 px-1 py-0.5 rounded w-fit">Lịch thi</div>
-                                                                    <h4 className="font-bold text-red-900 text-[9px] leading-tight line-clamp-2">{exam.subject_name}</h4>
-                                                                    {exam.exam_room && <div className="text-[8px] text-red-700 font-semibold flex items-center gap-0.5 mt-0.5"><MapPin size={8}/> P.{exam.exam_room}</div>}
+                                                                    <div className="ui-new-badge text-[7px] font-black text-white uppercase mb-0.5 bg-red-500 px-1 py-0.5 rounded w-fit">Lịch thi</div>
+                                                                    <h4 className="ui-card-title font-bold text-red-900 text-[9px] leading-tight line-clamp-2">{exam.subject_name}</h4>
+                                                                    {exam.exam_room && <div className="ui-meta text-[8px] text-red-700 font-semibold flex items-center gap-0.5 mt-0.5"><MapPin size={8}/> P.{exam.exam_room}</div>}
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -2410,7 +2410,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         ) : (
                             <div className="grid grid-cols-7 gap-px bg-gray-200 border-t border-gray-200 min-h-[300px]">
                                 {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
-                                    <div key={d} className="bg-[#f8fafc] text-center text-[9px] font-bold py-1.5 text-[#003375] uppercase">{d}</div>
+                                    <div key={d} className="ui-meta bg-[#f8fafc] text-center text-[9px] font-bold py-1.5 text-[#003375] uppercase">{d}</div>
                                 ))}
                                 {renderMonthDays().map((date, idx) => {
                                     if (!date) return <div key={`empty-${idx}`} className="bg-gray-50/50 min-h-[70px]" />;
@@ -2421,7 +2421,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
                                     return (
                                         <div key={date.toISOString()} className={`bg-white min-h-[70px] p-1 ${isToday ? 'bg-[#F0F9FF]' : ''}`}>
-                                            <div className={`text-[9px] font-bold text-center mb-1 ${isToday ? 'bg-[#003375] text-white rounded-full w-4 h-4 mx-auto flex items-center justify-center' : 'text-gray-600'}`}>
+                                            <div className={`ui-meta text-[9px] font-bold text-center mb-1 ${isToday ? 'bg-[#003375] text-white rounded-full w-4 h-4 mx-auto flex items-center justify-center' : 'text-gray-600'}`}>
                                                 {date.getDate()}
                                             </div>
                                             <div className="flex flex-col gap-0.5 px-0.5">
@@ -2454,7 +2454,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         {/* NÚT DANH SÁCH ĐÃ LƯU (FAB) */}
         {isAuthenticated && currentSemesterSchedule.length > 0 && (
             <div className="fixed bottom-24 right-4 z-50">
-                <button onClick={() => setIsMyScheduleModalOpen(true)} className="bg-[#003375] text-white px-4 py-3 rounded-full font-bold text-sm shadow-[0_8px_30px_rgb(0,0,0,0.15)] flex items-center gap-2 active:scale-95 border-2 border-white/20">
+                <button onClick={() => setIsMyScheduleModalOpen(true)} className="ui-action bg-[#003375] text-white px-4 py-3 rounded-full font-bold text-sm shadow-[0_8px_30px_rgb(0,0,0,0.15)] flex items-center gap-2 active:scale-95 border-2 border-white/20">
                     <List size={18}/> Môn dã luu ({currentSemesterSchedule.length})
                 </button>
             </div>
@@ -2472,10 +2472,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
                         <div className="min-w-0">
-                            <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Edit size={18}/> {adminEditData.id ? 'Chỉnh sửa môn' : activeCourseRequest ? 'Duyệt yêu cầu thêm môn' : 'Thêm môn mới'}</h2>
-                            <p className="mt-0.5 text-[10.5px] font-semibold text-gray-500">{adminTab === 'user' ? 'Môn sinh viên thêm' : 'Dữ liệu học phần hệ thống'}</p>
+                            <h2 className="ui-section-title font-bold text-[#003375] text-base flex items-center gap-2"><Edit size={18}/> {adminEditData.id ? 'Chỉnh sửa môn' : activeCourseRequest ? 'Duyệt yêu cầu thêm môn' : 'Thêm môn mới'}</h2>
+                            <p className="ui-secondary mt-0.5 text-[10.5px] font-semibold text-gray-500">{adminTab === 'user' ? 'Môn sinh viên thêm' : 'Dữ liệu học phần hệ thống'}</p>
                         </div>
-                        <button onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                        <button onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <form onSubmit={handleAdminSaveCourse} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
                         {renderStudentEditField('Tên môn học', <input required placeholder="Tên môn học" value={adminEditData.subject_name || ''} onChange={e => setAdminEditData({...adminEditData, subject_name: e.target.value})} className={studentEditInputClass} />)}
@@ -2506,7 +2506,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             {renderStudentEditField('Ngành', <input placeholder="Ngành" value={adminEditData.major || ''} onChange={e => setAdminEditData({...adminEditData, major: e.target.value})} className={studentEditInputClass} />)}
                             {renderStudentEditField('CTĐT', <input placeholder="Chuẩn" value={adminEditData.academic_program || ''} onChange={e => setAdminEditData({...adminEditData, academic_program: e.target.value})} className={studentEditInputClass} />)}
                         </div>
-                        <button type="submit" disabled={isSavingAdminCourse || isAuditor} className="w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
+                        <button type="submit" disabled={isSavingAdminCourse || isAuditor} className="ui-action w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
                             {isSavingAdminCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} {isAuditor ? 'Auditor chỉ được xem' : 'Lưu học phần'}
                         </button>
                     </form>
@@ -2520,20 +2520,20 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-start justify-between border-b border-gray-100 shrink-0">
                         <div className="min-w-0 pr-3">
-                            <h2 className="text-base font-black leading-tight text-[#003375]">{selectedChangedCourse.subject_name}</h2>
-                            <p className="mt-1 text-[11px] font-bold text-gray-500">{selectedChangedCourse.course_code} • {selectedChangedCourse.user?.full_name || selectedChangedCourse.user?.student_code || 'Sinh viên'}</p>
+                            <h2 className="ui-section-title text-base font-black leading-tight text-[#003375]">{selectedChangedCourse.subject_name}</h2>
+                            <p className="ui-numeric mt-1 text-[11px] font-bold text-gray-500">{selectedChangedCourse.course_code} • {selectedChangedCourse.user?.full_name || selectedChangedCourse.user?.student_code || 'Sinh viên'}</p>
                         </div>
-                        <button onClick={() => setSelectedChangedCourse(null)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                        <button onClick={() => setSelectedChangedCourse(null)} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2 pb-safe">
                         {getChangedCourseDiffs(selectedChangedCourse).length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#7B8AB0]">Không còn trường khác biệt.</div>
+                            <div className="ui-muted ui-meta rounded-2xl border border-dashed border-[#DDE3F0] p-5 text-center text-xs font-bold text-[#475569]">Không còn trường khác biệt.</div>
                         ) : getChangedCourseDiffs(selectedChangedCourse).map(diff => (
                             <div key={String(diff.key)} className="rounded-2xl border border-[#EEF2FF] bg-[#F8FAFD] p-3">
-                                <div className="mb-2 text-[11px] font-black uppercase tracking-wide text-[#7B8AB0]">{diff.label}</div>
-                                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                <div className="ui-muted ui-meta mb-2 text-[11px] font-black uppercase tracking-wide text-[#475569]">{diff.label}</div>
+                                <div className="ui-meta grid grid-cols-2 gap-2 text-[11px]">
                                     <div className="rounded-xl bg-white p-2">
-                                        <div className="mb-1 font-black text-gray-400">Gốc</div>
+                                        <div className="ui-muted mb-1 font-black text-gray-400">Gốc</div>
                                         <div className="font-bold text-gray-700">{normalizeDiffValue(diff.originalValue) || 'Trống'}</div>
                                     </div>
                                     <div className="rounded-xl bg-blue-50 p-2">
@@ -2542,7 +2542,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                     </div>
                                 </div>
                                 {!isAuditor && (
-                                    <button type="button" onClick={() => handleSyncChangedField(String(diff.key), diff.label)} disabled={isSyncingChangedCourse} className="mt-2 h-9 w-full rounded-xl bg-[#1A56FF] text-[11px] font-black text-white disabled:opacity-50">
+                                    <button type="button" onClick={() => handleSyncChangedField(String(diff.key), diff.label)} disabled={isSyncingChangedCourse} className="ui-action mt-2 h-9 w-full rounded-xl bg-[#1A56FF] text-[11px] font-black text-white disabled:opacity-50">
                                         {isSyncingChangedCourse ? 'Đang đồng bộ...' : 'Đồng bộ trường này'}
                                     </button>
                                 )}
@@ -2609,8 +2609,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 if (!hasDetailValue(displayValue)) return null;
                 return (
                     <div className="rounded-xl border border-gray-100 bg-white px-3 py-2">
-                        <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">{label}</p>
-                        <p className="mt-0.5 break-words whitespace-pre-line text-[12px] font-bold leading-snug text-gray-900">{displayValue}</p>
+                        <p className="ui-muted ui-secondary text-[9px] font-black uppercase tracking-wide text-gray-400">{label}</p>
+                        <p className="ui-secondary mt-0.5 break-words whitespace-pre-line text-[12px] font-bold leading-snug text-gray-900">{displayValue}</p>
                     </div>
                 );
             };
@@ -2626,7 +2626,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     <section className="rounded-2xl border border-gray-100 bg-gray-50/80 p-3">
                         <div className="mb-2 flex items-center gap-2">
                             <div className={`rounded-xl p-1.5 ${toneClass}`}>{icon}</div>
-                            <h3 className="text-[10px] font-black uppercase tracking-wide text-gray-600">{title}</h3>
+                            <h3 className="ui-card-title text-[10px] font-black uppercase tracking-wide text-gray-600">{title}</h3>
                         </div>
                         <div className="grid grid-cols-1 gap-2">{rows}</div>
                     </section>
@@ -2639,19 +2639,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         <DragHandle />
                         <div className="p-4 border-b border-gray-100 flex justify-between items-start shrink-0">
                             <div className="pr-4">
-                                <h2 className="text-lg font-bold text-[#003375] leading-tight mb-1">{course.subject_name}</h2>
-                                <p className="text-gray-500 text-xs font-medium">{course.course_code} {course.phase && `• ${formatPhaseValue(course.phase)}`}</p>
+                                <h2 className="ui-section-title text-lg font-bold text-[#003375] leading-tight mb-1">{course.subject_name}</h2>
+                                <p className="ui-numeric text-gray-500 text-xs font-medium">{course.course_code} {course.phase && `• ${formatPhaseValue(course.phase)}`}</p>
                                 {modalLabels.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-2">
                                         {modalLabels.map(label => (
-                                            <span key={label.id} className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${getLabelStyle(label.color)}`}>
+                                            <span key={label.id} className={`ui-meta text-[10px] px-2 py-0.5 rounded-full border font-bold ${getLabelStyle(label.color)}`}>
                                                 {label.type === 'Khác' ? label.text : label.type}
                                             </span>
                                         ))}
                                     </div>
                                 )}
                             </div>
-                            <button onClick={() => setSelectedCourseInfo(null)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95 shrink-0"><X size={16}/></button>
+                            <button onClick={() => setSelectedCourseInfo(null)} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95 shrink-0"><X size={16}/></button>
                         </div>
 
                         <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
@@ -2727,23 +2727,23 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
                             {!forceManagementView && (
                             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-100">
-                                <button onClick={() => { setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="p-3.5 rounded-xl border border-gray-200 text-gray-500 active:bg-gray-100 shrink-0" title="Báo lỗi">
+                                <button onClick={() => { setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="ui-action p-3.5 rounded-xl border border-gray-200 text-gray-500 active:bg-gray-100 shrink-0" title="Báo lỗi">
                                     <AlertTriangle size={18} />
                                 </button>
                                 {selectedDateStr && course.user_schedule_id && (
-                                    <button onClick={() => { setQuickTagCourse({ ...course, dateStr: selectedDateStr }); setSelectedCourseInfo(null); }} className="p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Gắn nhãn">
+                                    <button onClick={() => { setQuickTagCourse({ ...course, dateStr: selectedDateStr }); setSelectedCourseInfo(null); }} className="ui-action p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Gắn nhãn">
                                         <Tag size={18} />
                                     </button>
                                 )}
                                 {course.user_schedule_id && (
-                                    <button onClick={() => openStudentEditModal(course)} className="p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Chỉnh sửa">
+                                    <button onClick={() => openStudentEditModal(course)} className="ui-action p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Chỉnh sửa">
                                         <Edit size={18} />
                                     </button>
                                 )}
                                 {forceManagementView ? null : !currentSemesterSchedule.some(c => c.id === course.id) ? (
-                                    <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"><Plus size={16}/> Thêm vào Lịch</button>
+                                    <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} disabled={isSyncing} className="ui-action flex-1 py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"><Plus size={16}/> Thêm vào Lịch</button>
                                 ) : (
-                                    <button onClick={() => { removeFromSchedule(course.id); setSelectedCourseInfo(null); }} className="flex-1 py-3 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-bold active:bg-red-100 transition-colors flex items-center justify-center gap-2"><Trash2 size={16}/> Xóa khỏi Lịch</button>
+                                    <button onClick={() => { removeFromSchedule(course.id); setSelectedCourseInfo(null); }} className="ui-danger-text ui-action flex-1 py-3 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-bold active:bg-red-100 transition-colors flex items-center justify-center gap-2"><Trash2 size={16}/> Xóa khỏi Lịch</button>
                                 )}
                             </div>
                             )}
@@ -2759,28 +2759,28 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[88vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
-                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18}/> Gắn nhãn nhanh</h2>
-                        <button onClick={() => setQuickTagCourse(null)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                        <h2 className="ui-section-title font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18}/> Gắn nhãn nhanh</h2>
+                        <button onClick={() => setQuickTagCourse(null)} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-4 pb-safe">
                         <div>
-                            <p className="text-[11px] font-bold text-gray-500 mb-1">Môn học ngày {quickTagCourse.dateStr}:</p>
-                            <p className="text-sm font-bold text-[#003375] leading-tight">{quickTagCourse.subject_name}</p>
+                            <p className="ui-secondary text-[11px] font-bold text-gray-500 mb-1">Môn học ngày {quickTagCourse.dateStr}:</p>
+                            <p className="ui-secondary text-sm font-bold text-[#003375] leading-tight">{quickTagCourse.subject_name}</p>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-600">Chọn loại nhãn</label>
-                            <select value={quickTagData.type} onChange={(e) => setQuickTagData({...quickTagData, type: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50">
+                            <label className="ui-secondary text-xs font-bold text-gray-600">Chọn loại nhãn</label>
+                            <select value={quickTagData.type} onChange={(e) => setQuickTagData({...quickTagData, type: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50">
                                 {LABEL_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
                             </select>
                         </div>
 
                         {quickTagData.type === 'Khác' && (
                             <div className="space-y-3">
-                                <input type="text" placeholder="Nhập tên nhãn" value={quickTagData.text} onChange={(e) => setQuickTagData({...quickTagData, text: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                                <input type="text" placeholder="Nhập tên nhãn" value={quickTagData.text} onChange={(e) => setQuickTagData({...quickTagData, text: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
                                 <div className="flex flex-wrap gap-2">
                                     {LABEL_COLORS.map(color => (
-                                        <button key={color.value} type="button" title={color.name} onClick={() => setQuickTagData({...quickTagData, color: color.value})} className={`w-8 h-8 rounded-full ${getLabelDotColor(color.value)} ${quickTagData.color === color.value ? 'ring-2 ring-offset-2 ring-[#003375]' : 'ring-1 ring-white'} shadow-sm`} />
+                                        <button key={color.value} type="button" title={color.name} onClick={() => setQuickTagData({...quickTagData, color: color.value})} className={`ui-action w-8 h-8 rounded-full ${getLabelDotColor(color.value)} ${quickTagData.color === color.value ? 'ring-2 ring-offset-2 ring-[#003375]' : 'ring-1 ring-white'} shadow-sm`} />
                                     ))}
                                 </div>
                             </div>
@@ -2790,16 +2790,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             <div className="rounded-2xl border border-red-100 bg-red-50/70 p-3 space-y-3">
                                 <div className="flex items-center gap-2 text-red-700">
                                     <CalendarDays size={15} />
-                                    <p className="text-xs font-bold">Lịch học bù</p>
+                                    <p className="ui-secondary text-xs font-bold">Lịch học bù</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-600">Ngày học bù</label>
-                                    <input type="date" value={quickTagData.makeupDate} onChange={e => setQuickTagData({...quickTagData, makeupDate: e.target.value})} className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white" />
+                                    <label className="ui-secondary text-xs font-bold text-gray-600">Ngày học bù</label>
+                                    <input type="date" value={quickTagData.makeupDate} onChange={e => setQuickTagData({...quickTagData, makeupDate: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-600">Thời gian</label>
-                                        <select value={quickTagData.makeupShift} onChange={e => setQuickTagData({...quickTagData, makeupShift: e.target.value})} className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white">
+                                        <label className="ui-secondary text-xs font-bold text-gray-600">Thời gian</label>
+                                        <select value={quickTagData.makeupShift} onChange={e => setQuickTagData({...quickTagData, makeupShift: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white">
                                             <option value="S">Sáng</option>
                                             <option value="C">Chiều</option>
                                             <option value="1-3">Tiết 1-3</option>
@@ -2809,16 +2809,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         </select>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-600">Phòng học</label>
-                                        <input type="text" value={quickTagData.makeupRoom} onChange={e => setQuickTagData({...quickTagData, makeupRoom: e.target.value})} placeholder="B1.303" className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white" />
+                                        <label className="ui-secondary text-xs font-bold text-gray-600">Phòng học</label>
+                                        <input type="text" value={quickTagData.makeupRoom} onChange={e => setQuickTagData({...quickTagData, makeupRoom: e.target.value})} placeholder="B1.303" className="ui-input w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white" />
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
                     <div className="p-4 border-t border-gray-100 flex gap-2 shrink-0 bg-white">
-                        <button type="button" onClick={() => setQuickTagCourse(null)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold active:bg-gray-200">Hủy</button>
-                        <button type="button" onClick={handleQuickSaveLabel} disabled={isSavingQuickTag} className="flex-[1.4] py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
+                        <button type="button" onClick={() => setQuickTagCourse(null)} className="ui-action flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold active:bg-gray-200">Hủy</button>
+                        <button type="button" onClick={handleQuickSaveLabel} disabled={isSavingQuickTag} className="ui-action flex-[1.4] py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
                             {isSavingQuickTag ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Gắn nhãn
                         </button>
                     </div>
@@ -2832,26 +2832,26 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 <div className="bg-white rounded-t-3xl w-full flex flex-col h-[75vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
-                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> Môn dã luu ({currentSemesterSchedule.length})</h2>
-                        <button onClick={() => setIsMyScheduleModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                        <h2 className="ui-section-title font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> Môn dã luu ({currentSemesterSchedule.length})</h2>
+                        <button onClick={() => setIsMyScheduleModalOpen(false)} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <div className="p-4 overflow-y-auto custom-scrollbar flex-1 pb-safe space-y-2.5">
                         {currentSemesterSchedule.length === 0 ? (
                             <div className="text-center py-10 text-gray-500">
                                 <Search size={40} className="mx-auto text-gray-200 mb-3"/>
-                                <p className="font-medium text-sm">Chưa có môn học nào.</p>
+                                <p className="ui-secondary font-medium text-sm">Chưa có môn học nào.</p>
                             </div>
                         ) : (
                             currentSemesterSchedule.map(course => (
-                                <div key={course.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 active:bg-gray-50 transition-colors" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
+                                <div key={course.id} className="ui-card-space bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 active:bg-gray-50 transition-colors" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
                                     <div className="flex-1 min-w-0 pr-2">
-                                        <h4 className="font-bold text-gray-800 text-[13px] leading-tight mb-1">{course.subject_name}</h4>
-                                        <p className="text-[10px] text-gray-500 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
+                                        <h4 className="ui-card-title font-bold text-gray-800 text-[13px] leading-tight mb-1">{course.subject_name}</h4>
+                                        <p className="ui-numeric text-[10px] text-gray-500 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
                                     {course.user_schedule_id && (
-                                        <button onClick={(e) => { e.stopPropagation(); openStudentEditModal(course); }} className="text-blue-600 bg-blue-50 p-2 rounded-lg active:bg-blue-100 shrink-0" title="Chỉnh sửa"><Edit size={16}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); openStudentEditModal(course); }} className="ui-action text-blue-600 bg-blue-50 p-2 rounded-lg active:bg-blue-100 shrink-0" title="Chỉnh sửa"><Edit size={16}/></button>
                                     )}
-                                    <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-red-500 bg-red-50 p-2 rounded-lg active:bg-red-100 shrink-0"><Trash2 size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="ui-danger-text ui-action text-red-500 bg-red-50 p-2 rounded-lg active:bg-red-100 shrink-0"><Trash2 size={16}/></button>
                                 </div>
                             ))
                         )}
@@ -2866,8 +2866,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[90vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
-                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Edit size={18}/> Chỉnh sửa môn học</h2>
-                        <button onClick={() => setIsStudentEditModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                        <h2 className="ui-section-title font-bold text-[#003375] text-base flex items-center gap-2"><Edit size={18}/> Chỉnh sửa môn học</h2>
+                        <button onClick={() => setIsStudentEditModalOpen(false)} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <form onSubmit={handleStudentSaveCourse} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
                         {renderStudentEditField('Tên môn học', <input required placeholder="Tên môn học" value={studentEditData.subject_name || ''} onChange={e => setStudentEditData({...studentEditData, subject_name: e.target.value})} className={studentEditInputClass} />)}
@@ -2889,7 +2889,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             {renderStudentEditField('Ngày thi', <input placeholder="dd/mm/yyyy" value={studentEditData.exam_date || ''} onChange={e => setStudentEditData({...studentEditData, exam_date: e.target.value})} className={studentEditInputClass} />)}
                             {renderStudentEditField('Ca thi', <input placeholder="VD: Ca 4" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className={studentEditInputClass} />)}
                         </div>
-                        <button type="submit" disabled={isSavingStudentCourse} className="w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
+                        <button type="submit" disabled={isSavingStudentCourse} className="ui-action w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
                             {isSavingStudentCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu chỉnh sửa
                         </button>
                     </form>
@@ -2902,16 +2902,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slideUp flex flex-col relative" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
-                        <h2 className="font-bold text-red-600 text-base flex items-center gap-2"><AlertTriangle size={18}/> Báo lỗi môn học</h2>
-                        <button onClick={() => setIsReportModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                        <h2 className="ui-danger-text ui-section-title font-bold text-red-600 text-base flex items-center gap-2"><AlertTriangle size={18}/> Báo lỗi môn học</h2>
+                        <button onClick={() => setIsReportModalOpen(false)} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <form onSubmit={handleReportSubmit} className="p-4 space-y-3 pb-safe">
-                        <div className="text-[11px] text-gray-500 mb-1">Giúp Admin khắc phục lỗi sai thông tin (giờ, phòng, ngày thi...)</div>
-                        <input required placeholder="Mã học phần (VD: ACC...)" value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 bg-gray-50"/>
-                        <input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 bg-gray-50"/>
-                        <textarea required rows={4} placeholder="Mô tả lỗi chi tiết..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
-                        <textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
-                        <button type="submit" className="w-full py-3 rounded-xl bg-red-600 text-white text-[13px] font-bold active:bg-red-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2"><Send size={16}/> Tạo ticket hỗ trợ</button>
+                        <div className="ui-meta text-[11px] text-gray-500 mb-1">Giúp Admin khắc phục lỗi sai thông tin (giờ, phòng, ngày thi...)</div>
+                        <input required placeholder="Mã học phần (VD: ACC...)" value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 bg-gray-50"/>
+                        <input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 bg-gray-50"/>
+                        <textarea required rows={4} placeholder="Mô tả lỗi chi tiết..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
+                        <textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
+                        <button type="submit" className="ui-action w-full py-3 rounded-xl bg-red-600 text-white text-[13px] font-bold active:bg-red-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2"><Send size={16}/> Tạo ticket hỗ trợ</button>
                     </form>
                 </div>
             </Overlay>, document.body
@@ -2923,17 +2923,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slideUp flex flex-col relative" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
-                        <h2 className="font-bold text-emerald-700 text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
-                        <button onClick={() => setIsCreateCourseModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                        <h2 className="ui-section-title font-bold text-emerald-700 text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
+                        <button onClick={() => setIsCreateCourseModalOpen(false)} className="ui-action bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <form onSubmit={handleCreateCourseSubmit} className="max-h-[76vh] overflow-y-auto p-4 space-y-3 pb-safe">
-                        <div className="text-[11px] text-gray-500 mb-1">Hệ thống chưa có môn này? Gửi thông tin để Admin thêm nhé!</div>
-                        <input required placeholder="Mã học phần *" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
-                        <input required placeholder="Tên môn học *" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
-                        <input required placeholder="Giảng viên *" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
-                        <input aria-label="Học kỳ" readOnly value={selectedSemester.replaceAll('_', ' ')} className="w-full cursor-not-allowed px-3 py-2.5 border border-gray-200 rounded-xl bg-slate-100 text-[13px] font-semibold text-slate-600"/>
+                        <div className="ui-meta text-[11px] text-gray-500 mb-1">Hệ thống chưa có môn này? Gửi thông tin để Admin thêm nhé!</div>
+                        <input required placeholder="Mã học phần *" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
+                        <input required placeholder="Tên môn học *" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
+                        <input required placeholder="Giảng viên *" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-emerald-500 bg-gray-50"/>
+                        <input aria-label="Học kỳ" readOnly value={selectedSemester.replaceAll('_', ' ')} className="ui-input w-full cursor-not-allowed px-3 py-2.5 border border-gray-200 rounded-xl bg-slate-100 text-[13px] font-semibold text-slate-600"/>
                         <ScheduleSessionsEditor semester={selectedSemester} value={newCourseData.scheduleSessions} onChange={scheduleSessions => setNewCourseData({ ...newCourseData, scheduleSessions })} compact />
-                        <button type="submit" disabled={isSubmittingCourse || !newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)} className="w-full py-3 rounded-xl bg-emerald-600 text-white text-[13px] font-bold active:bg-emerald-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2 disabled:bg-slate-300">{isSubmittingCourse ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} Gửi yêu cầu</button>
+                        <button type="submit" disabled={isSubmittingCourse || !newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)} className="ui-action w-full py-3 rounded-xl bg-emerald-600 text-white text-[13px] font-bold active:bg-emerald-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2 disabled:bg-slate-300">{isSubmittingCourse ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} Gửi yêu cầu</button>
                     </form>
                 </div>
             </Overlay>, document.body

@@ -122,7 +122,7 @@ const PushNotificationPrompt = () => {
         {/* Nút X nhỏ xíu trên góc để tắt (Không còn nút Để sau) */}
         <button 
           onClick={handleDismiss}
-          className="absolute top-4 right-4 p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition z-10"
+          aria-label="Đóng hướng dẫn thông báo" className="ui-action absolute top-4 right-4 p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition z-10"
         >
           <X size={18} />
         </button>
@@ -138,11 +138,11 @@ const PushNotificationPrompt = () => {
             </div>
           )}
           
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
+          <h3 className="ui-section-title text-xl font-bold text-gray-900 mb-2">
             {iosInstallRequired ? 'Cài HUB Planner để nhận thông báo' : deniedError ? 'Bạn đã chặn thông báo' : 'Thông báo hệ thống'}
           </h3>
           
-          <p className="text-sm text-gray-500 mb-6 px-2">
+          <p className="ui-secondary text-sm text-gray-500 mb-6 px-2">
             {iosInstallRequired ? (
               <span className="text-[#003375] font-medium">
                 Trên iPhone/iPad, Web Push chỉ hoạt động khi HUB Planner được thêm vào Màn hình chính. Bấm Chia sẻ → Thêm vào Màn hình chính, rồi mở app từ biểu tượng vừa cài.
