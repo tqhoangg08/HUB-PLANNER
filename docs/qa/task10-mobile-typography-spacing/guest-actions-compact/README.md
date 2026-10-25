@@ -11,3 +11,4 @@ Frontend typecheck, Cloudflare typecheck, build and diff check passed; the exist
 [Measurements/source proof](validation.json) · [Chromium log](chromium.log) · [WebKit log](webkit.log) · [Typecheck](typecheck.log) · [Cloudflare typecheck](cf-typecheck.log) · [Build](build.log).
 
 [Before](before-390.png) · [After 390px](after-390.png) · [After 320px](after-320.png) · [WebKit](webkit-after-390.png).
+Historical evidence: the later [Dashboard overview follow-up](../dashboard-overview/README.md) moves mobile preview login to the header and removes its blue banner. The compact desktop banner actions remain tested.

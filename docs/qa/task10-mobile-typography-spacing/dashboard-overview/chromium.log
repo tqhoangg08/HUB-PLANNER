@@ -1,0 +1,103 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium dashboard overview hierarchy and guest preview (33772.1671ms)
+Loading /dashboard?install=1 guest
+Navigated /dashboard?install=1
+Mode /dashboard?install=1
+Fonts /dashboard?install=1
+Rendered /dashboard?install=1
+✔ chromium guest header login alongside install action (4972.7458ms)
+Loading /dashboard?onboardedGuest=1 guest
+Navigated /dashboard?onboardedGuest=1
+Mode /dashboard?onboardedGuest=1
+Fonts /dashboard?onboardedGuest=1
+Rendered /dashboard?onboardedGuest=1
+✔ chromium onboarded guest keeps actual overview controls (4783.1925ms)
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium semester flat metrics desktop inline and mobile four columns (24003.4283ms)
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+✔ chromium semester header native selection training score and delete confirmation (5597.2529ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ chromium accept /dashboard browser student (8311.7884ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=student&appPreview=1
+✔ chromium accept /mobile-home PWA student (6646.4043ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ chromium accept /dashboard browser guest (7799.5824ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=guest&appPreview=1
+✔ chromium accept /mobile-home PWA guest (6110.2215ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium desktop guest banner actions share typography and geometric text centering (6254.5578ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 116376.4389

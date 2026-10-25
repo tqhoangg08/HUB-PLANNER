@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "00b885f99f0bd364988f2e7d9a06b2c5bf2083ebb5b32c55ff35357f28bb9a34"
+      "sha256NormalizedLF": "a34916449481a9b3dab981e5136df9ad20555d5cfde996b002c85b3b2abd07c5"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -484,7 +484,7 @@
     },
     {
       "path": "layouts/DesktopLayout.tsx",
-      "sha256NormalizedLF": "14e82eb7810be4342dd47a9e451c8e23c2cd7320599615cbd4c796d70f2bbe52"
+      "sha256NormalizedLF": "cf713fbc8c3413f110dc43d1e00968901151dac028c995a064140f1caec10b97"
     },
     {
       "path": "layouts/MobileAppLayout.tsx",
@@ -512,7 +512,7 @@
     },
     {
       "path": "tests/mobile-design-harness.tsx",
-      "sha256NormalizedLF": "c2baf8c4df6c9dfa1a0c5107e346073e09d23d46b59957f19ffac15c30022699"
+      "sha256NormalizedLF": "97b8842b0984421190a67138e4f12698984ccf315987755f9231734150b74ccb"
     },
     {
       "path": "tests/mobile-design-measurements.mjs",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "9566141bd04245caa825b8c91bd6ef2da84d1e9322209f908831477c8f2430ad"
+      "sha256NormalizedLF": "39e064ff1419c513c9dc60c111b55098c7e04ca82217ad0f305797529037ec75"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -545,6 +545,14 @@
     {
       "path": "components/semester-header.css",
       "sha256NormalizedLF": "634d9d14a7310ba0a95744a8b006d891c839444845901b591d04b154d6602836"
+    },
+    {
+      "path": "components/DashboardPreview.tsx",
+      "sha256NormalizedLF": "05896ca5c0868e483f4bc3f94f62bd00b672c6193638363de0342a9343c174e0"
+    },
+    {
+      "path": "components/dashboard-overview.css",
+      "sha256NormalizedLF": "2732d4ba190a9e6b5187402eaeed177946fab152f1195dddc0e25cad5ef02d02"
     }
   ],
   "safety": {
@@ -660,5 +668,20 @@
       "diffCheck": "PASS"
     },
     "note": "Owner reference supersedes the prior five-cell scroller: desktop borderless inline metrics and mobile four-column strip; controllers and callback contracts identical."
+  },
+  "dashboardOverviewFollowup": {
+    "evidence": "dashboard-overview/validation.json",
+    "beforeSha": "c92b6e9b00b7d23e0aef18a51edfb3e17f58f4e9",
+    "results": {
+      "chromium": "10/10 PASS",
+      "webkit": "10/10 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See PR final-HEAD run"
+    },
+    "note": "Mobile preview login moves to header; desktop keeps a single banner. Flat teaser examples, credit progress, compact assessment and stacked small cards preserve live data/controller semantics."
   }
 }

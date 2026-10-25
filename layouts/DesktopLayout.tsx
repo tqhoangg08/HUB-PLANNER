@@ -595,6 +595,12 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </button>
                       )}
                       
+                      {isGuest && isSmallViewport && (
+                          <Link to="/login" onClick={playClick} className="ui-guest-action ui-guest-action--primary">
+                              <span className="ui-guest-action__surface">Đăng nhập</span>
+                          </Link>
+                      )}
+
                       {!isGuest && isSmallViewport && (
                           <NotificationBell currentUserId={session?.user?.id} />
                       )}

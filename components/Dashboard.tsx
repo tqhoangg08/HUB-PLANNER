@@ -33,6 +33,8 @@ import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { TranscriptToolbar } from './TranscriptToolbar';
 import './semester-header.css';
+import { DashboardPreview, DashboardLockLabel, DashboardCreditProgress } from './DashboardPreview';
+import './dashboard-overview.css';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { resolveTotalCreditsRequired } from '../utils/programs';
 import { AdminStudentManagement } from './AdminStudentManagement';
@@ -2435,16 +2437,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 Tổng quan học tập {selectedUserOverview && <span className="ui-muted ui-meta text-[10px] sm:text-xs text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-300 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem)</span>}
                             </h1>
 
-                            <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">
-                                <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
-                                <span className="text-gray-300">•</span>
-                                <span>{activeData.studentName || 'Chưa cập nhật tên'}</span>
-                                <span className="text-gray-300">•</span>
-                                <span>{activeData.programName || 'Chưa cập nhật hệ'}</span>
-                                <span className="text-gray-300">•</span>
-                                <span>{activeData.cohort || 'Chưa cập nhật khóa'}</span>
-                                <span className="text-gray-300">•</span>
-                                <span>{activeData.specializationName || 'Chưa cập nhật chuyên ngành'}</span>
+                            <div className="dashboard-profile-status ui-meta text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">
+                                {isLocked ? <span>Chế độ xem trước • Chưa thiết lập hồ sơ sinh viên</span> : <span>{[activeData.studentName, activeData.programName, activeData.cohort, activeData.specializationName].filter(Boolean).join(' • ') || 'Chưa thiết lập hồ sơ sinh viên'}</span>}
+                                {isLocked && onRequireOnboarding && <button type="button" className="ui-action" onClick={() => { playClick(); onRequireOnboarding(); }}>Thiết lập ngay →</button>}
                             </div>
                         </div>
 
@@ -2462,14 +2457,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {isGuest && (
-                        <div className="bg-blue-50 border border-blue-300 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn mt-2 sm:mt-0">
+                        <div data-dashboard-login-banner className="bg-blue-50 border border-blue-300 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn mt-2 sm:mt-0">
                             <div className="flex items-center gap-2 text-[#003375] text-sm font-medium">
-                                <Info size={18} className="shrink-0" />
-                                {isLocked ? (
-                                    <p>Bạn đang ở chế độ xem trước. <strong>Một số tính năng đang bị khóa, vui lòng cập nhật thông tin hoặc đăng nhập để có thể trải nghiệm trọn vẹn nhất.</strong></p>
-                                ) : (
-                                    <p>Bạn đang dùng thử với tư cách khách. <strong>Đăng nhập để lưu dữ liệu vĩnh viễn.</strong></p>
-                                )}
+                                <p>Đăng nhập để lưu lộ trình học tập và sử dụng đầy đủ tính năng.</p>
                             </div>
                             <div className="ui-guest-actions grid grid-flow-col auto-cols-fr gap-2 w-max max-w-full self-end sm:self-auto sm:flex">
                                 {isLocked && (
@@ -2485,51 +2475,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     )}
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between">
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
-                            <GraduationCap size={16} className="ui-muted text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className="dashboard-overview-kpis grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div data-dashboard-kpi className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between">
+                        <div className="dashboard-kpi-heading mb-1">
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Tổng GPA tích lũy</span>
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
                             <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.gpa4.toFixed(2)}</span>
                             <span className="ui-muted ui-meta text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
                         </div>
                         <div className="ui-meta text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Hệ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
+                            <span className="truncate">Hệ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between">
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
-                            <BookOpen size={16} className="ui-muted text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <div data-dashboard-kpi className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between">
+                        <div className="dashboard-kpi-heading mb-1">
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Tín chỉ tích lũy</span>
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
                             <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.passedCredits}</span>
-                            <span className="ui-meta text-[10px] sm:text-[13px] font-bold text-gray-500">TC</span>
+                            <span className="ui-meta text-[10px] sm:text-[13px] font-bold text-gray-500">/ {totalCreditsRequired} TC</span>
                         </div>
-                        <div className="ui-meta text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 truncate">
-                            Mục tiêu: <span className="font-bold text-gray-700">{totalCreditsRequired}</span>
-                        </div>
+                        <DashboardCreditProgress earned={stats.passedCredits} required={totalCreditsRequired} />
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
-                            <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <div data-dashboard-kpi className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
+                        <div className="dashboard-kpi-heading mb-1">
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Top môn điểm cao</span>
+                            {isLocked && <DashboardLockLabel />}
                         </div>
-                        
+
                         <div className="relative flex-1 flex flex-col justify-center">
-                            {isLocked && (
-                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/60 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white/80 transition-colors border border-gray-200">
-                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
-                                        <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                        <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                    </div>
-                                </Link>
-                            )}
-                            {highestSubject ? (
+
+                            {isLocked ? <DashboardPreview kind="ranking" /> : highestSubject ? (
                                 <div className="mt-1">
                                     <span className="ui-readable ui-card-title text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
                                     <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
@@ -2544,22 +2523,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {FEATURE_FORECAST_TOOLS && (
-                    <div className="z-20 bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-visible">
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
-                            <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <div data-dashboard-kpi className="z-20 bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-visible">
+                        <div className="dashboard-kpi-heading mb-1">
+                            <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Dự báo mục tiêu</span>
+                            {isLocked && <DashboardLockLabel />}
                         </div>
 
                         <div className="relative flex-1 flex flex-col justify-center">
-                            {isLocked && (
-                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/60 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white/80 transition-colors border border-gray-200">
-                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
-                                        <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                        <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                    </div>
-                                </Link>
-                            )}
-                            <div className="ui-meta flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
+
+                            {isLocked ? <DashboardPreview kind="forecast" /> : (<div className="ui-meta flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                                 <div className="ui-gpa-goal-row flex justify-between items-center">
                                     <span className="ui-secondary ui-readable">Mục tiêu:</span>
                                     <TargetGpaTipInput
@@ -2581,7 +2553,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <span className="font-bold text-[#990000]">Không thể</span>
                                     )}
                                 </div>
-                            </div>
+                            </div>)}
                         </div>
                     </div>
                     )}
@@ -2589,27 +2561,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                     <div className="lg:col-span-2 flex flex-col gap-3 sm:gap-4">
-                        <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
-                            <div className="flex justify-between items-center mb-2 sm:mb-6">
+                        <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col">
+                            <div className="flex flex-wrap gap-2 justify-between items-center mb-2 sm:mb-6">
                                 <h3 className="ui-card-title text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
+                                {isLocked && <DashboardLockLabel />}
                                 <div className="ui-meta flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Hệ 4</span>
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
                                 </div>
                             </div>
-                            
-                            <div className="flex-1 w-full -ml-5 sm:-ml-4 relative min-h-[100px]">
-                                {isLocked && (
-                                    <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/60 z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 border border-gray-200 hover:bg-white/80 transition-colors cursor-pointer group">
-                                        <div className="bg-white p-4 rounded-2xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
-                                            <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
-                                            <p className="ui-secondary text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
-                                            <p className="ui-secondary text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
-                                        </div>
-                                    </Link>
-                                )}
 
-                                {trendData.length > 0 ? (
+                            <div className="w-full relative h-[180px] sm:h-[240px]">
+
+
+                                {isLocked ? <DashboardPreview kind="trend" /> : trendData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
                                         <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -2621,49 +2586,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         </LineChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="ui-muted ui-meta absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chưa có dữ liệu học kỳ</div>
+                                    <div className="ui-muted ui-meta absolute inset-0 flex items-center justify-center text-gray-400 text-xs">Chưa có dữ liệu học kỳ</div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
-                            <div className="flex-1 w-full">
-                                <h3 className="ui-card-title text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                                    <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> Đánh giá hệ thống
-                                </h3>
-                                <p className="ui-secondary text-[10px] sm:text-xs text-gray-500 font-medium leading-snug">"{trendAnalysis}"</p>
-                            </div>
-                            <div className="shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
+                        <div data-dashboard-assessment className="dashboard-overview-card bg-white p-3 sm:p-4 rounded-xl border border-gray-300">
+                            <div className="dashboard-overview-assessment-heading">
+                                <h3 className="ui-card-title text-xs sm:text-sm font-bold text-gray-900">Đánh giá hệ thống</h3>
                                 {failedCount > 0 ? (
-                                    <button onClick={() => { playClick(); setShowFailedModal(true); }} className="ui-action w-full sm:w-auto flex items-center justify-between gap-3 px-3 py-2 bg-red-50 text-[#990000] border border-red-300 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors group">
-                                        <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> Tồn đọng {failedCount} môn nợ</span>
-                                        <ChevronRight size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+                                    <button onClick={() => { playClick(); setShowFailedModal(true); }} className="ui-action flex items-center gap-2 px-3 py-2 bg-red-50 text-[#990000] border border-red-300 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors">
+                                        Tồn đọng {failedCount} môn nợ <ChevronRight size={14} />
                                     </button>
-                                ) : (
-                                    <div className="ui-meta w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg text-[11px] sm:text-xs font-bold">
-                                        <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không nợ môn</span>
-                                    </div>
-                                )}
+                                ) : <span className="dashboard-debt-status ui-meta">✓ Không nợ môn</span>}
                             </div>
+                            <p className="ui-secondary text-[10px] sm:text-xs text-gray-500 font-medium leading-snug mt-1">{trendAnalysis}</p>
                         </div>
                     </div>
 
                     <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
-                        <div className="ui-card-grid grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
+                        <div className="dashboard-overview-secondary shrink-0">
                             <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                                <h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
-                                
-                                <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
-                                    {isLocked && (
-                                        <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/60 z-20 flex items-center justify-center flex-col text-center rounded-xl border border-gray-200 cursor-pointer group hover:bg-white/80 transition-colors">
-                                            <div className="bg-white p-3 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
-                                                <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                                <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                            </div>
-                                        </Link>
-                                    )}
-                                    {pieData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
+                                <div className="dashboard-kpi-heading mb-2"><h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight">Phân bố điểm</h3>
+                                {isLocked && <DashboardLockLabel />}</div>
+
+                                <div className="w-full relative flex flex-col justify-center shrink-0 min-h-[130px]">
+
+                                    {isLocked ? <DashboardPreview kind="distribution" /> : pieData.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height={130} initialDimension={{ width: 1, height: 1 }}>
                                             <PieChart>
                                                 <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
                                                     {pieData.map((entry, index) => (
@@ -2680,22 +2630,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
 
                             <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                                <div className="flex justify-between items-center mb-2 sm:mb-3">
-                                    <h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
+                                <div className="flex flex-wrap gap-2 justify-between items-center mb-2 sm:mb-3">
+                                    <h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900">Tổng kết năm</h3>
+                                    {isLocked && <DashboardLockLabel />}
                                     {yearlyStats.length > 3 && !isLocked && (
                                         <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="ui-action text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
                                     )}
                                 </div>
-                                
-                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
-                                    {isLocked && (
-                                        <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/60 z-20 flex items-center justify-center flex-col text-center rounded-xl border border-gray-200 cursor-pointer group hover:bg-white/80 transition-colors">
-                                            <div className="bg-white p-3 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
-                                                <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                                <p className="ui-secondary text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                            </div>
-                                        </Link>
-                                    )}
+
+                                <div className="dashboard-year-summary space-y-1 relative">
+                                    {isLocked ? <DashboardPreview kind="year" /> : <>
+
                                     <div className="ui-muted ui-meta grid grid-cols-6 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
                                         <span className="col-span-2">Năm</span>
                                         <span className="text-center">TC</span>
@@ -2719,6 +2664,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             <span className="text-right font-extrabold text-amber-700">{formatTrainingScore(year.averageTrainingScore)}</span>
                                         </div>
                                     ))}
+                                    </>}
                                 </div>
                             </div>
 
@@ -2733,7 +2679,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="pt-2">
-                    <TranscriptToolbar
+<TranscriptToolbar
                         hasSubjects={baseActiveData.semesters.some(semester => semester.subjects.length > 0)}
                         editable={!selectedUserOverview}
                         editing={isTranscriptEditing}

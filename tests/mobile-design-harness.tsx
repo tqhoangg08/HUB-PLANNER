@@ -21,6 +21,7 @@ function Fixture() {
   const [data, setData] = useState(() => {
     const query = new URLSearchParams(location.search);
     const data = structuredClone(student.data);
+    if (query.has('onboardedGuest')) data.hasOnboarded = true;
     if (query.has('emptyTranscript')) data.semesters = [];
     else if (query.has('emptySemester')) data.semesters = data.semesters.map(semester => ({ ...semester, subjects: [] }));
     return data;
@@ -30,13 +31,16 @@ function Fixture() {
   const isAdmin = role === 'admin',
     isAuditor = role === 'auditor',
     isGuest = role === 'guest';
+  // Public auth lives outside ProtectedAppRoutes in the real app. A terminal
+  // fixture route verifies login navigation without mounting auth or its APIs.
+  if (location.pathname === '/login') return <main><h1>Đăng nhập (fixture)</h1></main>;
   if (location.pathname.startsWith('/scholarships')) return <><output id="mode" className="sr-only">scholarships</output><ScholarshipList /></>;
   return <ProtectedAppShell mobileLayout={mode.useMobileLayout} mobileScreen={mode.isMobileScreen} mobileBrowser={mode.isMobileBrowser} session={isGuest ? null : {
     user: {
       id: 'fixture-user',
       email: 'fixture@example.invalid'
     }
-  } as any} isGuest={isGuest} isAdmin={isAdmin} isAuditor={isAuditor} viewingUser={null} displayName={`${role} fixture`} studentId="123456" avatarUrl="" avatarSeed="F" adminSearchMssv="" isSearchingUser={false} userMenuOpen={userMenu} showInstallButton={false} passwordSetupSchemaMissing={false} isPrivilegedUser={isAdmin || isAuditor} requiresPasswordSetup={false} setAdminSearchMssv={() => {}} onAdminSearchUser={e => e.preventDefault()} onRequestDeleteAccount={() => {}} onLogout={() => {}} setGuideOpen={() => {}} setActivityLogOpen={() => {}} setUserMenuOpen={setUserMenu} setAccountSettingsOpen={() => {}} onMenuLogout={() => {}} onNavigate={path => navigate(path + location.search)} onInstallApp={() => {}} onPasswordSetupComplete={() => {}} overlays={<AppAiAdvisorOverlay userId={isGuest ? undefined : 'fixture-user'} mobileScreen={mode.isMobileScreen} mobileLayout={mode.useMobileLayout} showHint={false} />}>
+  } as any} isGuest={isGuest} isAdmin={isAdmin} isAuditor={isAuditor} viewingUser={null} displayName={`${role} fixture`} studentId="123456" avatarUrl="" avatarSeed="F" adminSearchMssv="" isSearchingUser={false} userMenuOpen={userMenu} showInstallButton={new URLSearchParams(location.search).has("install")} passwordSetupSchemaMissing={false} isPrivilegedUser={isAdmin || isAuditor} requiresPasswordSetup={false} setAdminSearchMssv={() => {}} onAdminSearchUser={e => e.preventDefault()} onRequestDeleteAccount={() => {}} onLogout={() => {}} setGuideOpen={() => {}} setActivityLogOpen={() => {}} setUserMenuOpen={setUserMenu} setAccountSettingsOpen={() => {}} onMenuLogout={() => {}} onNavigate={path => navigate(path + location.search)} onInstallApp={() => {}} onPasswordSetupComplete={() => {}} overlays={<AppAiAdvisorOverlay userId={isGuest ? undefined : 'fixture-user'} mobileScreen={mode.isMobileScreen} mobileLayout={mode.useMobileLayout} showHint={false} />}>
     <output id="mode" className="sr-only">{mode.useMobileLayout ? 'standalone' : mode.isMobileBrowser ? 'browser' : 'desktop'}</output>
     <output id="import-opens" className="sr-only">{importOpens}</output>
     <output id="onboarding-opens" className="sr-only">{onboardingOpens}</output>

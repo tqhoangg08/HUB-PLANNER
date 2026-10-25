@@ -83,6 +83,71 @@ const campaign = {
   scoreColumns: []
 };
 const records = [];
+test(`${engine} dashboard overview hierarchy and guest preview`, {timeout:240000}, async()=>{
+  const before=process.env.OVERVIEW_AUDIT==='1', measurements=[];
+  for(const role of ['guest','student'])for(const initial of [390,1440]){
+    const f=await fixture('/dashboard',false,role,initial,900),p=f.page;
+    try{
+      const hint=p.getByRole('button',{name:'Ẩn gợi ý AI',exact:true});if(await hint.isVisible())await hint.click();
+      for(const width of before?[initial]:(initial===1440?[1024,1440]:[320,360,375,390,430])){
+        await p.setViewportSize({width,height:900});await p.evaluate(()=>scrollTo(0,0));
+        const g=await p.evaluate(()=>{
+          const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right};};
+          const card=text=>{const label=[...document.querySelectorAll('h3,span')].find(e=>e.textContent.trim()===text);let e=label;while(e&&!e.classList.contains('bg-white'))e=e.parentElement;return e;};
+          const dist=card('Phân bố điểm'),year=card('Tổng kết năm'),assessment=card('Đánh giá hệ thống');
+          const probe=document.createElement('div');probe.className='border border-gray-300';document.body.append(probe);const expectedBorder=getComputedStyle(probe).borderColor;probe.remove();
+          return {expectedBorder,overflow:document.documentElement.scrollWidth>innerWidth+1,distribution:box(dist),year:box(year),assessment:box(assessment),assessmentText:assessment.innerText,whiteLoginBoxes:[...document.querySelectorAll('a')].filter(e=>e.textContent.includes('Đăng nhập để xem')).length,previews:document.querySelectorAll('[data-dashboard-preview]').length,progress:document.querySelector('[data-credit-progress]')?.getAttribute('aria-valuenow'),fonts:[...document.querySelectorAll('[data-dashboard-kpi]')].map(e=>({family:getComputedStyle(e).fontFamily,border:getComputedStyle(e).borderColor}))};
+        });
+        measurements.push({role,width,...g});
+        await p.screenshot({path:`${out}/${engine}-overview-${before?'before':'after'}-${role}-${width}.png`,fullPage:true,scale:'css'});
+        if(before)continue;
+        assert.equal(g.overflow,false);assert.equal(g.whiteLoginBoxes,0);assert.ok(!g.assessmentText.includes('"'));
+        if(width<768){assert.ok(Math.abs(g.distribution.x-g.year.x)<1);assert.ok(g.year.y>=g.distribution.bottom);assert.ok(g.distribution.width>width*.8);}
+        assert.equal(g.previews,role==='guest'?5:0);
+        assert.ok(Number(g.progress)>=0&&Number(g.progress)<=100);
+        assert.equal(g.fonts.length,4);assert.ok(g.fonts.every(c=>c.family.includes('Inter')&&c.border===g.expectedBorder),JSON.stringify(g.fonts));
+        const banner=p.locator('[data-dashboard-login-banner]');
+        if(role==='guest'){
+          assert.equal(await banner.isVisible(),width>=768);
+          const login=p.locator('.mobile-browser-header-actions').getByRole('link',{name:'Đăng nhập',exact:true});
+          if(width<768){assert.equal(await login.isVisible(),true);const b=await login.boundingBox();assert.ok(b.width>=44&&b.height>=44);}
+          assert.equal(await p.locator('[data-dashboard-preview] input,[data-dashboard-preview] a,[data-dashboard-preview] button').count(),0);
+        }else assert.equal(await banner.count(),0);
+      }
+      if(!before&&role==='guest'&&initial===390){await p.getByRole('button',{name:'Thiết lập ngay →',exact:true}).click();assert.equal(await p.locator('#onboarding-opens').textContent(),'1');await p.locator('.mobile-browser-header-actions').getByRole('link',{name:'Đăng nhập',exact:true}).click();await p.waitForURL('**/login');assert.equal(new URL(p.url()).pathname,'/login');}
+      assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+    }finally{await f.context.close();}
+  }
+  records.push({scenario:'dashboard overview',measurements});
+});
+test(`${engine} guest header login alongside install action`,{timeout:90000},async()=>{
+  const f=await fixture('/dashboard?install=1',false,'guest'),p=f.page;
+  try{
+    const hint=p.getByRole('button',{name:'Ẩn gợi ý AI',exact:true});if(await hint.isVisible())await hint.click();
+    const header=p.locator('.mobile-browser-header-actions');
+    for(const width of [320,375,390,430]){
+      await p.setViewportSize({width,height:844});
+      for(const control of [header.getByRole('link',{name:'Đăng nhập',exact:true}),header.getByTitle('Tải ứng dụng'),header.getByRole('button',{name:'Mở menu',exact:true})]){
+        assert.equal(await control.isVisible(),true);const b=await control.boundingBox();assert.ok(b.width>=44&&b.height>=44&&b.x>=0&&b.x+b.width<=width+1&&b.y>=0&&b.y+b.height<844);
+      }
+      assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    }
+    assert.equal(await header.getByRole('link',{name:'Đăng nhập',exact:true}).getAttribute('href'),'/login');
+    assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+  }finally{await f.context.close();}
+});
+test(`${engine} onboarded guest keeps actual overview controls`,{timeout:90000},async()=>{
+  const f=await fixture('/dashboard?onboardedGuest=1',false,'guest'),p=f.page;
+  try{
+    assert.equal(await p.locator('[data-dashboard-preview]').count(),0);
+    assert.equal(await p.getByRole('spinbutton',{name:'GPA mục tiêu',exact:true}).inputValue(),'3.6');
+    await p.locator('[data-dashboard-kpi]').filter({hasText:'Top môn điểm cao'}).click();
+    await p.getByRole('heading',{name:'Bảng xếp hạng môn học',exact:true}).waitFor();
+    await p.locator('[data-overlay-root]').getByRole('button').first().click();
+    assert.equal(await p.getByRole('heading',{name:'Bảng xếp hạng môn học',exact:true}).count(),0);
+    assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+  }finally{await f.context.close();}
+});
 test(`${engine} semester flat metrics desktop inline and mobile four columns`, { timeout: 180000 }, async () => {
   const measurements=[];
   for (const [empty,initialWidth] of [[true,390],[false,390],[true,1440],[false,1440]]) {
@@ -1398,7 +1463,7 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} GPA target
     await f.context.close();
   }
 });
-if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} guest banner actions share typography and geometric text centering`, {
+if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} desktop guest banner actions share typography and geometric text centering`, {
   timeout: 180000
 }, async () => {
   const f = await fixture('/dashboard', false, 'guest', 390, 844),
@@ -1414,7 +1479,7 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} guest bann
       }),
       row = login.locator('..');
     const measurements = [];
-    for (const width of [320, 360, 375, 390, 430, 1440]) {
+    for (const width of [768, 1024, 1440]) {
       await p.setViewportSize({
         width,
         height: 900
@@ -1486,6 +1551,7 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} guest bann
     await update.click({ position: { x: 2, y: 2 } });
     await p.waitForFunction(() => document.getElementById('onboarding-opens')?.textContent === '1');
     await login.click({ position: { x: 2, y: 2 } });
+    await p.waitForURL('**/login');
     assert.equal(new URL(p.url()).pathname, '/login');
   } finally {
     await f.context.close();
