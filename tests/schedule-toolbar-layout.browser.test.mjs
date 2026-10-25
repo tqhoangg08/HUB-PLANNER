@@ -134,6 +134,38 @@ test(`${engine} unified timetable layout`,{timeout:240000},async()=>{
 });
 
 
+test(engine+' mobile toolbar keeps filters and calendar in two rows',{timeout:150000},async()=>{
+ const rows=[];
+ for(const width of [320,360,375,390,430]){
+ const f=await fixture({width,height:width===320?568:844,preference:'true'}),p=f.page;
+ try{
+ await p.getByRole('heading',{name:'Thời khóa biểu',exact:true}).waitFor();
+ const measure=()=>p.evaluate(()=>{const box=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};const period=document.querySelector('.timetable-period-trigger');return {toolbar:box('.timetable-unified-toolbar'),actions:box('.timetable-filter-actions'),chips:box('.timetable-filter-chips'),chip:box('.timetable-semester-chip'),navigation:box('.timetable-calendar-navigation'),calendar:box('[data-schedule-calendar]'),period:box('.timetable-period-trigger'),periodWhiteSpace:getComputedStyle(period).whiteSpace,periodClipped:period.scrollHeight>period.clientHeight+1,pageOverflow:document.documentElement.scrollWidth>innerWidth+1};});
+ let g=await measure();
+ assert.equal(g.pageOverflow,false,JSON.stringify({width,g}));
+ assert.ok(Math.abs(g.actions.y-g.chip.y)<8,JSON.stringify({width,g}));
+ assert.ok(g.navigation.y>=g.actions.bottom-1&&g.navigation.bottom<=g.toolbar.bottom+1,JSON.stringify({width,g}));
+ assert.ok(Math.abs(g.calendar.y-g.toolbar.bottom)<3,JSON.stringify({width,g}));
+ assert.equal(g.periodWhiteSpace,'nowrap');assert.equal(g.periodClipped,false);
+ assert.match(await p.getByRole('button',{name:'Lịch cá nhân',exact:true}).innerText(),width<768?/Cá nhân/:/Lịch cá nhân/);
+ assert.equal(await p.getByRole('button',{name:'Xóa tất cả bộ lọc',exact:true}).isVisible(),false);
+ rows.push({width,mode:'personal',...g});
+ if(evidence)await p.screenshot({path:`${evidence}/${engine}-two-row-${width}.png`,scale:'css'});
+ await p.getByRole('button',{name:'Kế hoạch',exact:true}).click();g=await measure();
+ assert.equal(g.pageOverflow,false,JSON.stringify({width,g}));
+ assert.ok(Math.abs(g.actions.y-g.chip.y)<8,JSON.stringify({width,g}));
+ assert.ok(g.chip.right<=g.toolbar.right+1,JSON.stringify({width,g}));
+ rows.push({width,mode:'plan',...g});
+ if(evidence)await p.screenshot({path:`${evidence}/${engine}-two-row-plan-${width}.png`,scale:'css'});
+ await p.getByRole('button',{name:'Bỏ lọc học kỳ',exact:true}).click();
+ assert.equal(await p.locator('.timetable-semester-chip').count(),0);
+ assert.equal(await p.getByRole('button',{name:'Xóa tất cả bộ lọc',exact:true}).count(),0);
+ clean(f);
+ }finally{await f.context.close();}
+ }
+ if(evidence)fs.writeFileSync(`${evidence}/${engine}-two-row-measurements.json`,JSON.stringify(rows,null,2)+'\n');
+});
+
 test(engine+' timetable control density',{timeout:180000},async()=>{
  const before=process.env.DENSITY_BEFORE==='1',rows=[];
  for(const width of process.env.DENSITY_WIDTHS?process.env.DENSITY_WIDTHS.split(',').map(Number):[360,390,1440])for(const role of process.env.DENSITY_ROLES?process.env.DENSITY_ROLES.split(','):['student','guest']){
@@ -147,8 +179,8 @@ test(engine+' timetable control density',{timeout:180000},async()=>{
  if(evidence&&width===1440){const header=await p.locator('.timetable-page-header').boundingBox(),bar=await p.locator('.timetable-unified-toolbar').boundingBox();await p.screenshot({path:evidence+'/'+engine+'-toolbar-'+(before?'before':'after')+'-'+role+'.png',scale:'css',clip:{x:header.x,y:header.y,width:header.width,height:bar.y+bar.height-header.y+40}});}
  if(!before){
  assert.equal(data.overflow,false,JSON.stringify({width,role,data}));assert.equal(data.modeBorder,'0px');
- const unframed=await p.locator('.timetable-mode button,.timetable-date-navigation button,.timetable-view-buttons button,.timetable-filter-actions > button:nth-child(2),.timetable-filter-chips > button,.timetable-filter-chips > span > button').evaluateAll(nodes=>nodes.map(e=>({label:e.textContent.trim(),border:getComputedStyle(e,'::before').borderTopWidth})));for(const item of unframed)assert.equal(item.border,'0px',JSON.stringify(item));
- for(const c of data.controls){if(c.selector==='.timetable-view-select select'){assert.ok(c.box.height>=44&&c.box.width>=44);assert.ok(c.font>=16);const native=p.getByRole('combobox',{name:'Chế độ xem lịch'});await native.selectOption('month');assert.equal(await p.getByRole('button',{name:'Tháng sau',exact:true}).isVisible(),true);await native.selectOption('week');continue;}if(c.selector==='.timetable-filter-chips > span'){assert.ok(c.surface.height>=24&&c.surface.height<=25,JSON.stringify(c));continue;}
+ const unframed=await p.locator('.timetable-mode button,.timetable-date-navigation button,.timetable-view-buttons button,.timetable-filter-actions > button:nth-child(2),.timetable-filter-chips > button:not(.timetable-semester-chip),.timetable-filter-chips > span > button').evaluateAll(nodes=>nodes.map(e=>({label:e.textContent.trim(),border:getComputedStyle(e,'::before').borderTopWidth})));for(const item of unframed)assert.equal(item.border,'0px',JSON.stringify(item));
+ for(const c of data.controls){if(c.selector==='.timetable-view-select select'){assert.ok(c.box.height>=44&&c.box.width>=44);assert.ok(c.font>=16);const native=p.getByRole('combobox',{name:'Chế độ xem lịch'});await native.selectOption('month');assert.equal(await p.getByRole('button',{name:'Tháng sau',exact:true}).isVisible(),true);await native.selectOption('week');continue;}if(c.selector==='.timetable-filter-chips > span'){assert.ok(c.surface.height>=24&&c.surface.height<=25,JSON.stringify(c));continue;}if(c.name==='Bỏ lọc học kỳ'){assert.ok(c.box.height>=(width<1024?44:28));assert.ok(c.surface.height>=24&&c.surface.height<=25,JSON.stringify(c));continue;}
  assert.ok(c.box.height>=(width<1024?44:c.selector.includes('header')||c.selector.includes('mode')?32:28),JSON.stringify(c));
  assert.ok(c.font>=12&&c.font<=13.1,JSON.stringify(c));assert.ok(c.surface.height>=28&&c.surface.height<=32.1,JSON.stringify(c));assert.equal(c.opacity,'1');}
  const pdf=p.getByRole('button',{name:'Nhập PDF',exact:true});assert.equal(await pdf.isDisabled(),role==='guest');assert.equal(await pdf.locator('svg').count(),role==='guest'?2:1);

@@ -34,7 +34,7 @@
 .timetable-filter-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-width:0; }
 .timetable-unified-toolbar .timetable-filter-toggle { color:#12366A; }
 .timetable-unified-toolbar .timetable-filter-toggle::before { border-color:#dbeafe; background:#eff6ff; }
-.timetable-filter-toggle > span { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding-inline:3px; border-radius:999px; background:#12366A; color:white; font-size:calc(11rem / 14); line-height:1; }
+.timetable-filter-toggle > .timetable-filter-count { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding-inline:3px; border-radius:999px; background:#12366A; color:white; font-size:calc(11rem / 14); line-height:1; }
 .timetable-filter-actions > button:nth-child(2)::before, .timetable-filter-chips > button::before { border:0; background:transparent; }
 .timetable-unified-toolbar .timetable-filter-bar { grid-column:1 / -1; margin:0; min-width:0; }
 .timetable-filter-chips { display:flex; align-items:center; gap:8px; overflow-x:auto; max-width:100%; min-height:var(--tt-hit); white-space:nowrap; }
@@ -43,6 +43,9 @@
 .timetable-filter-chips button { min-width:24px; padding-inline:4px; }
 .timetable-filter-chips > span > button::before { border:0; background:transparent; }
 .timetable-filter-chips > button { color:#475569; font-size:calc(12rem / 14) !important; }
+.timetable-filter-chips > .timetable-semester-chip { flex:none; gap:6px; padding-inline:10px; color:#28466f; font-size:calc(11rem / 14) !important; }
+.timetable-filter-chips > .timetable-semester-chip::before { height:max(24px,calc(1lh + 4px)); border:1px solid #dbe5f3; border-radius:999px; background:#f8fafc; }
+.timetable-semester-label-short { display:none; }
 .timetable-calendar-navigation { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:8px; min-width:0; }
 .timetable-date-navigation { font-size:var(--tt-type); line-height:1.4; position:relative; isolation:isolate; display:inline-flex; align-items:center; order:1; }
 .timetable-date-navigation::before { content:''; position:absolute; z-index:-1; pointer-events:none; inset:0; margin-block:auto; height:max(28px,calc(1lh + 8px)); border:1px solid #e2e8f0; border-radius:6px; background:white; }
@@ -58,16 +61,17 @@
 .timetable-plan-picker::before { content:''; position:absolute; z-index:-1; pointer-events:none; inset:0; margin-block:auto; height:max(28px,calc(1lh + 8px)); border:1px solid #fde68a; border-radius:6px; background:#fffbeb; }
 .timetable-plan-picker select { position:absolute; inset:0; opacity:0; width:100%; height:100%; min-height:var(--tt-hit); }
 .timetable-plan-picker:focus-within { outline:2px solid #1d4ed8; outline-offset:2px; }
+.timetable-plan-label-compact { display:none; }
 .timetable-content-frame { display:flex; align-items:stretch; gap:12px; min-width:0; }
 .timetable-filter-sidebar { display:flex; flex-direction:column; width:330px; flex-shrink:0; max-height:75dvh; }
 .timetable-sidebar-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border-bottom:1px solid #d1d5db; }
 .timetable-sidebar-scroll { min-height:0; overflow-y:auto; }
 .timetable-calendar-pane { min-height:600px; height:calc(100dvh - 260px); overflow:hidden; }
-.timetable-label-narrow, .timetable-pdf-narrow { display:none; }
+.timetable-label-narrow, .timetable-label-micro, .timetable-filter-label-short, .timetable-pdf-narrow { display:none; }
 .timetable-sheet-backdrop { inset-inline:0; width:100%; display:flex; align-items:flex-end; justify-content:center; background:rgba(7,28,58,.35); z-index:99990; }
 .timetable-filter-sheet { display:flex; flex-direction:column; width:100%; max-height:92%; border:1px solid #d1d5db; border-radius:20px 20px 0 0; background:white; padding-top:env(safe-area-inset-top); }
 .timetable-filter-sheet > header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid #d1d5db; flex-shrink:0; }
-.timetable-filter-sheet > header button { min-width:44px; min-height:44px; }
+.timetable-filter-sheet > header button { min-width:44px; min-height:44px; flex-shrink:0; }
 .timetable-sheet-scroll { min-height:0; overflow-y:auto; }
 .timetable-filter-sheet > .timetable-sheet-footer { display:flex; gap:8px; padding:12px 16px max(12px,env(safe-area-inset-bottom)); border-top:1px solid #d1d5db; flex-shrink:0; }
 .timetable-filter-sheet > .timetable-sheet-footer > button { min-height:44px; }
@@ -97,6 +101,25 @@
 @media (max-width:767px) {
   .timetable-page-header { gap:8px; }
   .timetable-page-header > div:first-child { flex-basis:100%; }
+  .timetable-unified-toolbar { grid-template-columns:max-content minmax(0,1fr); gap:0 4px; padding:2px 8px 0; }
+  .timetable-unified-toolbar > .timetable-filter-actions { grid-column:1; grid-row:1; flex-wrap:nowrap; gap:4px; }
+  .timetable-unified-toolbar .timetable-filter-actions > button { padding-inline:4px; gap:4px; }
+  .timetable-unified-toolbar > .timetable-filter-bar { grid-column:2; grid-row:1; overflow:hidden; }
+  .timetable-unified-toolbar > .timetable-calendar-navigation { grid-column:1 / -1; grid-row:2; flex-wrap:nowrap; justify-content:space-between; gap:2px; min-width:0; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; border-top:1px solid #e2e8f0; }
+  .timetable-unified-toolbar > .timetable-calendar-navigation::-webkit-scrollbar { display:none; }
+  .timetable-filter-chips { gap:4px; }
+  .timetable-filter-chips > span { flex:none; padding-inline:6px 0; gap:0; }
+  .timetable-filter-chips > .timetable-semester-chip { gap:4px; padding-inline:6px; font-size:calc(12rem / 14) !important; }
+  .timetable-semester-label-full { display:none; }
+  .timetable-semester-label-short { display:inline; }
+  .timetable-plan-picker { margin-left:0; padding-inline:4px; white-space:nowrap; }
+  .timetable-plan-picker::before { height:max(28px,calc(1lh + 8px)); }
+  .timetable-plan-summary { display:none; }
+  .timetable-filter-chips:not(:has(> :is(.timetable-semester-chip, span:not(.ui-muted)) ~ :is(.timetable-semester-chip, span:not(.ui-muted)))) > button[aria-label='Xóa tất cả bộ lọc'] { display:none; }
+  .timetable-calendar-navigation > * { flex-shrink:0; }
+  .timetable-period-trigger { flex:0 0 auto; min-width:44px; white-space:nowrap !important; }
+  .timetable-date-navigation button:nth-child(2) { padding-inline:2px; }
+  .timetable-unified-toolbar + .timetable-content-frame { margin-top:0 !important; }
   .timetable-mode { gap:4px; }
   .timetable-mode button { padding-inline:4px; }
   .timetable-pdf-wide { display:none; }
@@ -107,6 +130,14 @@
 @media (max-width:359px) {
   .timetable-view-buttons { display:none; }
   .timetable-view-select { display:block; }
+}
+@media (max-width:389px) {
+  .timetable-filter-label-wide, .timetable-filter-actions > button:nth-child(2) .timetable-label-narrow { display:none; }
+  .timetable-filter-label-short, .timetable-filter-actions > button:nth-child(2) .timetable-label-micro { display:inline; }
+}
+@media (max-width:375px) {
+  .timetable-plan-label-full { display:none; }
+  .timetable-plan-label-compact { display:inline; }
 }
 @media (min-width:1200px) {
   .timetable-unified-toolbar { grid-template-columns:auto minmax(0,1fr) auto; }

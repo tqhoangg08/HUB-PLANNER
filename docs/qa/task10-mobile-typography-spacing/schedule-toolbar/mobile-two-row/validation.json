@@ -1,0 +1,29 @@
+{
+  "scope": "Browser ScheduleBoard toolbar layout and removable semester chip",
+  "before": {
+    "chromium390ToolbarHeightCssPx": 150,
+    "rows": 3
+  },
+  "after": {
+    "chromium390ToolbarHeightCssPx": 93,
+    "webkit390ToolbarHeightCssPx": 93,
+    "rows": 2,
+    "calendarGapCssPx": 0,
+    "widthsMeasuredCssPx": [320, 360, 375, 390, 430],
+    "modesMeasured": ["personal", "plan"]
+  },
+  "browserToolbarRegression": {
+    "chromium": "5/5 PASS",
+    "webkit": "5/5 PASS"
+  },
+  "relatedRegression": {
+    "filterCollapseChromium": "2/2 PASS",
+    "scheduleActionsChromium": "2/2 PASS"
+  },
+  "typecheck": "PASS",
+  "cloudflareTypecheck": "PASS",
+  "build": "PASS with existing chunk-size warning",
+  "diffCheck": "PASS",
+  "productionWrites": 0,
+  "realDeviceAcceptance": "NOT_VERIFIED"
+}

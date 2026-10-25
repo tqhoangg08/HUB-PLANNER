@@ -1,0 +1,14 @@
+ENGINE=chromium; VERSION=155.0.8059.85
+✔ chromium unified timetable layout (59893.5985ms)
+✔ chromium mobile toolbar keeps filters and calendar in two rows (14868.1724ms)
+✔ chromium timetable control density (17251.9512ms)
+✔ chromium compact controls allow enlarged text and spacing (2870.1761ms)
+✔ chromium calendar navigation cluster preserves handlers (3859.9328ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100810.8779

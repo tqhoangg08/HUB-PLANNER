@@ -1,0 +1,10 @@
+✔ chromium 390x844: full collapse, direct filters, results, pagination, focus and persistence (20929.3465ms)
+✔ chromium: all sidebar fields, advanced input, chip removals and PDF entry survive collapse (16033.7106ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 39442.1916
