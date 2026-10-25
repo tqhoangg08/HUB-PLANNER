@@ -3,6 +3,10 @@
 .dashboard-profile-status a { color: #0052cc; text-align: left; }
 .dashboard-kpi-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
 .dashboard-kpi-heading > :first-child { min-width: 0; }
+/* Preview styling uses the actual content; titles, cards and primary stats stay clear. */
+[data-dashboard-obscured="true"] { filter: blur(2px); opacity: .5; }
+/* Keep the real goal input and its help readable during keyboard/touch editing. */
+[data-dashboard-obscured="true"]:focus-within { filter: none; opacity: 1; }
 .dashboard-credit-progress [role="progressbar"] { height: 6px; border-radius: 999px; background: #f1f5f9; }
 .dashboard-credit-progress [role="progressbar"] > div { height: 100%; border-radius: inherit; background: #0052cc; }
 .dashboard-credit-progress { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }

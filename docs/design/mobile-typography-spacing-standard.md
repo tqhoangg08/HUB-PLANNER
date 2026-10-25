@@ -165,7 +165,11 @@ styles and rendered paint. Unknown colour/background composition stays unverifie
 
 Render actual study-data-derived charts, ranking, forecast and yearly summaries,
 including the application's existing empty states. Do not substitute illustrative
-scores or blur content as a security mechanism. Keep login accessible in the
+scores. Preview-only blur can decorate existing content for guests without a
+completed profile, but must never be treated as a security mechanism. Keep
+headings and primary GPA/credit summaries clear, and reveal actual controls while
+focused. Do not claim contrast compliance for deliberately obscured text.
+Keep login accessible in the
 browser header; the profile-status setup link navigates directly to `/login`.
 Do not add overlapping lock boxes or duplicate login banners. Backend/Auth
 permissions are independent of presentation. Compact state pills are not actions.

@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "41c01363a83eca3bfe906e4cb54223cf472fe837c2d11813dda9f6d619a1fdde"
+      "sha256NormalizedLF": "567def8eda52717b6c33d2a88a6d8d986be436ff109010a7ca52678c76e1a9e0"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "7a28410308a089345631aed0f73c4623b60980df1f97a7f269a93bb9b1b2c460"
+      "sha256NormalizedLF": "45fd37f5b422bd265009b1fb30d4c934a89483fa918e8d27ea33fbee5033aea8"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -548,7 +548,7 @@
     },
     {
       "path": "components/dashboard-overview.css",
-      "sha256NormalizedLF": "993957f3b5ab199f9c4685caedeee6f003d8277c587a706e027aa5a12cf9c838"
+      "sha256NormalizedLF": "b3a05d9405d28cc0490b6527d4951520d47bff4a531db0b454232bdcba46007c"
     },
     {
       "path": "components/DashboardCreditProgress.tsx",
@@ -698,5 +698,19 @@
       "githubCi": "See final-HEAD PR CI"
     },
     "note": "Supersedes decorative preview and banner. Existing real charts/data/target input and ranking are rendered for guests; setup links directly to login."
+  },
+  "dashboardPreviewBlurFollowup": {
+    "evidence": "dashboard-preview-blur/validation.json",
+    "beforeSha": "e68a32c2e4cbf3c616523625e4067f4fba208cb7",
+    "results": {
+      "chromium": "9/9 PASS",
+      "webkit": "9/9 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See final-HEAD PR CI"
+    },
+    "note": "Only guest without completed profile: five real content regions blur 2px/opacity .5. Focus within makes the actual goal input/help readable; leaving focus restores preview styling. Headings, GPA/credit summaries and onboarded/signed-in content stay clear. No sample data, lock labels or login banner; setup still routes directly to /login."
   }
 }

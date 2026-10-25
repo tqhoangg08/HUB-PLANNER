@@ -1,5 +1,7 @@
 # Dashboard uses actual study data
 
+Later owner correction: [preview blur is restored on actual content](../dashboard-preview-blur/README.md). No sample data, lock labels or login banner returns; direct login remains. The rest of this report is historical evidence for the real-data restoration.
+
 Owner correction after `5472c6ad8f5609bc3137b8c2fad696c39756f456`: keep the responsive overview layout, but use the application's existing real charts/features; remove decorative sample data, blur, lock labels and the entire login banner. `Thiết lập ngay →` must navigate directly to `/login`.
 
 ## Implementation

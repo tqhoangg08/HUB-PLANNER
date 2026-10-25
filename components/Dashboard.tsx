@@ -2488,7 +2488,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         </div>
 
-                        <div className="relative flex-1 flex flex-col justify-center">
+                        <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="relative flex-1 flex flex-col justify-center">
 
                             {highestSubject ? (
                                 <div className="mt-1">
@@ -2511,7 +2511,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         </div>
 
-                        <div className="relative flex-1 flex flex-col justify-center">
+                        <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="relative flex-1 flex flex-col justify-center">
 
                             <div className="ui-meta flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                                 <div className="ui-gpa-goal-row flex justify-between items-center">
@@ -2553,7 +2553,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                             </div>
 
-                            <div className="w-full relative h-[180px] sm:h-[240px]">
+                            <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="w-full relative h-[180px] sm:h-[240px]">
 
 
                                 {trendData.length > 0 ? (
@@ -2592,7 +2592,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 <div className="dashboard-kpi-heading mb-2"><h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight">Phân bố điểm</h3>
                                 </div>
 
-                                <div className="w-full relative flex flex-col justify-center shrink-0 min-h-[130px]">
+                                <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="w-full relative flex flex-col justify-center shrink-0 min-h-[130px]">
 
                                     {pieData.length > 0 ? (
                                         <ResponsiveContainer width="100%" height={130} initialDimension={{ width: 1, height: 1 }}>
@@ -2620,7 +2620,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     )}
                                 </div>
 
-                                <div className="dashboard-year-summary space-y-1 relative">
+                                <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="dashboard-year-summary space-y-1 relative">
 
                                     <div className="ui-muted ui-meta grid grid-cols-6 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
                                         <span className="col-span-2">Năm</span>

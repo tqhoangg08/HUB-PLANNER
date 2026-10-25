@@ -83,6 +83,34 @@ const campaign = {
   scoreColumns: []
 };
 const records = [];
+test(`${engine} preview blur uses actual content only`,{timeout:180000},async()=>{
+  const measurements=[];
+  for(const [role,route]of [['guest','/dashboard'],['guest','/dashboard?emptyTranscript=1'],['guest','/dashboard?onboardedGuest=1'],['student','/dashboard']]){
+    const f=await fixture(route,false,role),p=f.page;
+    try{
+      const hint=p.getByRole('button',{name:'Ẩn gợi ý AI',exact:true});if(await hint.isVisible())await hint.click();
+      const blurred=role==='guest'&&!route.includes('onboardedGuest');
+      for(const width of [390,1440]){
+        await p.setViewportSize({width,height:900});
+        const rows=await p.locator('[data-dashboard-obscured]').evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return {filter:s.filter,opacity:s.opacity,text:e.textContent.trim(),width:r.width,height:r.height};}));
+        assert.equal(rows.length,blurred?5:0);assert.ok(rows.every(r=>r.filter==='blur(2px)'&&r.opacity==='0.5'));
+        assert.equal(await p.locator('[data-dashboard-preview],.dashboard-lock,[data-dashboard-login-banner]').count(),0);
+        assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+        assert.equal(await p.locator('[data-dashboard-kpi]').first().evaluate(e=>getComputedStyle(e).filter),'none');
+        measurements.push({role,route,width,blurred,rows});
+        if(route==='/dashboard')await p.screenshot({path:`${out}/${engine}-blur-${role}-${width}.png`,fullPage:false,scale:'css'});
+      }
+      if(blurred){
+        const goal=p.getByRole('spinbutton',{name:'GPA mục tiêu',exact:true});await goal.focus();
+        assert.equal(await goal.evaluate(e=>getComputedStyle(e.closest('[data-dashboard-obscured]')).filter),'none');
+        await goal.fill('3.25');assert.equal(await goal.inputValue(),'3.25');await goal.blur();
+        assert.equal(await goal.evaluate(e=>getComputedStyle(e.closest('[data-dashboard-obscured]')).filter),'blur(2px)');
+      }
+      assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+    }finally{await f.context.close();}
+  }
+  records.push({scenario:'actual content preview blur',measurements});
+});
 test(`${engine} dashboard overview hierarchy and live data`, {timeout:240000}, async()=>{
   const before=process.env.OVERVIEW_AUDIT==='1', measurements=[];
   for(const role of ['guest','student'])for(const initial of [390,1440]){
