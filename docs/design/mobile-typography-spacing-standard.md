@@ -171,7 +171,10 @@ headings and primary GPA/credit summaries clear, and reveal actual controls whil
 focused. Do not claim contrast compliance for deliberately obscured text.
 Keep login accessible in the
 browser header; the profile-status setup link navigates directly to `/login`.
-Do not add overlapping lock boxes or duplicate login banners. Backend/Auth
+Preview headings may include a compact text-only `Cần đăng nhập` link to `/login`,
+outside the blurred content. Keep a >=44px touch target, wrap narrow headers, and
+stop propagation inside a clickable ranking card. Do not add overlapping lock
+boxes or duplicate login banners. Backend/Auth
 permissions are independent of presentation. Compact state pills are not actions.
 On phones keep short KPI pairs in two columns and give multi-column year
 summaries their full available width. Credit progress derives from actual

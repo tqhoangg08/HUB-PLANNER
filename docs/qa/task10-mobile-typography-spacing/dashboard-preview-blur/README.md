@@ -1,5 +1,7 @@
 # Restore blur on actual preview content
 
+Later owner follow-up: [add text-only “Cần đăng nhập” links](../dashboard-login-label/README.md), without icons. Actual content and blur below remain unchanged; this report's no-label state is historical.
+
 Owner correction: restore the preview blur while retaining the actual data/features restored in `e68a32c2e4cbf3c616523625e4067f4fba208cb7`. No sample data, lock label or login banner is restored. `Thiết lập ngay →` still links directly to `/login`.
 
 Only five existing content containers receive a conditional styling attribute: ranking, target forecast, trend chart, grade distribution and year summary. Guest without a completed profile uses `blur(2px)` and opacity `.5`. Headings, card borders and the GPA/credit summaries stay clear. Signed-in users and onboarded guests stay clear. The actual goal field/help becomes clear while focused and returns to preview styling on blur; pointer/keyboard behavior, DOM data and callbacks are unchanged.

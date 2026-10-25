@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "567def8eda52717b6c33d2a88a6d8d986be436ff109010a7ca52678c76e1a9e0"
+      "sha256NormalizedLF": "d0adedd2796b5952199fea55cddb5aa14d093e7ba677497114d521c0abb4a069"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "45fd37f5b422bd265009b1fb30d4c934a89483fa918e8d27ea33fbee5033aea8"
+      "sha256NormalizedLF": "c671943e3c75353727d1d0b3ce9b62044ba2097b544528f1e19af04ed88e1ec9"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -548,11 +548,15 @@
     },
     {
       "path": "components/dashboard-overview.css",
-      "sha256NormalizedLF": "b3a05d9405d28cc0490b6527d4951520d47bff4a531db0b454232bdcba46007c"
+      "sha256NormalizedLF": "31cfeafc073aa8a9e3f7925ef4bfb907add03852e70bd10dd6ed2cb913ce3a2d"
     },
     {
       "path": "components/DashboardCreditProgress.tsx",
       "sha256NormalizedLF": "628d2ec635ee77733f3a51f4ab0dc2b28c87fb52cde3e6c83e691f1fe74297e1"
+    },
+    {
+      "path": "components/DashboardLoginLink.tsx",
+      "sha256NormalizedLF": "f127e98ce47d4aa4a009350db6d38831082074a0089b4dada4970804fa18e343"
     }
   ],
   "safety": {
@@ -712,5 +716,19 @@
       "githubCi": "See final-HEAD PR CI"
     },
     "note": "Only guest without completed profile: five real content regions blur 2px/opacity .5. Focus within makes the actual goal input/help readable; leaving focus restores preview styling. Headings, GPA/credit summaries and onboarded/signed-in content stay clear. No sample data, lock labels or login banner; setup still routes directly to /login."
+  },
+  "dashboardLoginLabelFollowup": {
+    "evidence": "dashboard-login-label/validation.json",
+    "beforeSha": "f476cd69bbffcbe182f27708bbf45d14f773d9b1",
+    "results": {
+      "chromium": "Initial 8/8 PASS; strengthened final pointer test 1/1 PASS",
+      "webkit": "Initial 7/8 PASS with one click timeout; affected final pointer test 1/1 PASS after explicit center scrolling and hit test. Application source unchanged; other seven scenarios retained.",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See final-HEAD PR CI"
+    },
+    "note": "Five text-only Cần đăng nhập links in preview headings; no lock/key/icon. All navigate to /login without opening ranking. Links stay outside blurred regions, have >=44px targets, and wrap in narrow headers. Actual content/blur/focus behavior and setup login link remain unchanged."
   }
 }

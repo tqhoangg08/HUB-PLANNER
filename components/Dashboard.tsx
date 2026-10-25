@@ -34,6 +34,7 @@ import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { TranscriptToolbar } from './TranscriptToolbar';
 import './semester-header.css';
 import { DashboardCreditProgress } from './DashboardCreditProgress';
+import { DashboardLoginLink } from './DashboardLoginLink';
 import './dashboard-overview.css';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { resolveTotalCreditsRequired } from '../utils/programs';
@@ -2485,7 +2486,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div data-dashboard-kpi className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { playClick(); setShowRankingModal(true); }}>
                         <div className="dashboard-kpi-heading mb-1">
                             <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Top môn điểm cao</span>
-
+                            {needsProfileSetup && <DashboardLoginLink />}
                         </div>
 
                         <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="relative flex-1 flex flex-col justify-center">
@@ -2508,7 +2509,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div data-dashboard-kpi className="z-20 bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-visible">
                         <div className="dashboard-kpi-heading mb-1">
                             <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Dự báo mục tiêu</span>
-
+                            {needsProfileSetup && <DashboardLoginLink />}
                         </div>
 
                         <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="relative flex-1 flex flex-col justify-center">
@@ -2546,7 +2547,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col">
                             <div className="flex flex-wrap gap-2 justify-between items-center mb-2 sm:mb-6">
                                 <h3 className="ui-card-title text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
-
+                                {needsProfileSetup && <DashboardLoginLink />}
                                 <div className="ui-meta flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Hệ 4</span>
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
@@ -2590,6 +2591,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="dashboard-overview-secondary shrink-0">
                             <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                                 <div className="dashboard-kpi-heading mb-2"><h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight">Phân bố điểm</h3>
+                                    {needsProfileSetup && <DashboardLoginLink />}
                                 </div>
 
                                 <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="w-full relative flex flex-col justify-center shrink-0 min-h-[130px]">
@@ -2614,7 +2616,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                                 <div className="flex flex-wrap gap-2 justify-between items-center mb-2 sm:mb-3">
                                     <h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900">Tổng kết năm</h3>
-
+                                    {needsProfileSetup && <DashboardLoginLink />}
                                     {yearlyStats.length > 3 && (
                                         <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="ui-action text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
                                     )}

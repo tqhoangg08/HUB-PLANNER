@@ -83,6 +83,35 @@ const campaign = {
   scoreColumns: []
 };
 const records = [];
+test(`${engine} preview login links have text only and preserve blur`,{timeout:180000},async()=>{
+  const measurements=[];
+  for(const role of ['guest','student']){
+    const f=await fixture('/dashboard',false,role),p=f.page;
+    try{
+      const hint=p.getByRole('button',{name:'Ẩn gợi ý AI',exact:true});if(await hint.isVisible())await hint.click();
+      const links=p.locator('[data-dashboard-login-link]');
+      for(const width of [320,375,390,430,1440]){
+        await p.setViewportSize({width,height:900});
+        assert.equal(await links.count(),role==='guest'?5:0);
+        const rows=await links.evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return {text:e.textContent.trim(),href:e.getAttribute('href'),icons:e.querySelectorAll('svg,img').length,inBlur:!!e.closest('[data-dashboard-obscured]'),width:r.width,height:r.height,x:r.x,right:r.right};}));
+        assert.ok(rows.every(r=>r.text==='Cần đăng nhập'&&r.href==='/login'&&r.icons===0&&!r.inBlur&&r.width>=44&&r.height>=44&&r.x>=0&&r.right<=width+1));
+        assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+        measurements.push({role,width,rows});
+        if(role==='guest'&&[390,1440].includes(width)){await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:`${out}/${engine}-login-links-${width}.png`,fullPage:false,scale:'css'});}
+      }
+      if(role==='guest')for(let index=0;index<5;index++){
+        const link=links.nth(index);
+        await link.evaluate(e=>e.scrollIntoView({block:'center',inline:'nearest'}));
+        assert.equal(await link.evaluate(e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}),true,'Login target center receives pointer events');
+        await link.click();await p.waitForURL('**/login');await p.goBack();await p.getByRole('heading',{name:'Tổng quan học tập',exact:true}).waitFor();
+        assert.equal(await p.locator('[data-overlay-root]').count(),0,'Login entry must not also open ranking modal');
+        assert.equal(await p.locator('[data-dashboard-obscured]').count(),5);
+      }
+      assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+    }finally{await f.context.close();}
+  }
+  records.push({scenario:'text-only preview login links',measurements});
+});
 test(`${engine} preview blur uses actual content only`,{timeout:180000},async()=>{
   const measurements=[];
   for(const [role,route]of [['guest','/dashboard'],['guest','/dashboard?emptyTranscript=1'],['guest','/dashboard?onboardedGuest=1'],['student','/dashboard']]){
