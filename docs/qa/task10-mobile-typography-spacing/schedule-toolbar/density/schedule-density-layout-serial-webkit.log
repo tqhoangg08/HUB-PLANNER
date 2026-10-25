@@ -1,0 +1,11 @@
+ENGINE=webkit; VERSION=26.5
+✔ webkit unified timetable layout (82394.7526ms)
+✔ webkit calendar navigation cluster preserves handlers (7400.6794ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 91332.7588

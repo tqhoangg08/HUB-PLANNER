@@ -1,0 +1,15 @@
+AUTOMATED_ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+✔ chromium 375: actual schedule actions, geometry, forms, scroll and keyboard (21259.3574ms)
+✔ chromium 1440: actual schedule actions, geometry, forms, scroll and keyboard (9437.4326ms)
+✔ chromium actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup (11711.5873ms)
+ENGINE=chromium; VERSION=155.0.8059.85
+✔ chromium timetable control density (36210.3185ms)
+✔ chromium calendar navigation cluster preserves handlers (7041.3555ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95288.2472

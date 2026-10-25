@@ -1,0 +1,130 @@
+{
+  "base": "1a4eb2b1591f447f66ab7d61708b642c942fe586",
+  "main": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
+  "contract": {
+    "headerPaint": 32,
+    "toolbarPaint": 28,
+    "chipPaint": 24,
+    "controlFont": 13,
+    "desktopMetadataFont": 11,
+    "mobileMetadataFont": 12,
+    "mobileCoarseHit": 44
+  },
+  "sourceSha256": {
+    "components/ScheduleBoard.tsx": "a61ef06b4e509f73875a81d47e70dfccb38a96446f2500c77f5e872fd47f2dc1",
+    "components/schedule-filters.css": "a52396f4a3bcaab71394321be94634a8cc6673d35aee41b6a2e8e517d10b583b"
+  },
+  "checks": {
+    "schedule-density-before": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-final-chromium": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-final-webkit": {
+      "tests": 3,
+      "pass": 1,
+      "fail": 1,
+      "cancelled": 1
+    },
+    "schedule-density-serial-webkit": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-layout-serial-webkit": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-affected-chromium": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-affected-webkit": {
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-model": {
+      "tests": 38,
+      "pass": 38,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-crop-before": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-crop-after": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0
+    },
+    "schedule-density-hit-final-chromium": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "viewports": [
+        320,
+        360,
+        390,
+        1440
+      ],
+      "roles": [
+        "student",
+        "guest"
+      ]
+    },
+    "schedule-density-hit-final-webkit": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "viewports": [
+        320,
+        360,
+        390,
+        1440
+      ],
+      "roles": [
+        "student",
+        "guest"
+      ]
+    }
+  },
+  "frontendTypecheck": "PASS",
+  "cloudflareTypecheck": "PASS",
+  "build": "PASS",
+  "diffCheck": "PASS",
+  "githubCI": "See final pushed HEAD PR checks",
+  "limitations": [
+    "REAL_DEVICE_ACCEPTANCE=NOT_VERIFIED",
+    "Browser versions: Chromium 155.0.8059.85 / WebKit 26.5",
+    "Earlier concurrent WebKit failure is retained; isolated reruns are acceptance evidence. The initial overflow did not reproduce serially; its cause was not independently isolated.",
+    "Desktop control targets intentionally follow the owner-requested compact 28/32px design; mobile/coarse targets remain >=44px.",
+    "Short read-only count badge is 11px; full count meaning remains in the accessible filter name.",
+    "Native OS pickers and physical toolbar/keyboard animation not verified.",
+    "At <360px the existing native week/month select retains >=16px font/44px target; hidden alternative buttons are replaced by that tested visible control."
+  ],
+  "merged": false,
+  "deployed": false,
+  "productionUnchanged": true,
+  "buildWarning": "Existing Vite chunk-size warning; final build exit 0",
+  "validationScope": "Nine-viewport scaffold geometry passed; final chip-target/period-paint refinements rechecked with Student/Guest at 320/360/390/1440 on both engines."
+}

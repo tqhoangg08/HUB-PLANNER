@@ -1,0 +1,14 @@
+AUTOMATED_ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✔ webkit 375: actual schedule actions, geometry, forms, scroll and keyboard (37739.6209ms)
+✔ webkit 1440: actual schedule actions, geometry, forms, scroll and keyboard (11672.7922ms)
+✔ webkit actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup (51340.2469ms)
+ENGINE=webkit; VERSION=26.5
+✔ webkit compact controls allow enlarged text and spacing (5984.3125ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111134.2388

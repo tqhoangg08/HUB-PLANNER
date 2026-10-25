@@ -149,7 +149,7 @@ if (!before)
                 else
                     assert.ok(Math.abs(expanded.calendar.y-initial.calendar.y)<2, 'mobile sheet does not displace calendar');
                 const target = await toggle(page).boundingBox();
-                assert.ok(target.height >= 44 && target.width >= 44);
+                assert.ok(target.height >= (width<1024?44:28) && target.width >= 44);
                 await sidebar(page).getByRole('button', { name: /^Môn học/ }).click();
                 const search = sidebar(page).getByPlaceholder('Tìm tên môn hoặc mã học phần...');
                 await search.fill('Fixture subject');

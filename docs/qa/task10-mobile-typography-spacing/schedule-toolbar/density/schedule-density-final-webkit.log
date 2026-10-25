@@ -1,0 +1,36 @@
+ENGINE=webkit; VERSION=26.5
+✖ webkit unified timetable layout (240039.8108ms)
+{"width":430,"errors":[]}
+✖ webkit timetable control density (52550.452ms)
+✔ webkit compact controls allow enlarged text and spacing (24346.9424ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 322381.0163
+
+✖ failing tests:
+
+test at tests\schedule-toolbar-layout.browser.test.mjs:88:1
+✖ webkit unified timetable layout (240039.8108ms)
+  'test timed out after 240000ms'
+
+test at tests\schedule-toolbar-layout.browser.test.mjs:135:1
+✖ webkit timetable control density (52550.452ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  true !== false
+
+      at TestContext.<anonymous> (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/schedule-toolbar-layout.browser.test.mjs:152:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

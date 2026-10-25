@@ -8,11 +8,13 @@ import { chromium, webkit, devices } from 'playwright-core';
 const engine = process.env.SCHEDULE_BROWSER || 'chromium';
 assert.ok(['chromium', 'webkit'].includes(engine));
 const before = process.env.LAYOUT_BEFORE === '1';
+const densityBefore = process.env.DENSITY_BEFORE === '1';
+const baselineRef = densityBefore ? '1a4eb2b1591f447f66ab7d61708b642c942fe586' : '77f94e24290332eddbd27246aa8b07d3d9a9defd';
 const evidence = process.env.SCHEDULE_EVIDENCE_DIR;
 if (evidence)
     fs.mkdirSync(evidence, { recursive: true });
 const measurements = [];
-const server = await createServer({ configFile: false, envDir: false, plugins: [...(before ? [{ name: 'pinned-schedule-baseline', enforce: 'pre', transform(code, id) { const normalized=id.replaceAll('\\','/');const file=['components/ScheduleBoard.tsx','components/schedule-filters.css'].find(file=>normalized.endsWith('/'+file));if(file)return execFileSync('git',['show','77f94e24290332eddbd27246aa8b07d3d9a9defd:'+file],{encoding:'utf8'}); } }] : []), react()], cacheDir: before ? 'node_modules/.vite-schedule-toolbar-baseline' : 'node_modules/.vite-schedule-toolbar', optimizeDeps: { entries: ['tests/schedule-filter-collapse-harness.html'] }, server: { host: '127.0.0.1', port: 0, hmr: false, watch: null }, logLevel: 'error' });
+const server = await createServer({ configFile: false, envDir: false, plugins: [...((before || densityBefore) ? [{ name: 'pinned-schedule-baseline', enforce: 'pre', transform(code, id) { const normalized=id.replaceAll('\\','/');const file=['components/ScheduleBoard.tsx','components/schedule-filters.css'].find(file=>normalized.endsWith('/'+file));if(file)return execFileSync('git',['show',baselineRef+':'+file],{encoding:'utf8'}); } }] : []), react()], cacheDir: (before || densityBefore) ? 'node_modules/.vite-schedule-toolbar-baseline' : 'node_modules/.vite-schedule-toolbar', optimizeDeps: { entries: ['tests/schedule-filter-collapse-harness.html'] }, server: { host: '127.0.0.1', port: 0, hmr: false, watch: null }, logLevel: 'error' });
 await server.listen();
 const base = server.resolvedUrls.local[0];
 const browser = await (engine === 'webkit' ? webkit.launch({ headless: true }) : chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe' }));
@@ -97,12 +99,12 @@ test(`${engine} unified timetable layout`,{timeout:240000},async()=>{
  g.width=width;rows.push(g);if(evidence)await p.screenshot({path:`${evidence}/${engine}-${process.env.LAYOUT_BEFORE==='1'?'before':'after'}-${width}.png`,scale:'css'});
  if(process.env.LAYOUT_BEFORE==='1')continue;
  assert.equal(g.overflow,false);assert.ok(g.heading.y<g.filter.y);
- for(const target of [p.locator('button[aria-controls="timetable-filter-sidebar"]'),p.getByRole('button',{name:'Xem danh sách lớp',exact:true}),p.getByRole('button',{name:'Nhập PDF',exact:true}),p.getByRole('button',{name:'Thao tác',exact:true}),p.getByRole('button',{name:'Lịch cá nhân',exact:true}),p.getByRole('button',{name:'Kế hoạch',exact:true})]){const box=await target.boundingBox();assert.ok(box.width>=44&&box.height>=44,JSON.stringify(box));}
+ for(const target of [p.locator('button[aria-controls="timetable-filter-sidebar"]'),p.getByRole('button',{name:'Xem danh sách lớp',exact:true}),p.getByRole('button',{name:'Nhập PDF',exact:true}),p.getByRole('button',{name:'Thao tác',exact:true}),p.getByRole('button',{name:'Lịch cá nhân',exact:true}),p.getByRole('button',{name:'Kế hoạch',exact:true})]){const box=await target.boundingBox();assert.ok(box.width>=(width<1024?44:28)&&box.height>=(width<1024?44:28),JSON.stringify(box));}
  g.toolbar=await p.locator('.timetable-unified-toolbar').boundingBox();
  await p.getByRole('button',{name:'Kế hoạch',exact:true}).click();
  const plans=p.getByRole('combobox',{name:'Phương án xếp lịch',exact:true});await plans.selectOption('B');assert.equal(await plans.inputValue(),'B');assert.ok((await plans.locator('option').allTextContents()).every(s=>s.includes('môn')&&s.includes('TC')));
  assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
- g.planPicker=await plans.boundingBox();assert.ok(g.planPicker.width>=44&&g.planPicker.height>=44,JSON.stringify(g.planPicker));g.planLabels=await plans.locator('option').allTextContents();
+ g.planPicker=await plans.boundingBox();assert.ok(g.planPicker.width>=44&&g.planPicker.height>=(width<1024?44:28),JSON.stringify(g.planPicker));g.planLabels=await plans.locator('option').allTextContents();
  if(evidence&&[390,1440].includes(width))await p.screenshot({path:evidence+'/'+engine+'-plan-'+width+'.png',scale:'css'});
  const toggle=p.locator('button[aria-controls="timetable-filter-sidebar"]');
  if(width<1024){await toggle.click();const sheet=p.getByRole('dialog',{name:'Bộ lọc lớp học phần',exact:true});await sheet.waitFor();
@@ -129,4 +131,58 @@ test(`${engine} unified timetable layout`,{timeout:240000},async()=>{
  clean(f);
  }catch(error){console.error(JSON.stringify({width,errors:f.errors}));if(evidence)await p.screenshot({path:evidence+'/'+engine+'-failure-'+width+'.png'});throw error;}finally{await f.context.close();}
  }measurements.push(...rows);
+});
+
+
+test(engine+' timetable control density',{timeout:180000},async()=>{
+ const before=process.env.DENSITY_BEFORE==='1',rows=[];
+ for(const width of process.env.DENSITY_WIDTHS?process.env.DENSITY_WIDTHS.split(',').map(Number):[360,390,1440])for(const role of process.env.DENSITY_ROLES?process.env.DENSITY_ROLES.split(','):['student','guest']){
+ const f=await fixture({width,height:width===1440?900:844,role,preference:process.env.DENSITY_EXPANDED==='1'?'true':undefined}),p=f.page;
+ try{
+ await p.getByRole('heading',{name:'Thời khóa biểu',exact:true}).waitFor();
+ const selectors=['.timetable-mode button','.timetable-header-actions > button','.timetable-header-actions .schedule-actions-trigger','.timetable-filter-actions > button','.timetable-calendar-navigation button','.timetable-view-select select','.timetable-filter-chips button','.timetable-filter-chips > span'];
+ const data=await p.evaluate(selectors=>({width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth+1,modeBorder:getComputedStyle(document.querySelector('.timetable-mode')).borderTopWidth,toolbarHeight:document.querySelector('.timetable-unified-toolbar').getBoundingClientRect().height,controls:selectors.flatMap(selector=>[...document.querySelectorAll(selector)].filter(e=>e.getClientRects().length>0).map(e=>{const b=e.getBoundingClientRect(),s=getComputedStyle(e),surface=getComputedStyle(e,'::before');return {selector,name:e.getAttribute('aria-label')||e.textContent.trim(),box:{x:b.x,y:b.y,width:b.width,height:b.height},font:parseFloat(s.fontSize),weight:s.fontWeight,opacity:s.opacity,disabled:e.disabled,surface:{height:parseFloat(surface.height),display:surface.display,border:surface.borderTopWidth,radius:surface.borderRadius},icon:e.querySelector('svg')?.getBoundingClientRect().width};}))}),selectors);
+ rows.push({role,...data});
+ if(evidence&&[390,1440].includes(width))await p.screenshot({path:evidence+'/'+engine+'-density-'+(before?'before':'after')+'-'+width+'-'+role+'.png',scale:'css'});
+ if(evidence&&width===1440){const header=await p.locator('.timetable-page-header').boundingBox(),bar=await p.locator('.timetable-unified-toolbar').boundingBox();await p.screenshot({path:evidence+'/'+engine+'-toolbar-'+(before?'before':'after')+'-'+role+'.png',scale:'css',clip:{x:header.x,y:header.y,width:header.width,height:bar.y+bar.height-header.y+40}});}
+ if(!before){
+ assert.equal(data.overflow,false,JSON.stringify({width,role,data}));assert.equal(data.modeBorder,'0px');
+ const unframed=await p.locator('.timetable-mode button,.timetable-date-navigation button,.timetable-view-buttons button,.timetable-filter-actions > button:nth-child(2),.timetable-filter-chips > button,.timetable-filter-chips > span > button').evaluateAll(nodes=>nodes.map(e=>({label:e.textContent.trim(),border:getComputedStyle(e,'::before').borderTopWidth})));for(const item of unframed)assert.equal(item.border,'0px',JSON.stringify(item));
+ for(const c of data.controls){if(c.selector==='.timetable-view-select select'){assert.ok(c.box.height>=44&&c.box.width>=44);assert.ok(c.font>=16);const native=p.getByRole('combobox',{name:'Chế độ xem lịch'});await native.selectOption('month');assert.equal(await p.getByRole('button',{name:'Tháng sau',exact:true}).isVisible(),true);await native.selectOption('week');continue;}if(c.selector==='.timetable-filter-chips > span'){assert.ok(c.surface.height>=24&&c.surface.height<=25,JSON.stringify(c));continue;}
+ assert.ok(c.box.height>=(width<1024?44:c.selector.includes('header')||c.selector.includes('mode')?32:28),JSON.stringify(c));
+ assert.ok(c.font>=12&&c.font<=13.1,JSON.stringify(c));assert.ok(c.surface.height>=28&&c.surface.height<=32.1,JSON.stringify(c));assert.equal(c.opacity,'1');}
+ const pdf=p.getByRole('button',{name:'Nhập PDF',exact:true});assert.equal(await pdf.isDisabled(),role==='guest');assert.equal(await pdf.locator('svg').count(),role==='guest'?2:1);
+ assert.equal(await p.getByRole('button',{name:'Xem danh sách lớp',exact:true}).isDisabled(),role==='guest');
+ const action=p.getByRole('button',{name:'Thao tác',exact:true}),box=await action.boundingBox();if(width<1024)await p.mouse.click(box.x+box.width/2,box.y+2);else await action.click();await p.getByRole('menu',{name:'Thao tác thời khóa biểu'}).waitFor();await p.waitForFunction(()=>!!document.activeElement?.closest('[role=menu]'));assert.equal(await action.evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');await p.keyboard.press('Escape');await p.getByRole('menu',{name:'Thao tác thời khóa biểu'}).waitFor({state:'detached'});assert.equal(await action.evaluate(e=>e===document.activeElement),true);
+ await p.getByRole('button',{name:'Hôm nay',exact:true}).click();await p.getByRole('button',{name:'Tuần sau',exact:true}).click();await p.getByRole('button',{name:'Tuần trước',exact:true}).click();
+ }
+ clean(f);
+ }finally{await f.context.close();}
+ }
+ if(evidence)fs.writeFileSync(evidence+'/'+engine+'-density-'+(before?'before':'after')+'.json',JSON.stringify(rows,null,2)+'\n');
+});
+
+
+test(engine+' compact controls allow enlarged text and spacing',{timeout:90000},async()=>{
+ const f=await fixture({width:390,height:844}),p=f.page;
+ try{
+ await p.getByRole('heading',{name:'Thời khóa biểu',exact:true}).waitFor();await p.getByRole('button',{name:'Kế hoạch',exact:true}).click();await p.getByRole('combobox',{name:'Phương án xếp lịch'}).selectOption('B');
+ const style=await p.addStyleTag({content:'html{font-size:28px!important}'});
+ const check=async()=>{const result=await p.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth+1,clipped:[...document.querySelectorAll('.timetable-page-header button,.timetable-unified-toolbar button')].filter(e=>e.getClientRects().length&&e.getBoundingClientRect().width>0).filter(e=>e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1).map(e=>e.textContent.trim())}));assert.equal(result.overflow,false,JSON.stringify(result));assert.deepEqual(result.clipped,[]);};
+ await frame(p);await check();assert.ok(await p.getByRole('button',{name:'Hôm nay',exact:true}).evaluate(e=>parseFloat(getComputedStyle(e).fontSize))>=25.9);
+ if(evidence)await p.screenshot({path:evidence+'/'+engine+'-density-text200.png',scale:'css'});
+ await style.evaluate(e=>e.textContent='html{font-size:14px!important}.timetable-page-header *,.timetable-unified-toolbar *{line-height:1.5!important;letter-spacing:.12em!important;word-spacing:.16em!important}');await frame(p);await check();assert.equal(await p.getByRole('combobox',{name:'Phương án xếp lịch'}).inputValue(),'B');
+ clean(f);
+ }finally{await f.context.close();}
+});
+
+
+test(engine+' calendar navigation cluster preserves handlers',async()=>{
+ const f=await fixture({width:390,height:844}),p=f.page;
+ try{
+ const period=p.locator('.timetable-period-trigger');await period.click();await p.getByRole('button',{name:/^Tuần 7 /}).click();assert.match(await period.innerText(),/Tuần 7/);
+ await p.getByRole('button',{name:'Tuần trước',exact:true}).click();assert.match(await period.innerText(),/Tuần 6/);await p.getByRole('button',{name:'Tuần sau',exact:true}).click();assert.match(await period.innerText(),/Tuần 7/);
+ await p.getByRole('button',{name:'Tháng',exact:true}).click();const month=await period.innerText();await p.getByRole('button',{name:'Tháng sau',exact:true}).click();assert.notEqual(await period.innerText(),month);await p.getByRole('button',{name:'Tháng trước',exact:true}).click();assert.equal(await period.innerText(),month);
+ clean(f);
+ }finally{await f.context.close();}
 });

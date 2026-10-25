@@ -115,7 +115,7 @@ if(!before) for(const [width,height] of [[360,640],[375,667],[390,844],[430,932]
   await trigger(p).waitFor();assert.equal(await trigger(p).count(),1);assert.equal(await menu(p).count(),0);
   assert.equal(await p.getByText('Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!',{exact:true}).count(),0);
   await trigger(p).scrollIntoViewIfNeeded();const initial=await geometry(p);
-  assert.ok(initial.trigger.width>=44&&initial.trigger.height>=44);assert.equal(initial.visibleActionButtons,2);assert.equal(initial.overflow,false);
+  assert.ok(initial.trigger.width>=44&&initial.trigger.height>=(width<1024?44:32));assert.equal(initial.visibleActionButtons,2);assert.equal(initial.overflow,false);
   for(const name of ['Báo lỗi môn','Yêu cầu thêm','Nhập PDF'])assert.equal(await p.getByRole('button',{name,exact:true}).count(),name==='Nhập PDF'?1:0);
   await show(p);assert.equal(await trigger(p).getAttribute('aria-expanded'),'true');assert.equal(await trigger(p).getAttribute('aria-controls'),await menu(p).getAttribute('id'));
   assert.deepEqual(await menu(p).getByRole('menuitem').allTextContents(),labels);assert.equal(await menu(p).getByText(/Gắn nhãn/).count(),0);
