@@ -767,12 +767,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         <div className="semester-heading">
             <div className="semester-title-picker relative group flex-1 min-w-0" data-transcript-editable="true">
                 <div className="semester-title-caption">
-                    <span className={`semester-title-copy ${!isValidFormat ? 'semester-title-copy--invalid' : ''}`} aria-hidden="true">{isValidFormat ? semester.name : '👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)'}</span>
-                    {hasData && isValidFormat && (
-                        <span className="ui-meta text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border border-gray-300 bg-white text-gray-700 whitespace-nowrap shrink-0">
-                            {classification}
-                        </span>
-                    )}
+                    <span className={`semester-title-copy ${!isValidFormat ? 'semester-title-copy--invalid' : ''}`} aria-hidden="true">
+                        <span className="semester-title-desktop">{isValidFormat ? semester.name : '👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)'}</span>
+                        <span className="semester-title-mobile">{isValidFormat ? semester.name.replace(' Năm học ', ' (') + ')' : '👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)'}</span>
+                    </span>
                 </div>
                 <select
                     aria-label="Chọn học kỳ"
@@ -806,13 +804,17 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         )
                     })}
                 </select>
-                <ChevronDown className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!isValidFormat ? 'text-red-500' : 'text-[#003375]'}`} />
+                <ChevronDown className={`absolute left-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!isValidFormat ? 'text-red-500' : 'text-[#003375]'}`} />
             </div>
-
-            <button type="button" aria-label="Xóa học kỳ" data-semester-delete onClick={onRemoveSemester} disabled={isReadOnly} className="ui-muted ui-danger-text ui-action semester-remove text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all p-1.5 sm:p-2 rounded-lg active:scale-90 disabled:opacity-40 disabled:pointer-events-none" title="Xóa học kỳ">
-                <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
-            </button>
         </div>
+
+        <div className={`semester-status ui-meta ${isValidFormat ? scholarshipStatus.className : 'bg-gray-100 text-gray-400'}`}>
+            {hasData && isValidFormat && <><span>{classification}</span><span aria-hidden="true">·</span></>}
+            <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
+        </div>
+        <button type="button" aria-label="Xóa học kỳ" data-semester-delete onClick={onRemoveSemester} disabled={isReadOnly} className="ui-muted ui-danger-text ui-action semester-remove text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all p-1.5 sm:p-2 rounded-lg active:scale-90 disabled:opacity-40 disabled:pointer-events-none" title="Xóa học kỳ">
+            <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+        </button>
 
         <div className="semester-summary ui-meta text-[11px] sm:text-sm relative z-10">
               {FEATURE_FORECAST_TOOLS && hasData && isValidFormat && (
@@ -922,24 +924,22 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   </div>
               )}
 
-            <div className="semester-metrics" role="group" aria-label="Thông tin học kỳ" tabIndex={0}>
-                <div className="semester-metric flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300">
-                    <span className="text-gray-500 font-medium flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">TC:</span></span>
-                    <span className="font-bold text-gray-800">{isValidFormat ? totalRegisteredCredits : '-'} <span className="ui-meta sm:hidden font-medium text-[10px] text-gray-500">TC</span></span>
+            <div className="semester-metrics" role="group" aria-label="Thông tin học kỳ">
+                <div className="semester-metric semester-metric--credits">
+                    <span className="semester-metric-label">Tín chỉ</span>
+                    <span className="semester-metric-value">{isValidFormat ? totalRegisteredCredits : '-'}</span>
                 </div>
-
-                <div className="semester-metric flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300">
-                    <span className="text-gray-500 font-medium">GPA(4):</span>
-                    <span className="font-bold text-[#003375]">{hasData && isValidFormat ? semGPA4.toFixed(2) : '-'}</span>
+                <div className="semester-metric semester-metric--gpa4">
+                    <span className="semester-metric-label"><span className="semester-label-mobile">GPA (4)</span><span className="semester-label-desktop">GPA (4 / 10)</span></span>
+                    <span className="semester-metric-value">{hasData && isValidFormat ? semGPA4.toFixed(2) : '-'}</span>
                 </div>
-
-                <div className="semester-metric flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300">
-                    <span className="text-gray-500 font-medium">GPA(10):</span>
-                    <span className="font-bold text-[#990000]">{hasData && isValidFormat ? semGPA10.toFixed(2) : '-'}</span>
+                <div className="semester-metric semester-metric--gpa10">
+                    <span className="semester-metric-label semester-label-mobile">GPA (10)</span>
+                    <span className="semester-gpa-separator" aria-hidden="true">/</span>
+                    <span className="semester-metric-value">{hasData && isValidFormat ? semGPA10.toFixed(2) : '-'}</span>
                 </div>
-
-                <div className="semester-metric semester-metric--training flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-gray-300" data-transcript-editable="true">
-                    <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
+                <div className="semester-metric semester-metric--training" data-transcript-editable="true">
+                    <span className="semester-metric-label">ĐRL</span>
                     <input
                         type="number" min="0" max="100" placeholder="0"
                         disabled={!isValidFormat}
@@ -947,16 +947,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         aria-readonly={isReadOnly}
                         aria-label="Điểm rèn luyện"
                         inputMode="numeric"
-                        className="ui-input semester-training-input text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-[#003375] focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
+                        className="ui-input semester-training-input text-center font-bold outline-none"
                         value={semester.trainingScore ?? ''}
                         onChange={(e) => handleTrainingScoreChange(e.target.value)}
                         onKeyDown={(e) => { if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault(); }}
                     />
-                </div>
-
-                <div className={`semester-metric ui-meta flex items-center gap-1 sm:gap-2 rounded-lg border text-[11px] sm:text-sm font-bold ${isValidFormat ? scholarshipStatus.className : 'bg-gray-100 text-gray-400 border-gray-300'}`}>
-                    <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
                 </div>
             </div>
         </div>

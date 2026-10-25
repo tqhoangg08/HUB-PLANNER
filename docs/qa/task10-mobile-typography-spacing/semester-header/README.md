@@ -1,5 +1,7 @@
 # Semester heading and five summary cells
 
+This report describes commit `0f1f62bcef5a509c0dce9dcd45dd7013a2cfcbdd`. The owner's newer desktop/mobile reference replaces the five-cell scroller with [the flat four-column/inline summary](../semester-flat-summary/README.md); historical screenshots and measurements here remain preserved.
+
 The actual browser Dashboard previously placed credits, GPA4, GPA10, ĐRL, scholarship status and the delete button in one wrapping container. At 390px the empty-semester header measured **175.25px**; at 320px **158.25px**. The taller 390px case resulted from its particular wrapping pattern, rather than a fixed panel height.
 
 Delete now sits in the heading beside the existing semester-picker chevron. That chevron is a native selector, not an accordion; its selection/change behavior is retained. The native select has an accessible name and a wrapping visible caption with the same 16px mobile / 17px desktop typography. This avoids clipping the semester name when the delete target takes space. Read-only/edit guards and classification remain intact.

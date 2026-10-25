@@ -1,27 +1,50 @@
-.semester-header { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; }
-.semester-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.semester-title-picker { min-height: 36px; border-bottom: 1px dashed #cbd5e1; }
-.semester-title-caption { display: flex; align-items: center; gap: 8px; padding: 4px 24px 4px 0; }
-.semester-title-copy { min-width: 0; flex: 1; font-size: 1.214286rem; font-weight: 600; line-height: 1.4; overflow-wrap: break-word; color: #003375; }
+[data-semester-header].semester-header {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto 52px;
+  grid-template-areas: "heading status remove" "summary summary summary";
+  align-items: center; column-gap: 8px; background: white;
+}
+.semester-heading { grid-area: heading; min-width: 0; padding: 4px 0 4px 12px; }
+.semester-title-picker { min-height: 44px; }
+.semester-title-caption { display: flex; align-items: center; min-height: 44px; padding: 4px 0 4px 24px; }
+.semester-title-copy { min-width: 0; font-size: 1.214286rem; font-weight: 600; line-height: 1.4; overflow-wrap: break-word; color: #003375; }
 .semester-title-copy--invalid { color: #dc2626; }
+.semester-title-mobile { display: none; }
 .semester-header .semester-title-native { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
 .semester-title-picker:focus-within { outline: 2px solid #1d4ed8; outline-offset: 2px; border-radius: 4px; }
-.semester-header .semester-remove { flex-shrink: 0; min-width: 36px; min-height: 36px; margin: 0; }
-.semester-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; }
-.semester-metrics { display: flex; align-items: stretch; gap: 8px; flex: 1 1 100%; min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; }
-.semester-metrics:focus-visible { outline: 2px solid #1d4ed8; outline-offset: -2px; border-radius: 4px; }
-.semester-header .semester-metric { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; gap: 4px; padding: 4px 8px; white-space: nowrap; }
-.semester-header .semester-metric--training { padding-block: 0; padding-right: 4px; }
-.semester-header .semester-training-input { flex-shrink: 0; width: 3.5em; min-width: 44px; min-height: 32px; padding: 0; }
+.semester-header .semester-remove { grid-area: remove; justify-self: start; min-width: 44px; min-height: 44px; margin: 0; }
+.semester-status { grid-area: status; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; min-width: 0; max-width: min(12rem, 32vw); padding: 4px 8px; border: 0; border-radius: 999px; font-size: var(--ui-font-meta); line-height: 1.5; overflow-wrap: anywhere; }
+.semester-status > span { min-width: 0; max-width: 100%; }
+.semester-summary { grid-area: summary; display: flex; flex-wrap: wrap; min-width: 0; }
+.semester-summary > .relative { margin: 4px 12px; }
+.semester-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 1 1 100%; min-width: 0; max-width: 100%; padding: 4px 0; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.semester-metric { display: flex; flex-direction: column; align-items: center; min-width: 0; padding: 0 4px; border: 0; background: transparent; }
+.semester-metric + .semester-metric { border-left: 1px solid #e2e8f0; }
+.semester-metric-label { font-size: var(--ui-font-meta); line-height: 1.5; color: #64748b; text-transform: uppercase; text-align: center; overflow-wrap: anywhere; }
+.semester-metric-value { display: flex; align-items: center; justify-content: center; min-height: 44px; font-size: var(--ui-font-secondary); line-height: 1.4; font-weight: 600; color: #0f172a; }
+.semester-header .semester-training-input { flex-shrink: 0; width: 3.5em; max-width: 100%; min-width: 44px; min-height: 44px; padding: 0; font-size: var(--ui-font-input); line-height: 1.5; color: #1d4ed8; border: 0; border-bottom: 1px dashed #64748b; border-radius: 0; background: transparent; }
+.semester-label-desktop, .semester-gpa-separator { display: none; }
 @media (max-width: 767px) {
-  .semester-title-copy { font-size: var(--ui-font-input); }
-  .semester-title-picker { min-height: 44px; }
-  .semester-header .semester-remove { min-width: 44px; min-height: 44px; }
-  .semester-header .semester-training-input { min-height: max(44px, 2.75em); }
+  .semester-title-copy { font-size: var(--ui-font-secondary); }
+  .semester-title-desktop { display: none; }
+  .semester-title-mobile { display: inline; }
+  .semester-status { max-width: min(9rem, 32vw); }
 }
 @media (min-width: 1200px) {
-  .semester-header { flex-direction: row; flex-wrap: wrap; align-items: center; padding-inline: 20px; }
-  .semester-heading { flex: 1 1 300px; }
-  .semester-summary { flex: 0 1 auto; }
-  .semester-metrics { flex-basis: auto; }
+  [data-semester-header].semester-header { grid-template-columns: minmax(240px, 1fr) auto auto 44px; grid-template-areas: "heading summary status remove"; column-gap: 12px; padding: 8px 12px; }
+  .semester-heading { padding: 0; }
+  .semester-title-picker, .semester-title-caption { min-height: 36px; }
+  .semester-header .semester-remove { min-width: 36px; min-height: 36px; }
+  .semester-summary { flex-wrap: nowrap; align-items: center; gap: 8px; }
+  .semester-summary > .relative { margin: 0; }
+  .semester-metrics { display: flex; flex: 0 1 auto; align-items: center; padding: 0; border: 0; background: transparent; }
+  .semester-metric { flex-direction: row; gap: 6px; padding: 0 12px; white-space: nowrap; }
+  .semester-metric-label { font-size: var(--ui-font-secondary); text-transform: none; }
+  .semester-metric-label::after { content: ":"; }
+  .semester-metric-value { min-height: 32px; }
+  .semester-metric--gpa4 { padding-right: 4px; }
+  .semester-metric.semester-metric--gpa10 { border-left: 0; padding-left: 0; }
+  .semester-header .semester-training-input { min-height: 32px; font-size: var(--ui-font-secondary); color: #003375; border: 0; border-radius: 4px; background: #f1f5f9; }
+  .semester-label-mobile { display: none; }
+  .semester-label-desktop, .semester-gpa-separator { display: inline; }
+  .semester-gpa-separator { color: #94a3b8; }
 }

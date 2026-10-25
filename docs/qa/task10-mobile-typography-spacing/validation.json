@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "f499f8b11a75c03ee9c039e74bfa06d71a4520a4d089a8734544cba5923ab8d6"
+      "sha256NormalizedLF": "00b885f99f0bd364988f2e7d9a06b2c5bf2083ebb5b32c55ff35357f28bb9a34"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "0586958cfc99ec05de22d01214a54d716523992d2910367346cdae5a2d972a51"
+      "sha256NormalizedLF": "9566141bd04245caa825b8c91bd6ef2da84d1e9322209f908831477c8f2430ad"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -544,7 +544,7 @@
     },
     {
       "path": "components/semester-header.css",
-      "sha256NormalizedLF": "af99367817092b090225fd615afccf82a55043795d972c9c5ae3c759e8460e97"
+      "sha256NormalizedLF": "634d9d14a7310ba0a95744a8b006d891c839444845901b591d04b154d6602836"
     }
   ],
   "safety": {
@@ -646,5 +646,19 @@
       "diffCheck": "PASS"
     },
     "note": "Natural-width, one-row metric scroller, delete in heading and confirmation in local draft/staff branch; calculation/permission/data semantics preserved."
+  },
+  "semesterFlatSummaryFollowup": {
+    "evidence": "semester-flat-summary/validation.json",
+    "beforeSha": "0f1f62bcef5a509c0dce9dcd45dd7013a2cfcbdd",
+    "results": {
+      "chromium": "4/4 PASS",
+      "webkit": "4/4 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Owner reference supersedes the prior five-cell scroller: desktop borderless inline metrics and mobile four-column strip; controllers and callback contracts identical."
   }
 }
