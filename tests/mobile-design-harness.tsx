@@ -33,7 +33,7 @@ function Fixture() {
     isGuest = role === 'guest';
   // Public auth lives outside ProtectedAppRoutes in the real app. A terminal
   // fixture route verifies login navigation without mounting auth or its APIs.
-  if (location.pathname === '/login') return <main><h1>Đăng nhập (fixture)</h1></main>;
+  if (location.pathname === '/login') return <main><h1>Đăng nhập (fixture)</h1><output id="onboarding-opens">{onboardingOpens}</output></main>;
   if (location.pathname.startsWith('/scholarships')) return <><output id="mode" className="sr-only">scholarships</output><ScholarshipList /></>;
   return <ProtectedAppShell mobileLayout={mode.useMobileLayout} mobileScreen={mode.isMobileScreen} mobileBrowser={mode.isMobileBrowser} session={isGuest ? null : {
     user: {
@@ -49,7 +49,7 @@ function Fixture() {
         data,
         studyActions: {
           setSemesters: (semesters: any) => setData(previous => ({ ...previous, semesters })),
-          setTargetGPA: () => {},
+          setTargetGPA: (targetGPA: number) => setData(previous => ({ ...previous, targetGPA })),
           updateSemester: () => {},
           removeSemester: () => {},
           addSemester: () => {}

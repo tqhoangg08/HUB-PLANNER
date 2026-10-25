@@ -83,7 +83,7 @@ const campaign = {
   scoreColumns: []
 };
 const records = [];
-test(`${engine} dashboard overview hierarchy and guest preview`, {timeout:240000}, async()=>{
+test(`${engine} dashboard overview hierarchy and live data`, {timeout:240000}, async()=>{
   const before=process.env.OVERVIEW_AUDIT==='1', measurements=[];
   for(const role of ['guest','student'])for(const initial of [390,1440]){
     const f=await fixture('/dashboard',false,role,initial,900),p=f.page;
@@ -103,18 +103,18 @@ test(`${engine} dashboard overview hierarchy and guest preview`, {timeout:240000
         if(before)continue;
         assert.equal(g.overflow,false);assert.equal(g.whiteLoginBoxes,0);assert.ok(!g.assessmentText.includes('"'));
         if(width<768){assert.ok(Math.abs(g.distribution.x-g.year.x)<1);assert.ok(g.year.y>=g.distribution.bottom);assert.ok(g.distribution.width>width*.8);}
-        assert.equal(g.previews,role==='guest'?5:0);
+        assert.equal(g.previews,0);assert.equal(await p.locator('.dashboard-lock').count(),0);assert.equal(await p.getByRole('spinbutton',{name:'GPA mục tiêu',exact:true}).inputValue(),'3.6');assert.equal(await p.locator('.recharts-line').count(),2);assert.equal(await p.locator('.recharts-pie').count(),1);
         assert.ok(Number(g.progress)>=0&&Number(g.progress)<=100);
         assert.equal(g.fonts.length,4);assert.ok(g.fonts.every(c=>c.family.includes('Inter')&&c.border===g.expectedBorder),JSON.stringify(g.fonts));
         const banner=p.locator('[data-dashboard-login-banner]');
         if(role==='guest'){
-          assert.equal(await banner.isVisible(),width>=768);
+          assert.equal(await banner.count(),0);
           const login=p.locator('.mobile-browser-header-actions').getByRole('link',{name:'Đăng nhập',exact:true});
           if(width<768){assert.equal(await login.isVisible(),true);const b=await login.boundingBox();assert.ok(b.width>=44&&b.height>=44);}
           assert.equal(await p.locator('[data-dashboard-preview] input,[data-dashboard-preview] a,[data-dashboard-preview] button').count(),0);
         }else assert.equal(await banner.count(),0);
       }
-      if(!before&&role==='guest'&&initial===390){await p.getByRole('button',{name:'Thiết lập ngay →',exact:true}).click();assert.equal(await p.locator('#onboarding-opens').textContent(),'1');await p.locator('.mobile-browser-header-actions').getByRole('link',{name:'Đăng nhập',exact:true}).click();await p.waitForURL('**/login');assert.equal(new URL(p.url()).pathname,'/login');}
+      if(!before&&role==='guest'){const setup=p.getByRole('link',{name:'Thiết lập ngay →',exact:true});assert.equal(await setup.getAttribute('href'),'/login');await setup.click();await p.waitForURL('**/login');assert.equal(await p.locator('#onboarding-opens').textContent(),'0');}
       assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
     }finally{await f.context.close();}
   }
@@ -136,17 +136,20 @@ test(`${engine} guest header login alongside install action`,{timeout:90000},asy
     assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
   }finally{await f.context.close();}
 });
-test(`${engine} onboarded guest keeps actual overview controls`,{timeout:90000},async()=>{
-  const f=await fixture('/dashboard?onboardedGuest=1',false,'guest'),p=f.page;
+test(`${engine} guest overview uses actual data before and after profile setup`,{timeout:90000},async()=>{
+  for(const route of ['/dashboard','/dashboard?onboardedGuest=1']){
+  const f=await fixture(route,false,'guest'),p=f.page;
   try{
     assert.equal(await p.locator('[data-dashboard-preview]').count(),0);
     assert.equal(await p.getByRole('spinbutton',{name:'GPA mục tiêu',exact:true}).inputValue(),'3.6');
+    const goal=p.getByRole('spinbutton',{name:'GPA mục tiêu',exact:true});await goal.fill('3.25');assert.equal(await goal.inputValue(),'3.25');
     await p.locator('[data-dashboard-kpi]').filter({hasText:'Top môn điểm cao'}).click();
     await p.getByRole('heading',{name:'Bảng xếp hạng môn học',exact:true}).waitFor();
     await p.locator('[data-overlay-root]').getByRole('button').first().click();
     assert.equal(await p.getByRole('heading',{name:'Bảng xếp hạng môn học',exact:true}).count(),0);
     assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
   }finally{await f.context.close();}
+  }
 });
 test(`${engine} semester flat metrics desktop inline and mobile four columns`, { timeout: 180000 }, async () => {
   const measurements=[];
@@ -1463,97 +1466,23 @@ if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} GPA target
     await f.context.close();
   }
 });
-if (!audit && process.env.DESIGN_MATRIX_ONLY !== '1') test(`${engine} desktop guest banner actions share typography and geometric text centering`, {
-  timeout: 180000
-}, async () => {
-  const f = await fixture('/dashboard', false, 'guest', 390, 844),
-    p = f.page;
-  try {
-    const login = p.getByRole('link', {
-        name: 'Đăng nhập ngay',
-        exact: true
-      }),
-      update = p.getByRole('button', {
-        name: 'Cập nhật thông tin',
-        exact: true
-      }),
-      row = login.locator('..');
-    const measurements = [];
-    for (const width of [768, 1024, 1440]) {
-      await p.setViewportSize({
-        width,
-        height: 900
-      });
-      await row.scrollIntoViewIfNeeded();
-      const g = await row.evaluate(e => {
-        const rect = x => {
-          const r = x.getBoundingClientRect();
-          return {
-            x: r.x,
-            y: r.y,
-            width: r.width,
-            height: r.height,
-            right: r.right,
-            bottom: r.bottom
-          };
-        };
-        return {
-          row: rect(e),
-          children: [...e.children].map(c => {
-            const r = document.createRange();
-            r.selectNodeContents(c.firstElementChild);
-            const t = r.getBoundingClientRect(),
-              s = getComputedStyle(c),
-              b = rect(c);
-            const ctx = document.createElement('canvas').getContext('2d');
-            ctx.font = `${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
-            return {
-              ...b,
-              font: parseFloat(s.fontSize),
-              naturalTextWidth: ctx.measureText(c.textContent.trim()).width,
-              weight: s.fontWeight,
-              surface: rect(c.firstElementChild),
-              ownsPadding: c.contains(document.elementFromPoint(b.x + 2, b.y + 2)),
-              line: s.lineHeight,
-              textY: t.y,
-              textH: t.height,
-              textCenterOffset: Math.abs(t.y + t.height / 2 - (b.y + b.height / 2)),
-              label: c.textContent.trim()
-            };
-          })
-        };
-      });
-      measurements.push({
-        width,
-        ...g
-      });
-      await p.screenshot({
-        path: `${out}/${engine}-guest-actions-${width}.png`,
-        scale: 'css'
-      });
-      assert.ok(g.children.every(c => Math.abs(c.font - 13) < .02 && c.weight === '500' && c.surface.height === 32 && c.ownsPadding), JSON.stringify(g));
-      if (width < 768) {
-        const [a, b] = g.children;
-        assert.ok(Math.abs(a.width - b.width) < 1, JSON.stringify(g));
-        assert.ok(Math.abs(a.y - b.y) < 1 && Math.abs(a.height - b.height) < 1, JSON.stringify(g));
-        assert.equal(a.font, b.font, JSON.stringify(g));
-        assert.ok(g.children.every(c => c.width >= 44 && c.height >= 44 && c.textCenterOffset < 2), JSON.stringify(g));
-        assert.ok(a.x >= g.row.x && b.right <= g.row.right + 1, JSON.stringify(g));
-      }
-      assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+test(`${engine} empty guest overview has no fabricated grades or banners`, {timeout:90000},async()=>{
+  const f=await fixture('/dashboard?emptyTranscript=1',false,'guest'),p=f.page;
+  try{
+    for(const width of [320,390,768,1440]){
+      await p.setViewportSize({width,height:900});
+      assert.equal(await p.locator('[data-dashboard-preview],.dashboard-lock,[data-dashboard-login-banner]').count(),0);
+      assert.equal(await p.getByText('Đăng nhập để lưu lộ trình học tập và sử dụng đầy đủ tính năng.',{exact:true}).count(),0);
+      assert.equal(await p.getByRole('button',{name:'Cập nhật thông tin',exact:true}).count(),0);
+      assert.equal(await p.getByRole('link',{name:'Đăng nhập ngay',exact:true}).count(),0);
+      assert.equal(await p.locator('[data-credit-progress]').getAttribute('aria-valuenow'),'0');
+      assert.equal(await p.locator('.recharts-line,.recharts-pie').count(),0);
+      const rank=p.locator('[data-dashboard-kpi]').filter({hasText:'Top môn điểm cao'});assert.ok((await rank.innerText()).includes('Chưa có dữ liệu'));
+      const setup=p.getByRole('link',{name:'Thiết lập ngay →',exact:true});assert.equal(await setup.getAttribute('href'),'/login');
+      if(width<768){const b=await setup.boundingBox();assert.ok(b.height>=44&&b.width>=44);}
+      assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
     }
-    records.push({
-      scenario: 'guest banner action alignment',
-      measurements
-    });
-    assert.deepEqual(f.errors, []);
-    assert.deepEqual(f.writes, []);
-    await update.click({ position: { x: 2, y: 2 } });
-    await p.waitForFunction(() => document.getElementById('onboarding-opens')?.textContent === '1');
-    await login.click({ position: { x: 2, y: 2 } });
-    await p.waitForURL('**/login');
-    assert.equal(new URL(p.url()).pathname, '/login');
-  } finally {
-    await f.context.close();
-  }
+    await p.getByRole('link',{name:'Thiết lập ngay →',exact:true}).click();await p.waitForURL('**/login');assert.equal(await p.locator('#onboarding-opens').textContent(),'0');
+    assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+  }finally{await f.context.close();}
 });

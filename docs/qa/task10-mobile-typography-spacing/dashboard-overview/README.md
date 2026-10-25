@@ -1,5 +1,7 @@
 # Dashboard overview follow-up
 
+Historical report: the subsequent [live-data correction](../dashboard-live-data/README.md) removes all decorative examples, lock labels and the common banner; setup navigates directly to login. Geometry improvements remain.
+
 The owner's desktop/mobile HTML and images are layout references. Existing Inter imports, the 14px root, typography roles, gray-300 card borders, transcript, real calculations and permission/state handlers are retained. Before source: `c92b6e9b00b7d23e0aef18a51edfb3e17f58f4e9`.
 
 - Remove the four small white login boxes and the additional large trend-chart lock panel. Locked ranking/forecast/trend/distribution/year cards instead show separate examples with `blur(2px)`/opacity `.5` and a small static lock label at the heading. Examples are decorative, aria-hidden, with an accessible illustration notice; they contain no inputs, buttons, links or stored study data. They are not actual personalized results.

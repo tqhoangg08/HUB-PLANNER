@@ -392,7 +392,7 @@
     },
     {
       "path": "components/Dashboard.tsx",
-      "sha256NormalizedLF": "a34916449481a9b3dab981e5136df9ad20555d5cfde996b002c85b3b2abd07c5"
+      "sha256NormalizedLF": "41c01363a83eca3bfe906e4cb54223cf472fe837c2d11813dda9f6d619a1fdde"
     },
     {
       "path": "components/EventsBoard.tsx",
@@ -512,7 +512,7 @@
     },
     {
       "path": "tests/mobile-design-harness.tsx",
-      "sha256NormalizedLF": "97b8842b0984421190a67138e4f12698984ccf315987755f9231734150b74ccb"
+      "sha256NormalizedLF": "7fc038301289d80263775bf1de5cfcca1340731ef1e907761c487f46aafd0c70"
     },
     {
       "path": "tests/mobile-design-measurements.mjs",
@@ -524,7 +524,7 @@
     },
     {
       "path": "tests/mobile-design.browser.test.mjs",
-      "sha256NormalizedLF": "39e064ff1419c513c9dc60c111b55098c7e04ca82217ad0f305797529037ec75"
+      "sha256NormalizedLF": "7a28410308a089345631aed0f73c4623b60980df1f97a7f269a93bb9b1b2c460"
     },
     {
       "path": "tests/mobile-sidebar.browser.test.mjs",
@@ -547,12 +547,12 @@
       "sha256NormalizedLF": "634d9d14a7310ba0a95744a8b006d891c839444845901b591d04b154d6602836"
     },
     {
-      "path": "components/DashboardPreview.tsx",
-      "sha256NormalizedLF": "05896ca5c0868e483f4bc3f94f62bd00b672c6193638363de0342a9343c174e0"
+      "path": "components/dashboard-overview.css",
+      "sha256NormalizedLF": "993957f3b5ab199f9c4685caedeee6f003d8277c587a706e027aa5a12cf9c838"
     },
     {
-      "path": "components/dashboard-overview.css",
-      "sha256NormalizedLF": "2732d4ba190a9e6b5187402eaeed177946fab152f1195dddc0e25cad5ef02d02"
+      "path": "components/DashboardCreditProgress.tsx",
+      "sha256NormalizedLF": "628d2ec635ee77733f3a51f4ab0dc2b28c87fb52cde3e6c83e691f1fe74297e1"
     }
   ],
   "safety": {
@@ -683,5 +683,20 @@
       "githubCi": "See PR final-HEAD run"
     },
     "note": "Mobile preview login moves to header; desktop keeps a single banner. Flat teaser examples, credit progress, compact assessment and stacked small cards preserve live data/controller semantics."
+  },
+  "dashboardLiveDataFollowup": {
+    "evidence": "dashboard-live-data/validation.json",
+    "beforeSha": "5472c6ad8f5609bc3137b8c2fad696c39756f456",
+    "results": {
+      "chromium": "8/8 PASS",
+      "webkit": "8/8 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See final-HEAD PR CI"
+    },
+    "note": "Supersedes decorative preview and banner. Existing real charts/data/target input and ranking are rendered for guests; setup links directly to login."
   }
 }

@@ -161,14 +161,14 @@ actions, keeping the indicator visible on both navy and pale surfaces. Check
 normal, hover, selected, focus and applicable disabled states using computed
 styles and rendered paint. Unknown colour/background composition stays unverified.
 
-## Dashboard preview presentation
+## Dashboard overview presentation
 
-Dashboard previews use separate, explicitly illustrative markup under the existing
-lock condition. Do not blur real personalized results as a security mechanism,
-place login boxes over small-card content, or put fake buttons into decorative
-examples. Keep login in the mobile browser header and a single common desktop
-banner; preserve the existing onboarding entry. Decorative blur/opacity is not a
-meaningful-text contrast PASS. Compact state pills are not actions. On phones keep
-short KPI pairs in two columns and give multi-column year summaries their full
-available width. Credit progress derives from actual earned/required credits and
-never invents a nonzero fill.
+Render actual study-data-derived charts, ranking, forecast and yearly summaries,
+including the application's existing empty states. Do not substitute illustrative
+scores or blur content as a security mechanism. Keep login accessible in the
+browser header; the profile-status setup link navigates directly to `/login`.
+Do not add overlapping lock boxes or duplicate login banners. Backend/Auth
+permissions are independent of presentation. Compact state pills are not actions.
+On phones keep short KPI pairs in two columns and give multi-column year
+summaries their full available width. Credit progress derives from actual
+earned/required credits and never invents a nonzero fill.

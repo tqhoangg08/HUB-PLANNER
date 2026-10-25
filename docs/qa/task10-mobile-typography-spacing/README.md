@@ -86,4 +86,4 @@ The newer supplied mockups supersede that five-cell arrangement with [flat mobil
 ## Follow-up: contextual transcript toolbar
 
 The mobile-browser transcript now shows one contextual primary action and an overflow menu; desktop retains direct import and print actions. Save errors and retry are separate from report. See [the focused report, measurements, before/after screenshots and validation](transcript-toolbar/README.md). This later UI change has its own unchanged-handler proof and affected-route regression evidence; the earlier whole-source AST comparison describes its earlier source snapshot.
-Latest Dashboard overview reference: [before/after, geometry, regression logs and source proof](dashboard-overview/README.md). It supersedes the earlier mobile guest-banner presentation; transcript/semester follow-ups remain intact.
+Latest owner correction: [actual Dashboard data, no lock/banner, direct login link](dashboard-live-data/README.md). This supersedes the decorative preview in the [earlier overview report](dashboard-overview/README.md); transcript/semester follow-ups remain intact.

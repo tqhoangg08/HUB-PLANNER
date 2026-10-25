@@ -1,30 +1,17 @@
 /* Overview-only layout. Keep existing Inter roles, font scale and gray-300 borders. */
 .dashboard-profile-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.dashboard-profile-status button { color: #0052cc; text-align: left; }
+.dashboard-profile-status a { color: #0052cc; text-align: left; }
 .dashboard-kpi-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
 .dashboard-kpi-heading > :first-child { min-width: 0; }
-.dashboard-lock { font-size: var(--ui-font-meta); align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: #92400e; background: #fffbeb; padding: 2px 6px; border-radius: 999px; }
-.dashboard-preview { filter: blur(2px); opacity: .5; user-select: none; pointer-events: none; }
-.dashboard-preview-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 8px; }
-.dashboard-preview-row > :first-child { min-width: 0; overflow-wrap: anywhere; }
-.dashboard-preview-row > :last-child { flex-shrink: 0; }
-.dashboard-preview--trend { display: flex; align-items: flex-end; gap: 16px; height: 180px; padding: 16px; border-bottom: 1px solid #e2e8f0; }
-.dashboard-preview--trend > div { flex: 1; border-radius: 4px 4px 0 0; }
-.dashboard-preview-distribution { margin-top: 12px; }
-.dashboard-preview-track, .dashboard-credit-progress [role="progressbar"] { height: 6px; border-radius: 999px; background: #f1f5f9; }
-.dashboard-preview-track > div, .dashboard-credit-progress [role="progressbar"] > div { height: 100%; border-radius: inherit; background: #0052cc; }
+.dashboard-credit-progress [role="progressbar"] { height: 6px; border-radius: 999px; background: #f1f5f9; }
+.dashboard-credit-progress [role="progressbar"] > div { height: 100%; border-radius: inherit; background: #0052cc; }
 .dashboard-credit-progress { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .dashboard-credit-progress > span { align-self: flex-end; color: #0052cc; }
 .dashboard-overview-assessment-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
 .dashboard-debt-status { font-size: var(--ui-font-meta); display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; background: #ecfdf5; color: #047857; width: fit-content; }
 .dashboard-overview-secondary { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .dashboard-overview-card { min-width: 0; }
-.dashboard-year-row { display: grid; grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr)); gap: 4px; padding-block: 8px; }
-.dashboard-year-row > :not(:first-child) { text-align: right; }
-.dashboard-year-row > span { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 767px) {
-  [data-dashboard-login-banner] { display: none; }
-  .dashboard-lock-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .dashboard-overview-kpis > div { min-width: 0; }
 }
 @media (min-width: 1024px) {

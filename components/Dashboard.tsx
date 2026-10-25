@@ -33,7 +33,7 @@ import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { TranscriptToolbar } from './TranscriptToolbar';
 import './semester-header.css';
-import { DashboardPreview, DashboardLockLabel, DashboardCreditProgress } from './DashboardPreview';
+import { DashboardCreditProgress } from './DashboardCreditProgress';
 import './dashboard-overview.css';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { resolveTotalCreditsRequired } from '../utils/programs';
@@ -2019,7 +2019,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
     const semestersToRender = isInitialState ? [nonSummerSemesters[0]] : sortedSemesters;
     const usedSemesterNames = transcriptSemesters.map(s => s.name);
-    const isLocked = isGuest && !activeData.hasOnboarded;
+    const needsProfileSetup = isGuest && !activeData.hasOnboarded;
 
     const validDataSemesters = transcriptSemesters.filter(s => isValidTranscriptSemesterName(s.name));
 
@@ -2438,8 +2438,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </h1>
 
                             <div className="dashboard-profile-status ui-meta text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">
-                                {isLocked ? <span>Chế độ xem trước • Chưa thiết lập hồ sơ sinh viên</span> : <span>{[activeData.studentName, activeData.programName, activeData.cohort, activeData.specializationName].filter(Boolean).join(' • ') || 'Chưa thiết lập hồ sơ sinh viên'}</span>}
-                                {isLocked && onRequireOnboarding && <button type="button" className="ui-action" onClick={() => { playClick(); onRequireOnboarding(); }}>Thiết lập ngay →</button>}
+                                {needsProfileSetup ? <span>Chế độ xem trước • Chưa thiết lập hồ sơ sinh viên</span> : <span>{[activeData.studentName, activeData.programName, activeData.cohort, activeData.specializationName].filter(Boolean).join(' • ') || 'Chưa thiết lập hồ sơ sinh viên'}</span>}
+                                {needsProfileSetup && <Link to="/login" className="ui-action inline-flex items-center" onClick={playClick}>Thiết lập ngay →</Link>}
                             </div>
                         </div>
 
@@ -2455,24 +2455,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </button>
                         )}
                     </div>
-
-                    {isGuest && (
-                        <div data-dashboard-login-banner className="bg-blue-50 border border-blue-300 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn mt-2 sm:mt-0">
-                            <div className="flex items-center gap-2 text-[#003375] text-sm font-medium">
-                                <p>Đăng nhập để lưu lộ trình học tập và sử dụng đầy đủ tính năng.</p>
-                            </div>
-                            <div className="ui-guest-actions grid grid-flow-col auto-cols-fr gap-2 w-max max-w-full self-end sm:self-auto sm:flex">
-                                {isLocked && (
-                                    <button onClick={() => onRequireOnboarding && onRequireOnboarding()} className="ui-guest-action ui-guest-action--secondary min-w-0 flex-1 sm:flex-none">
-                                        <span className="ui-guest-action__surface">Cập nhật thông tin</span>
-                                    </button>
-                                )}
-                                <Link to="/login" onClick={playClick} className="ui-guest-action ui-guest-action--primary min-w-0 flex-1 sm:flex-none">
-                                    <span className="ui-guest-action__surface">Đăng nhập ngay</span>
-                                </Link>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 <div className="dashboard-overview-kpis grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -2500,15 +2482,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <DashboardCreditProgress earned={stats.passedCredits} required={totalCreditsRequired} />
                     </div>
 
-                    <div data-dashboard-kpi className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
+                    <div data-dashboard-kpi className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { playClick(); setShowRankingModal(true); }}>
                         <div className="dashboard-kpi-heading mb-1">
                             <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Top môn điểm cao</span>
-                            {isLocked && <DashboardLockLabel />}
+
                         </div>
 
                         <div className="relative flex-1 flex flex-col justify-center">
 
-                            {isLocked ? <DashboardPreview kind="ranking" /> : highestSubject ? (
+                            {highestSubject ? (
                                 <div className="mt-1">
                                     <span className="ui-readable ui-card-title text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
                                     <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
@@ -2526,12 +2508,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div data-dashboard-kpi className="z-20 bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-visible">
                         <div className="dashboard-kpi-heading mb-1">
                             <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Dự báo mục tiêu</span>
-                            {isLocked && <DashboardLockLabel />}
+
                         </div>
 
                         <div className="relative flex-1 flex flex-col justify-center">
 
-                            {isLocked ? <DashboardPreview kind="forecast" /> : (<div className="ui-meta flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
+                            <div className="ui-meta flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                                 <div className="ui-gpa-goal-row flex justify-between items-center">
                                     <span className="ui-secondary ui-readable">Mục tiêu:</span>
                                     <TargetGpaTipInput
@@ -2553,7 +2535,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <span className="font-bold text-[#990000]">Không thể</span>
                                     )}
                                 </div>
-                            </div>)}
+                            </div>
                         </div>
                     </div>
                     )}
@@ -2564,7 +2546,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col">
                             <div className="flex flex-wrap gap-2 justify-between items-center mb-2 sm:mb-6">
                                 <h3 className="ui-card-title text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
-                                {isLocked && <DashboardLockLabel />}
+
                                 <div className="ui-meta flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Hệ 4</span>
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
@@ -2574,7 +2556,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="w-full relative h-[180px] sm:h-[240px]">
 
 
-                                {isLocked ? <DashboardPreview kind="trend" /> : trendData.length > 0 ? (
+                                {trendData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
                                         <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -2608,11 +2590,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="dashboard-overview-secondary shrink-0">
                             <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                                 <div className="dashboard-kpi-heading mb-2"><h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight">Phân bố điểm</h3>
-                                {isLocked && <DashboardLockLabel />}</div>
+                                </div>
 
                                 <div className="w-full relative flex flex-col justify-center shrink-0 min-h-[130px]">
 
-                                    {isLocked ? <DashboardPreview kind="distribution" /> : pieData.length > 0 ? (
+                                    {pieData.length > 0 ? (
                                         <ResponsiveContainer width="100%" height={130} initialDimension={{ width: 1, height: 1 }}>
                                             <PieChart>
                                                 <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
@@ -2632,14 +2614,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                                 <div className="flex flex-wrap gap-2 justify-between items-center mb-2 sm:mb-3">
                                     <h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900">Tổng kết năm</h3>
-                                    {isLocked && <DashboardLockLabel />}
-                                    {yearlyStats.length > 3 && !isLocked && (
+
+                                    {yearlyStats.length > 3 && (
                                         <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="ui-action text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
                                     )}
                                 </div>
 
                                 <div className="dashboard-year-summary space-y-1 relative">
-                                    {isLocked ? <DashboardPreview kind="year" /> : <>
 
                                     <div className="ui-muted ui-meta grid grid-cols-6 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
                                         <span className="col-span-2">Năm</span>
@@ -2664,7 +2645,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             <span className="text-right font-extrabold text-amber-700">{formatTrainingScore(year.averageTrainingScore)}</span>
                                         </div>
                                     ))}
-                                    </>}
                                 </div>
                             </div>
 
