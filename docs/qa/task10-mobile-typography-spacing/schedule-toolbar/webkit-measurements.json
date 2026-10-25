@@ -1,0 +1,520 @@
+[
+  {
+    "heading": {
+      "x": 16,
+      "y": 229,
+      "width": 288,
+      "height": 33.796875,
+      "bottom": 262.796875
+    },
+    "filter": {
+      "x": 25,
+      "y": 522.984375,
+      "width": 270,
+      "height": 44,
+      "bottom": 566.984375
+    },
+    "overflow": false,
+    "width": 320,
+    "toolbar": {
+      "x": 16,
+      "y": 412.796875,
+      "width": 288,
+      "height": 163.1875
+    },
+    "planPicker": {
+      "x": 179.15625,
+      "y": 421.796875,
+      "width": 115.84375,
+      "height": 64
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ],
+    "sheet": {
+      "x": 0,
+      "y": 45.453125,
+      "width": 320,
+      "height": 522.546875
+    },
+    "backdrop": {
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 568
+    },
+    "footerDisplay": "flex",
+    "sheetClose": {
+      "x": 259,
+      "y": 58.453125,
+      "width": 44,
+      "height": 44
+    },
+    "scrollRestoration": {
+      "before": {
+        "y": 0,
+        "top": 595.984375
+      },
+      "after": {
+        "y": 0,
+        "top": 595.984375
+      }
+    }
+  },
+  {
+    "heading": {
+      "x": 16,
+      "y": 177,
+      "width": 328,
+      "height": 33.796875,
+      "bottom": 210.796875
+    },
+    "filter": {
+      "x": 25,
+      "y": 418.984375,
+      "width": 310,
+      "height": 44,
+      "bottom": 462.984375
+    },
+    "overflow": false,
+    "width": 360,
+    "toolbar": {
+      "x": 16,
+      "y": 308.796875,
+      "width": 328,
+      "height": 163.1875
+    },
+    "planPicker": {
+      "x": 213.890625,
+      "y": 317.796875,
+      "width": 121.109375,
+      "height": 46
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ],
+    "sheet": {
+      "x": 0,
+      "y": 51.203125,
+      "width": 360,
+      "height": 588.796875
+    },
+    "backdrop": {
+      "x": 0,
+      "y": 0,
+      "width": 360,
+      "height": 640
+    },
+    "footerDisplay": "flex",
+    "sheetClose": {
+      "x": 299,
+      "y": 64.203125,
+      "width": 44,
+      "height": 44
+    },
+    "scrollRestoration": {
+      "before": {
+        "y": 0,
+        "top": 473.984375
+      },
+      "after": {
+        "y": 0,
+        "top": 473.984375
+      }
+    }
+  },
+  {
+    "heading": {
+      "x": 16,
+      "y": 177,
+      "width": 343,
+      "height": 33.796875,
+      "bottom": 210.796875
+    },
+    "filter": {
+      "x": 25,
+      "y": 418.984375,
+      "width": 325,
+      "height": 44,
+      "bottom": 462.984375
+    },
+    "overflow": false,
+    "width": 375,
+    "toolbar": {
+      "x": 16,
+      "y": 308.796875,
+      "width": 343,
+      "height": 163.1875
+    },
+    "planPicker": {
+      "x": 228.890625,
+      "y": 317.796875,
+      "width": 121.109375,
+      "height": 46
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ],
+    "sheet": {
+      "x": 0,
+      "y": 62,
+      "width": 375,
+      "height": 605
+    },
+    "backdrop": {
+      "x": 0,
+      "y": 0,
+      "width": 375,
+      "height": 667
+    },
+    "footerDisplay": "flex",
+    "sheetClose": {
+      "x": 314,
+      "y": 75,
+      "width": 44,
+      "height": 44
+    },
+    "scrollRestoration": {
+      "before": {
+        "y": 0,
+        "top": 473.984375
+      },
+      "after": {
+        "y": 0,
+        "top": 473.984375
+      }
+    }
+  },
+  {
+    "heading": {
+      "x": 16,
+      "y": 177,
+      "width": 358,
+      "height": 33.796875,
+      "bottom": 210.796875
+    },
+    "filter": {
+      "x": 25,
+      "y": 418.984375,
+      "width": 340,
+      "height": 44,
+      "bottom": 462.984375
+    },
+    "overflow": false,
+    "width": 390,
+    "toolbar": {
+      "x": 16,
+      "y": 308.796875,
+      "width": 358,
+      "height": 163.1875
+    },
+    "planPicker": {
+      "x": 243.890625,
+      "y": 317.796875,
+      "width": 121.109375,
+      "height": 46
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ],
+    "sheet": {
+      "x": 0,
+      "y": 239,
+      "width": 390,
+      "height": 605
+    },
+    "backdrop": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 844
+    },
+    "footerDisplay": "flex",
+    "sheetClose": {
+      "x": 329,
+      "y": 252,
+      "width": 44,
+      "height": 44
+    },
+    "scrollRestoration": {
+      "before": {
+        "y": 0,
+        "top": 473.984375
+      },
+      "after": {
+        "y": 0,
+        "top": 473.984375
+      }
+    }
+  },
+  {
+    "heading": {
+      "x": 16,
+      "y": 177,
+      "width": 398,
+      "height": 33.796875,
+      "bottom": 210.796875
+    },
+    "filter": {
+      "x": 25,
+      "y": 415.796875,
+      "width": 380,
+      "height": 44,
+      "bottom": 459.796875
+    },
+    "overflow": false,
+    "width": 430,
+    "toolbar": {
+      "x": 16,
+      "y": 308.796875,
+      "width": 398,
+      "height": 160
+    },
+    "planPicker": {
+      "x": 283.890625,
+      "y": 317.796875,
+      "width": 121.109375,
+      "height": 46
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ],
+    "sheet": {
+      "x": 0,
+      "y": 327,
+      "width": 430,
+      "height": 605
+    },
+    "backdrop": {
+      "x": 0,
+      "y": 0,
+      "width": 430,
+      "height": 932
+    },
+    "footerDisplay": "flex",
+    "sheetClose": {
+      "x": 369,
+      "y": 340,
+      "width": 44,
+      "height": 44
+    },
+    "scrollRestoration": {
+      "before": {
+        "y": 0,
+        "top": 470.796875
+      },
+      "after": {
+        "y": 0,
+        "top": 470.796875
+      }
+    }
+  },
+  {
+    "heading": {
+      "x": 16,
+      "y": 208,
+      "width": 635,
+      "height": 33.796875,
+      "bottom": 241.796875
+    },
+    "filter": {
+      "x": 25,
+      "y": 446.796875,
+      "width": 617,
+      "height": 44,
+      "bottom": 490.796875
+    },
+    "overflow": false,
+    "width": 667,
+    "toolbar": {
+      "x": 16,
+      "y": 339.796875,
+      "width": 635,
+      "height": 160
+    },
+    "planPicker": {
+      "x": 520.890625,
+      "y": 348.796875,
+      "width": 121.109375,
+      "height": 46
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ],
+    "sheet": {
+      "x": 0,
+      "y": 30,
+      "width": 667,
+      "height": 345
+    },
+    "backdrop": {
+      "x": 0,
+      "y": 0,
+      "width": 667,
+      "height": 375
+    },
+    "footerDisplay": "flex",
+    "sheetClose": {
+      "x": 606,
+      "y": 43,
+      "width": 44,
+      "height": 44
+    },
+    "scrollRestoration": {
+      "before": {
+        "y": 20,
+        "top": 481.796875
+      },
+      "after": {
+        "y": 20,
+        "top": 481.796875
+      }
+    }
+  },
+  {
+    "heading": {
+      "x": 21,
+      "y": 165.015625,
+      "width": 161.421875,
+      "height": 27.984375,
+      "bottom": 193
+    },
+    "filter": {
+      "x": 30,
+      "y": 335.5,
+      "width": 702,
+      "height": 44,
+      "bottom": 379.5
+    },
+    "overflow": false,
+    "width": 768,
+    "toolbar": {
+      "x": 21,
+      "y": 228.5,
+      "width": 720,
+      "height": 160
+    },
+    "planPicker": {
+      "x": 610.890625,
+      "y": 237.5,
+      "width": 121.109375,
+      "height": 46
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ],
+    "sheet": {
+      "x": 0,
+      "y": 399.053955078125,
+      "width": 768,
+      "height": 627.5
+    },
+    "backdrop": {
+      "x": 0,
+      "y": 0,
+      "width": 768,
+      "height": 1024
+    },
+    "footerDisplay": "flex",
+    "sheetClose": {
+      "x": 707,
+      "y": 409.5,
+      "width": 44,
+      "height": 44
+    },
+    "scrollRestoration": {
+      "before": {
+        "y": 0,
+        "top": 390.5
+      },
+      "after": {
+        "y": 0,
+        "top": 390.5
+      }
+    }
+  },
+  {
+    "heading": {
+      "x": 28,
+      "y": 165.015625,
+      "width": 161.421875,
+      "height": 27.984375,
+      "bottom": 193
+    },
+    "filter": {
+      "x": 41,
+      "y": 287.5,
+      "width": 936,
+      "height": 44,
+      "bottom": 331.5
+    },
+    "overflow": false,
+    "width": 1024,
+    "toolbar": {
+      "x": 28,
+      "y": 228.5,
+      "width": 962,
+      "height": 112
+    },
+    "planPicker": {
+      "x": 240.296875,
+      "y": 238.5,
+      "width": 196.296875,
+      "height": 44
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ]
+  },
+  {
+    "heading": {
+      "x": 28,
+      "y": 165.015625,
+      "width": 161.421875,
+      "height": 27.984375,
+      "bottom": 193
+    },
+    "filter": {
+      "x": 248.296875,
+      "y": 238.5,
+      "width": 779.296875,
+      "height": 44,
+      "bottom": 282.5
+    },
+    "overflow": false,
+    "width": 1440,
+    "toolbar": {
+      "x": 28,
+      "y": 228.5,
+      "width": 1378,
+      "height": 64
+    },
+    "planPicker": {
+      "x": 240.296875,
+      "y": 238.5,
+      "width": 196.296875,
+      "height": 44
+    },
+    "planLabels": [
+      "Phương án A (0 môn • 0 TC)",
+      "Phương án B (0 môn • 0 TC)",
+      "Phương án C (0 môn • 0 TC)"
+    ]
+  }
+]

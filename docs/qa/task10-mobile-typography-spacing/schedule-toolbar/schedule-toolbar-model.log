@@ -1,0 +1,46 @@
+✔ admin timetable preserves the five management tabs in an accessible tab strip (5.4987ms)
+✔ admin timetable uses the student-management filter and action-bar pattern without changing its data authority (2.5033ms)
+✔ admin timetable renders a dense responsive enterprise table and reuses course pagination (2.5396ms)
+✔ remaining management tabs use real fields, dedicated filters, and one bounded pagination grammar (7.4189ms)
+✔ URL controls all tabs, pagination and sort while request actions stay on the same tab (1.9215ms)
+✔ request identity, quick approve, credits and email use authoritative backend values (14.1208ms)
+✔ auditor keeps read-only request and schedule actions while admin review remains available (14.2145ms)
+✔ desktop and mobile schedule surfaces use the shared calendar export dialog (55.3355ms)
+✔ download handoff shows a focused, responsive import guide without downloading again (40.7184ms)
+✔ owners retain the lock until last release and restore priorities, scroll and unrelated styles (17.7618ms)
+✔ internal iOS scroller locks without fixing body; acquire/release cycles are idempotent (6.9922ms)
+✔ desktop compensates scrollbar once and preserves existing padding (2.0931ms)
+✔ previous competing overflow implementations are removed and both shell scroll roots are registered (250.703ms)
+✔ schedule request pagination keeps the current page neighborhood and boundaries (6.254ms)
+✔ management pagination slices bounded API results without inventing a server total (1.6579ms)
+✔ schedule requests are sorted newest first and tolerate invalid dates (1.7173ms)
+✔ student code uses only the authoritative profile value (4.8606ms)
+✔ five admin tabs have stable URL names and invalid sort safely defaults (1.4655ms)
+✔ admin semester restores from full or split URL values (1.3064ms)
+✔ Vietnamese request sort and stable ties happen before slicing the page (44.3018ms)
+✔ student schedule sort uses authoritative totals and deterministic student-code ties (1.5593ms)
+✔ academic program options are trimmed, unique, and keep the default first (1.4713ms)
+✔ plan schedules start independent (1.1397ms)
+✔ D1 import request keeps system references and exact private sessions/estimates without catalogue writes (100.0717ms)
+✔ D1 import rejects invalid credits, incorrect session counts and malformed ranges before mutation (25.9273ms)
+✔ D1 import prevents overwriting official data or specifying another owner in import rows (2.9939ms)
+✔ fallback uses credits once across all meetings, maps C, and preserves rooms (102.7375ms)
+✔ official equivalent code wins unchanged over conflicting PDF and community course (5.7676ms)
+✔ same name, different class or semester cannot become an official match (10.4263ms)
+✔ ambiguous official matches stop preview safely instead of choosing the first (6.2928ms)
+✔ catalog failure cannot silently turn an official course into a fallback (2.9225ms)
+✔ an official catalog row missing its id cannot be hidden by a community row or become a fallback (2.8982ms)
+✔ eleven-course PDF matches one official course and only generates the ten unmatched classes (101.3462ms)
+✔ preview validation requires supported credits and target count but permits repeated weeks (5.1881ms)
+✔ preview keeps actual cross-course overlap validation while allowing separate time ranges (5.9992ms)
+✔ confirmation sends only official id and the exact edited fallback sessions via owner CAS API (21.2259ms)
+✔ catalog pagination completes before checking uniqueness (7.1518ms)
+✔ unknown import courses and manual requests share the structured schedule editor on desktop and mobile (201.2609ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2565.5987

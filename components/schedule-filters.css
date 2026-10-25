@@ -1,10 +1,88 @@
 .timetable-filter-sidebar[hidden] { display: none; }
+.timetable-page-header { display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; margin-bottom:16px; }
+.timetable-page-header { background:#F8FAFC; }
+.timetable-page-header > div:first-child { min-width:0; }
+.timetable-mode { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+.timetable-mode button { min-height:44px; min-width:0; padding:4px 8px; white-space:normal; line-height:1.4; }
+.timetable-header-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.timetable-header-actions > button { min-height:44px; }
+.timetable-unified-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:4px 12px; padding:8px 12px; border:1px solid #d1d5db; border-radius:12px 12px 0 0; background:white; }
+.timetable-calendar-navigation { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:4px; }
+.timetable-calendar-navigation > div { gap:4px; }
+.timetable-calendar-navigation button { min-height:44px; min-width:44px; padding:4px 8px; }
+.timetable-view-select select { min-height:44px; width:72px; border:1px solid #d1d5db; border-radius:8px; padding:4px; background:white; }
+.timetable-view-select { display:none; }
+.timetable-view-buttons { display:flex; }
+.timetable-plan-picker { gap:4px; }
+.timetable-plan-picker { position:relative; display:inline-flex; align-items:center; min-height:44px; max-width:100%; padding:4px 8px; border:1px solid #fde68a; border-radius:8px; color:#92400e; background:#fffbeb; font-size:var(--ui-font-meta); }
+.timetable-plan-picker select { position:absolute; inset:-1px; opacity:0; width:calc(100% + 2px); height:calc(100% + 2px); min-height:44px; }
+.timetable-plan-picker:focus-within { outline:2px solid #1d4ed8; outline-offset:2px; }
+.timetable-unified-toolbar .timetable-filter-bar { grid-column:1 / -1; margin:0; }
+.timetable-filter-chips > span { border:0; border-radius:6px; padding:0 4px; gap:4px; background:linear-gradient(transparent 8px,#eff6ff 8px,#eff6ff calc(100% - 8px),transparent calc(100% - 8px)); }
+.timetable-content-frame { display:flex; align-items:stretch; gap:12px; min-width:0; }
+.timetable-filter-sidebar { display:flex; flex-direction:column; width:330px; flex-shrink:0; max-height:75dvh; }
+.timetable-sidebar-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border-bottom:1px solid #d1d5db; }
+.timetable-sidebar-scroll { min-height:0; overflow-y:auto; }
+.timetable-calendar-pane { min-height:600px; height:calc(100dvh - 260px); overflow:hidden; }
+.timetable-label-narrow { display:none; }
+.timetable-pdf-narrow { display:none; }
+.timetable-sheet-backdrop { inset-inline:0; width:100%; display:flex; align-items:flex-end; justify-content:center; background:rgba(7,28,58,.35); z-index:99990; }
+.timetable-filter-sheet { display:flex; flex-direction:column; width:100%; max-height:92%; border:1px solid #d1d5db; border-radius:20px 20px 0 0; background:white; padding-top:env(safe-area-inset-top); }
+.timetable-filter-sheet > header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid #d1d5db; flex-shrink:0; }
+.timetable-filter-sheet > header button { min-width:44px; min-height:44px; }
+.timetable-sheet-scroll { min-height:0; overflow-y:auto; }
+.timetable-filter-sheet > .timetable-sheet-footer { display:flex; gap:8px; padding:12px 16px max(12px,env(safe-area-inset-bottom)); border-top:1px solid #d1d5db; flex-shrink:0; }
+.timetable-filter-sheet > .timetable-sheet-footer > button { min-height:44px; }
+.timetable-filter-sheet > .timetable-sheet-footer > button:last-child { flex:1; }
+.timetable-filter-sheet :is(input:not([type="checkbox"]),select) { font-size:var(--ui-font-input); }
+@media (max-width:1023px) {
+  .timetable-unified-toolbar { grid-template-columns:minmax(0,1fr); padding:8px; }
+  .timetable-unified-toolbar .timetable-filter-actions { flex-wrap:nowrap; }
+  .timetable-plan-picker { margin-left:auto; }
+  .timetable-label-wide { display:none; }
+  .timetable-plan-summary { display:block; }
+  .timetable-label-narrow { display:inline; }
+  .timetable-calendar-navigation { display:grid; grid-template-columns:auto auto minmax(44px,1fr) auto; gap:4px; }
+  .timetable-calendar-navigation > .timetable-view-buttons { display:flex; order:4; }
+  .timetable-calendar-navigation > button { order:1; }
+  .timetable-calendar-navigation > div { display:contents; }
+  .timetable-calendar-navigation > div > div { order:2; }
+  .timetable-calendar-navigation > div > button { order:3; min-width:44px; white-space:normal; padding:4px; overflow-wrap:normal; }
+  .timetable-view-select { order:4; }
+  .timetable-view-select select { width:64px; }
+  .timetable-calendar-navigation button { padding:4px; }
+  .timetable-content-frame { display:block; }
+}
+@media (max-width:359px) {
+  .timetable-calendar-navigation > .timetable-view-buttons { display:none; }
+  .timetable-view-select { display:block; }
+}
+@keyframes timetable-sheet-enter { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.timetable-filter-sheet { animation:timetable-sheet-enter 160ms ease-out; }
+@media (prefers-reduced-motion:reduce) { .timetable-filter-sheet { animation:none; } }
+@media (max-width:767px) {
+  .timetable-page-header { gap:8px; }
+  .timetable-page-header > div:first-child { flex-basis:100%; }
+  .timetable-mode button { padding:4px; }
+  .timetable-mode { grid-template-columns:auto auto; }
+  .timetable-pdf-wide { display:none; }
+  .timetable-pdf-narrow { display:inline; }
+  .timetable-header-actions .schedule-actions-trigger > svg:first-child { display:none; }
+  .timetable-header-actions .schedule-actions-trigger { gap:4px; padding-inline:8px; }
+  .timetable-header-actions > button { padding-inline:8px; }
+}
 .timetable-filter-bar { min-width: 0; margin-bottom: 12px; }
 .timetable-filter-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .timetable-filter-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 44px; }
-.timetable-filter-chips { display: flex; align-items: center; gap: 8px; overflow-x: auto; max-width: 100%; white-space: nowrap; }
+.timetable-filter-chips { display: flex; align-items: center; gap: 8px; overflow-x: auto; max-width: 100%; min-height:44px; white-space: nowrap; }
 .timetable-filter-chips button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
 .timetable-filter-sidebar input:not([type="checkbox"]), .timetable-filter-sidebar select { max-width: 100%; }
+@media (min-width:1200px) {
+  .timetable-unified-toolbar { grid-template-columns:auto minmax(0,1fr) auto; }
+  .timetable-unified-toolbar > .timetable-filter-actions { grid-column:1; grid-row:1; }
+  .timetable-unified-toolbar > .timetable-filter-bar { grid-column:2; grid-row:1; }
+  .timetable-unified-toolbar > .timetable-calendar-navigation { grid-column:3; grid-row:1; }
+}
 @media (max-width: 767px) {
   .timetable-filter-sidebar input:not([type="checkbox"]), .timetable-filter-sidebar select { font-size: 16px; }
 }

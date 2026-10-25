@@ -1,0 +1,114 @@
+{
+  "baseMain": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
+  "immediateBase": "77f94e24290332eddbd27246aa8b07d3d9a9defd",
+  "observedAt": "2026-10-25T07:20:35.202Z",
+  "sourceSha256": {
+    "components/ScheduleBoard.tsx": "e7be16618ae9ade791935bec6a4905d974b1d5e598ff656691798439bb6a653d",
+    "components/schedule-filters.css": "9399a214a213a6c554bdc09912106819b6e1328b9318a18ee772315ce97aaaf1"
+  },
+  "engines": {
+    "chromium": "155.0.8059.85",
+    "webkit": "26.5"
+  },
+  "layoutViewports": [
+    [
+      320,
+      568
+    ],
+    [
+      360,
+      640
+    ],
+    [
+      375,
+      667
+    ],
+    [
+      390,
+      844
+    ],
+    [
+      430,
+      932
+    ],
+    [
+      667,
+      375
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      1440,
+      900
+    ]
+  ],
+  "keyboardSimulation": [
+    390,
+    240
+  ],
+  "checks": {
+    "schedule-toolbar-final-chromium": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "schedule-toolbar-final-webkit": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "schedule-collapse-final-chromium": {
+      "tests": 12,
+      "pass": 12,
+      "fail": 0
+    },
+    "schedule-collapse-final-webkit": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "schedule-actions-regression-chromium": {
+      "tests": 12,
+      "pass": 11,
+      "fail": 1
+    },
+    "schedule-actions-regression-webkit": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0
+    },
+    "schedule-pdf-final-chromium": {
+      "tests": 1,
+      "pass": 1,
+      "fail": 0
+    },
+    "schedule-toolbar-model": {
+      "tests": 38,
+      "pass": 38,
+      "fail": 0
+    }
+  },
+  "notes": [
+    "Initial action suite has one obsolete global ARIA group count failure (12 includes the new schedule mode group); scoped eleven editable PDF course groups pass in replacement PDF run. No parser count assertion removed.",
+    "Compatibility result/authorization tests preceded the final footer-container-only refinement; full final layout matrix reran after that refinement on both engines.",
+    "All fixtures intercept network, fail on unexpected writes and assert no runtime errors or React warnings.",
+    "Mobile main actions and navigation use two control rows plus an independently scrolling filter summary strip. Header may wrap at 320px.",
+    "Business state/handler initializers and filter field map are AST-identical; shared infrastructure and PWA component blobs are unchanged."
+  ],
+  "frontendTypecheck": "PASS",
+  "cloudflareTypecheck": "PASS",
+  "build": "PASS",
+  "diffCheck": "PASS",
+  "githubCI": "See final pushed HEAD PR checks; CI is separate from local evidence",
+  "realDeviceAcceptance": "NOT_VERIFIED",
+  "productionUnchanged": true,
+  "merged": false,
+  "deployed": false,
+  "buildWarning": "Existing Vite chunk-size warning; build completed with exit 0"
+}

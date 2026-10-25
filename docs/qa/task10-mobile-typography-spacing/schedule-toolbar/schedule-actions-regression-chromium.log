@@ -1,0 +1,41 @@
+AUTOMATED_ENGINE=chromium; VERSION=155.0.8059.85; REAL_DEVICE=NOT_VERIFIED
+✔ chromium 375: actual schedule actions, geometry, forms, scroll and keyboard (24723.6868ms)
+✔ chromium 1440: actual schedule actions, geometry, forms, scroll and keyboard (14935.6386ms)
+✔ chromium disabled {"role":"guest"} (3147.4607ms)
+✔ chromium disabled {"empty":true} (3221.3418ms)
+✔ chromium disabled {"role":"guest","standalone":true} (2152.806ms)
+✔ chromium disabled {"empty":true,"standalone":true} (2720.627ms)
+✔ chromium admin management unchanged and student actions gated (2155.8657ms)
+✔ chromium auditor management unchanged and student actions gated (2111.0567ms)
+✔ chromium actual MobileSchedule PWA: actions, scroll, labels, disabled and cleanup (14700.3754ms)
+{"case":"PDF","standalone":false,"errors":[],"stubbedAssets":[],"debug":"{\"fileName\":\"task08-fixture.pdf\",\"fileSize\":186430,\"stage\":\"hub-layout-parsed\",\"pages\":2,\"directParser\":{\"isHubSchedule\":true,\"detectedCourseCount\":11,\"parsedCourseCount\":11,\"completeCourseCount\":11},\"courseCount\":11,\"at\":\"2026-10-25T07:04:52.623Z\"}","body":"thứ *\nThứ 2\nThứ 3\nThứ 4\nThứ 5\nThứ 6\nThứ 7\nChủ nhật\nChọn ca *\nCa sáng (07:00 – 11:05)\nCa chiều (13:00 – 17:05)\nGiờ học:\n–\n\nBuổi 2\n\nChọn tuần *\nTuần 1 (31/08 - 06/09)\nTuần 2 (07/09 - 13/09)\nTuần 3 (14/09 - 20/09)\nTuần 4 (21/09 - 27/09)\nTuần 5 (28/09 - 04/10)\nTuần 6 (05/10 - 11/10)\nTuần 7 (12/10 - 18/10)\nTuần 8 (19/10 - 25/10)\nTuần 9 (26/10 - 01/11)\nTuần 10 (02/11 - 08/11)\nTuần 11 (09/11 - 15/11)\nTuần 12 (16/11 - 22/11)\nTuần 13 (23/11 - 29/11)\nTuần 14 (30/11 - 06/12)\nTuần 15 (07/12 - 13/12)\nTuần 16 (14/12 - 20/12)\nTuần 17 (21/12 - 27/12)\nTuần 18 (28/12 - 03/01)\nTuần 19 (04/01 - 10/01)\nTuần 20 (11/01 - 17/01)\nTuần 21 (18/01 - 24/01)\nTuần 22 (25/01 - 31/01)\nChọn thứ *\nThứ 2\nThứ 3\nThứ 4\nThứ 5\nThứ 6\nThứ 7\nChủ nhật\nChọn ca *\nCa sáng (07:00 – 11:05)\nCa chiều (13:00 – 17:05)\nGiờ học:\n–\n\nBuổi 3\n\nChọn tuần *\nTuần 1 (31/08 - 06/09)\nTuần 2 (07/09 - 13/09)\nTuần 3 (14/09 - 20/09)\nTuần 4 (21/09 - 27/09)\nTuần 5 (28/09 - 04/10)\nTuần 6 (05/10 - 11/10)\nTuần 7 (12/10 - 18/10)\nTuần 8 (19/10 - 25/10)\nTuần 9 (26/10 - 01/11)\nTuần 10 (02/11 - 08/11)\nTuần 11 (09/11 - 15/11)\nTuần 12 (16/11 - 22/11)\nTuần 13 (23/11 - 29/11)\nTuần 14 (30/11 - 06/12)\nTuần 15 (07/12 - 13/12)\nTuần 16 (14/12 - 20/12)\nTuần 17 (21/12 - 27/12)\nTuần 18 (28/12 - 03/01)\nTuần 19 (04/01 - 10/01)\nTuần 20 (11/01 - 17/01)\nTuần 21 (18/01 - 24/01)\nTuần 22 (25/01 - 31/01)\nChọn thứ *\nThứ 2\nThứ 3\nThứ 4\nThứ 5\nThứ 6\nThứ 7\nChủ nhật\nChọn ca *\nCa sáng (07:00 – 11:05)\nCa chiều (13:00 – 17:05)\nGiờ học:\n–\nGIẢNG VIÊN\nMôn ngoài hệ thống\n\n2 môn chưa đủ mã, tên, tín chỉ, giảng viên hoặc lịch học hợp lệ.\n\n11 môn sẽ thay thế lịch hiện tại\nHủy\nXác nhận nhập"}
+✖ chromium PDF guide to real PDF parser and preview, processing disabled browser (13426.7247ms)
+✔ chromium PDF guide to real PDF parser and preview, processing disabled PWA (19660.7721ms)
+✔ chromium week/month dropdown ownership, plans and contextual labels remain reachable (18447.2923ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 140381.3686
+
+✖ failing tests:
+
+test at tests\schedule-actions-dropdown.browser.test.mjs:178:51
+✖ chromium PDF guide to real PDF parser and preview, processing disabled browser (13426.7247ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  12 !== 11
+
+      at TestContext.<anonymous> (file:///C:/Users/tqhoa/.codex/worktrees/task01-release-preflight/HUB-PLANNER/tests/schedule-actions-dropdown.browser.test.mjs:188:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 12,
+    expected: 11,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

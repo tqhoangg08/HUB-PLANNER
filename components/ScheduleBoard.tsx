@@ -593,19 +593,26 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setIsFilterSidebarExpanded(false);
     filterToggleRef.current?.focus({ preventScroll: true });
   };
+  const [isNarrowTimetable, setIsNarrowTimetable] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches);
+  const [isMobileFilterSheetOpen, setIsMobileFilterSheetOpen] = useState(false);
+  useEffect(() => {
+    const media=window.matchMedia('(max-width: 1023px)');
+    const change=()=>{setIsNarrowTimetable(media.matches);if(!media.matches)setIsMobileFilterSheetOpen(false);};
+    media.addEventListener('change',change);return ()=>media.removeEventListener('change',change);
+  },[]);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [isCourseResultsOpen, setIsCourseResultsOpen] = useState(false);
   const courseFilterDialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const dialog = courseFilterDialogRef.current;
-    if ((!isFilterExpanded && !isCourseResultsOpen) || !dialog) return;
+    if ((!isFilterExpanded && !isCourseResultsOpen && !isMobileFilterSheetOpen) || !dialog) return;
     const previous = document.activeElement as HTMLElement | null;
     dialog.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || (document.activeElement as HTMLElement)?.closest('[role="dialog"]') !== dialog) return;
       if (event.key === 'Escape') {
         if ((document.activeElement as HTMLElement).matches('select, input[type="date"], input[type="time"]')) return;
-        event.preventDefault(); setIsFilterExpanded(false); setIsCourseResultsOpen(false);
+        event.preventDefault(); setIsFilterExpanded(false); setIsCourseResultsOpen(false); setIsMobileFilterSheetOpen(false);
       }
       if (event.key !== 'Tab') return;
       const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button, input, select, textarea, [tabindex="0"]'))
@@ -620,7 +627,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (previous?.isConnected) previous.focus({ preventScroll: true });
       else filterToggleRef.current?.focus({ preventScroll: true });
     };
-  }, [isFilterExpanded, isCourseResultsOpen]);
+  }, [isFilterExpanded, isCourseResultsOpen, isMobileFilterSheetOpen]);
   const [openSidebarFilterSections, setOpenSidebarFilterSections] = useState<Set<SidebarFilterSection>>(() => new Set(['semester']));
   const [adminScheduleError, setAdminScheduleError] = useState('');
   const [adminFacultyFilter, setAdminFacultyFilter] = useState(() => adminQuery.get('faculty') || '');
@@ -1957,7 +1964,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           }
 
           const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = quickTagCourse;
-          
+
           const overrideData = {
               ...rest,
               labels: labelPayload.updatedLabels,
@@ -2508,6 +2515,60 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         );
     }
 
+  const renderTimetableFilterFields = () => <>                        {([
+                            ['subject', 'Môn học', selectedSubjectName === 'all' ? 'Tất cả' : '1 môn đã chọn'],
+                            ['program', 'Chương trình', selectedFilterPrograms.length ? `${selectedFilterPrograms.length} chương trình đã chọn` : 'Tất cả'],
+                            ['semester', 'Học kỳ', selectedFilterSemesters.length ? `${selectedFilterSemesters.length} học kỳ đã chọn` : 'Tất cả'],
+                            ['phase', 'Đợt', selectedFilterPhases.length ? `${selectedFilterPhases.length} đợt đã chọn` : 'Tất cả'],
+                            ['major', 'Chuyên ngành', selectedFilterMajors.length ? `${selectedFilterMajors.length} ngành đã chọn` : 'Tất cả'],
+                            ['cohort', 'Khóa', selectedFilterCohorts.length ? `${selectedFilterCohorts.length} khóa đã chọn` : 'Tất cả'],
+                            ['group', 'Nhóm', selectedFilterGroups.length ? `${selectedFilterGroups.length} nhóm đã chọn` : 'Tất cả'],
+                        ] as const).map(([key, label, summary]) => {
+                            const isOpen = openSidebarFilterSections.has(key);
+                            return (
+                                <div key={key} className="border-b border-gray-300">
+                                    <button onClick={() => toggleSidebarFilterSection(key)} className="ui-action flex h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-gray-50">
+                                        <span className="text-sm font-extrabold text-[#12366A]">{label}</span>
+                                        <span className="flex min-w-0 items-center gap-2 pl-3">
+                                            <span className="ui-meta max-w-[132px] truncate text-[11px] font-medium text-gray-500">{summary}</span>
+                                            <ChevronDown size={16} className={`shrink-0 text-[#12366A] transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
+                                        </span>
+                                    </button>
+
+                                    {isOpen && (
+                                        <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3">
+                                            {key === 'subject' && <>
+                                                <div className="relative mb-3">
+                                                    <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm tên môn hoặc mã học phần..." className="ui-input h-9 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-xs outline-none focus:border-[#155EEF]"/>
+                                                    <Search size={14} className="ui-muted absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                                </div>
+                                                <select disabled={!isAuthenticated} value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="ui-input h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                                    <option value="all">Tất cả môn học</option>
+                                                    {subjectNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                                </select>
+                                            </>}
+                                            {key === 'program' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">
+                                                {academicProgramOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterPrograms.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterPrograms, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}
+                                                {academicProgramOptions.length === 0 && <p className="ui-muted ui-secondary text-xs text-gray-400">Chưa có dữ liệu chương trình.</p>}
+                                            </div>}
+                                            {key === 'semester' && <div className="space-y-2.5">
+                                                {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => (
+                                                    <label key={option.value} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]">
+                                                        <input type="checkbox" checked={selectedFilterSemesters.includes(option.value)} onChange={() => toggleMultiFilterValue(setSelectedFilterSemesters, option.value)} className="h-4 w-4 accent-[#0D4E9B]"/>
+                                                        <span className="flex-1">{option.label}</span>
+                                                    </label>
+                                                ))}
+                                            </div>}
+                                            {key === 'phase' && <div className="space-y-2.5">{['1', '2'].map(value => <label key={value} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" checked={selectedFilterPhases.includes(value)} onChange={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} className="h-4 w-4 accent-[#0D4E9B]"/><span>Đợt {value}</span></label>)}</div>}
+                                            {key === 'major' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{majorOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterMajors.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterMajors, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
+                                            {key === 'cohort' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{cohortOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterCohorts.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterCohorts, option)} className="h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span>{option}</span></label>)}</div>}
+                                            {key === 'group' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{groupNameOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterGroups.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterGroups, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+</>;
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
         {showScheduleUpdateNotice && (
@@ -2948,15 +3009,57 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             </div>
         ) : (
             <>
-                        <div className="timetable-filter-bar rounded-xl border border-gray-300 bg-white p-2" aria-label="Điều khiển bộ lọc thời khóa biểu">
-                            <div className="timetable-filter-actions">
-                                <button ref={filterToggleRef} type="button" aria-expanded={isFilterSidebarExpanded} aria-controls="timetable-filter-sidebar" onClick={() => isFilterSidebarExpanded ? collapseFilterSidebar() : setIsFilterSidebarExpanded(true)} className="ui-action rounded-lg bg-[#0D4E9B] px-3 text-xs font-extrabold text-white">
-                                    <SlidersHorizontal size={16}/> {isFilterSidebarExpanded ? 'Thu gọn bộ lọc' : 'Mở bộ lọc'} <span aria-label={`${activeCourseFilterCount} điều kiện đang áp dụng`}>({activeCourseFilterCount})</span>
-                                </button>
-                                <button type="button" disabled={!isAuthenticated || isLoading} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setIsCourseResultsOpen(true); }} className="ui-action rounded-lg border border-gray-300 px-3 text-xs font-bold text-[#12366A] disabled:opacity-50"><List size={16}/> Xem danh sách lớp</button>
-                                <button type="button" onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setIsFilterExpanded(true); }} className="ui-action rounded-lg px-3 text-xs font-bold text-[#155EEF]"><Settings size={16}/> Bộ lọc nâng cao</button>
+<header className="timetable-page-header">
+  <div><h1 className="ui-page-title text-2xl font-black text-[#003375]">Thời khóa biểu</h1><p className="ui-secondary text-xs font-medium text-gray-500">Xem và quản lý lịch học của bạn</p></div>
+  <div className="timetable-mode rounded-lg border border-gray-300 bg-gray-50 p-1" role="group" aria-label="Loại lịch">
+    <button aria-label="Lịch cá nhân" aria-pressed={!isPlanMode} onClick={()=>setScheduleViewMode('official')} className={`ui-action text-xs font-bold rounded-md ${!isPlanMode?'bg-white text-[#003375]':'text-gray-500'}`}><span className="timetable-label-wide">Lịch cá nhân</span><span className="timetable-label-narrow">Cá nhân</span></button>
+    <button aria-pressed={isPlanMode} onClick={()=>setScheduleViewMode('plan')} className={`ui-action text-xs font-bold rounded-md ${isPlanMode?'bg-white text-[#003375]':'text-gray-500'}`}>Kế hoạch</button>
+  </div>
+  <div className="timetable-header-actions"><button type="button" aria-label="Nhập PDF" title="Nhập PDF" disabled={!isAuthenticated || isProcessingPdf} onClick={()=>setIsPdfGuideOpen(true)} className="ui-action rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-[#003375] disabled:opacity-50"><span className="timetable-pdf-wide">Nhập PDF</span><span className="timetable-pdf-narrow">PDF</span></button>                            <ScheduleActionsDropdown
+                                isAuthenticated={isAuthenticated}
+                                hasCourses={currentSemesterSchedule.length > 0}
+                                isProcessingPdf={isProcessingPdf}
+                                actionActive={isProcessingPdf || isCalendarExportOpen || isReportModalOpen || isCreateCourseModalOpen || isPdfGuideOpen || Boolean(pendingScheduleImport)}
+                                onExport={() => setIsCalendarExportOpen(true)}
+                                onReport={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }}
+                                onRequest={() => setIsCreateCourseModalOpen(true)}
+                                onImport={() => setIsPdfGuideOpen(true)}
+                            /></div>
+</header><input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload}/>
+<div className="schedule-toolbar timetable-unified-toolbar">
+  <div className="timetable-filter-actions">
+    <button ref={filterToggleRef} type="button" aria-expanded={isNarrowTimetable ? isMobileFilterSheetOpen : isFilterSidebarExpanded} aria-controls="timetable-filter-sidebar" onClick={event => {event.currentTarget.focus({preventScroll:true});isNarrowTimetable ? setIsMobileFilterSheetOpen(true) : isFilterSidebarExpanded ? collapseFilterSidebar() : setIsFilterSidebarExpanded(true);}} className="ui-action rounded-lg bg-[#0D4E9B] px-3 text-xs font-extrabold text-white">Bộ lọc <span aria-label={`${activeCourseFilterCount} điều kiện đang áp dụng`}>({activeCourseFilterCount})</span></button>
+    <button type="button" aria-label="Xem danh sách lớp" disabled={!isAuthenticated || isLoading} onClick={event => { event.currentTarget.focus({preventScroll:true}); setIsCourseResultsOpen(true); }} className="ui-action rounded-lg border border-gray-300 px-3 text-xs font-bold text-[#12366A] disabled:opacity-50"><span className="timetable-label-wide">Xem danh sách lớp</span><span className="timetable-label-narrow">DS lớp</span></button>
+    {isPlanMode && <label className="timetable-plan-picker"><span className="sr-only">Phương án xếp lịch</span><span aria-hidden="true">Phương án {activePlanKey}<span className="timetable-plan-summary"> ({currentPlanSchedule.length} môn • {currentPlanSchedule.reduce((sum,c)=>sum+(Number(c.credits)||0),0)} TC)</span></span><ChevronDown size={14} aria-hidden="true"/><select className="ui-input" aria-label="Phương án xếp lịch" value={activePlanKey} onChange={e => setActivePlanKey(e.target.value as PlanScheduleKey)}>{PLAN_KEYS.map(key => {const courses=planSchedules[key].filter(c=>c.semester===selectedSemester);return <option key={key} value={key}>Phương án {key} ({courses.length} môn • {courses.reduce((sum,c)=>sum+(Number(c.credits)||0),0)} TC)</option>;})}</select></label>}
+  </div>
+                              <div className="timetable-calendar-navigation">
+<div className="timetable-view-buttons rounded-lg border border-gray-300 bg-gray-50"><button aria-pressed={viewMode === 'week'} onClick={()=>setViewMode('week')} className={`ui-action rounded-md px-2 text-xs font-bold ${viewMode==='week'?'bg-white text-[#003375]':'text-gray-500'}`}>Tuần</button><button aria-pressed={viewMode === 'month'} onClick={()=>setViewMode('month')} className={`ui-action rounded-md px-2 text-xs font-bold ${viewMode==='month'?'bg-white text-[#003375]':'text-gray-500'}`}>Tháng</button></div><label className="timetable-view-select"><span className="sr-only">Chế độ xem lịch</span><select className="ui-input" value={viewMode} onChange={e => setViewMode(e.target.value as 'week' | 'month')}><option value="week">Tuần</option><option value="month">Tháng</option></select></label>
+
+                                <button onClick={goToToday} className="ui-action shrink-0 px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">Hôm nay</button>
+
+                                {viewMode === 'week' ? (
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
+                                            <button aria-label="Tuần trước" onClick={prevWeek} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
+                                            <button aria-label="Tuần sau" onClick={nextWeek} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
+                                        </div>
+                                        <button ref={weekDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="ui-action flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
+                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={14} className="ui-muted text-gray-400"/>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
+                                            <button aria-label="Tháng trước" onClick={prevMonth} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
+                                            <button aria-label="Tháng sau" onClick={nextMonth} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
+                                        </div>
+                                        <button ref={monthDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="ui-action flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
+                                            {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)} <ChevronDown size={14} className="ui-muted text-gray-400"/>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                            <div className="timetable-filter-chips no-scrollbar" aria-label="Bộ lọc đang áp dụng">
+  <div className="timetable-filter-bar" aria-label="Điều khiển bộ lọc thời khóa biểu">                            <div className="timetable-filter-chips no-scrollbar" aria-label="Bộ lọc đang áp dụng">
                             {!hasActiveCourseFilters && <span className="ui-muted ui-meta text-[11px] font-medium text-gray-400">Chưa chọn tiêu chí nào</span>}
                             {selectedFilterSemesters.map(value => <span key={`semester-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterSemesters, value)} aria-label="Bỏ lọc học kỳ"><X size={12}/></button></span>)}
                             {selectedFilterPhases.map(value => <span key={`phase-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} aria-label="Bỏ lọc đợt"><X size={12}/></button></span>)}
@@ -2967,176 +3070,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             {searchTerm.trim() && <span className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs"><span className="max-w-[180px] truncate">{searchTerm}</span><button onClick={() => setSearchTerm('')} aria-label="Bỏ lọc từ khóa"><X size={12}/></button></span>}
                             {selectedFilterCohorts.map(value => <span key={`cohort-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">Khóa {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterCohorts, value)} aria-label="Bỏ lọc khóa"><X size={12}/></button></span>)}
                             {selectedFilterGroups.map(value => <span key={`group-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">{value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterGroups, value)} aria-label="Bỏ lọc nhóm"><X size={12}/></button></span>)}
-                            {hasActiveCourseFilters && <button type="button" onClick={clearCourseFilters} className="ui-action shrink-0 px-3 text-xs font-bold text-[#155EEF]">Xóa tất cả bộ lọc</button>}
+                            {hasActiveCourseFilters && !isMobileFilterSheetOpen && <button type="button" onClick={clearCourseFilters} className="ui-action shrink-0 px-3 text-xs font-bold text-[#155EEF]">Xóa tất cả bộ lọc</button>}
                             </div>
-                        </div>
-            <div className="flex flex-col items-start gap-3 sm:gap-5 lg:h-[calc(100vh-92px)] lg:flex-row">
-            
+</div>
+</div>
+            <div className="timetable-content-frame">
+
                 {/* CỘT TRÁI: SIDEBAR FILTER */}
-                <div id="timetable-filter-sidebar" hidden={!isFilterSidebarExpanded} className={`timetable-filter-sidebar flex w-full flex-col overflow-visible rounded-xl border border-gray-300 bg-white lg:h-full lg:w-[330px] lg:shrink-0 ${hasActiveCourseFilters ? 'h-[520px]' : 'h-auto'}`}>
-                    <div className="flex items-center justify-between rounded-t-xl border-b border-blue-900 bg-gradient-to-r from-[#073B7A] to-[#062D63] px-4 py-3 text-white">
-                        <h2 className="ui-section-title flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide"><SlidersHorizontal size={16}/> Bộ lọc</h2>
-                        <div className="flex items-center gap-1.5">
-                            {isSyncing ? <Loader2 size={15} className="animate-spin text-blue-200"/> : (
-                                <button onClick={clearCourseFilters} className="ui-action flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-blue-50 transition-colors hover:bg-white/10" title="Xóa tất cả bộ lọc">
-                                    <RefreshCw size={13}/> Xóa tất cả
-                                </button>
-                            )}
-                            <button onClick={() => setIsFilterExpanded(true)} className="ui-action rounded-md p-1.5 text-white transition-colors hover:bg-white/10" title="Mở bộ lọc nâng cao">
-                                <PanelLeftOpen size={16}/>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="ui-meta flex items-center gap-2 border-b border-gray-300 bg-gray-50/70 px-4 py-3 text-[11px] font-medium text-gray-500">
-                        <Info size={14} className="ui-muted shrink-0 text-gray-400"/>
-                        Thu hẹp kết quả để tìm lớp học phù hợp
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {([
-                            ['subject', 'Môn học', selectedSubjectName === 'all' ? 'Tất cả' : '1 môn đã chọn'],
-                            ['program', 'Chương trình', selectedFilterPrograms.length ? `${selectedFilterPrograms.length} chương trình đã chọn` : 'Tất cả'],
-                            ['semester', 'Học kỳ', selectedFilterSemesters.length ? `${selectedFilterSemesters.length} học kỳ đã chọn` : 'Tất cả'],
-                            ['phase', 'Đợt', selectedFilterPhases.length ? `${selectedFilterPhases.length} đợt đã chọn` : 'Tất cả'],
-                            ['major', 'Chuyên ngành', selectedFilterMajors.length ? `${selectedFilterMajors.length} ngành đã chọn` : 'Tất cả'],
-                            ['cohort', 'Khóa', selectedFilterCohorts.length ? `${selectedFilterCohorts.length} khóa đã chọn` : 'Tất cả'],
-                            ['group', 'Nhóm', selectedFilterGroups.length ? `${selectedFilterGroups.length} nhóm đã chọn` : 'Tất cả'],
-                        ] as const).map(([key, label, summary]) => {
-                            const isOpen = openSidebarFilterSections.has(key);
-                            return (
-                                <div key={key} className="border-b border-gray-300">
-                                    <button onClick={() => toggleSidebarFilterSection(key)} className="ui-action flex h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-gray-50">
-                                        <span className="text-sm font-extrabold text-[#12366A]">{label}</span>
-                                        <span className="flex min-w-0 items-center gap-2 pl-3">
-                                            <span className="ui-meta max-w-[132px] truncate text-[11px] font-medium text-gray-500">{summary}</span>
-                                            <ChevronDown size={16} className={`shrink-0 text-[#12366A] transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
-                                        </span>
-                                    </button>
-
-                                    {isOpen && (
-                                        <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3">
-                                            {key === 'subject' && <>
-                                                <div className="relative mb-3">
-                                                    <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm tên môn hoặc mã học phần..." className="ui-input h-9 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-xs outline-none focus:border-[#155EEF]"/>
-                                                    <Search size={14} className="ui-muted absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                                                </div>
-                                                <select disabled={!isAuthenticated} value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="ui-input h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
-                                                    <option value="all">Tất cả môn học</option>
-                                                    {subjectNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
-                                                </select>
-                                            </>}
-                                            {key === 'program' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">
-                                                {academicProgramOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterPrograms.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterPrograms, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}
-                                                {academicProgramOptions.length === 0 && <p className="ui-muted ui-secondary text-xs text-gray-400">Chưa có dữ liệu chương trình.</p>}
-                                            </div>}
-                                            {key === 'semester' && <div className="space-y-2.5">
-                                                {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => (
-                                                    <label key={option.value} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]">
-                                                        <input type="checkbox" checked={selectedFilterSemesters.includes(option.value)} onChange={() => toggleMultiFilterValue(setSelectedFilterSemesters, option.value)} className="h-4 w-4 accent-[#0D4E9B]"/>
-                                                        <span className="flex-1">{option.label}</span>
-                                                    </label>
-                                                ))}
-                                            </div>}
-                                            {key === 'phase' && <div className="space-y-2.5">{['1', '2'].map(value => <label key={value} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" checked={selectedFilterPhases.includes(value)} onChange={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} className="h-4 w-4 accent-[#0D4E9B]"/><span>Đợt {value}</span></label>)}</div>}
-                                            {key === 'major' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{majorOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterMajors.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterMajors, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
-                                            {key === 'cohort' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{cohortOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterCohorts.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterCohorts, option)} className="h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span>{option}</span></label>)}</div>}
-                                            {key === 'group' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{groupNameOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterGroups.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterGroups, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload}/>
-                    </div>
-
-                    <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-300 bg-white px-4 py-4">
-                        <button onClick={collapseFilterSidebar} className="ui-action min-h-[44px] flex items-center gap-2 text-xs font-bold text-[#28466F] hover:text-[#003375]">
-                            <ChevronDown size={15} className="rotate-180"/> Thu gọn bộ lọc
-                        </button>
-
-                    </div>
-                </div>
-
+{!isNarrowTimetable && <aside id="timetable-filter-sidebar" hidden={!isFilterSidebarExpanded} className="timetable-filter-sidebar rounded-xl border border-gray-300 bg-white">
+ <header className="timetable-sidebar-heading"><h2 className="ui-section-title text-sm font-extrabold text-[#12366A]">Bộ lọc</h2><button className="ui-action text-xs font-bold text-[#155EEF]" onClick={()=>setIsFilterExpanded(true)}>Bộ lọc nâng cao</button></header>
+ <div className="timetable-sidebar-scroll custom-scrollbar">{renderTimetableFilterFields()}</div>
+</aside>}
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-                <div className="relative flex min-h-[600px] min-w-0 w-full flex-1 flex-col overflow-hidden bg-[#F8FAFC] lg:h-full lg:min-h-0">
-                    <div className="schedule-toolbar shrink-0 bg-[#F8FAFC]">
-                        <div className="no-scrollbar flex min-h-[62px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-1 pb-2">
-                            <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
-                                <div className="mr-1 shrink-0">
-                                    <h1 className="ui-page-title flex items-center gap-2 text-2xl font-black text-[#003375]"><Calendar size={20} className="text-[#990000]"/> Thời khóa biểu</h1>
-                                    <p className="ui-secondary mt-0.5 text-xs font-medium text-gray-500">Xem và quản lý lịch học của bạn</p>
-                                </div>
-                                <div className="relative grid w-[168px] shrink-0 grid-cols-2 items-center rounded-lg border border-gray-300 bg-gray-50 p-1">
-                                    <span className={`absolute left-1 top-1 bottom-1 w-[calc(50%-0.25rem)] rounded-md border border-gray-300 bg-white transition-transform duration-300 ease-out ${isPlanMode ? 'translate-x-full' : 'translate-x-0'}`} />
-                                    <button onClick={() => setScheduleViewMode('official')} className={`ui-action relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${!isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Lịch cá nhân</button>
-                                    <button onClick={() => setScheduleViewMode('plan')} className={`ui-action relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Kế hoạch</button>
-                                </div>
-                            </div>
-
-                            {isPlanMode && (
-                                <div className="flex shrink-0 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 p-1">
-                                    {PLAN_KEYS.map(planKey => (
-                                        <button key={planKey} onClick={() => setActivePlanKey(planKey)} className={`ui-action px-2.5 py-1 text-[11px] font-black rounded-md transition-all active:scale-[0.98] ${activePlanKey === planKey ? 'bg-white text-amber-700 border border-amber-200' : 'text-amber-600 hover:bg-white/70'}`}>
-                                            KH {planKey}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="ml-auto flex shrink-0 items-center gap-2">
-                                <div className="flex shrink-0 items-center bg-gray-50 border border-gray-300 rounded-lg p-1">
-                                    <button onClick={() => setViewMode('week')} className={`ui-action px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] border border-gray-300' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
-                                    <button onClick={() => setViewMode('month')} className={`ui-action px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] border border-gray-300' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
-                                </div>
-
-                                <button onClick={goToToday} className="ui-action shrink-0 px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">Hôm nay</button>
-                                
-                                {viewMode === 'week' ? (
-                                    <div className="flex shrink-0 items-center gap-1.5">
-                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
-                                            <button onClick={prevWeek} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
-                                            <button onClick={nextWeek} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                        </div>
-                                        <button ref={weekDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="ui-action flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={14} className="ui-muted text-gray-400"/>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex shrink-0 items-center gap-1.5">
-                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
-                                            <button onClick={prevMonth} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
-                                            <button onClick={nextMonth} className="ui-action p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                        </div>
-                                        <button ref={monthDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="ui-action flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)} <ChevronDown size={14} className="ui-muted text-gray-400"/>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="no-scrollbar flex min-h-[34px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 pb-3 pt-1 sm:px-4">
-                            <ScheduleActionsDropdown
-                                isAuthenticated={isAuthenticated}
-                                hasCourses={currentSemesterSchedule.length > 0}
-                                isProcessingPdf={isProcessingPdf}
-                                actionActive={isProcessingPdf || isCalendarExportOpen || isReportModalOpen || isCreateCourseModalOpen || isPdfGuideOpen || Boolean(pendingScheduleImport)}
-                                onExport={() => setIsCalendarExportOpen(true)}
-                                onReport={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }}
-                                onRequest={() => setIsCreateCourseModalOpen(true)}
-                                onImport={() => setIsPdfGuideOpen(true)}
-                            />
-
-                            {selectedWeek !== 0 && viewMode === 'week' && (
-                                <span className="ui-meta flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500">
-                                    <CalendarDays size={12}/> {weekStartStr} - {weekEndStr}
-                                </span>
-                            )}
-                        </div>
-
-
-
+                <div data-schedule-calendar className="timetable-calendar-pane relative flex min-w-0 w-full flex-1 flex-col bg-[#F8FAFC]">
                         {isWeekDropdownOpen && createPortal(
                             <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(weekDropdownButtonRef, 192)} className="z-[100000] rounded-xl border border-gray-300 bg-white py-1 max-h-[320px] overflow-y-auto custom-scrollbar">
                                 <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="ui-action w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
@@ -3162,8 +3108,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>,
                             document.body
                         )}
-                    </div>
-
                     {/* LƯỚI LỊCH (GRID) */}
                     <div className="relative flex-1 overflow-auto rounded-xl border border-gray-300 bg-white custom-scrollbar">
                         {isSemesterHolidayWeek(selectedSemester, selectedWeek) && viewMode === 'week' && (
@@ -3475,6 +3419,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             </div>
             </>
         )}
+
+{isMobileFilterSheetOpen && isNarrowTimetable && !isAdminView && <Overlay className="timetable-sheet-backdrop" onMouseDown={event => { event.preventDefault(); setIsMobileFilterSheetOpen(false); }}>
+ <section id="timetable-filter-sidebar" role="dialog" aria-modal="true" aria-label="Bộ lọc lớp học phần" ref={courseFilterDialogRef} tabIndex={-1} className="timetable-filter-sheet" onMouseDown={e=>e.stopPropagation()}>
+  <header><div><h2 className="ui-section-title font-bold text-[#12366A]">Bộ lọc lớp học phần</h2><p className="ui-meta text-gray-500">Đang áp dụng {activeCourseFilterCount} tiêu chí lọc</p></div><button className="ui-action" aria-label="Đóng bộ lọc lớp học phần" onClick={()=>setIsMobileFilterSheetOpen(false)}><X size={20}/></button></header>
+  <div className="timetable-sheet-scroll custom-scrollbar">{renderTimetableFilterFields()}<button className="ui-action text-xs font-bold text-[#155EEF]" onClick={()=>{setIsMobileFilterSheetOpen(false);setIsFilterExpanded(true);}}>Bộ lọc nâng cao</button></div>
+  <div className="timetable-sheet-footer"><button className="ui-action rounded-lg border border-gray-300 px-3 text-xs font-bold" onClick={clearCourseFilters}>Đặt lại</button><button className="ui-action rounded-lg bg-[#0D4E9B] px-4 text-xs font-bold text-white" onClick={()=>setIsMobileFilterSheetOpen(false)}>Áp dụng bộ lọc ({activeCourseFilterCount})</button></div>
+ </section>
+</Overlay>}
 
         {isFilterExpanded && !isAdminView && createPortal(
             <Overlay className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/20 backdrop-blur-[1px]" onMouseDown={() => setIsFilterExpanded(false)}>

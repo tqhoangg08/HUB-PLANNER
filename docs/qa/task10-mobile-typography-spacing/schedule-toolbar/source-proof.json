@@ -1,0 +1,51 @@
+{
+  "base": "77f94e24290332eddbd27246aa8b07d3d9a9defd",
+  "existingTopLevelInitializers": 221,
+  "changedExistingInitializers": [],
+  "removedExistingInitializers": [],
+  "filterFieldMapIdentical": true,
+  "actionsElementIdentical": true,
+  "unchangedBlobs": [
+    {
+      "file": "components/MobileSchedule.tsx",
+      "baseBlob": "cdddfbe6b978f60ebc8d072785ca87c8f909bcfe",
+      "workingBlob": "cdddfbe6b978f60ebc8d072785ca87c8f909bcfe"
+    },
+    {
+      "file": "components/ScheduleActionsDropdown.tsx",
+      "baseBlob": "2d9dfd9db815d272b057327f6d1ba4ef31f59d87",
+      "workingBlob": "2d9dfd9db815d272b057327f6d1ba4ef31f59d87"
+    },
+    {
+      "file": "features/schedule/scheduleBoardModel.ts",
+      "baseBlob": "490b445b09d4e3cb4d71c65be750f3e6ece564f9",
+      "workingBlob": "490b445b09d4e3cb4d71c65be750f3e6ece564f9"
+    },
+    {
+      "file": "utils/scheduleCoursePageCache.ts",
+      "baseBlob": "086565a4c8bbc00ff0f724e52fe512acbd41a45f",
+      "workingBlob": "086565a4c8bbc00ff0f724e52fe512acbd41a45f"
+    },
+    {
+      "file": "components/Overlay.tsx",
+      "baseBlob": "46e6574aac87c0415b217db3311945541f802071",
+      "workingBlob": "46e6574aac87c0415b217db3311945541f802071"
+    },
+    {
+      "file": "hooks/useOverlayScrollLock.ts",
+      "baseBlob": "227640b78546548fd8c857304b0bab48f2781316",
+      "workingBlob": "227640b78546548fd8c857304b0bab48f2781316"
+    },
+    {
+      "file": "utils/overlayScrollLock.ts",
+      "baseBlob": "11ea7a7a211dd094d2c7d36db6adcde8a688b953",
+      "workingBlob": "11ea7a7a211dd094d2c7d36db6adcde8a688b953"
+    }
+  ],
+  "allowedInteractionChanges": [
+    "presentation-only responsive sheet ownership state",
+    "existing focus effect also owns basic mobile sheet",
+    "backdrop mousedown prevents native focus loss",
+    "plan/view dropdowns call existing setters"
+  ]
+}
