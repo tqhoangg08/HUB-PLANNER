@@ -44,6 +44,7 @@ interface EventFilterControlsProps {
   primaryActionIcon?: React.ReactNode;
   extraActions?: React.ReactNode;
   compact?: boolean;
+  pageLayout?: boolean;
 }
 
 const controlClass = 'event-filter-control rounded-lg border border-[#D8E0EC] bg-white text-[13px] font-semibold text-[#243653] outline-none transition focus:border-[#1769E0] focus:ring-2 focus:ring-blue-100';
@@ -74,6 +75,7 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
   primaryActionIcon,
   extraActions,
   compact = false,
+  pageLayout = false,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState(filters);
@@ -201,7 +203,7 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
     </button>}
   </>;
   return (
-    <div className={`event-filter-controls ${compact ? 'event-filter-compact' : ''}`}>
+    <div className={`event-filter-controls ${compact ? 'event-filter-compact' : ''} ${pageLayout ? 'event-filter-page' : ''}`}>
       <div className="event-filter-toolbar">
         <label className="relative min-w-0">
           <span className="sr-only">Tìm kiếm sự kiện</span>
@@ -229,7 +231,10 @@ export const EventFilterControls: React.FC<EventFilterControlsProps> = ({
             <button type="button" aria-label="Thao tác sự kiện" title="Thao tác sự kiện" onClick={event => openDrawer('actions', event.currentTarget)} className={`${controlClass} event-filter-more flex items-center justify-center`}><MoreHorizontal size={20} /></button>
           </>}
           {/* Preserve modal return targets across responsive breakpoint changes. */}
-          {drawerSection !== 'actions' || !drawerOpen ? <div hidden={!wide} className="event-filter-inline-actions">{actions}</div> : null}
+          {drawerSection !== 'actions' || !drawerOpen ? <div hidden={!wide} className="event-filter-inline-actions">{pageLayout ? <>
+            <IconButton label="Làm mới dữ liệu" onClick={onRefresh} loading={loading}><RefreshCw size={17} className={loading ? 'animate-spin' : ''} /></IconButton>
+            {extraActions}
+          </> : actions}</div> : null}
         </div>
       </div>
 

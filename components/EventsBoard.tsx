@@ -1404,8 +1404,10 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         );
     }
 
+const openPageAction: React.MouseEventHandler<HTMLButtonElement> | undefined = showManagementView ? handleOpenAdd : !canManage ? (event) => { event.currentTarget.focus({ preventScroll: true }); playClick(); setShowContributeModal(true); } : undefined;
+
 return (
-    <div className="animate-slideInRight">
+    <div className="animate-slideInRight events-board-page">
       {eventId && routeEvent ? <div className="w-full min-w-0 bg-white">
         <EventDetailView event={routeEvent}
           preview={(isAdmin || isAuditor) && !isStudentPreview}
@@ -1440,10 +1442,11 @@ return (
         onDelete={(id) => { void handleDeleteEvent(id); }}
       /> : <>
         {/* STICKY HEADER */}
-        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-3 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
+        <div className="events-board-header relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-3 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
             <div className="flex flex-col gap-2 w-full">
                 {/* Tiêu đề & Thông báo */}
-                <div className="w-full">
+                <div className="events-board-heading-row w-full">
+                  <div className="min-w-0">
                     <h2 className="ui-section-title text-2xl sm:text-[28px] font-black text-[#003375] sm:whitespace-nowrap mb-0.5">
                         Sự kiện ĐRL
                     </h2>
@@ -1453,14 +1456,20 @@ return (
                            {isStudentPreview ? 'Đang xem giao diện sinh viên' : (isAdmin ? 'Chế độ Admin: Quản lý danh sách' : (isAuditor ? 'Chế độ Auditor: Quản lý/Sửa/Đóng' : 'Chế độ CTV: Sửa/Đóng sự kiện'))}
                         </div>
                     )}
-                    {!canManage && (
-    <p className="ui-body text-[11px] sm:text-xs text-gray-500 italic mt-1 max-w-xl md:max-w-none md:truncate leading-relaxed">
-        *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
-    </p>
-)}
+                  </div>
+                  <div className="events-board-page-actions hidden lg:flex items-center gap-2 shrink-0">
+                    <button type="button" onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); playClick(); setShowScoreGuide(true); }} aria-label="Xem hướng dẫn điểm rèn luyện" className="event-board-header-action rounded-lg border border-[#D8E0EC] bg-white px-3 text-[#243653] font-semibold"><FileText size={16} /><span>Hướng dẫn ĐRL</span></button>
+                    {openPageAction && <button type="button" onClick={openPageAction} className="event-board-header-action event-board-header-action--primary rounded-lg bg-[#003375] px-3 text-white font-semibold hover:bg-[#002855]"><PlusCircle size={16} /><span>{showManagementView ? 'Thêm mới' : 'Gửi đóng góp'}</span></button>}
+                  </div>
+                  {!canManage && (
+                    <p className="events-board-note ui-meta text-gray-500 leading-relaxed">
+                      <span aria-hidden="true">ⓘ </span>Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
+                    </p>
+                  )}
                 </div>
                 
                 <EventFilterControls
+                    pageLayout
                     filters={appliedFilters}
                     onChange={(next) => {
                         setAppliedFilters(next);
@@ -1473,7 +1482,7 @@ return (
                     loading={loading}
                     onRefresh={() => { playClick(); fetchEvents({ bypassCache: true }); }}
                     onOpenGuide={() => { playClick(); setShowScoreGuide(true); }}
-                    onPrimaryAction={showManagementView ? handleOpenAdd : !canManage ? (event) => { event.currentTarget.focus({ preventScroll: true }); playClick(); setShowContributeModal(true); } : undefined}
+                    onPrimaryAction={openPageAction}
                     primaryActionLabel={showManagementView ? 'Thêm mới' : 'Gửi đóng góp'}
                     extraActions={canPreviewStudentUI ? (
                         <button type="button" onClick={() => { playClick(); setIsStudentPreview((value) => !value); }} title={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} aria-label={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} className="ui-action flex h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-[#003375] hover:bg-blue-50">
@@ -1485,29 +1494,26 @@ return (
  </div>
        {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
         {!canManage && (
-            <div className="bg-blue-50 border border-blue-300 rounded-lg p-2 mb-2 sm:mb-3 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
+            <div className="events-board-ctv-banner bg-blue-50 border border-blue-300 rounded-lg p-2 mb-2 sm:mb-3 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
                 <div className="flex items-center gap-2.5 sm:gap-3 relative z-10 flex-1 min-w-0">
                     <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-full flex items-center justify-center shrink-0 border border-blue-200">
                         <UserPlus className="text-blue-600 w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="ui-card-title font-bold text-[12px] sm:text-sm text-blue-900 truncate">Trở thành CTV Nhập liệu</h4>
+                    <div className="events-board-ctv-copy flex-1 min-w-0">
+                        <h4 className="ui-card-title font-bold text-[12px] sm:text-sm text-blue-900">Trở thành CTV Nhập liệu</h4>
                         {/* Dòng chữ phụ này sẽ bị ẩn trên Mobile, chỉ hiện trên màn to (sm:block) */}
-                        <p className="ui-body hidden sm:block text-xs mt-0.5 text-blue-800 truncate">
+                        <p className="ui-body hidden sm:block text-xs mt-0.5 text-blue-800">
                             Đóng góp xây dựng cộng đồng sinh viên HUB ngay hôm nay!
                         </p>
                     </div>
                 </div>
                 <button 
                     onClick={() => { playClick(); setShowCTVModal(true); }}
-                    className="ui-action shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] border border-transparent text-white hover:bg-[#002855] transition-colors px-2.5 py-1.5 sm:px-3 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
+                    className="events-board-ctv-action ui-action shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] border border-transparent text-white hover:bg-[#002855] transition-colors px-2.5 py-1.5 sm:px-3 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
                 >
                     <UserPlus size={12} className="sm:w-4 sm:h-4" /> 
                     <span>Đăng ký</span>
                 </button>
-                <div className="absolute right-0 top-0 opacity-[0.03] pointer-events-none transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
-                    <Users size={150} />
-                </div>
             </div>
         )}
 

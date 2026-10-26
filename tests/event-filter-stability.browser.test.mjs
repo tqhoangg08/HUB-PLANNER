@@ -389,6 +389,48 @@ test(`${engine}: intermediate desktop breakpoints keep every toolbar control rea
  }
 });
 
+test(`${engine}: EventsBoard places page actions above one compact desktop filter row`, async () => {
+ const results=[];
+ for(const width of [390,1024,1440]){
+  const f=await fixture({width,height:900,role:'guest'}),{page}=f;
+  try{
+   const heading=page.locator('.events-board-heading-row'),toolbar=page.locator('.event-filter-toolbar');
+   await heading.scrollIntoViewIfNeeded();
+   const geometry=await page.evaluate(()=>{const rect=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom};};const h=document.querySelector('.events-board-heading-row'),t=document.querySelector('.event-filter-toolbar'),s=t.querySelector('input'),a=document.querySelector('.events-board-page-actions'),b=document.querySelector('.events-board-ctv-banner');return {heading:rect(h),toolbar:rect(t),search:rect(s),actions:rect(a),banner:rect(b),overflow:document.documentElement.scrollWidth>innerWidth+1};});
+   assert.equal(geometry.overflow,false,JSON.stringify({width,geometry}));
+   assert.ok(geometry.banner.y-geometry.toolbar.bottom<50,JSON.stringify({width,geometry}));
+   if(width>=1024){
+    assert.ok(geometry.search.width<=321&&geometry.search.width>=220,JSON.stringify({width,geometry}));
+    assert.ok(geometry.toolbar.height<=40,JSON.stringify({width,geometry}));
+    assert.ok(geometry.actions.bottom<=geometry.toolbar.y,JSON.stringify({width,geometry}));
+    assert.equal(await heading.getByRole('button',{name:'Xem hướng dẫn điểm rèn luyện'}).isVisible(),true);
+    assert.equal(await heading.getByRole('button',{name:'Gửi đóng góp'}).isVisible(),true);
+    assert.equal(await toolbar.getByRole('button',{name:'Gửi đóng góp'}).count(),0);
+    assert.equal(await toolbar.getByRole('button',{name:'Làm mới dữ liệu'}).isVisible(),true);
+    assert.equal((await page.locator('.events-board-note').textContent()).trim().startsWith('ⓘ Lưu ý:'),true);
+    if(width===1440){
+     assert.ok((await page.locator('.events-board-note').boundingBox()).height<25);
+     await heading.getByRole('button',{name:'Xem hướng dẫn điểm rèn luyện'}).click();
+     await page.getByRole('dialog',{name:'Phụ lục Đánh giá Kết quả Rèn luyện'}).waitFor();
+     await page.getByRole('button',{name:'Đóng phụ lục'}).click();
+     await heading.getByRole('button',{name:'Gửi đóng góp'}).click();
+     await page.getByRole('dialog',{name:'Đóng góp Sự kiện mới'}).waitFor();
+     await page.getByRole('button',{name:'Đóng đóng góp sự kiện'}).click();
+    }
+   }else{
+    assert.equal(await heading.getByRole('button',{name:'Gửi đóng góp'}).isVisible(),false);
+    assert.ok(geometry.search.width>220);
+    await page.getByRole('button',{name:'Thao tác sự kiện'}).click();
+    assert.equal(await page.getByRole('dialog',{name:'Thao tác sự kiện'}).getByRole('button',{name:'Gửi đóng góp'}).isVisible(),true);
+    await page.getByRole('dialog',{name:'Thao tác sự kiện'}).getByRole('button',{name:'Đóng bộ lọc'}).click();
+   }
+   if(evidence){const top=Math.max(0,geometry.heading.y-12);await page.screenshot({path:`${evidence}/${engine}-events-layout-${width}.png`,scale:'css',clip:{x:0,y:top,width,height:Math.min(500,900-top)}});}
+   results.push({width,...geometry});clean(f);
+  }finally{await f.context.close();}
+ }
+ if(evidence)fs.writeFileSync(`${evidence}/${engine}-events-layout.json`,JSON.stringify(results,null,2)+'\n');
+});
+
 
 test(`${engine}: record scroll lifecycle measurements across target viewports`, async () => {
     const snapshots = [];
