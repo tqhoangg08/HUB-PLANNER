@@ -11,3 +11,11 @@ After screenshots: [Chromium 320](after-chromium-320.png), [Chromium 390](after-
 The tests render the actual `DesktopLayout` mobile-browser header through the existing isolated React fixture for Guest and Student. They block unexpected API writes and check runtime errors. Desktop, standalone/PWA, Auth, and business behavior are unchanged by this scoped CSS patch. The build's existing chunk-size warning remains.
 
 Browser emulation is not physical iPhone Safari acceptance: `REAL_DEVICE_ACCEPTANCE=NOT_VERIFIED`.
+
+## Icon control proportions follow-up
+
+The [reported uneven controls](uneven-controls-before.png) show Install and Menu painted at the full 44px hit size while Login paints a 32px-high surface. Install and Menu now keep 44×44px transparent hit areas with centered 32×32px painted surfaces. Their painted heights and vertical centers match Login on the normal 320, 375, 390, and 430px browser viewports. The Menu icon is centered within its surface; no navigation or install behavior changed.
+
+[Balanced Chromium 320px](balanced-chromium-320.png) · [Balanced Chromium 390px](balanced-chromium-390.png) · [Balanced WebKit 320px](balanced-webkit-320.png) · [Balanced WebKit 390px](balanced-webkit-390.png).
+
+Targeted Guest/Student header tests: Chromium **2/2 PASS**, WebKit **2/2 PASS**. Frontend and Cloudflare typechecks, build, and diff check **PASS**. Physical iPhone remains **NOT_VERIFIED**.

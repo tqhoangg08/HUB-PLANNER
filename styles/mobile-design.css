@@ -47,7 +47,10 @@
   .mobile-browser-header > div { flex-direction: row; align-items: center; gap: 0; padding-inline: 0; }
   .mobile-browser-header .mobile-browser-brand-row { width: 100%; }
   .mobile-browser-header-actions { display: flex; flex: 0 0 auto; gap: 4px; }
-  .mobile-browser-header-actions > button:last-child { margin-left: 0; }
+  .mobile-browser-header-icon { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+  .mobile-browser-header-icon__surface { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid; border-radius: 6px; }
+  .mobile-browser-header-icon__surface--install { background: #f0fdf4; border-color: #bbf7d0; box-shadow: 0 1px 2px #00000012; }
+  .mobile-browser-header-icon__surface--menu { background: #f9fafb; border-color: #e5e7eb; }
   .mobile-browser-header .desktop-nav-runtime { display: none; }
   .ui-tab-strip { gap: var(--ui-space-2); }
   .ui-support-panel :is(input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),textarea,select),

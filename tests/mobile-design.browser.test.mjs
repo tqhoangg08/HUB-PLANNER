@@ -198,6 +198,13 @@ test(`${engine} guest header login alongside install action`,{timeout:90000},asy
       for(const control of [header.getByRole('link',{name:'Đăng nhập',exact:true}),header.getByTitle('Tải ứng dụng'),header.getByRole('button',{name:'Mở menu',exact:true})]){
         assert.equal(await control.isVisible(),true);const b=await control.boundingBox();assert.ok(b.width>=44&&b.height>=44&&b.x>=0&&b.x+b.width<=width+1&&b.y>=0&&b.y+b.height<844);
       }
+      const loginSurface=await header.locator('.ui-guest-action__surface').boundingBox();
+      for(const control of [header.getByTitle('Tải ứng dụng'),header.getByRole('button',{name:'Mở menu',exact:true})]){
+        const hit=await control.boundingBox(),surface=await control.locator('.mobile-browser-header-icon__surface').boundingBox();
+        assert.ok(Math.abs(surface.height-loginSurface.height)<=1&&surface.width===32,JSON.stringify({width,surface,loginSurface}));
+        assert.ok(Math.abs((surface.y+surface.height/2)-(loginSurface.y+loginSurface.height/2))<=1,JSON.stringify({width,surface,loginSurface}));
+        assert.ok(Math.abs((surface.x+surface.width/2)-(hit.x+hit.width/2))<=1,JSON.stringify({width,surface,hit}));
+      }
       assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
     }
     assert.equal(await header.getByRole('link',{name:'Đăng nhập',exact:true}).getAttribute('href'),'/login');

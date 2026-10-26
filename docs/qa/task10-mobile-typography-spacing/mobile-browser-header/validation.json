@@ -19,5 +19,17 @@
   "build": "PASS with existing chunk-size warning",
   "diffCheck": "PASS",
   "productionWrites": 0,
-  "realDeviceAcceptance": "NOT_VERIFIED"
+  "realDeviceAcceptance": "NOT_VERIFIED",
+  "iconControlProportions": {
+    "paintedSurfaceCssPx": 32,
+    "hitAreaCssPx": 44,
+    "loginSurfaceHeightMatch": "PASS at 320, 375, 390, 430px in Chromium and WebKit",
+    "menuIconCentering": "PASS",
+    "guestAndStudentBrowserTests": { "chromium": "2/2 PASS", "webkit": "2/2 PASS" },
+    "frontendTypecheck": "PASS",
+    "cloudflareTypecheck": "PASS",
+    "build": "PASS with existing chunk-size warning",
+    "diffCheck": "PASS",
+    "realDeviceAcceptance": "NOT_VERIFIED"
+  }
 }

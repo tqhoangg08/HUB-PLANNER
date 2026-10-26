@@ -588,10 +588,12 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       {showInstallButton && (
                           <button 
                               onClick={() => { playClick(); onInstallApp?.(); }}
-                              className="ui-action flex items-center justify-center h-8 px-2.5 bg-green-50 border border-green-200 text-green-700 rounded-lg shadow-sm active:scale-95 shrink-0"
+                              className="ui-action mobile-browser-header-icon flex items-center justify-center text-green-700 active:scale-95 shrink-0"
                               title="Tải ứng dụng"
                           >
-                              <Download size={16} className="stroke-[2.5]" />
+                              <span className="mobile-browser-header-icon__surface mobile-browser-header-icon__surface--install">
+                                  <Download size={16} className="stroke-[2.5]" />
+                              </span>
                           </button>
                       )}
                       
@@ -607,9 +609,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       
                       <button 
                           onClick={openMobileMenu} aria-expanded={drawerActive} aria-controls={sidebarId} aria-label="Mở menu"
-                          className="ui-action p-1.5 text-gray-600 hover:text-[#0052cc] focus:outline-none transition-transform active:scale-95 bg-gray-50 rounded-md border border-gray-200 ml-1"
+                          className="ui-action mobile-browser-header-icon flex items-center justify-center text-gray-600 hover:text-[#0052cc] focus:outline-none transition-transform active:scale-95"
                       >
-                          <Menu size={20} />
+                          <span className="mobile-browser-header-icon__surface mobile-browser-header-icon__surface--menu">
+                              <Menu size={20} />
+                          </span>
                       </button>
                   </div>
               </div>
