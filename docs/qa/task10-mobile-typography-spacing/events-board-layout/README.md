@@ -4,6 +4,8 @@ Scope: the existing `EventsBoard` page on the regular website. `MobileEvents` fo
 
 The page now puts the existing guide and contribution actions beside its title on desktop, caps the search field at 320px, and aligns search/filter/date/sort/refresh in one 36px row. Refresh has a visible label; the guide retains its accessible name. The existing note text is presented without a typed asterisk or italics. The CTV callout keeps its wording and registration handler while using a compact single line with a secondary action. An empty active-filter row is hidden only in this page layout; applied chips remain available.
 
+This records the initial layout change. The later [toolbar refinement](../events-board-toolbar-refine/README.md) updates the notice copy and lets search fill the remaining desktop width.
+
 | Chromium geometry | 390px | 1024px | 1440px |
 | --- | ---: | ---: | ---: |
 | Search width | 358px | 320px | 320px |

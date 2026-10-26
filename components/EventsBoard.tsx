@@ -1463,7 +1463,7 @@ return (
                   </div>
                   {!canManage && (
                     <p className="events-board-note ui-meta text-gray-500 leading-relaxed">
-                      <span aria-hidden="true">ⓘ </span>Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
+                      Tra cứu hoạt động ngoại khóa, phân loại mục và điểm cộng rèn luyện dự kiến (vui lòng đối chiếu thông báo BTC).
                     </p>
                   )}
                 </div>
