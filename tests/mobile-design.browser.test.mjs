@@ -179,17 +179,52 @@ test(`${engine} dashboard overview hierarchy and live data`, {timeout:240000}, a
 });
 test(`${engine} guest header login alongside install action`,{timeout:90000},async()=>{
   const f=await fixture('/dashboard?install=1',false,'guest'),p=f.page;
+  const geometry=[];
   try{
     const hint=p.getByRole('button',{name:'Ẩn gợi ý AI',exact:true});if(await hint.isVisible())await hint.click();
     const header=p.locator('.mobile-browser-header-actions');
     for(const width of [320,375,390,430]){
       await p.setViewportSize({width,height:844});
+      const brand=await p.locator('.mobile-browser-brand-row .hub-brand').boundingBox();
+      const actions=await header.boundingBox();
+      const brandTitle=await p.locator('.mobile-browser-header .hub-brand-title').boundingBox();
+      const brandSubtitle=await p.locator('.mobile-browser-header .hub-brand-subtitle').boundingBox();
+      const shell=await p.locator('.mobile-browser-header').boundingBox();
+      geometry.push({width,brand,actions,brandTitle,brandSubtitle,shell});
+      if([320,390].includes(width))await p.screenshot({path:`${out}/${engine}-header-${width}.png`,scale:'css'});
+      assert.ok(Math.abs((brand.y+brand.height/2)-(actions.y+actions.height/2))<=4,JSON.stringify({width,brand,actions,shell}));
+      assert.ok(shell.height<=72,JSON.stringify({width,brand,actions,shell}));
+      assert.ok(brandTitle.x+brandTitle.width<=actions.x-2&&brandSubtitle.x+brandSubtitle.width<=actions.x-2,JSON.stringify({width,brandTitle,brandSubtitle,actions}));
       for(const control of [header.getByRole('link',{name:'Đăng nhập',exact:true}),header.getByTitle('Tải ứng dụng'),header.getByRole('button',{name:'Mở menu',exact:true})]){
         assert.equal(await control.isVisible(),true);const b=await control.boundingBox();assert.ok(b.width>=44&&b.height>=44&&b.x>=0&&b.x+b.width<=width+1&&b.y>=0&&b.y+b.height<844);
       }
       assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
     }
     assert.equal(await header.getByRole('link',{name:'Đăng nhập',exact:true}).getAttribute('href'),'/login');
+    await p.setViewportSize({width:320,height:568});
+    await captureFontSnapshot(p);await applyTextMode(p,'text200');
+    assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    for(const control of [header.getByRole('link',{name:'Đăng nhập',exact:true}),header.getByTitle('Tải ứng dụng'),header.getByRole('button',{name:'Mở menu',exact:true})]){
+      const b=await control.boundingBox();assert.ok(b.x>=0&&b.x+b.width<=320&&b.y>=0&&b.y+b.height<=568,JSON.stringify(b));
+    }
+    fs.writeFileSync(`${out}/${engine}-header-geometry.json`,JSON.stringify(geometry,null,2)+'\n');
+    assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+  }finally{await f.context.close();}
+});
+test(`${engine} student browser header keeps its controls on one row`,{timeout:90000},async()=>{
+  const f=await fixture('/dashboard?install=1',false,'student'),p=f.page;
+  try{
+    const actions=p.locator('.mobile-browser-header-actions');
+    for(const width of [320,390]){
+      await p.setViewportSize({width,height:844});
+      const brand=await p.locator('.mobile-browser-brand-row .hub-brand').boundingBox();
+      const row=await actions.boundingBox();
+      assert.ok(Math.abs(brand.y+brand.height/2-row.y-row.height/2)<=4,JSON.stringify({width,brand,row}));
+      for(const control of [actions.getByTitle('Tải ứng dụng'),actions.getByRole('button',{name:'Mở thông báo',exact:true}),actions.getByRole('button',{name:'Mở menu',exact:true})]){
+        const box=await control.boundingBox();assert.ok(box.width>=44&&box.height>=44&&box.x>=0&&box.x+box.width<=width+1,JSON.stringify({width,box}));
+      }
+      assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    }
     assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
   }finally{await f.context.close();}
 });

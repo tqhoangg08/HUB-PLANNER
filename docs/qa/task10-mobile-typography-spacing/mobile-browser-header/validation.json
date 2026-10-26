@@ -1,0 +1,23 @@
+{
+  "scope": "Browser mobile header only",
+  "rootCause": "The under-768px rule forced the header wrapper into a column and the brand row wrapped its actions",
+  "before320HeaderHeightCssPx": 118,
+  "afterHeaderHeightCssPx": {
+    "320": 64,
+    "375": 64,
+    "390": 64,
+    "430": 64
+  },
+  "guestAndStudentBrowserTests": {
+    "chromium": "2/2 PASS",
+    "webkit": "2/2 PASS"
+  },
+  "mobileTouchTargetsCssPx": 44,
+  "textResize200Percent": "PASS in both engines; wrapping permitted when needed",
+  "frontendTypecheck": "PASS",
+  "cloudflareTypecheck": "PASS",
+  "build": "PASS with existing chunk-size warning",
+  "diffCheck": "PASS",
+  "productionWrites": 0,
+  "realDeviceAcceptance": "NOT_VERIFIED"
+}

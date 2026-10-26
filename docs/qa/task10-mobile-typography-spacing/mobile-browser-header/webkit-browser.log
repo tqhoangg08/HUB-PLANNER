@@ -1,0 +1,21 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard?install=1 guest
+Navigated /dashboard?install=1
+Mode /dashboard?install=1
+Fonts /dashboard?install=1
+Rendered /dashboard?install=1
+✔ webkit guest header login alongside install action (40519.5835ms)
+Loading /dashboard?install=1 student
+Navigated /dashboard?install=1
+Mode /dashboard?install=1
+Fonts /dashboard?install=1
+Rendered /dashboard?install=1
+✔ webkit student browser header keeps its controls on one row (11154.6839ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 59027.6852

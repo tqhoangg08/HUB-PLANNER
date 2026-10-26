@@ -1,0 +1,134 @@
+[
+  {
+    "width": 320,
+    "brand": {
+      "x": 8,
+      "y": 8,
+      "width": 139.734375,
+      "height": 44
+    },
+    "actions": {
+      "x": 151.734375,
+      "y": 8,
+      "width": 160.265625,
+      "height": 44
+    },
+    "brandTitle": {
+      "x": 56,
+      "y": 13.75,
+      "width": 91.734375,
+      "height": 17.5
+    },
+    "brandSubtitle": {
+      "x": 56,
+      "y": 31.25,
+      "width": 91.734375,
+      "height": 15
+    },
+    "shell": {
+      "x": 0,
+      "y": 0,
+      "width": 320,
+      "height": 64
+    }
+  },
+  {
+    "width": 375,
+    "brand": {
+      "x": 8,
+      "y": 8,
+      "width": 177.59375,
+      "height": 44
+    },
+    "actions": {
+      "x": 189.59375,
+      "y": 8,
+      "width": 177.40625,
+      "height": 44
+    },
+    "brandTitle": {
+      "x": 56,
+      "y": 13.125,
+      "width": 105.15625,
+      "height": 18.75
+    },
+    "brandSubtitle": {
+      "x": 56,
+      "y": 31.875,
+      "width": 105.15625,
+      "height": 15
+    },
+    "shell": {
+      "x": 0,
+      "y": 0,
+      "width": 375,
+      "height": 64
+    }
+  },
+  {
+    "width": 390,
+    "brand": {
+      "x": 8,
+      "y": 8,
+      "width": 192.59375,
+      "height": 44
+    },
+    "actions": {
+      "x": 204.59375,
+      "y": 8,
+      "width": 177.40625,
+      "height": 44
+    },
+    "brandTitle": {
+      "x": 56,
+      "y": 11.625,
+      "width": 132.71875,
+      "height": 18.75
+    },
+    "brandSubtitle": {
+      "x": 56,
+      "y": 30.375,
+      "width": 132.71875,
+      "height": 18
+    },
+    "shell": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 64
+    }
+  },
+  {
+    "width": 430,
+    "brand": {
+      "x": 8,
+      "y": 8,
+      "width": 232.59375,
+      "height": 44
+    },
+    "actions": {
+      "x": 244.59375,
+      "y": 8,
+      "width": 177.40625,
+      "height": 44
+    },
+    "brandTitle": {
+      "x": 56,
+      "y": 11.625,
+      "width": 132.71875,
+      "height": 18.75
+    },
+    "brandSubtitle": {
+      "x": 56,
+      "y": 30.375,
+      "width": 132.71875,
+      "height": 18
+    },
+    "shell": {
+      "x": 0,
+      "y": 0,
+      "width": 430,
+      "height": 64
+    }
+  }
+]
