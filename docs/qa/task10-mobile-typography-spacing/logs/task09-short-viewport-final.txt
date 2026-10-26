@@ -1,0 +1,10 @@
+ENGINE=webkit; VERSION=26.5; REAL_DEVICE=NOT_VERIFIED
+✔ webkit: visual viewport offset, safe-area padding and pending loading ownership (14243.3628ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16349.0498

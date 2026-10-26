@@ -1,0 +1,59 @@
+{
+  "base": "1a4eb2b1591f447f66ab7d61708b642c942fe586",
+  "existingInitializers": 224,
+  "changed": [],
+  "removed": [],
+  "protectedBlobs": [
+    {
+      "file": "index.css",
+      "before": "c2c7bc499b689f8bffecf8203eb5f339e2a23fba",
+      "after": "c2c7bc499b689f8bffecf8203eb5f339e2a23fba"
+    },
+    {
+      "file": "styles/mobile-design.css",
+      "before": "ed38350adf3039af838c4fd539219bab4e6e7c8c",
+      "after": "ed38350adf3039af838c4fd539219bab4e6e7c8c"
+    },
+    {
+      "file": "components/ScheduleActionsDropdown.tsx",
+      "before": "2d9dfd9db815d272b057327f6d1ba4ef31f59d87",
+      "after": "2d9dfd9db815d272b057327f6d1ba4ef31f59d87"
+    },
+    {
+      "file": "components/MobileSchedule.tsx",
+      "before": "cdddfbe6b978f60ebc8d072785ca87c8f909bcfe",
+      "after": "cdddfbe6b978f60ebc8d072785ca87c8f909bcfe"
+    },
+    {
+      "file": "components/Overlay.tsx",
+      "before": "46e6574aac87c0415b217db3311945541f802071",
+      "after": "46e6574aac87c0415b217db3311945541f802071"
+    },
+    {
+      "file": "hooks/useOverlayScrollLock.ts",
+      "before": "227640b78546548fd8c857304b0bab48f2781316",
+      "after": "227640b78546548fd8c857304b0bab48f2781316"
+    },
+    {
+      "file": "utils/overlayScrollLock.ts",
+      "before": "11ea7a7a211dd094d2c7d36db6adcde8a688b953",
+      "after": "11ea7a7a211dd094d2c7d36db6adcde8a688b953"
+    },
+    {
+      "file": "features/schedule/scheduleBoardModel.ts",
+      "before": "490b445b09d4e3cb4d71c65be750f3e6ece564f9",
+      "after": "490b445b09d4e3cb4d71c65be750f3e6ece564f9"
+    },
+    {
+      "file": "utils/scheduleCoursePageCache.ts",
+      "before": "086565a4c8bbc00ff0f724e52fe512acbd41a45f",
+      "after": "086565a4c8bbc00ff0f724e52fe512acbd41a45f"
+    }
+  ],
+  "uiChanges": [
+    "Underline tabs and scoped paint/target density",
+    "Small PDF/sidebar/lock artwork with existing auth guards",
+    "One previous/today/next cluster selects the existing week/month handler references",
+    "Clear-all visible caption shortened; full accessible name and handler retained"
+  ]
+}

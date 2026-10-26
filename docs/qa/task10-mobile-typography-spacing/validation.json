@@ -1,0 +1,734 @@
+{
+  "task": "10/10",
+  "base": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
+  "branch": "codex/task10-mobile-typography-spacing",
+  "observedAt": "2026-10-24T12:17:11.401Z",
+  "environment": {
+    "platform": "Windows",
+    "node": "v24.12.0",
+    "chromium": "155.0.8059.85",
+    "webkit": "26.5",
+    "origin": "loopback Vite",
+    "identity": "isolated synthetic fixtures",
+    "strictMode": true,
+    "realDeviceAcceptance": "NOT_VERIFIED"
+  },
+  "audit": {
+    "actualRouteModeRoleContexts": 31,
+    "pinnedMainMatrixContexts": 15,
+    "viewports": [
+      [
+        320,
+        568
+      ],
+      [
+        360,
+        640
+      ],
+      [
+        375,
+        667
+      ],
+      [
+        390,
+        844
+      ],
+      [
+        430,
+        932
+      ],
+      [
+        768,
+        1024
+      ],
+      [
+        1024,
+        768
+      ],
+      [
+        1440,
+        900
+      ],
+      [
+        667,
+        375
+      ]
+    ],
+    "textModes": [
+      "normal",
+      "200% computed text resize",
+      "WCAG text spacing"
+    ],
+    "keyboardViewport": [
+      390,
+      240
+    ]
+  },
+  "runs": [
+    {
+      "name": "gpa-tip-final-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/gpa-tip-final-chromium.txt"
+    },
+    {
+      "name": "gpa-tip-final-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/gpa-tip-final-webkit.txt"
+    },
+    {
+      "name": "native-fields-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"accept /dashboard|GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 5,
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": "logs/native-fields-chromium.txt"
+    },
+    {
+      "name": "native-fields-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"accept /dashboard|GPA target\" tests/mobile-design.browser.test.mjs",
+      "expected": 5,
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": "logs/native-fields-webkit.txt"
+    },
+    {
+      "name": "final-modal-controls-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"real announcement|PWA AI\" tests/mobile-design.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": "logs/final-modal-controls-chromium.txt"
+    },
+    {
+      "name": "final-modal-controls-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"real announcement|PWA AI\" tests/mobile-design.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": "logs/final-modal-controls-webkit.txt"
+    },
+    {
+      "name": "final-nested-ownership",
+      "command": "node --test --test-name-pattern=\"higher overlay\" tests/mobile-sidebar.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": "logs/final-nested-ownership.txt"
+    },
+    {
+      "name": "final-control-states-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"real announcement|PWA AI\" tests/mobile-design.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": "logs/final-control-states-chromium.txt"
+    },
+    {
+      "name": "final-control-states-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"real announcement|PWA AI\" tests/mobile-design.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": "logs/final-control-states-webkit.txt"
+    },
+    {
+      "name": "design-chromium",
+      "command": "DESIGN_ENGINE=chromium npm run test:design:browser",
+      "expected": 49,
+      "tests": 49,
+      "passed": 49,
+      "failed": 0,
+      "log": "logs/design-chromium.txt"
+    },
+    {
+      "name": "design-webkit",
+      "command": "DESIGN_ENGINE=webkit npm run test:design:browser",
+      "expected": 49,
+      "tests": 49,
+      "passed": 49,
+      "failed": 0,
+      "log": "logs/design-webkit.txt"
+    },
+    {
+      "name": "final-affected-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"accept /learning.*PWA|accept /events PWA|accept /lost-found PWA|real announcement\" tests/mobile-design.browser.test.mjs",
+      "expected": 5,
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": "logs/final-affected-chromium.txt"
+    },
+    {
+      "name": "final-affected-webkit",
+      "command": "Same affected-route selection with DESIGN_ENGINE=webkit",
+      "expected": 5,
+      "tests": 5,
+      "passed": 4,
+      "failed": 1,
+      "log": "logs/final-affected-webkit.txt"
+    },
+    {
+      "name": "webkit-cold-load-retry",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"accept /learning PWA\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/webkit-cold-load-retry.txt"
+    },
+    {
+      "name": "final-chart-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"accept /learning PWA\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/final-chart-webkit.txt"
+    },
+    {
+      "name": "final-deep-route-contrast",
+      "command": "DESIGN_ENGINE=chromium DESIGN_NORMAL_ONLY=1 DESIGN_DEEP_CONTRAST=1 node --test --test-name-pattern=\"accept /learning|accept /events PWA|accept /lost-found PWA|accept /dashboard.*student|accept /dashboard.*guest\" tests/mobile-design.browser.test.mjs",
+      "expected": 6,
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": "logs/final-deep-route-contrast.txt"
+    },
+    {
+      "name": "final-chart-paint",
+      "command": "DESIGN_ENGINE=chromium DESIGN_NORMAL_ONLY=1 DESIGN_DEEP_CONTRAST=1 node --test --test-name-pattern=\"accept /learning PWA\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/final-chart-paint.txt"
+    },
+    {
+      "name": "form-states-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"real announcement|PWA AI\" tests/mobile-design.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": "logs/form-states-chromium.txt"
+    },
+    {
+      "name": "form-states-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"real announcement|PWA AI\" tests/mobile-design.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": "logs/form-states-webkit.txt"
+    },
+    {
+      "name": "sidebar-final",
+      "command": "node --test --test-name-pattern=\"375x667|auditor 390x844|higher overlay\" tests/mobile-sidebar.browser.test.mjs",
+      "expected": 10,
+      "tests": 10,
+      "passed": 10,
+      "failed": 0,
+      "log": "logs/sidebar-final.txt"
+    },
+    {
+      "name": "models-api-ui",
+      "command": "node --test --experimental-strip-types tests/overlay-scroll-lock.test.ts tests/schedule-board-model.test.ts tests/admin-schedule-management-ui.test.ts tests/calendar-export-ui.test.ts tests/event-filter-model.test.ts tests/admin-sidebar-navigation.test.ts tests/hub-scholarship-frontend.test.ts tests/cloudflare-announcements-model.test.ts tests/announcement-d1-authority.test.ts tests/structured-schedule-ui.test.ts tests/schedule-import-preview.test.ts tests/schedule-pdf-orchestration.test.ts",
+      "expected": 98,
+      "tests": 98,
+      "passed": 98,
+      "failed": 0,
+      "log": "logs/models-api-ui.txt"
+    },
+    {
+      "name": "overlay-staff-contribution",
+      "command": "node --test --test-concurrency=1 tests/overlay-scroll-lock.browser.test.mjs tests/staff-sidebar-ui.browser.test.mjs tests/event-contribution-catalog.browser.test.mjs",
+      "expected": 19,
+      "tests": 19,
+      "passed": 19,
+      "failed": 0,
+      "log": "logs/overlay-staff-contribution.txt"
+    },
+    {
+      "name": "task07-chromium",
+      "command": "SCHEDULE_BROWSER=chromium node --test --test-name-pattern=\"375x667|plan A/B|all sidebar\" tests/schedule-filter-collapse.browser.test.mjs",
+      "expected": 3,
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "log": "logs/task07-chromium.txt"
+    },
+    {
+      "name": "task08-chromium",
+      "command": "ACTIONS_BROWSER=chromium node --test --test-name-pattern=\"375:|actual MobileSchedule|week/month\" tests/schedule-actions-dropdown.browser.test.mjs",
+      "expected": 3,
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "log": "logs/task08-chromium.txt"
+    },
+    {
+      "name": "task09-chromium",
+      "command": "ANNOUNCEMENTS_BROWSER=chromium node --test tests/school-announcements-modal.browser.test.mjs",
+      "expected": 12,
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "log": "logs/task09-chromium.txt"
+    },
+    {
+      "name": "webkit-related-before-fixes",
+      "command": "SCHEDULE_BROWSER=webkit ACTIONS_BROWSER=webkit ANNOUNCEMENTS_BROWSER=webkit node --test --test-concurrency=1 --test-name-pattern=\"375x667|plan A/B|all sidebar|375:|actual MobileSchedule|week/month|out-of-order|visual viewport|pagination, debounce\" tests/schedule-filter-collapse.browser.test.mjs tests/schedule-actions-dropdown.browser.test.mjs tests/school-announcements-modal.browser.test.mjs",
+      "expected": 12,
+      "tests": 12,
+      "passed": 10,
+      "failed": 2,
+      "log": "logs/webkit-related-before-fixes.txt"
+    },
+    {
+      "name": "task07-standalone-fixture-fix",
+      "command": "SCHEDULE_BROWSER=webkit ANNOUNCEMENTS_BROWSER=webkit node --test --test-concurrency=1 --test-name-pattern=\"plan A/B|visual viewport\" tests/schedule-filter-collapse.browser.test.mjs tests/school-announcements-modal.browser.test.mjs",
+      "expected": 2,
+      "tests": 2,
+      "passed": 1,
+      "failed": 1,
+      "log": "logs/task07-standalone-fixture-fix.txt"
+    },
+    {
+      "name": "task09-short-viewport-final",
+      "command": "ANNOUNCEMENTS_BROWSER=webkit node --test --test-name-pattern=\"visual viewport\" tests/school-announcements-modal.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/task09-short-viewport-final.txt"
+    },
+    {
+      "name": "ticket-and-sidebar-initial",
+      "command": "node --test --test-concurrency=1 --test-name-pattern=\"375x667|higher overlay|real create/detail|Guest receives|desktop retains\" tests/mobile-sidebar.browser.test.mjs tests/ticket-navigation.browser.test.mjs",
+      "expected": 16,
+      "tests": 16,
+      "passed": 14,
+      "failed": 2,
+      "log": "logs/ticket-and-sidebar-initial.txt"
+    },
+    {
+      "name": "placeholder-reproduction",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"real announcement\" tests/mobile-design.browser.test.mjs",
+      "expected": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "log": "logs/placeholder-reproduction.txt"
+    },
+    {
+      "name": "guest-banner-chromium",
+      "command": "DESIGN_ENGINE=chromium node --test --test-name-pattern=\"guest banner actions\" tests/mobile-design.browser.test.mjs",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/banner-chromium.txt"
+    },
+    {
+      "name": "guest-banner-webkit",
+      "command": "DESIGN_ENGINE=webkit node --test --test-name-pattern=\"guest banner actions\" tests/mobile-design.browser.test.mjs",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": "logs/banner-webkit.txt"
+    }
+  ],
+  "finalResults": {
+    "designCore": "49/49 on each engine, followed by affected-route, chart, floating-control and focused-form reruns after local fixes",
+    "contrast": "No unresolved/failing meaningful text in deep 31-context proof; decorative separators and disabled controls are explicitly separated",
+    "controls": "4 focused fields plus a hovered action per engine; actual value, placeholder, border and focus contrast checks",
+    "sidebar": "10/10 final including navigation commit waiting and >=14px link labels",
+    "ticket": "All 8 Ticket cases passed in the initial composite run; its two sidebar failures are retained and replaced by final sidebar proof",
+    "task07": "Chromium 3/3; WebKit final per-case proof including corrected standalone fixture",
+    "task08": "Chromium 3/3; WebKit 4/4",
+    "task09": "Chromium 12/12; WebKit final per-case proof including short date-controls viewport fix",
+    "frontendTypecheck": "PASS (exit 0)",
+    "cloudflareTypecheck": "PASS (exit 0)",
+    "build": "PASS (exit 0); existing large-chunk warning",
+    "diffCheck": "PASS: git diff --check; staged diff check",
+    "githubCI": "Verify exact pushed PR HEAD externally; reported in PR checks/body to avoid changing HEAD to record its own CI",
+    "modalOwnership": "PASS: closed AI launcher yields to active Overlay; visible modal controls own their hit points; closing Ticket restores launcher and preserves AI draft",
+    "nativeInputs": "PASS: all-native-control fontsize guard on final Dashboard variants; GPA tip bounds/value/focus checks on both engines",
+    "guestBannerAlignment": "PASS: Chromium + WebKit; 320/360/375/390/430/1440px; same font size, equal frames, text center offset <2px and /login navigation preserved"
+  },
+  "failureProvenance": [
+    "Intermediate failures are preserved; no failed composite run is labelled an all-pass run",
+    "The first affected WebKit learning load hit Vite native resource timeouts under concurrent local compilation; isolated rerun passed, and static graph warm-up now precedes browser launch",
+    "Sidebar navigation asserts remain intact; the test waits for the committed /events route before reopening/resizing",
+    "The standalone schedule fixture uses the existing localhost-only appPreview entry and awaits the actual mode",
+    "The 3.38:1 announcement placeholder failure was reproduced before its scoped fix"
+  ],
+  "sourceManifest": [
+    {
+      "path": "components/AdminEventManagementView.tsx",
+      "sha256NormalizedLF": "56a07bfaf38a04455f223b5ff2332951d3195574cb706c494770c054d3c20b12"
+    },
+    {
+      "path": "components/AdminOperationsDashboard.tsx",
+      "sha256NormalizedLF": "a69b8fc6456ed36c054df37f69644ce2d90c48110c33ba97d98f9dc7ff5e4614"
+    },
+    {
+      "path": "components/AdminSupportTickets.tsx",
+      "sha256NormalizedLF": "1dd5c6ba277911b4abee373212d51d919c0a87b96430baa466528330d88ce582"
+    },
+    {
+      "path": "components/Dashboard.tsx",
+      "sha256NormalizedLF": "d0adedd2796b5952199fea55cddb5aa14d093e7ba677497114d521c0abb4a069"
+    },
+    {
+      "path": "components/EventsBoard.tsx",
+      "sha256NormalizedLF": "ed415f748d0774943c7c0baa4b66ab477baa60a0395206ea3b024268cf080336"
+    },
+    {
+      "path": "components/FloatingSupportTab.tsx",
+      "sha256NormalizedLF": "430f0a2f6bab7c2e9029451645d5083585bf4dcc7b9cb998c413de64853945dc"
+    },
+    {
+      "path": "components/Handbook.tsx",
+      "sha256NormalizedLF": "7b5c326d9a99ac633942771a0a6f700d1b8379de8087142b4559a507411d8c8d"
+    },
+    {
+      "path": "components/LostFoundBoard.tsx",
+      "sha256NormalizedLF": "eb96fab85177699b4f928b41e2e31534349c5022e6eef9d63a05fe47a69dd599"
+    },
+    {
+      "path": "components/MobileAIAdvisor.tsx",
+      "sha256NormalizedLF": "e38307b95d9f22ef8c7b5627fab36eb8eeb243f8cd6d521e02cd7a400fc9b500"
+    },
+    {
+      "path": "components/MobileDashboard.tsx",
+      "sha256NormalizedLF": "29bd978d646437ebb184504503160ed7982af1a4d393770979f9e8b451cde99b"
+    },
+    {
+      "path": "components/MobileEvents.tsx",
+      "sha256NormalizedLF": "f623f5518375901a1fe2a061c60f392747cce7924b0191a03602b7270edde2ea"
+    },
+    {
+      "path": "components/MobileHandbook.tsx",
+      "sha256NormalizedLF": "651c9647bd73cb776d2d01f73222bd19761ac017adbd4c8983ee58a4f7787d77"
+    },
+    {
+      "path": "components/MobileHome.tsx",
+      "sha256NormalizedLF": "406bae89b5903f96aee2b7abe33828396f6f37080b63f8b6281c2a720b3662de"
+    },
+    {
+      "path": "components/MobileLearning.tsx",
+      "sha256NormalizedLF": "ce720fb4572fd52be5145541ec9c7d592c583a00b6d7e7b0405d56037762a579"
+    },
+    {
+      "path": "components/MobileLostFound.tsx",
+      "sha256NormalizedLF": "812d1dd29d6192103b9385b032efb62c04436749017a742b3df7c920c6dcbf92"
+    },
+    {
+      "path": "components/MobileProfile.tsx",
+      "sha256NormalizedLF": "964868c621d25f71fd8cdddfc3551510d1b68889e64a19c0b912dcc6ad7850dd"
+    },
+    {
+      "path": "components/MobileSchedule.tsx",
+      "sha256NormalizedLF": "7a86b82fde8d2582923c4fe2d2ed9388ec0faf580d639b351760515525deca67"
+    },
+    {
+      "path": "components/NotificationBell.jsx",
+      "sha256NormalizedLF": "910493d32618bc88a3052ef593abec0ef437ec8817682c67591106e2bb740221"
+    },
+    {
+      "path": "components/NotificationNudge.tsx",
+      "sha256NormalizedLF": "14c47fb4d9cea43ba68c76ea2efa1756f277d1a5ec0722120804bf87bf2b1fb4"
+    },
+    {
+      "path": "components/PushNotificationPrompt.tsx",
+      "sha256NormalizedLF": "76d95eb68fb1b9f994890297aff2c677a6e30f60bfc138402a8c2734f214fd99"
+    },
+    {
+      "path": "components/ScheduleBoard.tsx",
+      "sha256NormalizedLF": "b10696b23c96f60ad7124d9fc84d0fac6617a37a10b50ed494b32751c179d4b6"
+    },
+    {
+      "path": "components/SchoolAnnouncements.jsx",
+      "sha256NormalizedLF": "860ed67483f2b99625442a87960faad5b121365bd3a5bbaa73b4d7b22cfc212a"
+    },
+    {
+      "path": "components/SupportTickets.tsx",
+      "sha256NormalizedLF": "9b953c02246fc41be8008f5f4d685e7b1ccfa2baf2131aec02d004941204cc8b"
+    },
+    {
+      "path": "components/TargetGpaTipInput.tsx",
+      "sha256NormalizedLF": "720a188fa774c8effcbe4dfcb2b3ece3dc7379833c42b45f6f57b1e42054e92c"
+    },
+    {
+      "path": "features/scholarships/scholarship.css",
+      "sha256NormalizedLF": "c66f09abe8a935d7a94db8da836585f7d32f2e675fd1653abb143e76a9c298df"
+    },
+    {
+      "path": "index.css",
+      "sha256NormalizedLF": "309f41155716c07f29bfef39073eec1655fda4db4a9b00340000e2a7f38fd069"
+    },
+    {
+      "path": "layouts/DesktopLayout.tsx",
+      "sha256NormalizedLF": "cf713fbc8c3413f110dc43d1e00968901151dac028c995a064140f1caec10b97"
+    },
+    {
+      "path": "layouts/MobileAppLayout.tsx",
+      "sha256NormalizedLF": "e849f27022455259f38057db642b58892c6b797f49b21c8ac0c449ef61d46e58"
+    },
+    {
+      "path": "package.json",
+      "sha256NormalizedLF": "88e6fd60baff6325a0175cd8e325141b1c6ca3840214cb94f1ec4cabb96e08bc"
+    },
+    {
+      "path": "pages/ProfilePage.jsx",
+      "sha256NormalizedLF": "67c6e5fbceed5950360ccdd11092f21db72194262ebc2447a9d22e58c1ce0468"
+    },
+    {
+      "path": "pages/ProfileSearchPage.jsx",
+      "sha256NormalizedLF": "f45dc4fbf6909cdcbcadf59da9862b473646cb582909c90169c248a480faa501"
+    },
+    {
+      "path": "styles/mobile-design.css",
+      "sha256NormalizedLF": "644ae7d4ddd437985c9e58268e894fe9a1070daf7587013d1d1ca5ced139f6e3"
+    },
+    {
+      "path": "tests/mobile-design-harness.html",
+      "sha256NormalizedLF": "f0458354e41b07d7a27a1895d142d4e57dd806e3a68fc12464f4cfb06105ac77"
+    },
+    {
+      "path": "tests/mobile-design-harness.tsx",
+      "sha256NormalizedLF": "7fc038301289d80263775bf1de5cfcca1340731ef1e907761c487f46aafd0c70"
+    },
+    {
+      "path": "tests/mobile-design-measurements.mjs",
+      "sha256NormalizedLF": "7cc7b5fa7708dbf8fdd310310f8a308d4ca1503b4940188d39ff6219ccdbf34d"
+    },
+    {
+      "path": "tests/mobile-design-painted-contrast.mjs",
+      "sha256NormalizedLF": "f30d537a481bdadd64ae670217fdae64d8f6821a75bcafa9b472586bb5b7994b"
+    },
+    {
+      "path": "tests/mobile-design.browser.test.mjs",
+      "sha256NormalizedLF": "c671943e3c75353727d1d0b3ce9b62044ba2097b544528f1e19af04ed88e1ec9"
+    },
+    {
+      "path": "tests/mobile-sidebar.browser.test.mjs",
+      "sha256NormalizedLF": "cb489886d499f86cd1e164adca8638fc58a4b52698706bed748ad99df2fd51e7"
+    },
+    {
+      "path": "tests/schedule-filter-collapse.browser.test.mjs",
+      "sha256NormalizedLF": "b4ddf39dc1b5ef59e96193340574d629231d516840a338b01f0850fc2b73dec3"
+    },
+    {
+      "path": "components/TranscriptToolbar.tsx",
+      "sha256NormalizedLF": "dd4be562fe8a9a2d2de275554a6da74591eca82f6bdaef75397e3f3c96762bc8"
+    },
+    {
+      "path": "components/transcript-toolbar.css",
+      "sha256NormalizedLF": "5643f0b1fd01540c8b187a922910e910385d5367f1cd62bb41c178987cacb3dc"
+    },
+    {
+      "path": "components/semester-header.css",
+      "sha256NormalizedLF": "634d9d14a7310ba0a95744a8b006d891c839444845901b591d04b154d6602836"
+    },
+    {
+      "path": "components/dashboard-overview.css",
+      "sha256NormalizedLF": "31cfeafc073aa8a9e3f7925ef4bfb907add03852e70bd10dd6ed2cb913ce3a2d"
+    },
+    {
+      "path": "components/DashboardCreditProgress.tsx",
+      "sha256NormalizedLF": "628d2ec635ee77733f3a51f4ab0dc2b28c87fb52cde3e6c83e691f1fe74297e1"
+    },
+    {
+      "path": "components/DashboardLoginLink.tsx",
+      "sha256NormalizedLF": "f127e98ce47d4aa4a009350db6d38831082074a0089b4dada4970804fa18e343"
+    }
+  ],
+  "safety": {
+    "authApiDatabaseReleaseWorkflowDependenciesOverlayFoundationChanged": false,
+    "merged": false,
+    "deployed": false,
+    "productionWrites": false
+  },
+  "limitations": [
+    "Automated browser evidence does not establish physical iPhone acceptance or site-wide WCAG certification",
+    "Native picker chrome, Safari toolbar motion and physical safe-area/keyboard behavior remain unverified",
+    "Existing course-code badge ECO101 at 9.5px and numeric chart ticks at 9/10px preserve the explicit business-display size constraint; full course title/details and text enlargement remain available",
+    "Intrinsically two-dimensional timetable/data tables retain internal scrolling; ordinary page overflow is rejected",
+    "Inline/contextual legal/source links and dense numeric editors are recorded separately from important 44px independent actions",
+    "Hovered/selected/focus samples are scoped, not an exhaustive assistive-technology/state certification"
+  ],
+  "followupChecks": [
+    {
+      "check": "typecheck",
+      "exitCode": 0,
+      "log": "logs/banner-typecheck.txt"
+    },
+    {
+      "check": "cf:typecheck",
+      "exitCode": 0,
+      "log": "logs/banner-cf-typecheck.txt"
+    },
+    {
+      "check": "build",
+      "exitCode": 0,
+      "log": "logs/banner-build.txt"
+    }
+  ],
+  "transcriptToolbarFollowup": {
+    "evidence": "transcript-toolbar/validation.json",
+    "sourceBaseline": "db0ec74657ff22fe029b69f6659fbc66b941e7f2",
+    "results": {
+      "chromiumToolbar": "3/3 PASS on final source",
+      "webkitToolbar": "3/3 PASS on final source",
+      "chromiumDashboard": "2/2 PASS, student and guest with 320px / 200% text / spacing overrides",
+      "webkitDashboard": "2/2 PASS, same stress modes",
+      "modelOverlayPdf": "18/18 PASS",
+      "typecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "realDeviceAcceptance": "NOT_VERIFIED"
+    },
+    "note": "Prior full-matrix evidence remains historical; this follow-up reruns the affected actual Dashboard contexts and toolbar scenarios only."
+  },
+  "transcriptProportionFollowup": {
+    "evidence": "transcript-toolbar/proportions/validation.json",
+    "beforeSha": "a35a420455c48afebfe4a31d58148e29bb0438eb",
+    "results": {
+      "chromium": "6/6 PASS",
+      "webkit": "6/6 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing large-chunk warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Current scoped density supersedes the previous toolbar size measurements; historical measurements remain preserved."
+  },
+  "transcriptCompactFollowup": {
+    "evidence": "transcript-toolbar/compact/validation.json",
+    "beforeSha": "99e712d77fd8a490721fc25a36656f5a4ac02c20",
+    "results": {
+      "chromium": "6/6 PASS",
+      "webkit": "6/6 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Compact 32px painted surfaces inside mobile 44px / desktop 36px real hit areas; prior sizing records are historical."
+  },
+  "guestActionsCompactFollowup": {
+    "evidence": "guest-actions-compact/validation.json",
+    "beforeSha": "aecd48085a79ac2d4774b2a5169c71be15b0c7cf",
+    "results": {
+      "chromium": "2/2 PASS",
+      "webkit": "2/2 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Compact 32px painted surfaces, 13px/500 labels, >=44px real mobile hit areas and a label-sized row. Earlier banner sizing remains historical."
+  },
+  "semesterHeaderFollowup": {
+    "evidence": "semester-header/validation.json",
+    "beforeSha": "7feb99346107c347b4e11fa4c3c94b27fe010500",
+    "results": {
+      "chromium": "4/4 PASS",
+      "webkit": "4/4 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Natural-width, one-row metric scroller, delete in heading and confirmation in local draft/staff branch; calculation/permission/data semantics preserved."
+  },
+  "semesterFlatSummaryFollowup": {
+    "evidence": "semester-flat-summary/validation.json",
+    "beforeSha": "0f1f62bcef5a509c0dce9dcd45dd7013a2cfcbdd",
+    "results": {
+      "chromium": "4/4 PASS",
+      "webkit": "4/4 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS"
+    },
+    "note": "Owner reference supersedes the prior five-cell scroller: desktop borderless inline metrics and mobile four-column strip; controllers and callback contracts identical."
+  },
+  "dashboardOverviewFollowup": {
+    "evidence": "dashboard-overview/validation.json",
+    "beforeSha": "c92b6e9b00b7d23e0aef18a51edfb3e17f58f4e9",
+    "results": {
+      "chromium": "10/10 PASS",
+      "webkit": "10/10 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See PR final-HEAD run"
+    },
+    "note": "Mobile preview login moves to header; desktop keeps a single banner. Flat teaser examples, credit progress, compact assessment and stacked small cards preserve live data/controller semantics."
+  },
+  "dashboardLiveDataFollowup": {
+    "evidence": "dashboard-live-data/validation.json",
+    "beforeSha": "5472c6ad8f5609bc3137b8c2fad696c39756f456",
+    "results": {
+      "chromium": "8/8 PASS",
+      "webkit": "8/8 PASS",
+      "studyAndAdminModels": "19/19 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See final-HEAD PR CI"
+    },
+    "note": "Supersedes decorative preview and banner. Existing real charts/data/target input and ranking are rendered for guests; setup links directly to login."
+  },
+  "dashboardPreviewBlurFollowup": {
+    "evidence": "dashboard-preview-blur/validation.json",
+    "beforeSha": "e68a32c2e4cbf3c616523625e4067f4fba208cb7",
+    "results": {
+      "chromium": "9/9 PASS",
+      "webkit": "9/9 PASS",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See final-HEAD PR CI"
+    },
+    "note": "Only guest without completed profile: five real content regions blur 2px/opacity .5. Focus within makes the actual goal input/help readable; leaving focus restores preview styling. Headings, GPA/credit summaries and onboarded/signed-in content stay clear. No sample data, lock labels or login banner; setup still routes directly to /login."
+  },
+  "dashboardLoginLabelFollowup": {
+    "evidence": "dashboard-login-label/validation.json",
+    "beforeSha": "f476cd69bbffcbe182f27708bbf45d14f773d9b1",
+    "results": {
+      "chromium": "Initial 8/8 PASS; strengthened final pointer test 1/1 PASS",
+      "webkit": "Initial 7/8 PASS with one click timeout; affected final pointer test 1/1 PASS after explicit center scrolling and hit test. Application source unchanged; other seven scenarios retained.",
+      "frontendTypecheck": "PASS",
+      "cloudflareTypecheck": "PASS",
+      "build": "PASS (existing chunk-size warning)",
+      "diffCheck": "PASS",
+      "githubCi": "See final-HEAD PR CI"
+    },
+    "note": "Five text-only Cần đăng nhập links in preview headings; no lock/key/icon. All navigate to /login without opening ranking. Links stay outside blurred regions, have >=44px targets, and wrap in narrow headers. Actual content/blur/focus behavior and setup login link remain unchanged."
+  }
+}

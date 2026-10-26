@@ -1,0 +1,2494 @@
+[
+  {
+    "role": "student",
+    "width": 320,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 198,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 16,
+          "y": 291.796875,
+          "width": 59.65625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 79.65625,
+          "y": 291.796875,
+          "width": 66.421875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 146.21875,
+          "y": 343.796875,
+          "width": 61.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 215.609375,
+          "y": 343.796875,
+          "width": 88.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 25,
+          "y": 404.796875,
+          "width": 96.5,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 129.5,
+          "y": 404.796875,
+          "width": 56.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 25,
+          "y": 452.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 69,
+          "y": 452.796875,
+          "width": 71.03125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 140.03125,
+          "y": 452.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 188.03125,
+          "y": 452.796875,
+          "width": 106.96875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-view-select select",
+        "name": "TuầnTháng",
+        "box": {
+          "x": 223,
+          "y": 500.796875,
+          "width": 72,
+          "height": 44
+        },
+        "font": 16.000011,
+        "weight": "400",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": null,
+          "display": "inline",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 138.25,
+          "y": 548.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 200.25,
+          "y": 548.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 25,
+          "y": 548.796875,
+          "width": 167.25,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  },
+  {
+    "role": "guest",
+    "width": 320,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 198,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 16,
+          "y": 287.796875,
+          "width": 59.65625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 79.65625,
+          "y": 287.796875,
+          "width": 66.421875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 128.21875,
+          "y": 339.796875,
+          "width": 79.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 215.609375,
+          "y": 339.796875,
+          "width": 88.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 25,
+          "y": 400.796875,
+          "width": 96.5,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 129.5,
+          "y": 400.796875,
+          "width": 74.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 25,
+          "y": 448.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 69,
+          "y": 448.796875,
+          "width": 71.03125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 140.03125,
+          "y": 448.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 188.03125,
+          "y": 448.796875,
+          "width": 106.96875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-view-select select",
+        "name": "TuầnTháng",
+        "box": {
+          "x": 223,
+          "y": 496.796875,
+          "width": 72,
+          "height": 44
+        },
+        "font": 16.000011,
+        "weight": "400",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": null,
+          "display": "inline",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 138.25,
+          "y": 544.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 200.25,
+          "y": 544.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 25,
+          "y": 544.796875,
+          "width": 167.25,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  },
+  {
+    "role": "student",
+    "width": 360,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 198,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 16,
+          "y": 239.796875,
+          "width": 59.65625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 79.65625,
+          "y": 239.796875,
+          "width": 66.421875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 186.21875,
+          "y": 239.796875,
+          "width": 61.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 255.609375,
+          "y": 239.796875,
+          "width": 88.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 25,
+          "y": 300.796875,
+          "width": 96.5,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 129.5,
+          "y": 300.796875,
+          "width": 56.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 25,
+          "y": 348.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 69,
+          "y": 348.796875,
+          "width": 71.03125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 140.03125,
+          "y": 348.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần",
+        "box": {
+          "x": 232.859375,
+          "y": 396.796875,
+          "width": 46.5625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tháng",
+        "box": {
+          "x": 279.421875,
+          "y": 396.796875,
+          "width": 55.578125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 188.03125,
+          "y": 348.796875,
+          "width": 146.96875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 138.25,
+          "y": 444.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 200.25,
+          "y": 444.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 25,
+          "y": 444.796875,
+          "width": 167.25,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  },
+  {
+    "role": "guest",
+    "width": 360,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 198,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 16,
+          "y": 287.796875,
+          "width": 59.65625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 79.65625,
+          "y": 287.796875,
+          "width": 66.421875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 168.21875,
+          "y": 287.796875,
+          "width": 79.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 255.609375,
+          "y": 287.796875,
+          "width": 88.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 25,
+          "y": 348.796875,
+          "width": 96.5,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 129.5,
+          "y": 348.796875,
+          "width": 74.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 25,
+          "y": 396.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 69,
+          "y": 396.796875,
+          "width": 71.03125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 140.03125,
+          "y": 396.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần",
+        "box": {
+          "x": 232.859375,
+          "y": 444.796875,
+          "width": 46.5625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tháng",
+        "box": {
+          "x": 279.421875,
+          "y": 444.796875,
+          "width": 55.578125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 188.03125,
+          "y": 396.796875,
+          "width": 146.96875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 138.25,
+          "y": 492.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 200.25,
+          "y": 492.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 25,
+          "y": 492.796875,
+          "width": 167.25,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  },
+  {
+    "role": "student",
+    "width": 390,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 150,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 16,
+          "y": 239.796875,
+          "width": 59.65625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 79.65625,
+          "y": 239.796875,
+          "width": 66.421875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 216.21875,
+          "y": 239.796875,
+          "width": 61.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 285.609375,
+          "y": 239.796875,
+          "width": 88.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 25,
+          "y": 300.796875,
+          "width": 96.5,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 129.5,
+          "y": 300.796875,
+          "width": 56.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 25,
+          "y": 348.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 69,
+          "y": 348.796875,
+          "width": 71.03125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 140.03125,
+          "y": 348.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần",
+        "box": {
+          "x": 262.859375,
+          "y": 348.796875,
+          "width": 46.5625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tháng",
+        "box": {
+          "x": 309.421875,
+          "y": 348.796875,
+          "width": 55.578125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 188.03125,
+          "y": 348.796875,
+          "width": 70.828125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 9.046875
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 138.25,
+          "y": 396.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 200.25,
+          "y": 396.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 25,
+          "y": 396.796875,
+          "width": 167.25,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  },
+  {
+    "role": "guest",
+    "width": 390,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 150,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 16,
+          "y": 235.796875,
+          "width": 59.65625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 79.65625,
+          "y": 235.796875,
+          "width": 66.421875,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 198.21875,
+          "y": 235.796875,
+          "width": 79.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 285.609375,
+          "y": 235.796875,
+          "width": 88.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 25,
+          "y": 296.796875,
+          "width": 96.5,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 129.5,
+          "y": 296.796875,
+          "width": 74.390625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 25,
+          "y": 344.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 69,
+          "y": 344.796875,
+          "width": 71.03125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 140.03125,
+          "y": 344.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần",
+        "box": {
+          "x": 262.859375,
+          "y": 344.796875,
+          "width": 46.5625,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tháng",
+        "box": {
+          "x": 309.421875,
+          "y": 344.796875,
+          "width": 55.578125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 188.03125,
+          "y": 344.796875,
+          "width": 70.828125,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 9.046875
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 138.25,
+          "y": 392.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 200.25,
+          "y": 392.796875,
+          "width": 44,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 25,
+          "y": 392.796875,
+          "width": 167.25,
+          "height": 44
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  },
+  {
+    "role": "student",
+    "width": 1440,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 42,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 213.421875,
+          "y": 164.484375,
+          "width": 95.34375,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 316.765625,
+          "y": 164.484375,
+          "width": 74.421875,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 1211.6875,
+          "y": 164.484375,
+          "width": 97.921875,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 1317.609375,
+          "y": 164.484375,
+          "width": 88.390625,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 41,
+          "y": 220.46875,
+          "width": 96.5,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 145.5,
+          "y": 220.46875,
+          "width": 134.21875,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 1050.484375,
+          "y": 220.46875,
+          "width": 28,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 1078.484375,
+          "y": 220.46875,
+          "width": 71.03125,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 1149.515625,
+          "y": 220.46875,
+          "width": 28,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần",
+        "box": {
+          "x": 1185.515625,
+          "y": 220.46875,
+          "width": 46.5625,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tháng",
+        "box": {
+          "x": 1232.078125,
+          "y": 220.46875,
+          "width": 55.578125,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 1295.65625,
+          "y": 220.46875,
+          "width": 97.34375,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 396.703125,
+          "y": 220.46875,
+          "width": 24,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 438.703125,
+          "y": 220.46875,
+          "width": 30.25,
+          "height": 28
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 291.71875,
+          "y": 220.46875,
+          "width": 138.984375,
+          "height": 28
+        },
+        "font": 11,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  },
+  {
+    "role": "guest",
+    "width": 1440,
+    "overflow": false,
+    "modeBorder": "0px",
+    "toolbarHeight": 42,
+    "controls": [
+      {
+        "selector": ".timetable-mode button",
+        "name": "Lịch cá nhân",
+        "box": {
+          "x": 213.421875,
+          "y": 164.484375,
+          "width": 95.34375,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "600",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-mode button",
+        "name": "Kế hoạch",
+        "box": {
+          "x": 316.765625,
+          "y": 164.484375,
+          "width": 74.421875,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "0px",
+          "radius": "0px"
+        }
+      },
+      {
+        "selector": ".timetable-header-actions > button",
+        "name": "Nhập PDF",
+        "box": {
+          "x": 1193.6875,
+          "y": 164.484375,
+          "width": 115.921875,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-header-actions .schedule-actions-trigger",
+        "name": "Thao tác",
+        "box": {
+          "x": 1317.609375,
+          "y": 164.484375,
+          "width": 88.390625,
+          "height": 32
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 32,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 0
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Bộ lọc 1",
+        "box": {
+          "x": 41,
+          "y": 220.46875,
+          "width": 96.5,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-filter-actions > button",
+        "name": "Xem danh sách lớp",
+        "box": {
+          "x": 145.5,
+          "y": 220.46875,
+          "width": 152.21875,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": true,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần trước",
+        "box": {
+          "x": 1050.484375,
+          "y": 220.46875,
+          "width": 28,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Hôm nay",
+        "box": {
+          "x": 1078.484375,
+          "y": 220.46875,
+          "width": 71.03125,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần sau",
+        "box": {
+          "x": 1149.515625,
+          "y": 220.46875,
+          "width": 28,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 14
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tuần",
+        "box": {
+          "x": 1185.515625,
+          "y": 220.46875,
+          "width": 46.5625,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tháng",
+        "box": {
+          "x": 1232.078125,
+          "y": 220.46875,
+          "width": 55.578125,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-calendar-navigation button",
+        "name": "Tổng quát",
+        "box": {
+          "x": 1295.65625,
+          "y": 220.46875,
+          "width": 97.34375,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "1px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Bỏ lọc học kỳ",
+        "box": {
+          "x": 414.703125,
+          "y": 220.46875,
+          "width": 24,
+          "height": 28
+        },
+        "font": 13,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        },
+        "icon": 12
+      },
+      {
+        "selector": ".timetable-filter-chips button",
+        "name": "Xóa tất cả bộ lọc",
+        "box": {
+          "x": 456.703125,
+          "y": 220.46875,
+          "width": 30.25,
+          "height": 28
+        },
+        "font": 12,
+        "weight": "500",
+        "opacity": "1",
+        "disabled": false,
+        "surface": {
+          "height": 28,
+          "display": "block",
+          "border": "0px",
+          "radius": "6px"
+        }
+      },
+      {
+        "selector": ".timetable-filter-chips > span",
+        "name": "HK1 (2026-2027)",
+        "box": {
+          "x": 309.71875,
+          "y": 220.46875,
+          "width": 138.984375,
+          "height": 28
+        },
+        "font": 11,
+        "weight": "500",
+        "opacity": "1",
+        "surface": {
+          "height": 24,
+          "display": "block",
+          "border": "1px",
+          "radius": "999px"
+        },
+        "icon": 12
+      }
+    ]
+  }
+]

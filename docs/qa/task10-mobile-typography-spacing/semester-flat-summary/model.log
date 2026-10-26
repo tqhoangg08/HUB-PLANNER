@@ -1,0 +1,27 @@
+✔ admin student query is cursor-based, bounded, and rejects unsafe filters (2.583ms)
+✔ non-admin student management request is denied before a D1 query (35.468ms)
+✔ student summary is admin-only, read-only, and derives completion from required fields (3.1175ms)
+✔ admin list uses a bounded cursor query and redacts internal identity/PII (3.0417ms)
+✔ admin list keeps the saved HUB profile name ahead of Better Auth fallback (3.2885ms)
+✔ admin list retains the profile fallback and never derives a name from an email local-part (3.17ms)
+✔ student lifecycle requires a canonical student email and avoids caller-controlled owner fields (0.6179ms)
+✔ cross-database lifecycle is an idempotent saga with Auth-side confirmation (3.2807ms)
+✔ student management query exposes no direct PII or wildcard selection (3.1466ms)
+✔ dashboard mounts the server-paginated student management surface (3.5471ms)
+✔ student management uses a dense, responsive enterprise table without changing its cursor data flow (1.8269ms)
+✔ student export creates a redacted admin audit record (1.4593ms)
+✔ both lifecycle ledgers are additive, indexed, and deliberately not applied by this change (2.4514ms)
+✔ initial study data contains one valid empty semester (2.0564ms)
+✔ meaningful and complete data are evaluated independently (0.7885ms)
+✔ normalization repairs compact and duplicate semester names (1.5344ms)
+✔ next semester progresses from term two into the next academic year (0.4282ms)
+✔ grade saves keep self ownership independent of application role (0.3621ms)
+✔ auditor cannot turn staff visibility into cross-user grade write authority (0.2315ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 305.0523

@@ -1,0 +1,50 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium semester flat metrics desktop inline and mobile four columns (59910.1732ms)
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+✔ chromium semester header native selection training score and delete confirmation (4754.9419ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ chromium accept /dashboard browser student (6801.4067ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ chromium accept /dashboard browser guest (6536.9565ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 103442.2004

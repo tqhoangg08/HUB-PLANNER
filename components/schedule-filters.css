@@ -1,10 +1,150 @@
-.timetable-filter-sidebar[hidden] { display: none; }
-.timetable-filter-bar { min-width: 0; margin-bottom: 12px; }
-.timetable-filter-actions { display: flex; flex-wrap: wrap; gap: 4px; }
-.timetable-filter-actions > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 44px; }
-.timetable-filter-chips { display: flex; align-items: center; gap: 8px; overflow-x: auto; max-width: 100%; white-space: nowrap; }
-.timetable-filter-chips button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
-.timetable-filter-sidebar input:not([type="checkbox"]), .timetable-filter-sidebar select { max-width: 100%; }
-@media (max-width: 767px) {
-  .timetable-filter-sidebar input:not([type="checkbox"]), .timetable-filter-sidebar select { font-size: 16px; }
+/* Browser timetable density: paint is compact; touch targets remain independent. */
+.timetable-page-header, .timetable-unified-toolbar {
+  --tt-hit:32px; --tt-paint:32px; --tt-type:calc(13rem / 14);
 }
+.timetable-filter-sidebar[hidden] { display:none; }
+.timetable-page-header { display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; margin-bottom:12px; background:#F8FAFC; }
+.timetable-page-header > div:first-child { min-width:0; }
+.timetable-mode { display:flex; gap:8px; padding:0; border:0; background:transparent; }
+.timetable-header-actions { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.timetable-unified-toolbar { --tt-hit:28px; --tt-paint:28px; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:4px 12px; padding:6px 12px; border:1px solid #d1d5db; border-radius:12px 12px 0 0; background:white; }
+:is(.timetable-page-header, .timetable-unified-toolbar) button {
+  position:relative; isolation:isolate; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  min-height:max(var(--tt-hit), calc(1lh + 8px)); min-width:var(--tt-hit); height:auto; padding:0 8px;
+  border:0; border-radius:6px; background:transparent; color:#334155; opacity:1;
+  /* The existing mobile ui-action role is !important; this is a local density role. */
+  font-size:var(--tt-type) !important; line-height:1.4 !important; font-weight:500; white-space:nowrap;
+}
+:is(.timetable-page-header, .timetable-unified-toolbar) button::before {
+  content:''; position:absolute; z-index:-1; pointer-events:none; inset:0; margin-block:auto;
+  height:max(var(--tt-paint), calc(1lh + 8px)); border:1px solid #e2e8f0; border-radius:6px; background:white;
+}
+:is(.timetable-page-header, .timetable-unified-toolbar) button:hover:not(:disabled)::before { background:#eff6ff; }
+.timetable-mode button { white-space:normal; }
+.timetable-mode button::before { border:0; border-radius:0; background:transparent; }
+.timetable-mode button[aria-pressed='true'] { color:#003375; font-weight:600; }
+.timetable-mode button[aria-pressed='true']::before { border-bottom:2px solid #003375; }
+.timetable-header-actions .schedule-actions-trigger:hover, .timetable-header-actions .schedule-actions-trigger[aria-expanded='true'] { background:transparent; }
+.timetable-header-actions .schedule-actions-trigger[aria-expanded='true']::before { background:#eff6ff; }
+.timetable-header-actions .schedule-actions-trigger > svg:first-child { display:none; }
+.timetable-header-actions .schedule-actions-trigger > svg:last-child { width:12px; height:12px; }
+.timetable-header-actions > button > svg { flex-shrink:0; }
+.timetable-header-actions > button:disabled, .timetable-filter-actions > button:disabled { cursor:not-allowed; opacity:1; color:#334155; }
+.timetable-header-actions > button:disabled::before { background:#f8fafc; }
+.timetable-filter-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-width:0; }
+.timetable-unified-toolbar .timetable-filter-toggle { color:#12366A; }
+.timetable-unified-toolbar .timetable-filter-toggle::before { border-color:#dbeafe; background:#eff6ff; }
+.timetable-filter-toggle > .timetable-filter-count { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding-inline:3px; border-radius:999px; background:#12366A; color:white; font-size:calc(11rem / 14); line-height:1; }
+.timetable-filter-actions > button:nth-child(2)::before, .timetable-filter-chips > button::before { border:0; background:transparent; }
+.timetable-unified-toolbar .timetable-filter-bar { grid-column:1 / -1; margin:0; min-width:0; }
+.timetable-filter-chips { display:flex; align-items:center; gap:8px; overflow-x:auto; max-width:100%; min-height:var(--tt-hit); white-space:nowrap; }
+.timetable-filter-chips > span { position:relative; isolation:isolate; display:inline-flex; align-items:center; min-height:var(--tt-hit); border:0; border-radius:999px; padding:0 10px; gap:4px; background:transparent; font-size:calc(11rem / 14); font-weight:500; }
+.timetable-filter-chips > span:not(.ui-muted)::before { content:''; position:absolute; z-index:-1; pointer-events:none; inset:0; margin-block:auto; height:max(24px,calc(1lh + 4px)); border:1px solid #dbe5f3; border-radius:999px; background:#f8fafc; }
+.timetable-filter-chips button { min-width:24px; padding-inline:4px; }
+.timetable-filter-chips > span > button::before { border:0; background:transparent; }
+.timetable-filter-chips > button { color:#475569; font-size:calc(12rem / 14) !important; }
+.timetable-filter-chips > .timetable-semester-chip { flex:none; gap:6px; padding-inline:10px; color:#28466f; font-size:calc(11rem / 14) !important; }
+.timetable-filter-chips > .timetable-semester-chip::before { height:max(24px,calc(1lh + 4px)); border:1px solid #dbe5f3; border-radius:999px; background:#f8fafc; }
+.timetable-semester-label-short { display:none; }
+.timetable-calendar-navigation { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:8px; min-width:0; }
+.timetable-date-navigation { font-size:var(--tt-type); line-height:1.4; position:relative; isolation:isolate; display:inline-flex; align-items:center; order:1; }
+.timetable-date-navigation::before { content:''; position:absolute; z-index:-1; pointer-events:none; inset:0; margin-block:auto; height:max(28px,calc(1lh + 8px)); border:1px solid #e2e8f0; border-radius:6px; background:white; }
+.timetable-date-navigation button::before { border:0; background:transparent; }
+.timetable-date-navigation button:not(:nth-child(2)) { width:var(--tt-hit); padding:0; flex-shrink:0; }
+.timetable-view-buttons { display:flex; order:2; padding:0; border:0; background:transparent; }
+.timetable-view-buttons button::before { border:0; background:transparent; }
+.timetable-view-buttons button[aria-pressed='true']::before { background:#eff6ff; }
+.timetable-period-trigger { order:3; }
+.timetable-view-select { display:none; order:2; }
+.timetable-view-select select { min-height:var(--tt-hit); width:max(64px,4.5em); border:1px solid #d1d5db; border-radius:6px; padding:4px; background:white; }
+.timetable-plan-picker { position:relative; isolation:isolate; display:inline-flex; align-items:center; gap:4px; min-height:var(--tt-hit); max-width:100%; padding:4px 8px; color:#92400e; font-size:var(--tt-type); line-height:1.4; }
+.timetable-plan-picker::before { content:''; position:absolute; z-index:-1; pointer-events:none; inset:0; margin-block:auto; height:max(28px,calc(1lh + 8px)); border:1px solid #fde68a; border-radius:6px; background:#fffbeb; }
+.timetable-plan-picker select { position:absolute; inset:0; opacity:0; width:100%; height:100%; min-height:var(--tt-hit); }
+.timetable-plan-picker:focus-within { outline:2px solid #1d4ed8; outline-offset:2px; }
+.timetable-plan-label-compact { display:none; }
+.timetable-content-frame { display:flex; align-items:stretch; gap:12px; min-width:0; }
+.timetable-filter-sidebar { display:flex; flex-direction:column; width:330px; flex-shrink:0; max-height:75dvh; }
+.timetable-sidebar-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; border-bottom:1px solid #d1d5db; }
+.timetable-sidebar-scroll { min-height:0; overflow-y:auto; }
+.timetable-calendar-pane { min-height:600px; height:calc(100dvh - 260px); overflow:hidden; }
+.timetable-label-narrow, .timetable-label-micro, .timetable-filter-label-short, .timetable-pdf-narrow { display:none; }
+.timetable-sheet-backdrop { inset-inline:0; width:100%; display:flex; align-items:flex-end; justify-content:center; background:rgba(7,28,58,.35); z-index:99990; }
+.timetable-filter-sheet { display:flex; flex-direction:column; width:100%; max-height:92%; border:1px solid #d1d5db; border-radius:20px 20px 0 0; background:white; padding-top:env(safe-area-inset-top); }
+.timetable-filter-sheet > header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid #d1d5db; flex-shrink:0; }
+.timetable-filter-sheet > header button { min-width:44px; min-height:44px; flex-shrink:0; }
+.timetable-sheet-scroll { min-height:0; overflow-y:auto; }
+.timetable-filter-sheet > .timetable-sheet-footer { display:flex; gap:8px; padding:12px 16px max(12px,env(safe-area-inset-bottom)); border-top:1px solid #d1d5db; flex-shrink:0; }
+.timetable-filter-sheet > .timetable-sheet-footer > button { min-height:44px; }
+.timetable-filter-sheet > .timetable-sheet-footer > button:last-child { flex:1; }
+.timetable-filter-sheet :is(input:not([type='checkbox']),select) { font-size:var(--ui-font-input); }
+.timetable-filter-sidebar input:not([type='checkbox']), .timetable-filter-sidebar select { max-width:100%; }
+@media (max-width:1023px), (pointer:coarse) {
+  .timetable-page-header, .timetable-unified-toolbar { --tt-hit:44px; }
+  .timetable-filter-chips button { min-width:44px; }
+}
+@media (max-width:1023px) {
+  .timetable-unified-toolbar { grid-template-columns:minmax(0,1fr); padding:4px 8px; }
+  .timetable-unified-toolbar .timetable-filter-actions { flex-wrap:wrap; }
+  .timetable-plan-picker { margin-left:auto; }
+  .timetable-plan-picker::before { height:max(28px,calc(2lh + 8px)); }
+  .timetable-label-wide { display:none; }
+  .timetable-plan-summary { display:block; }
+  .timetable-label-narrow { display:inline; }
+  .timetable-calendar-navigation { display:flex; flex-wrap:wrap; gap:4px; }
+  .timetable-period-trigger { order:2; flex:1; min-width:44px; max-width:100%; white-space:normal !important; padding-inline:4px !important; }
+  /* A wrapped period caption stays readable without a short frame crossing its text. */
+  .timetable-period-trigger::before { border:0; background:transparent; }
+  .timetable-view-buttons, .timetable-view-select { order:3; flex-shrink:0; }
+  .timetable-date-navigation { flex-shrink:0; }
+  .timetable-content-frame { display:block; }
+}
+@media (max-width:767px) {
+  .timetable-page-header { gap:8px; }
+  .timetable-page-header > div:first-child { flex-basis:100%; }
+  .timetable-unified-toolbar { grid-template-columns:max-content minmax(0,1fr); gap:0 4px; padding:2px 8px 0; }
+  .timetable-unified-toolbar > .timetable-filter-actions { grid-column:1; grid-row:1; flex-wrap:nowrap; gap:4px; }
+  .timetable-unified-toolbar .timetable-filter-actions > button { padding-inline:4px; gap:4px; }
+  .timetable-unified-toolbar > .timetable-filter-bar { grid-column:2; grid-row:1; overflow:hidden; }
+  .timetable-unified-toolbar > .timetable-calendar-navigation { grid-column:1 / -1; grid-row:2; flex-wrap:nowrap; justify-content:space-between; gap:2px; min-width:0; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; border-top:1px solid #e2e8f0; }
+  .timetable-unified-toolbar > .timetable-calendar-navigation::-webkit-scrollbar { display:none; }
+  .timetable-filter-chips { gap:4px; }
+  .timetable-filter-chips > span { flex:none; padding-inline:6px 0; gap:0; }
+  .timetable-filter-chips > .timetable-semester-chip { gap:4px; padding-inline:6px; font-size:calc(12rem / 14) !important; }
+  .timetable-semester-label-full { display:none; }
+  .timetable-semester-label-short { display:inline; }
+  .timetable-plan-picker { margin-left:0; padding-inline:4px; white-space:nowrap; }
+  .timetable-plan-picker::before { height:max(28px,calc(1lh + 8px)); }
+  .timetable-plan-summary { display:none; }
+  .timetable-filter-chips:not(:has(> :is(.timetable-semester-chip, span:not(.ui-muted)) ~ :is(.timetable-semester-chip, span:not(.ui-muted)))) > button[aria-label='Xóa tất cả bộ lọc'] { display:none; }
+  .timetable-calendar-navigation > * { flex-shrink:0; }
+  .timetable-period-trigger { flex:0 0 auto; min-width:44px; white-space:nowrap !important; }
+  .timetable-date-navigation button:nth-child(2) { padding-inline:2px; }
+  .timetable-unified-toolbar + .timetable-content-frame { margin-top:0 !important; }
+  .timetable-mode { gap:4px; }
+  .timetable-mode button { padding-inline:4px; }
+  .timetable-pdf-wide { display:none; }
+  .timetable-pdf-narrow { display:inline; }
+  .timetable-filter-chips > span { font-size:calc(12rem / 14) !important; line-height:1.4 !important; }
+  .timetable-filter-sidebar input:not([type='checkbox']), .timetable-filter-sidebar select { font-size:16px; }
+}
+@media (max-width:359px) {
+  .timetable-view-buttons { display:none; }
+  .timetable-view-select { display:block; }
+}
+@media (max-width:389px) {
+  .timetable-filter-label-wide, .timetable-filter-actions > button:nth-child(2) .timetable-label-narrow { display:none; }
+  .timetable-filter-label-short, .timetable-filter-actions > button:nth-child(2) .timetable-label-micro { display:inline; }
+}
+@media (max-width:375px) {
+  .timetable-plan-label-full { display:none; }
+  .timetable-plan-label-compact { display:inline; }
+}
+@media (min-width:1200px) {
+  .timetable-unified-toolbar { grid-template-columns:auto minmax(0,1fr) auto; }
+  .timetable-unified-toolbar > .timetable-filter-actions { grid-column:1; grid-row:1; }
+  .timetable-unified-toolbar > .timetable-filter-bar { grid-column:2; grid-row:1; }
+  .timetable-unified-toolbar > .timetable-calendar-navigation { grid-column:3; grid-row:1; }
+}
+@keyframes timetable-sheet-enter { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.timetable-filter-sheet { animation:timetable-sheet-enter 160ms ease-out; }
+@media (prefers-reduced-motion:reduce) { .timetable-filter-sheet { animation:none; } }

@@ -106,7 +106,7 @@ const DrawerAttachmentItem = ({ item }: {
   };
 
   return (
-    <button type="button" onClick={() => openAttachment(item.id)} className="flex min-w-0 items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-2 py-1.5 text-left text-[11px] font-bold hover:bg-white/25">
+    <button type="button" onClick={() => openAttachment(item.id)} className="ui-action flex min-w-0 items-center gap-2 rounded-lg border border-white/20 bg-white/15 px-2 py-1.5 text-left ui-meta text-[11px] font-bold hover:bg-white/25">
       {isImage ? <ImageIcon size={14} className="shrink-0" /> : <FileText size={14} className="shrink-0" />}
       <span className="min-w-0 flex-1 truncate">{item.file_name}</span>
       <span className="shrink-0 opacity-75">{formatAttachmentSize(item.size_bytes)}</span>
@@ -133,13 +133,13 @@ const DrawerPendingAttachments = ({ files, onRemove }: {
   return (
     <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
       {files.map((item) => (
-        <div key={item.id} className="relative flex min-w-[150px] max-w-[210px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs shadow-sm">
+        <div key={item.id} className="ui-meta relative flex min-h-[60px] min-w-[210px] max-w-[240px] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs shadow-sm">
           {item.previewUrl ? <img src={item.previewUrl} alt="" className="h-8 w-8 rounded-md object-cover" /> : <FileText size={18} className="shrink-0 text-red-600" />}
           <div className="min-w-0 flex-1">
             <p className="truncate font-black text-slate-700">{item.name}</p>
-            <p className="text-[11px] font-bold text-slate-400">{item.progress > 0 ? `${item.progress}%` : formatAttachmentSize(item.size)}</p>
+            <p className="ui-meta text-[11px] font-bold text-slate-400">{item.progress > 0 ? `${item.progress}%` : formatAttachmentSize(item.size)}</p>
           </div>
-          <button type="button" onClick={() => onRemove(item.id)} className="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-slate-500">
+          <button type="button" onClick={() => onRemove(item.id)} aria-label={`Bỏ đính kèm ${item.name}`} className="ui-action ui-icon-control shrink-0 grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-slate-500">
             <X size={14} />
           </button>
         </div>
@@ -200,7 +200,7 @@ export const FloatingSupportTab: React.FC<FloatingSupportTabProps> = ({
         onClick={openPanel}
         className={
           isMobileLayout
-            ? 'fixed right-4 z-[55] grid h-14 w-14 place-items-center rounded-full border-2 border-white bg-[#003375] text-white shadow-2xl transition hover:bg-[#002855] active:scale-95 bottom-[calc(96px+env(safe-area-inset-bottom))]'
+            ? 'ui-floating-support-trigger fixed right-4 z-[55] grid h-14 w-14 place-items-center rounded-full border-2 border-white bg-[#003375] text-white shadow-2xl transition hover:bg-[#002855] active:scale-95 bottom-[calc(96px+env(safe-area-inset-bottom))]'
             : 'fixed right-[-14px] top-[58%] z-[55] flex -translate-y-1/2 items-center gap-2 rounded-l-2xl bg-[#003375] px-2.5 py-4 pr-5 text-white shadow-xl transition-all hover:right-0 hover:bg-[#002855] active:scale-[0.98]'
         }
         aria-label="Mở hỗ trợ"
@@ -222,33 +222,33 @@ export const FloatingSupportTab: React.FC<FloatingSupportTabProps> = ({
           <aside
             className={
               isMobileLayout
-                ? 'absolute inset-0 flex flex-col bg-white animate-slideUp'
-                : 'absolute right-0 top-0 flex h-full w-full max-w-[440px] flex-col bg-white shadow-2xl animate-slideInRight'
+                ? 'ui-support-panel absolute inset-0 flex flex-col bg-white animate-slideUp'
+                : 'ui-support-panel absolute right-0 top-0 flex h-full w-full max-w-[440px] flex-col bg-white shadow-2xl animate-slideInRight'
             }
           >
             <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-4">
               <div className="flex items-center gap-3">
                 {view !== 'list' && (
-                  <button type="button" onClick={goList} className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-600 active:scale-95">
+                  <button type="button" onClick={goList} aria-label="Trở về danh sách hỗ trợ" className="ui-action ui-icon-control grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-600 active:scale-95">
                     <ArrowLeft size={20} />
                   </button>
                 )}
                 <div>
-                  <h2 className="text-lg font-black text-slate-950">Hỗ trợ</h2>
-                  <p className="text-xs font-bold text-slate-500">Ticket 1-1 với admin</p>
+                  <h2 className="ui-section-title text-lg font-black text-slate-950">Hỗ trợ</h2>
+                  <p className="ui-meta text-xs font-bold text-slate-500">Ticket 1-1 với admin</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={openFullPage}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-blue-50 text-[#003375] hover:bg-blue-100 active:scale-95"
+                  className="ui-action ui-icon-control grid h-10 w-10 place-items-center rounded-full bg-blue-50 text-[#003375] hover:bg-blue-100 active:scale-95"
                   title="Mở trang hỗ trợ đầy đủ"
                   aria-label="Mở rộng hỗ trợ"
                 >
                   <Maximize2 size={18} />
                 </button>
-                <button type="button" onClick={closePanel} className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 active:scale-95" aria-label="Đóng hỗ trợ">
+                <button type="button" onClick={closePanel} className="ui-action ui-icon-control grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 active:scale-95" aria-label="Đóng hỗ trợ">
                   <X size={20} />
                 </button>
               </div>
@@ -291,15 +291,15 @@ const SupportDrawerList = ({ onCreate, onOpenTicket }: {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[#F8FAFC]">
       <div className="shrink-0 space-y-3 border-b border-slate-100 bg-white p-4">
-        <button type="button" onClick={onCreate} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003375] text-sm font-black text-white shadow-sm transition hover:bg-[#002855] active:scale-95">
+        <button type="button" onClick={onCreate} className="ui-action inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003375] text-sm font-black text-white shadow-sm transition hover:bg-[#002855] active:scale-95">
           <Plus size={18} /> Tạo yêu cầu hỗ trợ
         </button>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          <button type="button" onClick={() => setStatusFilter('all')} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${statusFilter === 'all' ? 'bg-[#003375] text-white' : 'bg-slate-100 text-slate-600'}`}>
+          <button type="button" onClick={() => setStatusFilter('all')} className={`ui-action shrink-0 rounded-full px-3 py-2 text-xs font-black ${statusFilter === 'all' ? 'bg-[#003375] text-white' : 'bg-slate-100 text-slate-600'}`}>
             Tất cả
           </button>
           {statuses.map((status) => (
-            <button key={status} type="button" onClick={() => setStatusFilter(status)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-black ${statusFilter === status ? 'bg-[#003375] text-white' : 'bg-slate-100 text-slate-600'}`}>
+            <button key={status} type="button" onClick={() => setStatusFilter(status)} className={`ui-action shrink-0 rounded-full px-3 py-2 text-xs font-black ${statusFilter === status ? 'bg-[#003375] text-white' : 'bg-slate-100 text-slate-600'}`}>
               {SUPPORT_STATUS_LABELS[status]}
             </button>
           ))}
@@ -324,7 +324,7 @@ const SupportDrawerList = ({ onCreate, onOpenTicket }: {
                     <h3 className="truncate text-sm font-black text-slate-950">{ticket.subject}</h3>
                     <p className="mt-1 text-xs font-bold text-slate-500">{SUPPORT_CATEGORY_LABELS[ticket.category]}</p>
                   </div>
-                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-black ${statusClass[ticket.status]}`}>
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 ui-meta text-[11px] font-black ${statusClass[ticket.status]}`}>
                     {SUPPORT_STATUS_LABELS[ticket.status]}
                   </span>
                 </div>
@@ -404,7 +404,7 @@ const SupportDrawerCreate = ({ onCreated }: { onCreated: (ticketId: string) => v
           <textarea value={message} onChange={(event) => setMessage(event.target.value)} maxLength={4000} rows={6} className="resize-none rounded-xl border border-slate-200 px-3 py-3 text-sm leading-6 outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Mô tả vấn đề bạn đang gặp" />
         </label>
         {error && <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</div>}
-        <button disabled={submitting} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#003375] text-sm font-black text-white disabled:opacity-60">
+        <button disabled={submitting} className="ui-action inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#003375] text-sm font-black text-white disabled:opacity-60">
           {submitting ? <Loader2 size={18} className="animate-spin" /> : <MessageSquarePlus size={18} />}
           Gửi yêu cầu
         </button>
@@ -583,7 +583,7 @@ const SupportDrawerDetail = ({ ticketId, onDeleted }: { ticketId: string; onDele
             </div>
           </div>
           <div className="relative shrink-0">
-            <button type="button" onClick={() => setTicketMenuOpen((current) => !current)} className="grid h-8 w-8 place-items-center rounded-full bg-slate-50 text-slate-600" aria-label="Mở thao tác ticket">
+            <button type="button" onClick={() => setTicketMenuOpen((current) => !current)} className="ui-action ui-icon-control grid h-8 w-8 place-items-center rounded-full bg-slate-50 text-slate-600" aria-label="Mở thao tác ticket">
               <MoreVertical size={17} />
             </button>
             {ticketMenuOpen && (
@@ -621,10 +621,10 @@ const SupportDrawerDetail = ({ ticketId, onDeleted }: { ticketId: string; onDele
             const mine = message.sender_role === 'user';
             return (
               <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[84%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${mine ? 'rounded-br-sm bg-[#003375] text-white' : 'rounded-bl-sm border border-slate-100 bg-white text-slate-800'}`}>
+                <div className={`ui-body max-w-[84%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${mine ? 'rounded-br-sm bg-[#003375] text-white' : 'rounded-bl-sm border border-slate-100 bg-white text-slate-800'}`}>
                   {message.body && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
                   <DrawerAttachments attachments={message.attachments} />
-                  <p className={`mt-2 text-[10px] font-bold ${mine ? 'text-blue-100' : 'text-slate-400'}`}>
+                  <p className={`mt-2 ui-meta text-[10px] font-bold ${mine ? 'text-blue-100' : 'text-slate-400'}`}>
                     {message.sender_role === 'user' ? 'Bạn' : 'Hỗ trợ'} · {formatDateTime(message.created_at)}
                   </p>
                 </div>
@@ -655,7 +655,7 @@ const SupportDrawerDetail = ({ ticketId, onDeleted }: { ticketId: string; onDele
               event.currentTarget.value = '';
             }}
           />
-          <button type="button" onClick={() => setFileMenuOpen((current) => !current)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-700" aria-label="Đính kèm file">
+          <button type="button" onClick={() => setFileMenuOpen((current) => !current)} className="ui-action ui-icon-control grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-200 bg-white text-slate-700" aria-label="Đính kèm file">
             <Paperclip size={18} />
           </button>
           {fileMenuOpen && (
@@ -669,7 +669,7 @@ const SupportDrawerDetail = ({ ticketId, onDeleted }: { ticketId: string; onDele
             </div>
           )}
           <textarea value={reply} onChange={(event) => setReply(event.target.value)} onPaste={handlePaste} rows={1} maxLength={4000} placeholder="Nhập phản hồi hoặc dán ảnh vào đây..." className="min-h-[44px] max-h-[120px] flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-[#003375] focus:bg-white focus:ring-4 focus:ring-blue-50" />
-          <button disabled={submitting || (!reply.trim() && pendingFiles.length === 0)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#003375] text-white shadow-sm disabled:opacity-50">
+          <button aria-label="Gửi phản hồi" disabled={submitting || (!reply.trim() && pendingFiles.length === 0)} className="ui-action ui-icon-control grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#003375] text-white shadow-sm disabled:opacity-50">
             {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={17} />}
           </button>
         </div>

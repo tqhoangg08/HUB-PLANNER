@@ -1,0 +1,632 @@
+[
+  {
+    "width": 320,
+    "mode": "personal",
+    "toolbar": {
+      "x": 16,
+      "y": 399.796875,
+      "right": 304,
+      "bottom": 492.796875,
+      "width": 288,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 402.796875,
+      "right": 141.71875,
+      "bottom": 446.796875,
+      "width": 116.71875,
+      "height": 44
+    },
+    "chips": {
+      "x": 145.71875,
+      "y": 402.796875,
+      "right": 295,
+      "bottom": 446.796875,
+      "width": 149.28125,
+      "height": 44
+    },
+    "chip": {
+      "x": 145.71875,
+      "y": 402.796875,
+      "right": 242.328125,
+      "bottom": 446.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 446.796875,
+      "right": 295,
+      "bottom": 491.796875,
+      "width": 270,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 492.796875,
+      "right": 304,
+      "bottom": 1092.796875,
+      "width": 288,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 447.796875,
+      "right": 263.375,
+      "bottom": 491.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 320,
+    "mode": "plan",
+    "toolbar": {
+      "x": 16,
+      "y": 399.796875,
+      "right": 304,
+      "bottom": 492.796875,
+      "width": 288,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 402.796875,
+      "right": 201.640625,
+      "bottom": 446.796875,
+      "width": 176.640625,
+      "height": 44
+    },
+    "chips": {
+      "x": 205.640625,
+      "y": 402.796875,
+      "right": 295,
+      "bottom": 446.796875,
+      "width": 89.359375,
+      "height": 44
+    },
+    "chip": {
+      "x": 205.640625,
+      "y": 402.796875,
+      "right": 302.25,
+      "bottom": 446.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 446.796875,
+      "right": 295,
+      "bottom": 491.796875,
+      "width": 270,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 492.796875,
+      "right": 304,
+      "bottom": 1092.796875,
+      "width": 288,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 447.796875,
+      "right": 263.375,
+      "bottom": 491.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 360,
+    "mode": "personal",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 344,
+      "bottom": 388.796875,
+      "width": 328,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 141.71875,
+      "bottom": 342.796875,
+      "width": 116.71875,
+      "height": 44
+    },
+    "chips": {
+      "x": 145.71875,
+      "y": 298.796875,
+      "right": 335,
+      "bottom": 342.796875,
+      "width": 189.28125,
+      "height": 44
+    },
+    "chip": {
+      "x": 145.71875,
+      "y": 298.796875,
+      "right": 242.328125,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 335,
+      "bottom": 387.796875,
+      "width": 310,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 344,
+      "bottom": 988.796875,
+      "width": 328,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 343.796875,
+      "right": 263.375,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 360,
+    "mode": "plan",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 344,
+      "bottom": 388.796875,
+      "width": 328,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 201.640625,
+      "bottom": 342.796875,
+      "width": 176.640625,
+      "height": 44
+    },
+    "chips": {
+      "x": 205.640625,
+      "y": 298.796875,
+      "right": 335,
+      "bottom": 342.796875,
+      "width": 129.359375,
+      "height": 44
+    },
+    "chip": {
+      "x": 205.640625,
+      "y": 298.796875,
+      "right": 302.25,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 335,
+      "bottom": 387.796875,
+      "width": 310,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 344,
+      "bottom": 988.796875,
+      "width": 328,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 343.796875,
+      "right": 263.375,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 375,
+    "mode": "personal",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 359,
+      "bottom": 388.796875,
+      "width": 343,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 141.71875,
+      "bottom": 342.796875,
+      "width": 116.71875,
+      "height": 44
+    },
+    "chips": {
+      "x": 145.71875,
+      "y": 298.796875,
+      "right": 350,
+      "bottom": 342.796875,
+      "width": 204.28125,
+      "height": 44
+    },
+    "chip": {
+      "x": 145.71875,
+      "y": 298.796875,
+      "right": 242.328125,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 350,
+      "bottom": 387.796875,
+      "width": 325,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 359,
+      "bottom": 988.796875,
+      "width": 343,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 343.796875,
+      "right": 263.375,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 375,
+    "mode": "plan",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 359,
+      "bottom": 388.796875,
+      "width": 343,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 201.640625,
+      "bottom": 342.796875,
+      "width": 176.640625,
+      "height": 44
+    },
+    "chips": {
+      "x": 205.640625,
+      "y": 298.796875,
+      "right": 350,
+      "bottom": 342.796875,
+      "width": 144.359375,
+      "height": 44
+    },
+    "chip": {
+      "x": 205.640625,
+      "y": 298.796875,
+      "right": 302.25,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 350,
+      "bottom": 387.796875,
+      "width": 325,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 359,
+      "bottom": 988.796875,
+      "width": 343,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 343.796875,
+      "right": 263.375,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "mode": "personal",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 374,
+      "bottom": 388.796875,
+      "width": 358,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 161.890625,
+      "bottom": 342.796875,
+      "width": 136.890625,
+      "height": 44
+    },
+    "chips": {
+      "x": 165.890625,
+      "y": 298.796875,
+      "right": 365,
+      "bottom": 342.796875,
+      "width": 199.109375,
+      "height": 44
+    },
+    "chip": {
+      "x": 165.890625,
+      "y": 298.796875,
+      "right": 262.5,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 365,
+      "bottom": 387.796875,
+      "width": 340,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 374,
+      "bottom": 988.796875,
+      "width": 358,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 343.796875,
+      "right": 263.375,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 390,
+    "mode": "plan",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 374,
+      "bottom": 388.796875,
+      "width": 358,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 270.1875,
+      "bottom": 342.796875,
+      "width": 245.1875,
+      "height": 44
+    },
+    "chips": {
+      "x": 274.1875,
+      "y": 298.796875,
+      "right": 365,
+      "bottom": 342.796875,
+      "width": 90.8125,
+      "height": 44
+    },
+    "chip": {
+      "x": 274.1875,
+      "y": 298.796875,
+      "right": 370.796875,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 365,
+      "bottom": 387.796875,
+      "width": 340,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 374,
+      "bottom": 988.796875,
+      "width": 358,
+      "height": 600
+    },
+    "period": {
+      "x": 174.03125,
+      "y": 343.796875,
+      "right": 263.375,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 430,
+    "mode": "personal",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 414,
+      "bottom": 388.796875,
+      "width": 398,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 161.890625,
+      "bottom": 342.796875,
+      "width": 136.890625,
+      "height": 44
+    },
+    "chips": {
+      "x": 165.890625,
+      "y": 298.796875,
+      "right": 405,
+      "bottom": 342.796875,
+      "width": 239.109375,
+      "height": 44
+    },
+    "chip": {
+      "x": 165.890625,
+      "y": 298.796875,
+      "right": 262.5,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 405,
+      "bottom": 387.796875,
+      "width": 380,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 414,
+      "bottom": 988.796875,
+      "width": 398,
+      "height": 600
+    },
+    "period": {
+      "x": 192.78125,
+      "y": 343.796875,
+      "right": 282.125,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  },
+  {
+    "width": 430,
+    "mode": "plan",
+    "toolbar": {
+      "x": 16,
+      "y": 295.796875,
+      "right": 414,
+      "bottom": 388.796875,
+      "width": 398,
+      "height": 93
+    },
+    "actions": {
+      "x": 25,
+      "y": 298.796875,
+      "right": 270.1875,
+      "bottom": 342.796875,
+      "width": 245.1875,
+      "height": 44
+    },
+    "chips": {
+      "x": 274.1875,
+      "y": 298.796875,
+      "right": 405,
+      "bottom": 342.796875,
+      "width": 130.8125,
+      "height": 44
+    },
+    "chip": {
+      "x": 274.1875,
+      "y": 298.796875,
+      "right": 370.796875,
+      "bottom": 342.796875,
+      "width": 96.609375,
+      "height": 44
+    },
+    "navigation": {
+      "x": 25,
+      "y": 342.796875,
+      "right": 405,
+      "bottom": 387.796875,
+      "width": 380,
+      "height": 45
+    },
+    "calendar": {
+      "x": 16,
+      "y": 388.796875,
+      "right": 414,
+      "bottom": 988.796875,
+      "width": 398,
+      "height": 600
+    },
+    "period": {
+      "x": 192.78125,
+      "y": 343.796875,
+      "right": 282.125,
+      "bottom": 387.796875,
+      "width": 89.34375,
+      "height": 44
+    },
+    "periodWhiteSpace": "nowrap",
+    "periodClipped": false,
+    "pageOverflow": false
+  }
+]

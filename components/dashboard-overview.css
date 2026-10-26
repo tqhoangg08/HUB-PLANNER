@@ -1,0 +1,30 @@
+/* Overview-only layout. Keep existing Inter roles, font scale and gray-300 borders. */
+.dashboard-profile-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.dashboard-profile-status a { color: #0052cc; text-align: left; }
+.dashboard-kpi-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0; }
+.dashboard-kpi-heading > :first-child { min-width: 0; }
+.dashboard-login-link { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: 44px; min-width: 44px; color: #92400e; font-size: var(--ui-font-meta); line-height: 1.5; border-radius: 999px; }
+.dashboard-login-link > span { padding: 2px 8px; border-radius: inherit; background: #fffbeb; }
+.dashboard-login-link:hover > span { background: #fef3c7; }
+.dashboard-login-link:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+/* Preview styling uses the actual content; titles, cards and primary stats stay clear. */
+[data-dashboard-obscured="true"] { filter: blur(2px); opacity: .5; }
+/* Keep the real goal input and its help readable during keyboard/touch editing. */
+[data-dashboard-obscured="true"]:focus-within { filter: none; opacity: 1; }
+.dashboard-credit-progress [role="progressbar"] { height: 6px; border-radius: 999px; background: #f1f5f9; }
+.dashboard-credit-progress [role="progressbar"] > div { height: 100%; border-radius: inherit; background: #0052cc; }
+.dashboard-credit-progress { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.dashboard-credit-progress > span { align-self: flex-end; color: #0052cc; }
+.dashboard-overview-assessment-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.dashboard-debt-status { font-size: var(--ui-font-meta); display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; background: #ecfdf5; color: #047857; width: fit-content; }
+.dashboard-overview-secondary { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.dashboard-overview-card { min-width: 0; }
+@media (max-width: 767px) {
+  .dashboard-overview-kpis > div { min-width: 0; }
+}
+@media (min-width: 1024px) {
+  .dashboard-overview-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.dashboard-year-summary .grid > span { min-width: 0; overflow-wrap: anywhere; }
+.dashboard-year-summary .truncate { white-space: normal; overflow: visible; }

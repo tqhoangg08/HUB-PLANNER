@@ -1,0 +1,1655 @@
+{
+  "observedAt": "2026-10-25T05:20:16.391Z",
+  "beforeSha": "c92b6e9b00b7d23e0aef18a51edfb3e17f58f4e9",
+  "environment": "Local Vite, actual components, React StrictMode, isolated synthetic identity/API fixtures; Chromium 155 and WebKit 26.5",
+  "before": [
+    {
+      "role": "guest",
+      "width": 390,
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 961.4375,
+        "width": 173,
+        "height": 152.390625,
+        "bottom": 1113.828125,
+        "right": 189
+      },
+      "year": {
+        "x": 201,
+        "y": 961.4375,
+        "width": 173,
+        "height": 152.390625,
+        "bottom": 1113.828125,
+        "right": 374
+      },
+      "assessment": {
+        "x": 16,
+        "y": 834.796875,
+        "width": 358,
+        "height": 112.640625,
+        "bottom": 947.4375,
+        "right": 374
+      },
+      "assessmentText": "Đánh giá hệ thống\n\n\"Chưa đủ dữ liệu để đánh giá xu hướng.\"\n\nKhông nợ môn",
+      "whiteLoginBoxes": 4,
+      "previews": 0,
+      "fonts": []
+    },
+    {
+      "role": "guest",
+      "width": 1440,
+      "overflow": false,
+      "distribution": {
+        "x": 727,
+        "y": 348.828125,
+        "width": 335.5,
+        "height": 184.5,
+        "bottom": 533.328125,
+        "right": 1062.5
+      },
+      "year": {
+        "x": 1076.5,
+        "y": 348.828125,
+        "width": 335.5,
+        "height": 184.5,
+        "bottom": 533.328125,
+        "right": 1412
+      },
+      "assessment": {
+        "x": 28,
+        "y": 702.828125,
+        "width": 685,
+        "height": 65.4375,
+        "bottom": 768.265625,
+        "right": 713
+      },
+      "assessmentText": "Đánh giá hệ thống\n\n\"Chưa đủ dữ liệu để đánh giá xu hướng.\"\n\nKhông nợ môn",
+      "whiteLoginBoxes": 4,
+      "previews": 0,
+      "fonts": []
+    },
+    {
+      "role": "student",
+      "width": 390,
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 882.9375,
+        "width": 173,
+        "height": 152.390625,
+        "bottom": 1035.328125,
+        "right": 189
+      },
+      "year": {
+        "x": 201,
+        "y": 882.9375,
+        "width": 173,
+        "height": 152.390625,
+        "bottom": 1035.328125,
+        "right": 374
+      },
+      "assessment": {
+        "x": 16,
+        "y": 756.296875,
+        "width": 358,
+        "height": 112.640625,
+        "bottom": 868.9375,
+        "right": 374
+      },
+      "assessmentText": "Đánh giá hệ thống\n\n\"Chưa đủ dữ liệu để đánh giá xu hướng.\"\n\nKhông nợ môn",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "fonts": []
+    },
+    {
+      "role": "student",
+      "width": 1440,
+      "overflow": false,
+      "distribution": {
+        "x": 727,
+        "y": 289.828125,
+        "width": 335.5,
+        "height": 184.5,
+        "bottom": 474.328125,
+        "right": 1062.5
+      },
+      "year": {
+        "x": 1076.5,
+        "y": 289.828125,
+        "width": 335.5,
+        "height": 184.5,
+        "bottom": 474.328125,
+        "right": 1412
+      },
+      "assessment": {
+        "x": 28,
+        "y": 643.828125,
+        "width": 685,
+        "height": 65.4375,
+        "bottom": 709.265625,
+        "right": 713
+      },
+      "assessmentText": "Đánh giá hệ thống\n\n\"Chưa đủ dữ liệu để đánh giá xu hướng.\"\n\nKhông nợ môn",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "fonts": []
+    }
+  ],
+  "chromium": [
+    {
+      "role": "guest",
+      "width": 320,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 860.6875,
+        "width": 288,
+        "height": 182.390625,
+        "bottom": 1043.078125,
+        "right": 304
+      },
+      "year": {
+        "x": 16,
+        "y": 1059.078125,
+        "width": 288,
+        "height": 138.390625,
+        "bottom": 1197.46875,
+        "right": 304
+      },
+      "assessment": {
+        "x": 16,
+        "y": 773.1875,
+        "width": 288,
+        "height": 73.5,
+        "bottom": 846.6875,
+        "right": 304
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 360,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 860.6875,
+        "width": 328,
+        "height": 182.390625,
+        "bottom": 1043.078125,
+        "right": 344
+      },
+      "year": {
+        "x": 16,
+        "y": 1059.078125,
+        "width": 328,
+        "height": 120.390625,
+        "bottom": 1179.46875,
+        "right": 344
+      },
+      "assessment": {
+        "x": 16,
+        "y": 773.1875,
+        "width": 328,
+        "height": 73.5,
+        "bottom": 846.6875,
+        "right": 344
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 375,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 794.6875,
+        "width": 343,
+        "height": 182.390625,
+        "bottom": 977.078125,
+        "right": 359
+      },
+      "year": {
+        "x": 16,
+        "y": 993.078125,
+        "width": 343,
+        "height": 120.390625,
+        "bottom": 1113.46875,
+        "right": 359
+      },
+      "assessment": {
+        "x": 16,
+        "y": 707.1875,
+        "width": 343,
+        "height": 73.5,
+        "bottom": 780.6875,
+        "right": 359
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 390,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 794.6875,
+        "width": 358,
+        "height": 182.390625,
+        "bottom": 977.078125,
+        "right": 374
+      },
+      "year": {
+        "x": 16,
+        "y": 993.078125,
+        "width": 358,
+        "height": 120.390625,
+        "bottom": 1113.46875,
+        "right": 374
+      },
+      "assessment": {
+        "x": 16,
+        "y": 707.1875,
+        "width": 358,
+        "height": 73.5,
+        "bottom": 780.6875,
+        "right": 374
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 430,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 776.6875,
+        "width": 398,
+        "height": 182.390625,
+        "bottom": 959.078125,
+        "right": 414
+      },
+      "year": {
+        "x": 16,
+        "y": 975.078125,
+        "width": 398,
+        "height": 120.390625,
+        "bottom": 1095.46875,
+        "right": 414
+      },
+      "assessment": {
+        "x": 16,
+        "y": 689.1875,
+        "width": 398,
+        "height": 73.5,
+        "bottom": 762.6875,
+        "right": 414
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 1024,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 519,
+        "y": 387.828125,
+        "width": 230.5,
+        "height": 203,
+        "bottom": 590.828125,
+        "right": 749.5
+      },
+      "year": {
+        "x": 765.5,
+        "y": 387.828125,
+        "width": 230.5,
+        "height": 203,
+        "bottom": 590.828125,
+        "right": 996
+      },
+      "assessment": {
+        "x": 28,
+        "y": 722.328125,
+        "width": 477,
+        "height": 73.9375,
+        "bottom": 796.265625,
+        "right": 505
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 1440,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 727,
+        "y": 381.828125,
+        "width": 334.5,
+        "height": 189,
+        "bottom": 570.828125,
+        "right": 1061.5
+      },
+      "year": {
+        "x": 1077.5,
+        "y": 381.828125,
+        "width": 334.5,
+        "height": 189,
+        "bottom": 570.828125,
+        "right": 1412
+      },
+      "assessment": {
+        "x": 28,
+        "y": 716.328125,
+        "width": 685,
+        "height": 73.9375,
+        "bottom": 790.265625,
+        "right": 713
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 320,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 931.6875,
+        "width": 288,
+        "height": 182.390625,
+        "bottom": 1114.078125,
+        "right": 304
+      },
+      "year": {
+        "x": 16,
+        "y": 1130.078125,
+        "width": 288,
+        "height": 153.890625,
+        "bottom": 1283.96875,
+        "right": 304
+      },
+      "assessment": {
+        "x": 16,
+        "y": 844.1875,
+        "width": 288,
+        "height": 73.5,
+        "bottom": 917.6875,
+        "right": 304
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 360,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 829.1875,
+        "width": 328,
+        "height": 182.390625,
+        "bottom": 1011.578125,
+        "right": 344
+      },
+      "year": {
+        "x": 16,
+        "y": 1027.578125,
+        "width": 328,
+        "height": 117.890625,
+        "bottom": 1145.46875,
+        "right": 344
+      },
+      "assessment": {
+        "x": 16,
+        "y": 741.6875,
+        "width": 328,
+        "height": 73.5,
+        "bottom": 815.1875,
+        "right": 344
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 375,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 829.1875,
+        "width": 343,
+        "height": 182.390625,
+        "bottom": 1011.578125,
+        "right": 359
+      },
+      "year": {
+        "x": 16,
+        "y": 1027.578125,
+        "width": 343,
+        "height": 117.890625,
+        "bottom": 1145.46875,
+        "right": 359
+      },
+      "assessment": {
+        "x": 16,
+        "y": 741.6875,
+        "width": 343,
+        "height": 73.5,
+        "bottom": 815.1875,
+        "right": 359
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 390,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 829.1875,
+        "width": 358,
+        "height": 182.390625,
+        "bottom": 1011.578125,
+        "right": 374
+      },
+      "year": {
+        "x": 16,
+        "y": 1027.578125,
+        "width": 358,
+        "height": 117.890625,
+        "bottom": 1145.46875,
+        "right": 374
+      },
+      "assessment": {
+        "x": 16,
+        "y": 741.6875,
+        "width": 358,
+        "height": 73.5,
+        "bottom": 815.1875,
+        "right": 374
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 430,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 802.1875,
+        "width": 398,
+        "height": 182.390625,
+        "bottom": 984.578125,
+        "right": 414
+      },
+      "year": {
+        "x": 16,
+        "y": 1000.578125,
+        "width": 398,
+        "height": 117.890625,
+        "bottom": 1118.46875,
+        "right": 414
+      },
+      "assessment": {
+        "x": 16,
+        "y": 714.6875,
+        "width": 398,
+        "height": 73.5,
+        "bottom": 788.1875,
+        "right": 414
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 1024,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 519,
+        "y": 303.828125,
+        "width": 230.5,
+        "height": 184.5,
+        "bottom": 488.328125,
+        "right": 749.5
+      },
+      "year": {
+        "x": 765.5,
+        "y": 303.828125,
+        "width": 230.5,
+        "height": 184.5,
+        "bottom": 488.328125,
+        "right": 996
+      },
+      "assessment": {
+        "x": 28,
+        "y": 638.328125,
+        "width": 477,
+        "height": 73.9375,
+        "bottom": 712.265625,
+        "right": 505
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 1440,
+      "expectedBorder": "oklch(0.872 0.01 258.338)",
+      "overflow": false,
+      "distribution": {
+        "x": 727,
+        "y": 303.828125,
+        "width": 334.5,
+        "height": 184.5,
+        "bottom": 488.328125,
+        "right": 1061.5
+      },
+      "year": {
+        "x": 1077.5,
+        "y": 303.828125,
+        "width": 334.5,
+        "height": 184.5,
+        "bottom": 488.328125,
+        "right": 1412
+      },
+      "assessment": {
+        "x": 28,
+        "y": 638.328125,
+        "width": 685,
+        "height": 73.9375,
+        "bottom": 712.265625,
+        "right": 713
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          "border": "oklch(0.872 0.01 258.338)"
+        }
+      ]
+    }
+  ],
+  "webkit": [
+    {
+      "role": "guest",
+      "width": 320,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 808.1875,
+        "width": 288,
+        "height": 182.390625,
+        "bottom": 990.578125,
+        "right": 304
+      },
+      "year": {
+        "x": 16,
+        "y": 1006.578125,
+        "width": 288,
+        "height": 138.390625,
+        "bottom": 1144.96875,
+        "right": 304
+      },
+      "assessment": {
+        "x": 16,
+        "y": 720.6875,
+        "width": 288,
+        "height": 73.5,
+        "bottom": 794.1875,
+        "right": 304
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 360,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 860.1875,
+        "width": 328,
+        "height": 182.390625,
+        "bottom": 1042.578125,
+        "right": 344
+      },
+      "year": {
+        "x": 16,
+        "y": 1058.578125,
+        "width": 328,
+        "height": 120.390625,
+        "bottom": 1178.96875,
+        "right": 344
+      },
+      "assessment": {
+        "x": 16,
+        "y": 772.6875,
+        "width": 328,
+        "height": 73.5,
+        "bottom": 846.1875,
+        "right": 344
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 375,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 846.1875,
+        "width": 343,
+        "height": 182.390625,
+        "bottom": 1028.578125,
+        "right": 359
+      },
+      "year": {
+        "x": 16,
+        "y": 1044.578125,
+        "width": 343,
+        "height": 120.390625,
+        "bottom": 1164.96875,
+        "right": 359
+      },
+      "assessment": {
+        "x": 16,
+        "y": 758.6875,
+        "width": 343,
+        "height": 73.5,
+        "bottom": 832.1875,
+        "right": 359
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 390,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 794.1875,
+        "width": 358,
+        "height": 182.390625,
+        "bottom": 976.578125,
+        "right": 374
+      },
+      "year": {
+        "x": 16,
+        "y": 992.578125,
+        "width": 358,
+        "height": 120.390625,
+        "bottom": 1112.96875,
+        "right": 374
+      },
+      "assessment": {
+        "x": 16,
+        "y": 706.6875,
+        "width": 358,
+        "height": 73.5,
+        "bottom": 780.1875,
+        "right": 374
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 430,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 776.1875,
+        "width": 398,
+        "height": 182.390625,
+        "bottom": 958.578125,
+        "right": 414
+      },
+      "year": {
+        "x": 16,
+        "y": 974.578125,
+        "width": 398,
+        "height": 120.390625,
+        "bottom": 1094.96875,
+        "right": 414
+      },
+      "assessment": {
+        "x": 16,
+        "y": 688.6875,
+        "width": 398,
+        "height": 73.5,
+        "bottom": 762.1875,
+        "right": 414
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 1024,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 516,
+        "y": 387.796875,
+        "width": 229,
+        "height": 203,
+        "bottom": 590.796875,
+        "right": 745
+      },
+      "year": {
+        "x": 761,
+        "y": 387.796875,
+        "width": 229,
+        "height": 203,
+        "bottom": 590.796875,
+        "right": 990
+      },
+      "assessment": {
+        "x": 28,
+        "y": 722.296875,
+        "width": 474,
+        "height": 73.9375,
+        "bottom": 796.234375,
+        "right": 502
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 1440,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 724,
+        "y": 381.828125,
+        "width": 333,
+        "height": 189,
+        "bottom": 570.828125,
+        "right": 1057
+      },
+      "year": {
+        "x": 1073,
+        "y": 381.828125,
+        "width": 333,
+        "height": 189,
+        "bottom": 570.828125,
+        "right": 1406
+      },
+      "assessment": {
+        "x": 28,
+        "y": 716.328125,
+        "width": 682,
+        "height": 73.9375,
+        "bottom": 790.265625,
+        "right": 710
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 5,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 320,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 931.1875,
+        "width": 288,
+        "height": 182.390625,
+        "bottom": 1113.578125,
+        "right": 304
+      },
+      "year": {
+        "x": 16,
+        "y": 1129.578125,
+        "width": 288,
+        "height": 153.890625,
+        "bottom": 1283.46875,
+        "right": 304
+      },
+      "assessment": {
+        "x": 16,
+        "y": 843.6875,
+        "width": 288,
+        "height": 73.5,
+        "bottom": 917.1875,
+        "right": 304
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 360,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 881.1875,
+        "width": 328,
+        "height": 182.390625,
+        "bottom": 1063.578125,
+        "right": 344
+      },
+      "year": {
+        "x": 16,
+        "y": 1079.578125,
+        "width": 328,
+        "height": 117.890625,
+        "bottom": 1197.46875,
+        "right": 344
+      },
+      "assessment": {
+        "x": 16,
+        "y": 793.6875,
+        "width": 328,
+        "height": 73.5,
+        "bottom": 867.1875,
+        "right": 344
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 375,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 829.1875,
+        "width": 343,
+        "height": 182.390625,
+        "bottom": 1011.578125,
+        "right": 359
+      },
+      "year": {
+        "x": 16,
+        "y": 1027.578125,
+        "width": 343,
+        "height": 117.890625,
+        "bottom": 1145.46875,
+        "right": 359
+      },
+      "assessment": {
+        "x": 16,
+        "y": 741.6875,
+        "width": 343,
+        "height": 73.5,
+        "bottom": 815.1875,
+        "right": 359
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 390,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 829.1875,
+        "width": 358,
+        "height": 182.390625,
+        "bottom": 1011.578125,
+        "right": 374
+      },
+      "year": {
+        "x": 16,
+        "y": 1027.578125,
+        "width": 358,
+        "height": 117.890625,
+        "bottom": 1145.46875,
+        "right": 374
+      },
+      "assessment": {
+        "x": 16,
+        "y": 741.6875,
+        "width": 358,
+        "height": 73.5,
+        "bottom": 815.1875,
+        "right": 374
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 430,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 16,
+        "y": 802.1875,
+        "width": 398,
+        "height": 182.390625,
+        "bottom": 984.578125,
+        "right": 414
+      },
+      "year": {
+        "x": 16,
+        "y": 1000.578125,
+        "width": 398,
+        "height": 117.890625,
+        "bottom": 1118.46875,
+        "right": 414
+      },
+      "assessment": {
+        "x": 16,
+        "y": 714.6875,
+        "width": 398,
+        "height": 73.5,
+        "bottom": 788.1875,
+        "right": 414
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 1024,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 516,
+        "y": 303.0625,
+        "width": 229,
+        "height": 184.5,
+        "bottom": 487.5625,
+        "right": 745
+      },
+      "year": {
+        "x": 761,
+        "y": 303.0625,
+        "width": 229,
+        "height": 184.5,
+        "bottom": 487.5625,
+        "right": 990
+      },
+      "assessment": {
+        "x": 28,
+        "y": 637.5625,
+        "width": 474,
+        "height": 73.9375,
+        "bottom": 711.5,
+        "right": 502
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 1440,
+      "expectedBorder": "oklch(0.872 0.01 258.338013)",
+      "overflow": false,
+      "distribution": {
+        "x": 724,
+        "y": 303.0625,
+        "width": 333,
+        "height": 184.5,
+        "bottom": 487.5625,
+        "right": 1057
+      },
+      "year": {
+        "x": 1073,
+        "y": 303.0625,
+        "width": 333,
+        "height": 184.5,
+        "bottom": 487.5625,
+        "right": 1406
+      },
+      "assessment": {
+        "x": 28,
+        "y": 637.5625,
+        "width": 682,
+        "height": 73.9375,
+        "bottom": 711.5,
+        "right": 710
+      },
+      "assessmentText": "Đánh giá hệ thống\n✓ Không nợ môn\n\nChưa đủ dữ liệu để đánh giá xu hướng.",
+      "whiteLoginBoxes": 0,
+      "previews": 0,
+      "progress": "43.2",
+      "fonts": [
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        },
+        {
+          "family": "Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+          "border": "oklch(0.872 0.01 258.338013)"
+        }
+      ]
+    }
+  ],
+  "sourceProof": {
+    "Dashboard": {
+      "controllers": "IDENTICAL",
+      "sha256": "e37634a6e36906ff410581ce9c5ee6ba9a085618ca2c9971aa6000b14551ee1b"
+    },
+    "DesktopLayout": {
+      "controllers": "IDENTICAL",
+      "sha256": "bb8a1d3af66bb96566554794189bb12fee90c35b6bb74b341287a03695bc8c27"
+    },
+    "SemesterTable": "ENTIRE AST IDENTICAL",
+    "note": "Calculations, handlers, permissions, state and fetching controller ASTs identical. Preview examples are separate decorative JSX, aria-hidden with an accessible illustration notice.",
+    "sourceManifest": [
+      {
+        "path": "components/Dashboard.tsx",
+        "sha256NormalizedLF": "a34916449481a9b3dab981e5136df9ad20555d5cfde996b002c85b3b2abd07c5"
+      },
+      {
+        "path": "components/DashboardPreview.tsx",
+        "sha256NormalizedLF": "05896ca5c0868e483f4bc3f94f62bd00b672c6193638363de0342a9343c174e0"
+      },
+      {
+        "path": "components/dashboard-overview.css",
+        "sha256NormalizedLF": "2732d4ba190a9e6b5187402eaeed177946fab152f1195dddc0e25cad5ef02d02"
+      },
+      {
+        "path": "layouts/DesktopLayout.tsx",
+        "sha256NormalizedLF": "cf713fbc8c3413f110dc43d1e00968901151dac028c995a064140f1caec10b97"
+      },
+      {
+        "path": "tests/mobile-design.browser.test.mjs",
+        "sha256NormalizedLF": "39e064ff1419c513c9dc60c111b55098c7e04ca82217ad0f305797529037ec75"
+      },
+      {
+        "path": "tests/mobile-design-harness.tsx",
+        "sha256NormalizedLF": "97b8842b0984421190a67138e4f12698984ccf315987755f9231734150b74ccb"
+      }
+    ]
+  },
+  "validation": {
+    "chromium": "10/10 PASS",
+    "webkit": "10/10 PASS",
+    "studyAndAdminModels": "19/19 PASS",
+    "frontendTypecheck": "PASS",
+    "cloudflareTypecheck": "PASS",
+    "build": "PASS (existing chunk-size warning)",
+    "diffCheck": "PASS",
+    "githubCi": "See PR final-HEAD run"
+  },
+  "limitations": [
+    "Browser emulation is not physical iPhone acceptance.",
+    "Optional install + login + menu controls may wrap with branding at narrow widths; all controls retain >=44px targets and stay visible.",
+    "Illustrative values are intentionally blurred/low opacity and aria-hidden, not real grade data or meaningful contrast-tested text.",
+    "School announcements widget scrolling, existing chart/data behavior, transcript and PWA implementation are retained."
+  ],
+  "realDeviceAcceptance": "NOT_VERIFIED",
+  "productionUnchanged": true
+}

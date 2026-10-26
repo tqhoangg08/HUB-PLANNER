@@ -1,0 +1,3 @@
+warning: in the working copy of 'components/ScheduleBoard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/schedule-filter-collapse.browser.test.mjs', LF will be replaced by CRLF the next time Git touches it
+DIFF_CHECK_EXIT_CODE=0

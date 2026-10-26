@@ -1,0 +1,3 @@
+
+> hub-grade-planner@0.0.0 typecheck
+> tsc -p tsconfig.app.json --noEmit

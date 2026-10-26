@@ -77,15 +77,16 @@ async function fixture({ width = 375, height = 667, role = 'student', standalone
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (['error', 'warning'].includes(m.type()))
         errors.push(m.text()); });
-    await page.goto(`${base}tests/schedule-filter-collapse-harness.html?role=${role}`, { waitUntil: 'networkidle', timeout: 120000 });
+    await page.goto(`${base}tests/schedule-filter-collapse-harness.html?role=${role}${standalone ? '&appPreview=1' : ''}`, { waitUntil: 'networkidle', timeout: 120000 });
+    await page.waitForFunction(expected => document.querySelector('#mode')?.textContent === expected, standalone ? 'standalone' : width < 768 ? 'browser' : 'desktop');
     return { context, page, calls, errors, writes };
 }
 const frame = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 const geometry = page => page.evaluate(() => {
     const heading = [...document.querySelectorAll('h2')].find(e => e.textContent.trim() === 'Bộ lọc');
-    const sidebar = heading?.parentElement.parentElement;
+    const sidebar = document.querySelector('#timetable-filter-sidebar');
     const toolbar = document.querySelector('.schedule-toolbar');
-    const calendar = toolbar?.parentElement;
+    const calendar = document.querySelector('[data-schedule-calendar]');
     const rect = e => e && e.getClientRects().length ? { x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y, width: e.getBoundingClientRect().width, height: e.getBoundingClientRect().height } : null;
     return { sidebar: rect(sidebar), calendar: rect(calendar), scroll: [scrollX, scrollY], overflow: document.documentElement.scrollWidth > innerWidth + 1, viewport: [innerWidth, innerHeight] };
 });
@@ -126,7 +127,9 @@ const advanced = page => page.getByRole('dialog', { name: 'Bộ lọc nâng cao'
 const count = page => toggle(page).locator('span[aria-label]').getAttribute('aria-label');
 const position = page => page.evaluate(() => ({ document: [scrollX, document.body.style.position === 'fixed' ? -parseFloat(document.body.style.top || '0') : scrollY], internal: [...document.querySelectorAll('.mobile-main,main')].filter(e => e.scrollHeight > e.clientHeight).map(e => ({ x: e.scrollLeft, y: e.scrollTop })), anchor: document.querySelector('.timetable-filter-bar')?.getBoundingClientRect().top }));
 async function collapsed(page) { await frame(page); assert.equal(await sidebar(page).isVisible(), false); assert.equal(await toggle(page).getAttribute('aria-expanded'), 'false'); }
-async function open(page) { await toggle(page).click(); await frame(page); assert.equal(await sidebar(page).isVisible(), true); }
+async function closeFilters(page){if(await toggle(page).getAttribute('aria-expanded') !== 'true')return;if(await page.getByRole('dialog',{name:'Bộ lọc lớp học phần',exact:true}).isVisible())await page.getByRole('button',{name:/Áp dụng bộ lọc/}).click();else await toggle(page).click();}
+async function openAdvanced(page){await open(page);const sheet=page.getByRole('dialog',{name:'Bộ lọc lớp học phần',exact:true});if(await sheet.isVisible())await sheet.getByRole('button',{name:'Bộ lọc nâng cao',exact:true}).click();else await sidebar(page).getByRole('button',{name:'Bộ lọc nâng cao',exact:true}).click();}
+async function open(page) { if(await toggle(page).getAttribute('aria-expanded') !== 'true') await toggle(page).click(); await frame(page); assert.equal(await sidebar(page).isVisible(), true); }
 async function capture(page, name) { if (evidence)
     await page.screenshot({ path: `${evidence}/${engine}-${name}.png`, scale: 'css' }); }
 if (!before)
@@ -144,9 +147,9 @@ if (!before)
                 if (width >= 1024)
                     assert.ok(initial.calendar.width - expanded.calendar.width >= 329, JSON.stringify({ initial, expanded }));
                 else
-                    assert.ok(expanded.calendar.y - initial.calendar.y >= 520);
+                    assert.ok(Math.abs(expanded.calendar.y-initial.calendar.y)<2, 'mobile sheet does not displace calendar');
                 const target = await toggle(page).boundingBox();
-                assert.ok(target.height >= 44 && target.width >= 44);
+                assert.ok(target.height >= (width<1024?44:28) && target.width >= 44);
                 await sidebar(page).getByRole('button', { name: /^Môn học/ }).click();
                 const search = sidebar(page).getByPlaceholder('Tìm tên môn hoặc mã học phần...');
                 await search.fill('Fixture subject');
@@ -155,7 +158,7 @@ if (!before)
                 assert.ok(f.calls.some(c => c.query.search === 'Fixture subject' && c.query.limit === '30'));
                 assert.equal(await results(page).count(), 0, 'typing applies data without opening a result modal');
                 assert.match(await count(page), /^2 /);
-                await toggle(page).click();
+                await closeFilters(page);
                 await collapsed(page);
                 assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-controls')), 'timetable-filter-sidebar');
                 const compact = await geometry(page);
@@ -163,11 +166,11 @@ if (!before)
                 await open(page);
                 assert.equal(await search.inputValue(), 'Fixture subject');
                 assert.equal(await search.isVisible(), true, 'expanded accordion survives full collapse');
-                await toggle(page).click();
+                await closeFilters(page);
                 await collapsed(page);
-                await page.getByRole('button', { name: 'Xem danh sách lớp', exact: true }).scrollIntoViewIfNeeded();
+                await page.getByRole('button', { name: /^(Xem danh sách lớp|DS lớp)$/ }).scrollIntoViewIfNeeded();
                 const scroll = await position(page);
-                await page.getByRole('button', { name: 'Xem danh sách lớp', exact: true }).click();
+                await page.getByRole('button', { name: /^(Xem danh sách lớp|DS lớp)$/ }).click();
                 await results(page).waitFor();
                 await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === 'Kết quả lớp học phù hợp');
                 const locked = await position(page);
@@ -212,10 +215,10 @@ if (!before)
                 await results(page).waitFor({ state: 'detached' });
                 await frame(page);
                 assert.deepEqual(await position(page), scroll, 'result overlay restores both document and internal roots');
-                assert.equal(await page.evaluate(() => document.activeElement?.textContent.trim()), 'Xem danh sách lớp');
+                assert.equal(await page.getByRole('button', { name: 'Xem danh sách lớp', exact: true }).evaluate(e => e === document.activeElement), true);
                 await page.getByRole('button', { name: 'Bỏ lọc từ khóa', exact: true }).click();
                 assert.match(await count(page), /^1 /);
-                await page.getByRole('button', { name: 'Bộ lọc nâng cao', exact: true }).click();
+                await openAdvanced(page);
                 await advanced(page).waitFor();
                 assert.equal(await page.getByRole('button', { name: 'Xem kết quả', exact: true }).count(), 1);
                 await advanced(page).getByRole('button', { name: 'Đóng bộ lọc', exact: true }).click();
@@ -225,26 +228,30 @@ if (!before)
                 assert.match(await count(page), /^0 /);
                 await open(page);
                 await sidebar(page).getByRole('checkbox').first().check();
-                await page.getByRole('button', { name: 'Xóa tất cả bộ lọc', exact: true }).click();
+                if(await page.getByRole('dialog',{name:'Bộ lọc lớp học phần',exact:true}).isVisible())await page.getByRole('button',{name:'Đặt lại',exact:true}).click();else await page.getByRole('button',{name:'Xóa tất cả bộ lọc',exact:true}).click();
                 assert.match(await count(page), /^0 /);
-                await toggle(page).click();
+                await closeFilters(page);
                 await collapsed(page);
                 await page.reload({ waitUntil: 'networkidle' });
                 await collapsed(page);
                 await open(page);
                 await page.reload({ waitUntil: 'networkidle' });
+                if(width<1024)await open(page);
                 assert.equal(await toggle(page).getAttribute('aria-expanded'), 'true');
+                if(width<1024)await closeFilters(page);
                 await page.getByRole('button', { name: 'Fixture route away' }).click();
                 await page.getByRole('button', { name: 'Quay lại lịch' }).click();
-                await sidebar(page).waitFor();
+                if(width<1024)await open(page);else await sidebar(page).waitFor();
                 assert.equal(await toggle(page).getAttribute('aria-expanded'), 'true');
                 // Move only the viewport; the preference/entrypoint stays reachable across orientation.
                 await page.setViewportSize({ width: height, height: width });
                 await frame(page);
-                assert.equal(await toggle(page).getAttribute('aria-expanded'), 'true');
+                // Desktop preference is retained; crossing into mobile exposes a closed transient sheet.
+                const staysOpen = width < 1024 && height < 1024;
+                assert.equal(await toggle(page).getAttribute('aria-expanded'), String(staysOpen));
                 await page.setViewportSize({ width, height });
                 await frame(page);
-                await toggle(page).click();
+                await closeFilters(page);
                 await collapsed(page);
                 await toggle(page).scrollIntoViewIfNeeded();
                 const after = await geometry(page);
@@ -254,7 +261,7 @@ if (!before)
                     await open(page);
                     await toggle(page).scrollIntoViewIfNeeded();
                     await capture(page, `expanded-${width}`);
-                    await toggle(page).click();
+                    await closeFilters(page);
                 }
                 measurements.push({ width, height, initial, expanded, collapsed: compact, after, target, scrollBefore, scrollAfter: await position(page), scrollInput: engine === 'webkit' && width < 768 ? 'synthetic touch boundary + keyboard + explicit scrollBy (no native swipe API)' : 'mouse wheel', filterRequests: f.calls.filter(c => c.path.endsWith('/courses')), count: await count(page), persisted: await page.evaluate(k => localStorage.getItem(k), pref) });
                 clean(f);
@@ -266,7 +273,7 @@ if (!before)
 if (!before)
     for (const preference of ['corrupted', 'null', 'false', 'true'])
         test(`${engine}: preference ${preference}`, async () => {
-            const f = await fixture({ preference });
+            const f = await fixture({ preference, width:1440,height:900 });
             try {
                 await toggle(f.page).waitFor();
                 assert.equal(await toggle(f.page).getAttribute('aria-expanded'), String(preference === 'true'));
@@ -284,7 +291,7 @@ if (!before)
         try {
             await collapsed(f.page);
             await open(f.page);
-            await toggle(f.page).click();
+            await closeFilters(f.page);
             await collapsed(f.page);
             clean(f);
         }
@@ -299,7 +306,7 @@ if (!before)
             try {
                 if (role === 'guest') {
                     await toggle(f.page).waitFor();
-                    assert.equal(await f.page.getByRole('button', { name: 'Xem danh sách lớp', exact: true }).isDisabled(), true);
+                    assert.equal(await f.page.getByRole('button', { name: /^(Xem danh sách lớp|DS lớp)$/ }).isDisabled(), true);
                     await open(f.page);
                     await sidebar(f.page).getByRole('button', { name: /^Môn học/ }).click();
                     assert.equal(await sidebar(f.page).getByPlaceholder('Tìm tên môn hoặc mã học phần...').isDisabled(), true);
@@ -321,18 +328,18 @@ if (!before)
         try {
             const p = f.page;
             await p.getByRole('button', { name: 'Kế hoạch', exact: true }).click();
-            await p.getByRole('button', { name: 'KH B', exact: true }).click();
-            await p.getByRole('button', { name: 'Tháng', exact: true }).click();
+            await p.getByRole('combobox',{name:'Phương án xếp lịch'}).selectOption('B');
+            await p.getByRole('button',{name:'Tháng',exact:true}).click();
             await open(p);
-            await toggle(p).click();
-            assert.ok((await p.getByRole('button', { name: 'KH B', exact: true }).getAttribute('class')).includes('bg-white'));
-            await p.getByRole('button', { name: 'Xem danh sách lớp', exact: true }).click();
+            await closeFilters(p);
+            assert.equal(await p.getByRole('combobox',{name:'Phương án xếp lịch'}).inputValue(),'B');
+            await p.getByRole('button', { name: /^(Xem danh sách lớp|DS lớp)$/ }).click();
             await results(p).waitFor();
             await results(p).getByRole('button', { name: 'Thêm vào lịch', exact: true }).first().click();
             await results(p).getByRole('button', { name: 'Đã lưu', exact: true }).first().waitFor();
             await results(p).getByRole('button', { name: 'Đóng kết quả' }).click();
             assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('hub_schedule_plans_v1:fixture-user')).B.length), 1);
-            await p.getByRole('button', { name: 'Xem danh sách lớp', exact: true }).click();
+            await p.getByRole('button', { name: /^(Xem danh sách lớp|DS lớp)$/ }).click();
             await results(p).getByRole('button').filter({ has: p.getByRole('heading', { name: 'Fixture subject 1', exact: true }) }).click();
             assert.equal(await results(p).count(), 0);
             assert.ok(await p.getByText('Fixture subject 1', { exact: true }).count() > 0);
@@ -374,12 +381,12 @@ if (!before)
             assert.equal(request.query.major, 'Fixture major');
             assert.equal(request.query.cohort, 'K52');
             assert.equal(request.query.groupName, 'Fixture group');
-            await sidebar(page).getByRole('button', { name: 'Thu gọn bộ lọc', exact: true }).click();
+            await closeFilters(page);
             await collapsed(page);
             await open(page);
             assert.equal(await sidebar(page).getByRole('checkbox', { name: 'Fixture group', exact: true }).isChecked(), true);
-            await toggle(page).click();
-            await page.getByRole('button', { name: 'Bộ lọc nâng cao', exact: true }).click();
+            await closeFilters(page);
+            await openAdvanced(page);
             await advanced(page).waitFor();
             await advanced(page).getByLabel('Giảng viên', { exact: true }).fill('Fixture instructor');
             await page.waitForTimeout(550);
@@ -391,7 +398,8 @@ if (!before)
             assert.match(await count(page), /^5 /);
             await page.getByRole('button', { name: 'Xóa tất cả bộ lọc', exact: true }).click();
             assert.match(await count(page), /^0 /);
-            assert.equal(await page.locator('#timetable-filter-sidebar input[type=file]').count(), 1, 'PDF input stays mounted inside hidden card');
+            assert.equal(await page.locator('input[type=file][accept="application/pdf"]').count(), 1, 'PDF input stays mounted independently of the filter card');
+            await closeFilters(page);
             await page.getByRole('button', { name: 'Thao tác', exact: true }).click();
             await page.getByRole('menuitem', { name: 'Nhập PDF', exact: true }).click();
             await page.getByText('Laptop / PC', { exact: true }).waitFor();

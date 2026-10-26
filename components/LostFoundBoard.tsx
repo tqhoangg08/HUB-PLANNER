@@ -166,11 +166,11 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
         <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleIn">
                 <div className={`p-4 text-white flex justify-between items-center shrink-0 ${type === 'FOUND' ? 'bg-[#003375]' : 'bg-[#990000]'}`}>
-                    <h3 className="font-bold text-lg flex items-center gap-2">
+                    <h3 className="ui-card-title font-bold text-lg flex items-center gap-2">
                         {editingItem ? <Edit2 size={20}/> : (type === 'FOUND' ? <PlusCircle size={20}/> : <Megaphone size={20}/>)}
                         {editingItem ? 'Admin chỉnh sửa tin' : (type === 'FOUND' ? 'Gửi thông tin nhặt được đồ' : 'Báo cáo mất đồ cho Ban quản trị')}
                     </h3>
-                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    <button onClick={onClose} className="ui-action hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
@@ -183,8 +183,8 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                                 <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" />
                             ) : (
                                 <>
-                                    <Camera size={32} className="text-gray-400 mb-2 group-hover:text-[#003375] transition-colors"/>
-                                    <p className="text-sm text-gray-500 font-medium">Bấm để tải ảnh lên (nếu có)</p>
+                                    <Camera size={32} className="ui-muted text-gray-400 mb-2 group-hover:text-[#003375] transition-colors"/>
+                                    <p className="ui-secondary text-sm text-gray-500 font-medium">Bấm để tải ảnh lên (nếu có)</p>
                                 </>
                             )}
                             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
@@ -197,34 +197,34 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Tên vật phẩm <span className="text-red-500">*</span></label>
-                        <input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                        <label className="ui-secondary block text-sm font-bold text-gray-700 mb-1">Tên vật phẩm <span className="ui-danger-text text-red-500">*</span></label>
+                        <input type="text" required className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực <span className="text-red-500">*</span></label>
-                            <input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+                            <label className="ui-secondary block text-sm font-bold text-gray-700 mb-1">Khu vực <span className="ui-danger-text text-red-500">*</span></label>
+                            <input type="text" required className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Tên bạn</label>
-                            <input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.user_name} onChange={e => setFormData({...formData, user_name: e.target.value})} />
+                            <label className="ui-secondary block text-sm font-bold text-gray-700 mb-1">Tên bạn</label>
+                            <input type="text" required className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.user_name} onChange={e => setFormData({...formData, user_name: e.target.value})} />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Liên hệ <span className="text-red-500">*</span></label>
-                        <input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.contact_info} onChange={e => setFormData({...formData, contact_info: e.target.value})} />
+                        <label className="ui-secondary block text-sm font-bold text-gray-700 mb-1">Liên hệ <span className="ui-danger-text text-red-500">*</span></label>
+                        <input type="text" required className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none" value={formData.contact_info} onChange={e => setFormData({...formData, contact_info: e.target.value})} />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả</label>
-                        <textarea rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
+                        <label className="ui-secondary block text-sm font-bold text-gray-700 mb-1">Mô tả</label>
+                        <textarea rows={3} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
                     </div>
 
                     {!editingItem && <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />}
 
-                    <button type="submit" disabled={isSubmitting || (!editingItem && !turnstileToken)} className={`w-full py-3 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-2 ${type === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855]' : 'bg-[#990000] hover:bg-[#7a0000]'}`}>
+                    <button type="submit" disabled={isSubmitting || (!editingItem && !turnstileToken)} className={`ui-action w-full py-3 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-2 ${type === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855]' : 'bg-[#990000] hover:bg-[#7a0000]'}`}>
                         {isSubmitting ? <Loader2 className="animate-spin"/> : <UploadCloud size={20}/>}
                         {isSubmitting ? 'Đang gửi...' : (editingItem ? 'Lưu thay đổi' : 'Gửi thông tin cho Ban quản trị')}
                     </button>
@@ -248,15 +248,15 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onDele
     return createPortal(
         <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative animate-scaleIn">
-                <button onClick={() => { playClick(); onClose(); }} className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors active:scale-90"><X size={20} /></button>
+                <button onClick={() => { playClick(); onClose(); }} className="ui-action absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors active:scale-90"><X size={20} /></button>
                 <div className="w-full bg-gray-50 flex flex-col border-b border-gray-200 overflow-y-auto custom-scrollbar">
                     <div className="w-full bg-black/5 flex items-center justify-center relative min-h-[200px] md:min-h-[300px]">
                          {item.image_url ? (
                             <img src={item.image_url} alt="Item" className={`w-full h-full object-contain max-h-[40vh] md:max-h-[50vh] ${isResolved ? 'grayscale opacity-70' : ''}`} />
                         ) : (
-                            <div className="flex flex-col items-center text-gray-400 py-10"><ImageOff size={48} className="mb-2 opacity-50" /><span className="text-sm">Không có ảnh</span></div>
+                            <div className="ui-muted flex flex-col items-center text-gray-400 py-10"><ImageOff size={48} className="mb-2 opacity-50" /><span className="text-sm">Không có ảnh</span></div>
                         )}
-                        <div className={`absolute top-4 left-4 text-xs font-bold px-3 py-1.5 rounded-md shadow-sm uppercase tracking-wider ${
+                        <div className={`ui-meta absolute top-4 left-4 text-xs font-bold px-3 py-1.5 rounded-md shadow-sm uppercase tracking-wider ${
                             isResolved ? 'bg-green-600 text-white' : 
                             item.type === 'FOUND' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
                         }`}>
@@ -265,7 +265,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onDele
                     </div>
                     <div className="p-6 space-y-4">
                         <div>
-                            <h3 className={`text-2xl font-bold flex items-start gap-2 leading-tight ${
+                            <h3 className={`ui-card-title text-2xl font-bold flex items-start gap-2 leading-tight ${
                                 isResolved ? 'text-green-700' :
                                 item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'
                             }`}>
@@ -278,11 +278,11 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onDele
                         <div className="space-y-3 pt-4 border-t border-gray-200">
                              <div className={`flex items-center gap-3 p-3 rounded-xl border ${item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'}`}>
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.type === 'FOUND' ? 'bg-blue-200 text-[#003375]' : 'bg-red-200 text-[#990000]'}`}>{item.type === 'FOUND' ? <User size={20} /> : <HelpCircle size={20} />}</div>
-                                <div><span className="block text-xs text-gray-500 font-bold uppercase">{item.type === 'FOUND' ? 'Người nhặt' : 'Người mất'}</span><span className="font-bold text-gray-800 text-lg">{item.user_name}</span></div>
+                                <div><span className="ui-meta block text-xs text-gray-500 font-bold uppercase">{item.type === 'FOUND' ? 'Người nhặt' : 'Người mất'}</span><span className="font-bold text-gray-800 text-lg">{item.user_name}</span></div>
                             </div>
                             <div className="flex items-center gap-3 p-3 rounded-xl border border-green-200 bg-green-50">
                                 <div className="w-10 h-10 rounded-full bg-green-200 text-green-800 flex items-center justify-center"><Phone size={20} /></div>
-                                <div><span className="block text-xs text-gray-500 font-bold uppercase">Liên hệ</span><span className="font-bold text-green-700 text-lg">{item.contact_info}</span></div>
+                                <div><span className="ui-meta block text-xs text-gray-500 font-bold uppercase">Liên hệ</span><span className="font-bold text-green-700 text-lg">{item.contact_info}</span></div>
                             </div>
                             <div className="flex items-start gap-2 text-sm text-gray-600 mt-2"><MapPin size={16} className="mt-0.5 shrink-0" /><span>Khu vực: <strong>{item.location}</strong></span></div>
                             {onDelete && (
@@ -292,7 +292,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onDele
                                         const deleted = await onDelete(item);
                                         if (deleted) onClose();
                                     }}
-                                    className="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 flex items-center justify-center gap-2"
+                                    className="ui-danger-text ui-action w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 flex items-center justify-center gap-2"
                                 >
                                     <Trash2 size={16} /> Xóa thông tin này
                                 </button>
@@ -391,42 +391,42 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
         <Overlay className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scaleIn">
                 <div className="flex items-center justify-between bg-red-600 px-4 py-3 text-white">
-                    <h3 className="font-bold flex items-center gap-2"><Flag size={18} /> {title}</h3>
-                    <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/20"><X size={18} /></button>
+                    <h3 className="ui-card-title font-bold flex items-center gap-2"><Flag size={18} /> {title}</h3>
+                    <button onClick={onClose} className="ui-action rounded-full p-1.5 hover:bg-white/20"><X size={18} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
                     <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-800">
                         {helper}
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-bold text-gray-700">Thông tin liên quan</label>
+                        <label className="ui-secondary mb-1 block text-sm font-bold text-gray-700">Thông tin liên quan</label>
                         <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{item.title}</div>
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-bold text-gray-700">{reasonLabel} <span className="text-red-500">*</span></label>
+                        <label className="ui-secondary mb-1 block text-sm font-bold text-gray-700">{reasonLabel} <span className="ui-danger-text text-red-500">*</span></label>
                         <textarea
                             required
                             rows={4}
                             value={reason}
                             onChange={(event) => setReason(event.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                            className="ui-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
                             placeholder={placeholder}
                         />
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-bold text-gray-700">Liên hệ của bạn</label>
+                        <label className="ui-secondary mb-1 block text-sm font-bold text-gray-700">Liên hệ của bạn</label>
                         <input
                             type="text"
                             value={contact}
                             onChange={(event) => setContact(event.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                            className="ui-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
                             placeholder="Email/SĐT để admin phản hồi nếu cần"
                         />
                     </div>
                     <div className="flex justify-center">
                         <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
                     </div>
-                    <button type="submit" disabled={isSubmitting || !reason.trim() || !turnstileToken} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-60">
+                    <button type="submit" disabled={isSubmitting || !reason.trim() || !turnstileToken} className="ui-action flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-60">
                         {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Flag size={18} />}
                         {isOwnerRequest ? 'Gửi yêu cầu hỗ trợ' : 'Gửi báo cáo'}
                     </button>
@@ -603,8 +603,8 @@ return (
     <div className="w-full pb-10 animate-slideInRight relative">
       {notification && createPortal(
           <div className={`fixed top-4 right-4 z-[100000] px-4 py-3 rounded-xl shadow-2xl border-l-4 flex items-center gap-3 animate-slideInRight bg-white ${notification.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
-              {notification.type === 'success' ? <CheckCircle2 className="text-green-600"/> : <AlertCircle className="text-red-600"/>}
-              <div><h4 className={`font-bold text-sm ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>{notification.type === 'success' ? 'Thành công' : 'Thất bại'}</h4><p className="text-xs text-gray-600">{notification.msg}</p></div>
+              {notification.type === 'success' ? <CheckCircle2 className="text-green-600"/> : <AlertCircle className="ui-danger-text text-red-600"/>}
+              <div><h4 className={`ui-card-title font-bold text-sm ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>{notification.type === 'success' ? 'Thành công' : 'Thất bại'}</h4><p className="ui-secondary text-xs text-gray-600">{notification.msg}</p></div>
           </div>, document.body
       )}
 
@@ -612,14 +612,14 @@ return (
       <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-6 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
             <div>
-                <h2 className="text-2xl sm:text-[28px] font-black text-[#003375]">
+                <h2 className="ui-page-title text-2xl sm:text-[28px] font-black text-[#003375]">
                     Tìm đồ thất lạc</h2>
-                <p className="text-xs text-gray-500 mt-1 italic flex items-center gap-1">
+                <p className="ui-body text-xs text-gray-500 mt-1 italic flex items-center gap-1">
                     <Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập
                 </p>
                 
                 {canManage && (
-                    <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-2 border border-blue-100">
+                    <div className="ui-meta text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-2 border border-blue-100">
                         <Shield size={10} className="inline mr-1"/>
                         {isAdmin ? 'Chế độ Admin: toàn quyền' : 'Chế độ CTV: duyệt/sửa'}
                     </div>
@@ -627,12 +627,12 @@ return (
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto items-stretch">
                 <div className="relative flex-1 sm:flex-none">
-                    <input type="text" placeholder="Tìm tên đồ, địa điểm..." className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none sm:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input type="text" placeholder="Tìm tên đồ, địa điểm..." className="ui-input w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none sm:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <Search className="ui-muted absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => { playClick(); fetchItems(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
-                    <button onClick={() => openSubmitModal(activeTab)} className={`px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1 ${activeTab === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855] text-white' : 'bg-[#990000] hover:bg-[#7a0000] text-white'}`}>
+                    <button onClick={() => { playClick(); fetchItems(); }} className="ui-action p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
+                    <button onClick={() => openSubmitModal(activeTab)} className={`ui-action px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1 ${activeTab === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855] text-white' : 'bg-[#990000] hover:bg-[#7a0000] text-white'}`}>
                         <PlusCircle size={18} /> {activeTab === 'FOUND' ? 'Gửi thông tin' : 'Gửi thông tin'}
                     </button>
                 </div>
@@ -640,10 +640,10 @@ return (
           </div>
 
           <div className="flex gap-4 border-b border-gray-200">
-              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'LOST' ? 'text-[#990000]' : 'text-gray-500 hover:text-gray-700'}`}>
+              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`ui-action pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'LOST' ? 'text-[#990000]' : 'text-gray-500 hover:text-gray-700'}`}>
                 <Megaphone size={18} /> Tin báo mất {activeTab === 'LOST' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#990000] rounded-t-full animate-scaleIn"></div>}
               </button>
-              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'FOUND' ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
+              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`ui-action pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'FOUND' ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
                 <MapPin size={18} /> Tin nhặt được {activeTab === 'FOUND' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#003375] rounded-t-full animate-scaleIn"></div>}
               </button>
           </div>
@@ -659,9 +659,9 @@ return (
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 animate-fadeIn"><Loader2 size={40} className="text-[#003375] animate-spin mb-4" /><p className="text-gray-500">Đang tải danh sách...</p></div>
+        <div className="flex flex-col items-center justify-center py-20 animate-fadeIn"><Loader2 size={40} className="text-[#003375] animate-spin mb-4" /><p className="ui-secondary text-gray-500">Đang tải danh sách...</p></div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
+        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="ui-secondary font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
             {filteredItems.length > 0 ? (
@@ -677,36 +677,36 @@ return (
 
                     return (
                     <div key={item.id} className={`bg-white rounded-xl border p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:border-blue-400 hover:-translate-y-1 relative group ${borderClass}`}>
-                        <button type="button" className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3 text-left" onClick={() => { playClick(); setSelectedItem(item); }} title="Xem chi tiết tin thất lạc">
+                        <button type="button" className="ui-action relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3 text-left" onClick={() => { playClick(); setSelectedItem(item); }} title="Xem chi tiết tin thất lạc">
                             {item.image_url ? (
                                 <img src={item.image_url} alt="Item" className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03] ${isResolved ? 'grayscale opacity-70' : ''}`} loading="lazy" />
                             ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 gap-2"><ImageOff size={34} className="opacity-50" /><span className="text-xs font-semibold">Không có ảnh</span></div>
+                                <div className="ui-muted w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 gap-2"><ImageOff size={34} className="opacity-50" /><span className="ui-meta text-xs font-semibold">Không có ảnh</span></div>
                             )}
-                            <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
+                            <div className="ui-meta absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
                             
-                             <div className={`absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-md shadow-sm uppercase tracking-wider ${
+                             <div className={`ui-meta absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-md shadow-sm uppercase tracking-wider ${
                                 isResolved ? 'bg-green-100 text-green-800 border border-green-200' :
                                 item.type === 'FOUND' ? 'bg-blue-100 text-[#003375]' : 'bg-red-100 text-[#990000]'
                             }`}>
                                 {isResolved ? (item.type === 'FOUND' ? 'Đã trao trả' : 'Đã tìm thấy') : (item.type === 'FOUND' ? 'Nhặt được' : 'Đang tìm')}
                             </div>
 
-                            {isPending && <div className="absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chờ duyệt</div>}
+                            {isPending && <div className="ui-meta absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chờ duyệt</div>}
                         </button>
 
                         <div className="flex-1 flex flex-col">
                             <div className="mb-2.5 sm:mb-3">
-                                <h3 className={`text-sm sm:text-base font-bold flex items-start gap-2 leading-snug line-clamp-2 ${
+                                <h3 className={`ui-card-title text-sm sm:text-base font-bold flex items-start gap-2 leading-snug line-clamp-2 ${
                                     isResolved ? 'text-green-700' :
                                     item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'
                                 }`}>
                                     {isResolved ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : (item.type === 'FOUND' ? <MapPin size={18} className="shrink-0 mt-0.5" /> : <Tag size={18} className="shrink-0 mt-0.5" />)}
                                     {item.title}
                                 </h3>
-                                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vực: {item.location}</p>
+                                <p className="ui-secondary text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vực: {item.location}</p>
                             </div>
-                            <div className="space-y-2 text-[11px] sm:text-xs text-gray-600 mt-auto">
+                            <div className="ui-meta space-y-2 text-[11px] sm:text-xs text-gray-600 mt-auto">
                                 <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border ${isResolved ? 'bg-green-50 border-green-100' : (item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100')}`}>
                                     {item.type === 'FOUND' ? <User size={14} className={isResolved ? "text-green-700" : "text-[#003375]"} /> : <HelpCircle size={14} className={isResolved ? "text-green-700" : "text-[#990000]"} />}
                                     <span className="font-medium text-gray-700">{item.type === 'FOUND' ? 'Người nhặt:' : 'Người mất:'}</span><span className="truncate flex-1">{item.user_name}</span>
@@ -719,41 +719,41 @@ return (
                             {session?.user?.id === item.user_id && (
                                 <>
                                     {!isResolved && (
-                                        <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'resolve'); }} className="w-full py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-green-200">
+                                        <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'resolve'); }} className="ui-action w-full py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-green-200">
                                             <CheckCircle2 size={16} /> {item.type === 'FOUND' ? 'Yêu cầu cập nhật đã trao trả' : 'Yêu cầu cập nhật đã tìm thấy'}
                                         </button>
                                     )}
-                                    <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'edit'); }} className="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-blue-200">
+                                    <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'edit'); }} className="ui-action w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-blue-200">
                                         <Edit2 size={16} /> Yêu cầu chỉnh sửa
                                     </button>
-                                    <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'delete'); }} className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-200">
+                                    <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'delete'); }} className="ui-danger-text ui-action w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-200">
                                         <Trash2 size={16} /> Yêu cầu xóa/gỡ
                                     </button>
                                 </>
                             )}
 
-                            <button onClick={() => { playClick(); setSelectedItem(item); }} className="w-full py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-[#003375] rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200">
+                            <button onClick={() => { playClick(); setSelectedItem(item); }} className="ui-action w-full py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-[#003375] rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200">
                                 <Info size={16} /> Chi tiết & Liên hệ
                             </button>
                         </div>
 
                         {/* Tính năng của admin/CTV */}
-                        <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'report'); }} className="mt-2 w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-100">
+                        <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'report'); }} className="ui-danger-text ui-action mt-2 w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-100">
                             <Flag size={16} /> Báo cáo
                         </button>
 
                         {canManage && (
                             <div className="px-4 pb-4 pt-2 border-t border-gray-100 flex gap-2">
                                 {isPending && (
-                                    <button onClick={() => handleApprove(item.id)} className="flex-1 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
+                                    <button onClick={() => handleApprove(item.id)} className="ui-action flex-1 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
                                         <CheckCircle2 size={14} /> Duyệt
                                     </button>
                                 )}
-                                <button onClick={() => handleEdit(item)} className="flex-1 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
+                                <button onClick={() => handleEdit(item)} className="ui-action flex-1 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
                                     <Edit2 size={14} /> Sửa
                                 </button>
                                 {isAdmin && (
-                                    <button onClick={() => handleDelete(item)} className="py-1.5 px-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold">
+                                    <button onClick={() => handleDelete(item)} className="ui-danger-text ui-action py-1.5 px-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold">
                                         <Trash2 size={14} />
                                     </button>
                                 )}
@@ -764,25 +764,25 @@ return (
             ) : (
                 <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
                     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">{activeTab === 'FOUND' ? <Search size={32} /> : <Megaphone size={32} />}</div>
-                    <p className="text-gray-500 font-medium">Chưa có thông tin nào. Bạn có thể gửi thông tin để được hỗ trợ.</p>
+                    <p className="ui-secondary text-gray-500 font-medium">Chưa có thông tin nào. Bạn có thể gửi thông tin để được hỗ trợ.</p>
                 </div>
             )}
         </div>
       )}
       {!loading && !error && totalItems > LOST_FOUND_PAGE_SIZE && (
-        <div className="mt-5 flex items-center justify-end gap-2 text-xs font-bold text-gray-600">
+        <div className="ui-meta mt-5 flex items-center justify-end gap-2 text-xs font-bold text-gray-600">
           <span>Trang {page + 1}/{Math.max(1, Math.ceil(totalItems / LOST_FOUND_PAGE_SIZE))}</span>
           <button
             onClick={() => setPage(prev => Math.max(0, prev - 1))}
             disabled={page === 0}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
+            className="ui-action rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
           >
             Trước
           </button>
           <button
             onClick={() => setPage(prev => prev + 1)}
             disabled={(page + 1) * LOST_FOUND_PAGE_SIZE >= totalItems}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
+            className="ui-action rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
           >
             Sau
           </button>

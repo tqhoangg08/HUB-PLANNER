@@ -1,0 +1,227 @@
+[
+  {
+    "width": 390,
+    "heading": {
+      "x": 16,
+      "y": 419,
+      "width": 358,
+      "height": 62.53125,
+      "bottom": 481.53125
+    },
+    "toolbar": {
+      "x": 16,
+      "y": 488.53125,
+      "width": 358,
+      "height": 96,
+      "bottom": 584.53125
+    },
+    "search": {
+      "x": 16,
+      "y": 488.53125,
+      "width": 358,
+      "height": 44,
+      "bottom": 532.53125
+    },
+    "filter": {
+      "x": 16,
+      "y": 540.53125,
+      "width": 150.75,
+      "height": 44,
+      "bottom": 584.53125
+    },
+    "date": {
+      "x": 174.75,
+      "y": 540.53125,
+      "width": 147.25,
+      "height": 44,
+      "bottom": 584.53125
+    },
+    "sort": {
+      "x": 330,
+      "y": 540.53125,
+      "width": 44,
+      "height": 44,
+      "bottom": 584.53125
+    },
+    "refresh": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "bottom": 0
+    },
+    "actions": {
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0,
+      "bottom": 0
+    },
+    "note": {
+      "x": 16,
+      "y": 447.9375,
+      "width": 358,
+      "height": 33.59375,
+      "bottom": 481.53125
+    },
+    "noteFont": "12px",
+    "banner": {
+      "x": 16,
+      "y": 598.53125,
+      "width": 358,
+      "height": 60,
+      "bottom": 658.53125
+    },
+    "overflow": false
+  },
+  {
+    "width": 1024,
+    "heading": {
+      "x": 28,
+      "y": 445.5,
+      "width": 968,
+      "height": 57.875,
+      "bottom": 503.375
+    },
+    "toolbar": {
+      "x": 28,
+      "y": 510.375,
+      "width": 968,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "search": {
+      "x": 28,
+      "y": 510.375,
+      "width": 404.25,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "filter": {
+      "x": 440.25,
+      "y": 510.375,
+      "width": 88.15625,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "date": {
+      "x": 536.40625,
+      "y": 510.375,
+      "width": 140.28125,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "sort": {
+      "x": 684.6875,
+      "y": 510.375,
+      "width": 160,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "refresh": {
+      "x": 852.6875,
+      "y": 510.375,
+      "width": 143.3125,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "actions": {
+      "x": 715.5,
+      "y": 445.5,
+      "width": 280.5,
+      "height": 38,
+      "bottom": 483.5
+    },
+    "note": {
+      "x": 28,
+      "y": 486.578125,
+      "width": 968,
+      "height": 16.796875,
+      "bottom": 503.375
+    },
+    "noteFont": "12px",
+    "banner": {
+      "x": 28,
+      "y": 569.375,
+      "width": 968,
+      "height": 42,
+      "bottom": 611.375
+    },
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "heading": {
+      "x": 28,
+      "y": 445.5,
+      "width": 1384,
+      "height": 57.875,
+      "bottom": 503.375
+    },
+    "toolbar": {
+      "x": 28,
+      "y": 510.375,
+      "width": 1384,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "search": {
+      "x": 28,
+      "y": 510.375,
+      "width": 820.25,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "filter": {
+      "x": 856.25,
+      "y": 510.375,
+      "width": 88.15625,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "date": {
+      "x": 952.40625,
+      "y": 510.375,
+      "width": 140.28125,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "sort": {
+      "x": 1100.6875,
+      "y": 510.375,
+      "width": 160,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "refresh": {
+      "x": 1268.6875,
+      "y": 510.375,
+      "width": 143.3125,
+      "height": 36,
+      "bottom": 546.375
+    },
+    "actions": {
+      "x": 1131.5,
+      "y": 445.5,
+      "width": 280.5,
+      "height": 38,
+      "bottom": 483.5
+    },
+    "note": {
+      "x": 28,
+      "y": 486.578125,
+      "width": 1384,
+      "height": 16.796875,
+      "bottom": 503.375
+    },
+    "noteFont": "12px",
+    "banner": {
+      "x": 28,
+      "y": 569.375,
+      "width": 1384,
+      "height": 42,
+      "bottom": 611.375
+    },
+    "overflow": false
+  }
+]

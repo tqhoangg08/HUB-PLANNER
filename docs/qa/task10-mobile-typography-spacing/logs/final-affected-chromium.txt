@@ -1,0 +1,43 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5174/
+Loading /learning PWA
+Navigated /learning
+Mode /learning
+Fonts /learning
+Rendered /learning
+URL=http://127.0.0.1:5174/learning?role=student&appPreview=1
+✔ chromium accept /learning PWA student (104120.0647ms)
+Loading /learning?tab=schedule PWA
+Navigated /learning?tab=schedule
+Mode /learning?tab=schedule
+Fonts /learning?tab=schedule
+Rendered /learning?tab=schedule
+URL=http://127.0.0.1:5174/learning?tab=schedule&role=student&appPreview=1
+✔ chromium accept /learning?tab=schedule PWA student (11209.3688ms)
+Loading /events PWA
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5174/events?role=student&appPreview=1
+✔ chromium accept /events PWA student (10367.0199ms)
+Loading /lost-found PWA
+Navigated /lost-found
+Mode /lost-found
+Fonts /lost-found
+Rendered /lost-found
+URL=http://127.0.0.1:5174/lost-found?role=student&appPreview=1
+✔ chromium accept /lost-found PWA student (11010.2284ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium real announcement and contribution forms: keyboard viewport, focus and scroll (15518.0549ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 175113.1886

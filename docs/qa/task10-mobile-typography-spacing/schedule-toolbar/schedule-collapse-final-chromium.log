@@ -1,0 +1,20 @@
+✔ chromium 375x667: full collapse, direct filters, results, pagination, focus and persistence (60038.5431ms)
+✔ chromium 1440x900: full collapse, direct filters, results, pagination, focus and persistence (41249.1417ms)
+✔ chromium: preference corrupted (4824.0225ms)
+✔ chromium: preference null (3880.5229ms)
+✔ chromium: preference false (4327.067ms)
+✔ chromium: preference true (5305.2881ms)
+✔ chromium: denied preference storage does not block filtering (6246.0588ms)
+✔ chromium: guest authorization and navigation retained (4769.4506ms)
+✔ chromium: admin authorization and navigation retained (4157.8664ms)
+✔ chromium: auditor authorization and navigation retained (3507.962ms)
+✔ chromium: plan A/B, week/month, result selection and PWA remain available (13433.6908ms)
+✔ chromium: all sidebar fields, advanced input, chip removals and PDF entry survive collapse (51613.9564ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 210968.1719

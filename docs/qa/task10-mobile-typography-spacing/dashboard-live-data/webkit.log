@@ -1,0 +1,81 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit dashboard overview hierarchy and live data (46170.1857ms)
+Loading /dashboard?install=1 guest
+Navigated /dashboard?install=1
+Mode /dashboard?install=1
+Fonts /dashboard?install=1
+Rendered /dashboard?install=1
+✔ webkit guest header login alongside install action (10673.2562ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard?onboardedGuest=1 guest
+Navigated /dashboard?onboardedGuest=1
+Mode /dashboard?onboardedGuest=1
+Fonts /dashboard?onboardedGuest=1
+Rendered /dashboard?onboardedGuest=1
+✔ webkit guest overview uses actual data before and after profile setup (19722.2117ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ webkit accept /dashboard browser student (20205.9845ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=student&appPreview=1
+✔ webkit accept /mobile-home PWA student (26097.5341ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ webkit accept /dashboard browser guest (23244.2167ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=guest&appPreview=1
+✔ webkit accept /mobile-home PWA guest (23833.2281ms)
+Loading /dashboard?emptyTranscript=1 guest
+Navigated /dashboard?emptyTranscript=1
+Mode /dashboard?emptyTranscript=1
+Fonts /dashboard?emptyTranscript=1
+Rendered /dashboard?emptyTranscript=1
+✔ webkit empty guest overview has no fabricated grades or banners (8723.8776ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 183682.7503

@@ -1,0 +1,65 @@
+✔ chromium browser student 375x667: drawer, isolation, scroll, focus, route and resize (116727.6983ms)
+✔ chromium browser guest 375x667: drawer, isolation, scroll, focus, route and resize (12278.4886ms)
+✖ chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize (20569.0096ms)
+✔ chromium: higher overlay ownership, existing AI draft and viewport geometry (5211.8792ms)
+✖ webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize (23322.512ms)
+✔ webkit browser guest 375x667: drawer, isolation, scroll, focus, route and resize (22434.2034ms)
+✔ webkit browser admin 375x667: drawer, isolation, scroll, focus, route and resize (22851.3161ms)
+✔ webkit: higher overlay ownership, existing AI draft and viewport geometry (5515.6127ms)
+✔ chromium: 375x667 single top-level Ticket entry, navigation, scroll/focus and AI (15545.3034ms)
+✔ chromium: real create/detail/reply/attachment contracts and deep link (5408.3805ms)
+✔ chromium: Guest receives login guidance; fixture rejects unauthorized creation (3650.9773ms)
+✔ chromium: desktop retains navigation; PWA retains its real floating Ticket UI (5255.7137ms)
+✔ webkit: 375x667 single top-level Ticket entry, navigation, scroll/focus and AI (12216.527ms)
+✔ webkit: real create/detail/reply/attachment contracts and deep link (5995.1641ms)
+✔ webkit: Guest receives login guidance; fixture rejects unauthorized creation (5341.9547ms)
+✔ webkit: desktop retains navigation; PWA retains its real floating Ticket UI (12052.3704ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 14
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 326042.8762
+
+✖ failing tests:
+
+test at tests\mobile-sidebar.browser.test.mjs:93:5
+✖ chromium browser admin 375x667: drawer, isolation, scroll, focus, route and resize (20569.0096ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  0 !== 1
+
+      at open (file:///<workspace>/tests/mobile-sidebar.browser.test.mjs:63:10)
+      at runNextTicks (node:internal/process/task_queues:64:5)
+      at process.processImmediate (node:internal/timers:472:9)
+      at async TestContext.<anonymous> (file:///<workspace>/tests/mobile-sidebar.browser.test.mjs:196:9)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mobile-sidebar.browser.test.mjs:93:5
+✖ webkit browser student 375x667: drawer, isolation, scroll, focus, route and resize (23322.512ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + 'Keep page state'
+  - 'Edited background draft'
+
+      at TestContext.<anonymous> (file:///<workspace>/tests/mobile-sidebar.browser.test.mjs:191:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Keep page state',
+    expected: 'Edited background draft',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,14 @@
+ENGINE=webkit; VERSION=26.5
+✔ webkit unified timetable layout (61812.9625ms)
+✔ webkit mobile toolbar keeps filters and calendar in two rows (16237.5863ms)
+✔ webkit timetable control density (20434.8216ms)
+✔ webkit compact controls allow enlarged text and spacing (3242.5929ms)
+✔ webkit calendar navigation cluster preserves handlers (5019.4ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 108734.3041

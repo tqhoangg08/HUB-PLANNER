@@ -1,0 +1,179 @@
+{
+  "base": "d92dc81c658891cbb0a60a93393dcc7ff41adae5",
+  "method": "Babel AST comparison excluding JSX presentation attributes, JSX whitespace, class-string constants, feature/status colors and chart presentation attributes, and the two reviewed layout measurement effects",
+  "manualGeometryExceptions": [
+    "DesktopLayout mobileHeaderRef and ResizeObserver update the fixed header clearance; no navigation/session/data logic changed",
+    "MobileAIAdvisor data-ai-open exposes existing UI state only; CSS hides the closed launcher during shared overlays without unmounting or changing chat handlers",
+    "MobileAIAdvisor existing resize clamp uses measured bottom navigation edge and a ResizeObserver; drag/chat/provider/history logic remains unchanged"
+  ],
+  "results": [
+    {
+      "file": "components/AdminEventManagementView.tsx",
+      "businessAstEqual": true,
+      "before": "598b81640b3726b1b55d5f720f67e55dbcc06b9602bf7cc9274c2f4b8ba13a41",
+      "after": "598b81640b3726b1b55d5f720f67e55dbcc06b9602bf7cc9274c2f4b8ba13a41"
+    },
+    {
+      "file": "components/AdminOperationsDashboard.tsx",
+      "businessAstEqual": true,
+      "before": "a02faf3f0a2166a71231db117d6195231015f47e02d4fcfffc738697267f0a3e",
+      "after": "a02faf3f0a2166a71231db117d6195231015f47e02d4fcfffc738697267f0a3e"
+    },
+    {
+      "file": "components/AdminSupportTickets.tsx",
+      "businessAstEqual": true,
+      "before": "c925038e866de5fe924fb23bedff265df9fdde871a165d20fc76e45555beccbd",
+      "after": "c925038e866de5fe924fb23bedff265df9fdde871a165d20fc76e45555beccbd"
+    },
+    {
+      "file": "components/Dashboard.tsx",
+      "businessAstEqual": true,
+      "before": "c464e58963ba8f3db49a5cb452430e6b8230ae018a5746a2e2a77620a28c3c80",
+      "after": "c464e58963ba8f3db49a5cb452430e6b8230ae018a5746a2e2a77620a28c3c80"
+    },
+    {
+      "file": "components/EventsBoard.tsx",
+      "businessAstEqual": true,
+      "before": "fa298b730549c82656f5ce4bb8e6e004d4f145bdb961745e6884d3f5599e5c8d",
+      "after": "fa298b730549c82656f5ce4bb8e6e004d4f145bdb961745e6884d3f5599e5c8d"
+    },
+    {
+      "file": "components/FloatingSupportTab.tsx",
+      "businessAstEqual": true,
+      "before": "4f0bf581eb1a8e61ccbc6cc6508326c24770eb85c295f42e14439b8ee6a383c9",
+      "after": "4f0bf581eb1a8e61ccbc6cc6508326c24770eb85c295f42e14439b8ee6a383c9"
+    },
+    {
+      "file": "components/Handbook.tsx",
+      "businessAstEqual": true,
+      "before": "5d4ad2de1fe5b6474142194b6a65194f7c707fc82878e29675a424afb1acae5c",
+      "after": "5d4ad2de1fe5b6474142194b6a65194f7c707fc82878e29675a424afb1acae5c"
+    },
+    {
+      "file": "components/LostFoundBoard.tsx",
+      "businessAstEqual": true,
+      "before": "e50dd6ce223ea7716599c686c22f54e6c295714cda04832acd6c74df59ba0ead",
+      "after": "e50dd6ce223ea7716599c686c22f54e6c295714cda04832acd6c74df59ba0ead"
+    },
+    {
+      "file": "components/MobileAIAdvisor.tsx",
+      "businessAstEqual": true,
+      "before": "608714a1c27476e7b2d57041a1173166f5e4c092bf6f5da7d9584204213423fb",
+      "after": "608714a1c27476e7b2d57041a1173166f5e4c092bf6f5da7d9584204213423fb"
+    },
+    {
+      "file": "components/MobileDashboard.tsx",
+      "businessAstEqual": true,
+      "before": "474ed5e2784bf9a5a842a6d2841f92c429351d9bb72f6964437fd106403897bb",
+      "after": "474ed5e2784bf9a5a842a6d2841f92c429351d9bb72f6964437fd106403897bb"
+    },
+    {
+      "file": "components/MobileEvents.tsx",
+      "businessAstEqual": true,
+      "before": "7aa3e34ebe230a934dce6d553b742774f29ba6579b7e79b7ed600a833b765f62",
+      "after": "7aa3e34ebe230a934dce6d553b742774f29ba6579b7e79b7ed600a833b765f62"
+    },
+    {
+      "file": "components/MobileHandbook.tsx",
+      "businessAstEqual": true,
+      "before": "eba4a478e00019fec5728c7a957e28c5fcc5169e010d7337a241b7b2e1500987",
+      "after": "eba4a478e00019fec5728c7a957e28c5fcc5169e010d7337a241b7b2e1500987"
+    },
+    {
+      "file": "components/MobileHome.tsx",
+      "businessAstEqual": true,
+      "before": "3be1e79e1819056cc3771186114b686ffc866e6ff713346cec15285fd1c2417f",
+      "after": "3be1e79e1819056cc3771186114b686ffc866e6ff713346cec15285fd1c2417f"
+    },
+    {
+      "file": "components/MobileLearning.tsx",
+      "businessAstEqual": true,
+      "before": "9abd84de59b4bdd02207c333efbe5935d5f866328947d0f868c0ed488f68b3e6",
+      "after": "9abd84de59b4bdd02207c333efbe5935d5f866328947d0f868c0ed488f68b3e6"
+    },
+    {
+      "file": "components/MobileLostFound.tsx",
+      "businessAstEqual": true,
+      "before": "ae63710a144ed3ddcc115196ee19f715dafe71110abbbd4630ea7bcb12bfcbba",
+      "after": "ae63710a144ed3ddcc115196ee19f715dafe71110abbbd4630ea7bcb12bfcbba"
+    },
+    {
+      "file": "components/MobileProfile.tsx",
+      "businessAstEqual": true,
+      "before": "4ff08255dbc1928082c075494b692ce9b953ef611efa53e10a4c31f6af8df22c",
+      "after": "4ff08255dbc1928082c075494b692ce9b953ef611efa53e10a4c31f6af8df22c"
+    },
+    {
+      "file": "components/MobileSchedule.tsx",
+      "businessAstEqual": true,
+      "before": "c549e7897782fc3d3a5803b17947d852c7819ef6a884156324ea002900974be9",
+      "after": "c549e7897782fc3d3a5803b17947d852c7819ef6a884156324ea002900974be9"
+    },
+    {
+      "file": "components/NotificationBell.jsx",
+      "businessAstEqual": true,
+      "before": "6aaf798766f9966565dd1b2e5962badcc586dad43c503109114d3f95a9c349e9",
+      "after": "6aaf798766f9966565dd1b2e5962badcc586dad43c503109114d3f95a9c349e9"
+    },
+    {
+      "file": "components/NotificationNudge.tsx",
+      "businessAstEqual": true,
+      "before": "89705fb14c765927dcd076f754bb85cedefd00996c90fc9670db45156a89e01e",
+      "after": "89705fb14c765927dcd076f754bb85cedefd00996c90fc9670db45156a89e01e"
+    },
+    {
+      "file": "components/PushNotificationPrompt.tsx",
+      "businessAstEqual": true,
+      "before": "59a2682b61716aeb4281ebacbe8885beca1a4a248a88a93109abc7800f81bf01",
+      "after": "59a2682b61716aeb4281ebacbe8885beca1a4a248a88a93109abc7800f81bf01"
+    },
+    {
+      "file": "components/ScheduleBoard.tsx",
+      "businessAstEqual": true,
+      "before": "baa1b78857b4f6792c6b539fda4b5317912e850410e0fd0c910482dc808059ea",
+      "after": "baa1b78857b4f6792c6b539fda4b5317912e850410e0fd0c910482dc808059ea"
+    },
+    {
+      "file": "components/SchoolAnnouncements.jsx",
+      "businessAstEqual": true,
+      "before": "89f29f3800700ce43701b09b6938475c81adfa2badde49946cf9826d5c1cccf9",
+      "after": "89f29f3800700ce43701b09b6938475c81adfa2badde49946cf9826d5c1cccf9"
+    },
+    {
+      "file": "components/SupportTickets.tsx",
+      "businessAstEqual": true,
+      "before": "4b76e53a0b12f50aacd6917b992daa7f2ec5110bdc69bcfdbfe22ff3fda15122",
+      "after": "4b76e53a0b12f50aacd6917b992daa7f2ec5110bdc69bcfdbfe22ff3fda15122"
+    },
+    {
+      "file": "components/TargetGpaTipInput.tsx",
+      "businessAstEqual": true,
+      "before": "26cea3761e259745f6c3f2db559beca7d84e788a630ed2d2acadf5d8223b26a3",
+      "after": "26cea3761e259745f6c3f2db559beca7d84e788a630ed2d2acadf5d8223b26a3"
+    },
+    {
+      "file": "layouts/DesktopLayout.tsx",
+      "businessAstEqual": true,
+      "before": "0fb1a3c8b43e4c7d41140db92668cbaae86505fcac84e88e5553b39643dd18ba",
+      "after": "0fb1a3c8b43e4c7d41140db92668cbaae86505fcac84e88e5553b39643dd18ba"
+    },
+    {
+      "file": "layouts/MobileAppLayout.tsx",
+      "businessAstEqual": true,
+      "before": "0cdf94796fd54078364e6143566c7de71511c24cf813191a3205c86ff84771f6",
+      "after": "0cdf94796fd54078364e6143566c7de71511c24cf813191a3205c86ff84771f6"
+    },
+    {
+      "file": "pages/ProfilePage.jsx",
+      "businessAstEqual": true,
+      "before": "795424954ec1685214d36a07d3bc47144ae150657b76aa388d69ad667234daee",
+      "after": "795424954ec1685214d36a07d3bc47144ae150657b76aa388d69ad667234daee"
+    },
+    {
+      "file": "pages/ProfileSearchPage.jsx",
+      "businessAstEqual": true,
+      "before": "533ff4bb8fcf96398555235ee5210de0ecf9c33267a9bdcd1796019e5cb5e5b9",
+      "after": "533ff4bb8fcf96398555235ee5210de0ecf9c33267a9bdcd1796019e5cb5e5b9"
+    }
+  ]
+}

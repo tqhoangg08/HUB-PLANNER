@@ -54,8 +54,8 @@ const ProfilePage = ({
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-4">
         <ShieldAlert size={48} className="text-gray-300 mb-4" />
-        <h2 className="text-xl font-bold text-gray-600">Không tìm thấy hồ sơ công khai</h2>
-        <p className="text-gray-500 mt-2">Hồ sơ này chưa công khai hoặc không tồn tại.</p>
+        <h2 className="ui-section-title text-xl font-bold text-gray-600">Không tìm thấy hồ sơ công khai</h2>
+        <p className="ui-secondary text-gray-500 mt-2">Hồ sơ này chưa công khai hoặc không tồn tại.</p>
       </div>
     );
   }
@@ -98,7 +98,7 @@ const ProfilePage = ({
               <button
                 type="button"
                 onClick={onEditProfile}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#003375] px-4 py-2 text-sm font-bold text-white hover:bg-[#00285c]"
+                className="ui-action inline-flex items-center gap-2 rounded-xl bg-[#003375] px-4 py-2 text-sm font-bold text-white hover:bg-[#00285c]"
               >
                 <Edit3 size={16} />
                 Cập nhật hồ sơ
@@ -107,7 +107,7 @@ const ProfilePage = ({
             <button
               type="button"
               onClick={handleCopyLink}
-              className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+              className="ui-action inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
             >
               <Copy size={16} />
               {copied ? 'Đã sao chép' : 'Sao chép link'}
@@ -121,7 +121,7 @@ const ProfilePage = ({
               Đây là bản xem trước riêng của bạn. Người khác chưa thể tìm thấy hồ sơ này cho đến khi bạn bật công khai trong cài đặt.
             </div>
           )}
-          <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">{profile.full_name || 'Sinh viên HUB'}</h1>
+          <h1 className="ui-page-title text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">{profile.full_name || 'Sinh viên HUB'}</h1>
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className="bg-blue-50 text-[#003375] px-3 py-1 rounded-full text-sm font-mono font-bold border border-blue-100">
@@ -139,7 +139,7 @@ const ProfilePage = ({
             ))}
           </div>
 
-          <p className="mt-5 text-gray-700 whitespace-pre-line border-l-4 border-[#003375] pl-4 italic text-sm sm:text-base leading-7">
+          <p className="ui-secondary mt-5 text-gray-700 whitespace-pre-line border-l-4 border-[#003375] pl-4 italic text-sm sm:text-base leading-7">
             {profile.bio || 'Sinh viên này chưa cập nhật bio.'}
           </p>
 
@@ -157,15 +157,15 @@ const ProfilePage = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="text-center p-5">
                   <span className="block font-black text-3xl text-[#003375]">{Number(profile.public_gpa || 0).toFixed(2)}</span>
-                  <span className="text-xs text-gray-500 uppercase font-black tracking-wide">GPA tích lũy</span>
+                  <span className="ui-meta text-xs text-gray-500 uppercase font-black tracking-wide">GPA tích lũy</span>
                 </div>
                 <div className="text-center p-5">
                   <span className="block font-black text-3xl text-[#003375]">{profile.public_completed_semesters || 0}</span>
-                  <span className="text-xs text-gray-500 uppercase font-black tracking-wide">Học kỳ hoàn thành</span>
+                  <span className="ui-meta text-xs text-gray-500 uppercase font-black tracking-wide">Học kỳ hoàn thành</span>
                 </div>
                 <div className="text-center p-5">
                   <span className="block font-black text-3xl text-[#003375]">{profile.public_credits || 0}</span>
-                  <span className="text-xs text-gray-500 uppercase font-black tracking-wide">Tín chỉ tích lũy</span>
+                  <span className="ui-meta text-xs text-gray-500 uppercase font-black tracking-wide">Tín chỉ tích lũy</span>
                 </div>
               </div>
             </>

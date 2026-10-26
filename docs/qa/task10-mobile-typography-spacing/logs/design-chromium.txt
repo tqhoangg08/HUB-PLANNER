@@ -1,0 +1,334 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5173/
+Loading /profiles/search?q=fixture student
+Navigated /profiles/search?q=fixture
+Mode /profiles/search?q=fixture
+Fonts /profiles/search?q=fixture
+Rendered /profiles/search?q=fixture
+URL=http://127.0.0.1:5173/profiles/search?q=fixture&role=student
+✔ chromium accept /profiles/search?q=fixture browser student (9085.8169ms)
+Loading /profiles/search?q=fixture PWA
+Navigated /profiles/search?q=fixture
+Mode /profiles/search?q=fixture
+Fonts /profiles/search?q=fixture
+Rendered /profiles/search?q=fixture
+URL=http://127.0.0.1:5173/profiles/search?q=fixture&role=student&appPreview=1
+✔ chromium accept /profiles/search?q=fixture PWA student (4679.7219ms)
+Loading /scholarships student
+Navigated /scholarships
+Mode /scholarships
+Fonts /scholarships
+Rendered /scholarships
+URL=http://127.0.0.1:5173/scholarships?role=student
+✔ chromium accept /scholarships browser student (4083.9403ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ chromium accept /dashboard browser student (6335.5392ms)
+Loading /schedule student
+Navigated /schedule
+Mode /schedule
+Fonts /schedule
+Rendered /schedule
+URL=http://127.0.0.1:5173/schedule?role=student
+✔ chromium accept /schedule browser student (5376.1941ms)
+Loading /events student
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5173/events?role=student
+✔ chromium accept /events browser student (7465.0014ms)
+Loading /lost-found student
+Navigated /lost-found
+Mode /lost-found
+Fonts /lost-found
+Rendered /lost-found
+URL=http://127.0.0.1:5173/lost-found?role=student
+✔ chromium accept /lost-found browser student (8233.2729ms)
+Loading /handbook/contacts student
+Navigated /handbook/contacts
+Mode /handbook/contacts
+Fonts /handbook/contacts
+Rendered /handbook/contacts
+URL=http://127.0.0.1:5173/handbook/contacts?role=student
+✔ chromium accept /handbook/contacts browser student (8963.6547ms)
+Loading /handbook/feedback student
+Navigated /handbook/feedback
+Mode /handbook/feedback
+Fonts /handbook/feedback
+Rendered /handbook/feedback
+URL=http://127.0.0.1:5173/handbook/feedback?role=student
+✔ chromium accept /handbook/feedback browser student (7999.5774ms)
+Loading /support/new student
+Navigated /support/new
+Mode /support/new
+Fonts /support/new
+Rendered /support/new
+URL=http://127.0.0.1:5173/support/new?role=student
+✔ chromium accept /support/new browser student (7065.5717ms)
+Loading /profile/000000000001 student
+Navigated /profile/000000000001
+Mode /profile/000000000001
+Fonts /profile/000000000001
+Rendered /profile/000000000001
+URL=http://127.0.0.1:5173/profile/000000000001?role=student
+✔ chromium accept /profile/000000000001 browser student (9277.6788ms)
+Loading /support student
+Navigated /support
+Mode /support
+Fonts /support
+Rendered /support
+URL=http://127.0.0.1:5173/support?role=student
+✔ chromium accept /support browser student (7442.4475ms)
+Loading /handbook/scholarships student
+Navigated /handbook/scholarships
+Mode /handbook/scholarships
+Fonts /handbook/scholarships
+Rendered /handbook/scholarships
+URL=http://127.0.0.1:5173/handbook/scholarships?role=student
+✔ chromium accept /handbook/scholarships browser student (10282.7835ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=student&appPreview=1
+✔ chromium accept /mobile-home PWA student (14247.4564ms)
+Loading /learning PWA
+Navigated /learning
+Mode /learning
+Fonts /learning
+Rendered /learning
+URL=http://127.0.0.1:5173/learning?role=student&appPreview=1
+✔ chromium accept /learning PWA student (20442.6362ms)
+Loading /learning?tab=schedule PWA
+Navigated /learning?tab=schedule
+Mode /learning?tab=schedule
+Fonts /learning?tab=schedule
+Rendered /learning?tab=schedule
+URL=http://127.0.0.1:5173/learning?tab=schedule&role=student&appPreview=1
+✔ chromium accept /learning?tab=schedule PWA student (22960.8329ms)
+Loading /events PWA
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5173/events?role=student&appPreview=1
+✔ chromium accept /events PWA student (14083.5988ms)
+Loading /lost-found PWA
+Navigated /lost-found
+Mode /lost-found
+Fonts /lost-found
+Rendered /lost-found
+URL=http://127.0.0.1:5173/lost-found?role=student&appPreview=1
+✔ chromium accept /lost-found PWA student (13639.6575ms)
+Loading /profile/000000000001 PWA
+Navigated /profile/000000000001
+Mode /profile/000000000001
+Fonts /profile/000000000001
+Rendered /profile/000000000001
+URL=http://127.0.0.1:5173/profile/000000000001?role=student&appPreview=1
+✔ chromium accept /profile/000000000001 PWA student (12067.6519ms)
+Loading /handbook/contacts PWA
+Navigated /handbook/contacts
+Mode /handbook/contacts
+Fonts /handbook/contacts
+Rendered /handbook/contacts
+URL=http://127.0.0.1:5173/handbook/contacts?role=student&appPreview=1
+✔ chromium accept /handbook/contacts PWA student (11501.3692ms)
+Loading /handbook/feedback PWA
+Navigated /handbook/feedback
+Mode /handbook/feedback
+Fonts /handbook/feedback
+Rendered /handbook/feedback
+URL=http://127.0.0.1:5173/handbook/feedback?role=student&appPreview=1
+✔ chromium accept /handbook/feedback PWA student (9680.9359ms)
+Loading /dashboard admin
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=admin
+✔ chromium accept /dashboard browser admin (9198.8927ms)
+Loading /dashboard auditor
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=auditor
+✔ chromium accept /dashboard browser auditor (7052.698ms)
+Loading /events admin
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5173/events?role=admin
+✔ chromium accept /events browser admin (6515.3015ms)
+Loading /events auditor
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5173/events?role=auditor
+✔ chromium accept /events browser auditor (8513.9459ms)
+Loading /admin/support admin
+Navigated /admin/support
+Mode /admin/support
+Fonts /admin/support
+Rendered /admin/support
+URL=http://127.0.0.1:5173/admin/support?role=admin
+✔ chromium accept /admin/support browser admin (6050.9446ms)
+Loading /admin/support auditor
+Navigated /admin/support
+Mode /admin/support
+Fonts /admin/support
+Rendered /admin/support
+URL=http://127.0.0.1:5173/admin/support?role=auditor
+✔ chromium accept /admin/support browser auditor (6812.2077ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ chromium accept /dashboard browser guest (15401.053ms)
+Loading /events guest
+Navigated /events
+Mode /events
+Fonts /events
+Rendered /events
+URL=http://127.0.0.1:5173/events?role=guest
+✔ chromium accept /events browser guest (9159.1659ms)
+Loading /support guest
+Navigated /support
+Mode /support
+Fonts /support
+Rendered /support
+URL=http://127.0.0.1:5173/support?role=guest
+✔ chromium accept /support browser guest (8008.046ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=guest&appPreview=1
+✔ chromium accept /mobile-home PWA guest (9635.1486ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 320x568 browser (11127.1122ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium design matrix 320x568 PWA (7549.5168ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 360x640 browser (12711.3701ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium design matrix 360x640 PWA (8387.6685ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 375x667 browser (9417.141ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium design matrix 375x667 PWA (10805.5654ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 390x844 browser (13636.1065ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium design matrix 390x844 PWA (8296.1838ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 430x932 browser (13970.6206ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium design matrix 430x932 PWA (8926.0307ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 768x1024 browser (10990.0579ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 1024x768 browser (9691.6743ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 1440x900 browser (12350.6797ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium design matrix 667x375 browser (11952.6512ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium design matrix 667x375 PWA (8894.2773ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium real announcement and contribution forms: keyboard viewport, focus and scroll (13122.4041ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium PWA bottom navigation, final content and touch ownership (7983.353ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+✔ chromium actual PWA AI and Ticket controls: input size, touch, draft and scroll (6261.7497ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 491123.2007

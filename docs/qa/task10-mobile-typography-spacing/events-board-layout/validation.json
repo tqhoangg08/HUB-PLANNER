@@ -1,0 +1,13 @@
+{
+  "scope": "EventsBoard website layout, isolated API fixtures",
+  "chromiumPageAcceptance": "1/1 PASS at 390, 1024, 1440px",
+  "webkitPageAcceptance": "1/1 PASS at 390, 1024, 1440px",
+  "eventFilterModel": "5/5 PASS",
+  "overlayScrollLockUnit": "4/4 PASS",
+  "eventDrlLocal": "FAIL: Windows checkout CRLF differs from LF generated migration seed in an exact-string assertion; content matches after removing CR, and neither file is changed by this patch",
+  "frontendTypecheck": "PASS",
+  "cloudflareTypecheck": "PASS",
+  "build": "PASS with existing chunk-size warning",
+  "unexpectedProductionWrites": 0,
+  "realDeviceAcceptance": "NOT_VERIFIED"
+}

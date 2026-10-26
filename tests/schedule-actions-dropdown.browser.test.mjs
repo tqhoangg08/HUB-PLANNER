@@ -115,8 +115,8 @@ if(!before) for(const [width,height] of [[360,640],[375,667],[390,844],[430,932]
   await trigger(p).waitFor();assert.equal(await trigger(p).count(),1);assert.equal(await menu(p).count(),0);
   assert.equal(await p.getByText('Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!',{exact:true}).count(),0);
   await trigger(p).scrollIntoViewIfNeeded();const initial=await geometry(p);
-  assert.ok(initial.trigger.width>=44&&initial.trigger.height>=44);assert.equal(initial.visibleActionButtons,1);assert.equal(initial.overflow,false);
-  for(const name of ['Báo lỗi môn','Yêu cầu thêm','Nhập PDF'])assert.equal(await p.getByRole('button',{name,exact:true}).count(),0);
+  assert.ok(initial.trigger.width>=44&&initial.trigger.height>=(width<1024?44:32));assert.equal(initial.visibleActionButtons,2);assert.equal(initial.overflow,false);
+  for(const name of ['Báo lỗi môn','Yêu cầu thêm','Nhập PDF'])assert.equal(await p.getByRole('button',{name,exact:true}).count(),name==='Nhập PDF'?1:0);
   await show(p);assert.equal(await trigger(p).getAttribute('aria-expanded'),'true');assert.equal(await trigger(p).getAttribute('aria-controls'),await menu(p).getAttribute('id'));
   assert.deepEqual(await menu(p).getByRole('menuitem').allTextContents(),labels);assert.equal(await menu(p).getByText(/Gắn nhãn/).count(),0);
   const targets={};for(const name of labels){const b=await item(p,name).boundingBox();targets[name]=b;assert.ok(b.width>=44&&b.height>=44,JSON.stringify(b));assert.equal(await item(p,name).isDisabled(),false);}
@@ -185,7 +185,7 @@ if(!before) for(const standalone of [false,true]) test(`${engine} PDF guide to r
  await show(p);assert.equal(await item(p,'Nhập PDF').isDisabled(),true);await item(p,'Nhập PDF').dispatchEvent('click');assert.equal(await p.getByRole('heading',{name:'Hướng dẫn nhập TKB bằng PDF'}).count(),0);await p.evaluate(()=>window.__releaseTask08Pdf());
  await p.getByRole('heading',{name:'Xem trước thời khóa biểu'}).waitFor({timeout:45000});await menu(p).waitFor({state:'hidden'});assert.equal(await p.getByRole('group').filter({has:p.locator('input')}).count()>0,true);
  const debug=await p.evaluate(()=>JSON.parse(localStorage.getItem('hub_last_schedule_import_debug')));assert.equal(debug.stage,'hub-layout-parsed');assert.equal(debug.courseCount,11);
- assert.equal(await p.getByRole('group').count(),11);await p.getByRole('button',{name:'Đóng',exact:true}).click();assert.equal(await trigger(p).evaluate(e=>document.activeElement===e),true);
+ assert.equal(await p.getByRole('group').filter({has:p.locator('input')}).count(),11);await p.getByRole('button',{name:'Đóng',exact:true}).click();assert.equal(await trigger(p).evaluate(e=>document.activeElement===e),true);
  await show(p);assert.equal(await item(p,'Nhập PDF').isDisabled(),false);await p.keyboard.press('Escape');measurements.push({case:'PDF',standalone,parser:debug.stage,courses:debug.courseCount,busyDisabled:true,fileChooser:true});clean(f);
  }catch(e){console.error(JSON.stringify({case:'PDF',standalone,errors:f.errors,stubbedAssets:f.calls.filter(c=>c.path.startsWith('/node_modules')||c.path.includes('worker')),debug:await p.evaluate(()=>localStorage.getItem('hub_last_schedule_import_debug')),body:(await p.locator('body').innerText()).slice(-1600)}));throw e;}finally{await f.context.close();}
 });
@@ -196,7 +196,7 @@ if(!before) test(`${engine} week/month dropdown ownership, plans and contextual 
  await p.getByRole('button',{name:'Tháng',exact:true}).click();assert.equal(await menu(p).count(),0);
  await p.getByRole('button',{name:'Tuần',exact:true}).click();await p.getByRole('button',{name:'Tổng quát',exact:true}).click();await p.getByRole('button',{name:/^Tuần 7 /}).click();
  const tag=p.getByRole('button',{name:/^Gắn nhãn( cho ngày này)?$/}).filter({visible:true}).first();await tag.click();await p.getByRole('heading',{name:'Gắn nhãn nhanh'}).waitFor();await closeModal(p,'Gắn nhãn nhanh',false);
- await p.getByRole('button',{name:'Kế hoạch',exact:true}).click();for(const key of ['A','B','C']){await p.getByRole('button',{name:`KH ${key}`,exact:true}).click();await show(p);await p.keyboard.press('Escape');assert.ok((await p.getByRole('button',{name:`KH ${key}`,exact:true}).getAttribute('class')).includes('bg-white'));}
+ await p.getByRole('button',{name:'Kế hoạch',exact:true}).click();for(const key of ['A','B','C']){await p.getByRole('combobox',{name:'Phương án xếp lịch'}).selectOption(key);await show(p);await p.keyboard.press('Escape');assert.equal(await p.getByRole('combobox',{name:'Phương án xếp lịch'}).inputValue(),key);}
  await p.getByRole('button',{name:'Lịch cá nhân',exact:true}).click();await show(p);assert.equal(await item(p,'Thêm vào lịch').isDisabled(),false);await p.keyboard.press('Escape');measurements.push({case:'week-month-plans-labels',result:'PASS'});clean(f);
  }finally{await f.context.close();}
 });

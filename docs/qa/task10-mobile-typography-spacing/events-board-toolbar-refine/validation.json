@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-26",
+  "scope": "EventsBoard notice and desktop event filter toolbar layout",
+  "fixture": "Actual EventsBoard in React StrictMode with isolated API data",
+  "browsers": {
+    "chromium": { "widths": [390, 1024, 1440], "targetedBrowserTest": "PASS" },
+    "webkit": { "widths": [390, 1024, 1440], "targetedBrowserTest": "PASS" }
+  },
+  "frontendTypecheck": "PASS",
+  "cloudflareTypecheck": "PASS",
+  "build": "PASS",
+  "diffCheck": "PASS",
+  "realDeviceAcceptance": "NOT_VERIFIED",
+  "limitations": "Mobile WebKit is browser emulation. The notice wraps at 390px to avoid overflow."
+}

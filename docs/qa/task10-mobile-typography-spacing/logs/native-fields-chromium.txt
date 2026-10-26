@@ -1,0 +1,43 @@
+DESIGN_ENGINE=chromium; VERSION=155.0.8059.85; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ chromium accept /dashboard browser student (9559.5868ms)
+Loading /dashboard admin
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=admin
+✔ chromium accept /dashboard browser admin (4482.5956ms)
+Loading /dashboard auditor
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=auditor
+✔ chromium accept /dashboard browser auditor (4503.7937ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ chromium accept /dashboard browser guest (7330.9376ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ chromium GPA target input and readable contextual tip preserve value (5139.0715ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35041.8195

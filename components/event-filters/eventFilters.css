@@ -12,6 +12,7 @@
 .event-filter-date-trigger { flex: none; white-space: nowrap; }
 .event-filter-sort { flex: 1; min-width: 205px; max-width: 250px; }
 .event-filter-chips { display: flex; align-items: center; gap: 8px; height: 44px; margin-top: 8px; max-width: 100%; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
+.event-filter-page .event-filter-chips:empty { display: none; }
 .event-filter-chip { display: inline-flex; flex: none; align-items: center; height: 44px; padding-left: 12px; white-space: nowrap; }
 .event-filter-chip-remove { display: grid; place-items: center; height: 44px; min-width: 44px; }
 .event-filter-chips > button { flex: none; min-height: 44px; white-space: nowrap; }
@@ -25,6 +26,17 @@
 .event-filter-sheet-actions > button { width: 100%; min-height: 44px; height: auto; padding: 12px; justify-content: flex-start; text-align: left; }
 .event-filter-sheet-actions .event-filter-action-label { display: inline; }
 .event-filter-sheet-actions .hidden { display: inline; }
+.events-board-heading-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; column-gap: 16px; row-gap: 2px; }
+.events-board-note.ui-meta { flex-basis: 100%; max-width: 100%; font-size: 12px !important; line-height: 1.4 !important; font-style: normal; }
+.event-board-header-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; white-space: nowrap; font-size: 13px; }
+.events-board-ctv-copy { display: flex; align-items: center; flex-wrap: wrap; column-gap: 12px; }
+.events-board-ctv-copy > p { margin-top: 0; }
+@media (min-width: 640px) {
+  .events-board-ctv-banner { padding: 6px 12px; }
+  .events-board-ctv-banner > div:first-child > div:first-child { width: 28px; height: 28px; }
+  .events-board-ctv-action { background: white; color: #003375; border-color: #bfdbfe; }
+  .events-board-ctv-action:hover { background: #eff6ff; }
+}
 @media (max-width: 767px) {
   .event-filter-controls input:not([type=radio]):not([type=checkbox]),
   .event-filter-panel input:not([type=radio]):not([type=checkbox]), .event-filter-panel select { font-size: 16px; }
@@ -39,6 +51,16 @@
 }
 @media (min-width: 1024px) {
   .event-filter-open { flex: none; }
+  .event-filter-page .event-filter-toolbar { grid-template-columns: minmax(220px, 1fr) auto; align-items: center; }
+  .event-filter-page .event-filter-row { width: auto; }
+  .event-filter-page .event-filter-control { height: 36px; min-height: 36px; }
+  .event-filter-page .event-filter-sort { flex: 0 1 160px; min-width: 140px; max-width: 160px; margin-left: 0; }
+  .event-filter-page .event-filter-inline-actions { margin-left: 0; }
+  .event-filter-page .event-filter-inline-actions .event-filter-action-label { display: inline; }
+  .event-filter-page .event-filter-inline-actions > button { display: inline-flex; width: auto; height: 36px; min-height: 36px; min-width: 36px; gap: 6px; padding-inline: 10px; }
+  .events-board-header { padding-bottom: 10px; margin-bottom: 12px; }
+  .events-board-note { white-space: nowrap; }
+  .events-board-page-actions { padding-top: 2px; }
 }
 
 /* Keep this sheet's footer grid despite the browser shell's generic footer rule. */

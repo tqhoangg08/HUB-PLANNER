@@ -1,0 +1,28 @@
+[BABEL] Note: The code generator has deoptimised the styling of <workspace>\.cache\event-contribution-deps\deps\react-dom_client.js?v=de45794c as it exceeds the max of 500KB.
+✔ actual contribution form: aligned compact fields, catalog errors and recovery at 1440px (36341.3623ms)
+✔ actual contribution form: aligned compact fields, catalog errors and recovery at 620px (4655.0798ms)
+✔ actual contribution form: aligned compact fields, catalog errors and recovery at 390px (3658.1628ms)
+✔ mobile browser layout styles preserve portal header contrast and contain absolute screen-reader table heads (17948.4994ms)
+✔ iOS browser document path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (2272.6259ms)
+✔ iOS standalone/internal path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (2336.3736ms)
+✔ Chrome Android path (Chromium emulation): background wheel is blocked, modal scrolls, styles and deep position restore (1914.8508ms)
+✔ desktop document path: background wheel is blocked, modal scrolls, styles and deep position restore (2198.5877ms)
+✔ desktop internal path: background wheel is blocked, modal scrolls, styles and deep position restore (2050.6025ms)
+✔ nested overlays survive out-of-order close; last owner restores the first snapshot under StrictMode (2648.9576ms)
+✔ unexpected unmount and route navigation release all ownership (1670.4697ms)
+✔ drawer adapter and SweetAlert dialogs share ownership with React modals (2346.1081ms)
+✔ SweetAlert Safari body fix cannot move a locked background or clear a remaining owner (4019.813ms)
+✔ visual viewport resize/offset and input auto-zoom keep form and last action reachable without losing input (1733.0005ms)
+✔ touch guard allows modal scrolling, blocks both edges and backdrop, and preserves multi-touch (1360.5727ms)
+✔ real event filter drawer and DRL guide share ownership and retain Escape and focus behavior (2138.5272ms)
+✔ auditor desktop navigation has its own ordered groups, badges and no admin-only groups (2675.7753ms)
+✔ auditor mobile drawer keeps the same IA without overflow (1692.9175ms)
+✔ admin desktop navigation retains its original groups (1502.926ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 133143.2507

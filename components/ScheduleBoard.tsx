@@ -593,19 +593,26 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setIsFilterSidebarExpanded(false);
     filterToggleRef.current?.focus({ preventScroll: true });
   };
+  const [isNarrowTimetable, setIsNarrowTimetable] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches);
+  const [isMobileFilterSheetOpen, setIsMobileFilterSheetOpen] = useState(false);
+  useEffect(() => {
+    const media=window.matchMedia('(max-width: 1023px)');
+    const change=()=>{setIsNarrowTimetable(media.matches);if(!media.matches)setIsMobileFilterSheetOpen(false);};
+    media.addEventListener('change',change);return ()=>media.removeEventListener('change',change);
+  },[]);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [isCourseResultsOpen, setIsCourseResultsOpen] = useState(false);
   const courseFilterDialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const dialog = courseFilterDialogRef.current;
-    if ((!isFilterExpanded && !isCourseResultsOpen) || !dialog) return;
+    if ((!isFilterExpanded && !isCourseResultsOpen && !isMobileFilterSheetOpen) || !dialog) return;
     const previous = document.activeElement as HTMLElement | null;
     dialog.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || (document.activeElement as HTMLElement)?.closest('[role="dialog"]') !== dialog) return;
       if (event.key === 'Escape') {
         if ((document.activeElement as HTMLElement).matches('select, input[type="date"], input[type="time"]')) return;
-        event.preventDefault(); setIsFilterExpanded(false); setIsCourseResultsOpen(false);
+        event.preventDefault(); setIsFilterExpanded(false); setIsCourseResultsOpen(false); setIsMobileFilterSheetOpen(false);
       }
       if (event.key !== 'Tab') return;
       const controls = Array.from(dialog.querySelectorAll<HTMLElement>('button, input, select, textarea, [tabindex="0"]'))
@@ -620,7 +627,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (previous?.isConnected) previous.focus({ preventScroll: true });
       else filterToggleRef.current?.focus({ preventScroll: true });
     };
-  }, [isFilterExpanded, isCourseResultsOpen]);
+  }, [isFilterExpanded, isCourseResultsOpen, isMobileFilterSheetOpen]);
   const [openSidebarFilterSections, setOpenSidebarFilterSections] = useState<Set<SidebarFilterSection>>(() => new Set(['semester']));
   const [adminScheduleError, setAdminScheduleError] = useState('');
   const [adminFacultyFilter, setAdminFacultyFilter] = useState(() => adminQuery.get('faculty') || '');
@@ -1957,7 +1964,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           }
 
           const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = quickTagCourse;
-          
+
           const overrideData = {
               ...rest,
               labels: labelPayload.updatedLabels,
@@ -2503,18 +2510,72 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         return (
             <div className="w-full min-h-[60vh] flex flex-col items-center justify-center">
                 <Loader2 className="animate-spin text-[#0052cc] mb-3" size={32} />
-                <span className="text-gray-400 text-sm font-medium">Đang tải không gian làm việc...</span>
+                <span className="ui-muted text-gray-400 text-sm font-medium">Đang tải không gian làm việc...</span>
             </div>
         );
     }
 
+  const renderTimetableFilterFields = () => <>                        {([
+                            ['subject', 'Môn học', selectedSubjectName === 'all' ? 'Tất cả' : '1 môn đã chọn'],
+                            ['program', 'Chương trình', selectedFilterPrograms.length ? `${selectedFilterPrograms.length} chương trình đã chọn` : 'Tất cả'],
+                            ['semester', 'Học kỳ', selectedFilterSemesters.length ? `${selectedFilterSemesters.length} học kỳ đã chọn` : 'Tất cả'],
+                            ['phase', 'Đợt', selectedFilterPhases.length ? `${selectedFilterPhases.length} đợt đã chọn` : 'Tất cả'],
+                            ['major', 'Chuyên ngành', selectedFilterMajors.length ? `${selectedFilterMajors.length} ngành đã chọn` : 'Tất cả'],
+                            ['cohort', 'Khóa', selectedFilterCohorts.length ? `${selectedFilterCohorts.length} khóa đã chọn` : 'Tất cả'],
+                            ['group', 'Nhóm', selectedFilterGroups.length ? `${selectedFilterGroups.length} nhóm đã chọn` : 'Tất cả'],
+                        ] as const).map(([key, label, summary]) => {
+                            const isOpen = openSidebarFilterSections.has(key);
+                            return (
+                                <div key={key} className="border-b border-gray-300">
+                                    <button onClick={() => toggleSidebarFilterSection(key)} className="ui-action flex h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-gray-50">
+                                        <span className="text-sm font-extrabold text-[#12366A]">{label}</span>
+                                        <span className="flex min-w-0 items-center gap-2 pl-3">
+                                            <span className="ui-meta max-w-[132px] truncate text-[11px] font-medium text-gray-500">{summary}</span>
+                                            <ChevronDown size={16} className={`shrink-0 text-[#12366A] transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
+                                        </span>
+                                    </button>
+
+                                    {isOpen && (
+                                        <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3">
+                                            {key === 'subject' && <>
+                                                <div className="relative mb-3">
+                                                    <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm tên môn hoặc mã học phần..." className="ui-input h-9 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-xs outline-none focus:border-[#155EEF]"/>
+                                                    <Search size={14} className="ui-muted absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                                </div>
+                                                <select disabled={!isAuthenticated} value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="ui-input h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                                    <option value="all">Tất cả môn học</option>
+                                                    {subjectNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                                </select>
+                                            </>}
+                                            {key === 'program' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">
+                                                {academicProgramOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterPrograms.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterPrograms, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}
+                                                {academicProgramOptions.length === 0 && <p className="ui-muted ui-secondary text-xs text-gray-400">Chưa có dữ liệu chương trình.</p>}
+                                            </div>}
+                                            {key === 'semester' && <div className="space-y-2.5">
+                                                {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => (
+                                                    <label key={option.value} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]">
+                                                        <input type="checkbox" checked={selectedFilterSemesters.includes(option.value)} onChange={() => toggleMultiFilterValue(setSelectedFilterSemesters, option.value)} className="h-4 w-4 accent-[#0D4E9B]"/>
+                                                        <span className="flex-1">{option.label}</span>
+                                                    </label>
+                                                ))}
+                                            </div>}
+                                            {key === 'phase' && <div className="space-y-2.5">{['1', '2'].map(value => <label key={value} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" checked={selectedFilterPhases.includes(value)} onChange={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} className="h-4 w-4 accent-[#0D4E9B]"/><span>Đợt {value}</span></label>)}</div>}
+                                            {key === 'major' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{majorOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterMajors.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterMajors, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
+                                            {key === 'cohort' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{cohortOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterCohorts.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterCohorts, option)} className="h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span>{option}</span></label>)}</div>}
+                                            {key === 'group' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{groupNameOptions.map(option => <label key={option} className="ui-secondary flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterGroups.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterGroups, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+</>;
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
         {showScheduleUpdateNotice && (
             <Overlay className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" onClick={handleCloseScheduleUpdateNotice}>
                 <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-300 bg-white animate-scaleIn" onClick={(e) => e.stopPropagation()}>
                     <div className="relative border-b border-gray-100 bg-gray-50 px-5 py-4">
-                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-300 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Đóng thông báo">
+                        <button onClick={handleCloseScheduleUpdateNotice} className="ui-muted ui-action absolute right-4 top-4 rounded-full border border-gray-300 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Đóng thông báo">
                             <X size={18} />
                         </button>
                         <div className="flex items-start gap-3 pr-8">
@@ -2522,8 +2583,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <Info size={18} />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold leading-tight text-[#003375]">Tính năng mới: Chỉnh lịch học và lịch thi</h2>
-                                <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                                <h2 className="ui-section-title text-lg font-bold leading-tight text-[#003375]">Tính năng mới: Chỉnh lịch học và lịch thi</h2>
+                                <p className="ui-body mt-1 text-sm leading-relaxed text-gray-600">
                                     Cập nhật môn học, ngày thi, ca thi và gắn nhãn cho các ngày quan trọng ngay trên lịch cá nhân.
                                 </p>
                             </div>
@@ -2544,7 +2605,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
 
                     <div className="border-t border-gray-100 px-5 py-4">
-                        <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-600">
+                        <label className="ui-secondary flex cursor-pointer items-start gap-3 text-sm text-gray-600">
                             <input
                                 type="checkbox"
                                 checked={hideScheduleUpdateNoticeNextTime}
@@ -2554,7 +2615,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <span>Không hiển thị lại thông báo này</span>
                         </label>
                         <div className="mt-4 flex justify-end">
-                            <button onClick={handleConfirmScheduleUpdateNotice} className="rounded-xl bg-[#003375] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#002855]">
+                            <button onClick={handleConfirmScheduleUpdateNotice} className="ui-action rounded-xl bg-[#003375] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#002855]">
                                 Đã hiểu
                             </button>
                         </div>
@@ -2567,24 +2628,24 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {isAdminView && <div className="relative z-40 -mt-2 mb-5 border-b border-slate-200 bg-[#F8FAFC] pb-4 pt-3">
             <div className="flex flex-row items-end justify-between gap-3 px-1">
                 <div className="flex flex-col">
-                    <h1 className="text-[26px] font-black tracking-tight text-[#003375] sm:text-[28px]">Quản lý thời khóa biểu</h1>
-                    <p className="mt-1 text-sm text-slate-500">Tra cứu và quản lý môn học, lịch học của sinh viên</p>
+                    <h1 className="ui-page-title text-[26px] font-black tracking-tight text-[#003375] sm:text-[28px]">Quản lý thời khóa biểu</h1>
+                    <p className="ui-secondary mt-1 text-sm text-slate-500">Tra cứu và quản lý môn học, lịch học của sinh viên</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     {!isAdminView && (
                         <>
-                            <button onClick={() => setIsFilterExpanded(true)} className="hidden sm:flex h-10 items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-[#003375] transition-colors hover:bg-blue-50">
+                            <button onClick={() => setIsFilterExpanded(true)} className="ui-action hidden sm:flex h-10 items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-[#003375] transition-colors hover:bg-blue-50">
                                 <SlidersHorizontal size={17}/>
                                 Bộ lọc nâng cao
-                                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#155EEF] px-1.5 text-[11px] text-white">{activeCourseFilterCount}</span>
+                                <span className="ui-meta flex h-5 min-w-5 items-center justify-center rounded-full bg-[#155EEF] px-1.5 text-[11px] text-white">{activeCourseFilterCount}</span>
                             </button>
-                            <button onClick={clearCourseFilters} disabled={!hasActiveCourseFilters && selectedPhase === 'all'} className="hidden sm:flex h-10 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
+                            <button onClick={clearCourseFilters} disabled={!hasActiveCourseFilters && selectedPhase === 'all'} className="ui-action hidden sm:flex h-10 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
                                 <Trash2 size={15}/> Xóa bộ lọc
                             </button>
                         </>
                     )}
                     {(isAdmin || isAuditor) && (
-                        <button onClick={() => { playClick(); setIsAdminView(!isAdminView); }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors text-xs sm:text-sm active:scale-95">
+                        <button onClick={() => { playClick(); setIsAdminView(!isAdminView); }} className="ui-action flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors text-xs sm:text-sm active:scale-95">
                             <Settings size={16}/> <span className="hidden sm:inline">{isAdminView ? 'Về giao diện Sinh viên' : 'Quản lý Môn học'}</span><span className="sm:hidden">Admin</span>
                         </button>
                     )}
@@ -2609,17 +2670,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         }}
                         role="tab"
                         aria-selected={adminTab === 'system'}
-                        className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'system' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}
+                        className={`ui-action shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'system' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}
                     >Môn hệ thống gốc</button>
-                    <button onClick={() => selectAdminTab('user')} role="tab" aria-selected={adminTab === 'user'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thêm</button>
-                    <button onClick={() => selectAdminTab('requested')} role="tab" aria-selected={adminTab === 'requested'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'requested' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên yêu cầu thêm</button>
-                    <button onClick={() => selectAdminTab('user_changed')} role="tab" aria-selected={adminTab === 'user_changed'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user_changed' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thay đổi</button>
-                    <button onClick={() => { selectAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); }} role="tab" aria-selected={adminTab === 'student_schedules'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'student_schedules' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Quản lý TKB sinh viên</button>
+                    <button onClick={() => selectAdminTab('user')} role="tab" aria-selected={adminTab === 'user'} className={`ui-action shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thêm</button>
+                    <button onClick={() => selectAdminTab('requested')} role="tab" aria-selected={adminTab === 'requested'} className={`ui-action shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'requested' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên yêu cầu thêm</button>
+                    <button onClick={() => selectAdminTab('user_changed')} role="tab" aria-selected={adminTab === 'user_changed'} className={`ui-action shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user_changed' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thay đổi</button>
+                    <button onClick={() => { selectAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); }} role="tab" aria-selected={adminTab === 'student_schedules'} className={`ui-action shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'student_schedules' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Quản lý TKB sinh viên</button>
                 </div>
 
                 {(adminTab === 'system' || adminTab === 'user') ? <section aria-label="Bộ lọc thời khóa biểu" className="border-b border-slate-200 bg-slate-50/70 p-4 sm:p-5">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(245px,1.5fr)_minmax(180px,.9fr)_minmax(170px,.9fr)_minmax(160px,.8fr)_minmax(250px,1fr)]">
-                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Tìm kiếm</span><span className="relative">
+                        <label className="ui-secondary grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Tìm kiếm</span><span className="relative">
                             <input
                                 type="text"
                                 placeholder={adminTab === 'system'
@@ -2637,63 +2698,63 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         setCourseHasMore(false);
                                     }
                                 }}
-                                className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"
+                                className="ui-input h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"
                             />
-                            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <Search className="ui-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         </span></label>
-                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Học kỳ</span><select value={selectedSemester} onChange={(e) => { setSelectedSemester(e.target.value); setAdminQuery({ semester: e.target.value, year: e.target.value.split('_').slice(1).join('-'), page: '1' }); }} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                        <label className="ui-secondary grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Học kỳ</span><select value={selectedSemester} onChange={(e) => { setSelectedSemester(e.target.value); setAdminQuery({ semester: e.target.value, year: e.target.value.split('_').slice(1).join('-'), page: '1' }); }} className="ui-input h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
                             {SEMESTER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                         </select></label>
-                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Khoa phụ trách</span><input value={adminFacultyFilter} onChange={(event) => { setAdminFacultyFilter(event.target.value); setAdminQuery({ faculty: event.target.value || null, page: '1' }, true); }} placeholder="Tất cả khoa" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></label>
-                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => { setAdminStatusFilter(event.target.value); setAdminQuery({ status: event.target.value === 'all' ? null : event.target.value, page: '1' }); }} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                        <label className="ui-secondary grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Khoa phụ trách</span><input value={adminFacultyFilter} onChange={(event) => { setAdminFacultyFilter(event.target.value); setAdminQuery({ faculty: event.target.value || null, page: '1' }, true); }} placeholder="Tất cả khoa" className="ui-muted ui-input h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></label>
+                        <label className="ui-secondary grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => { setAdminStatusFilter(event.target.value); setAdminQuery({ status: event.target.value === 'all' ? null : event.target.value, page: '1' }); }} className="ui-input h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
                             <option value="all">Tất cả</option>
                             <option value="active">Đang áp dụng</option>
                         </select></label>
                         <fieldset className="grid gap-1.5"><legend className="text-[12px] font-bold text-slate-700">Khoảng thời gian</legend><div className="grid grid-cols-2 gap-2">
-                            <input value={adminRequestDateFrom} onChange={(event) => setAdminRequestDateFrom(event.target.value)} type="date" aria-label="Từ ngày" disabled title="Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn." className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
-                            <input value={adminRequestDateTo} onChange={(event) => setAdminRequestDateTo(event.target.value)} type="date" aria-label="Đến ngày" disabled title="Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn." className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
+                            <input value={adminRequestDateFrom} onChange={(event) => setAdminRequestDateFrom(event.target.value)} type="date" aria-label="Từ ngày" disabled title="Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn." className="ui-muted ui-input h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
+                            <input value={adminRequestDateTo} onChange={(event) => setAdminRequestDateTo(event.target.value)} type="date" aria-label="Đến ngày" disabled title="Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn." className="ui-muted ui-input h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
                         </div></fieldset>
                     </div>
                 </section> : <section aria-label="Bộ lọc thời khóa biểu" className="border-b border-gray-300 bg-white p-4 sm:p-5">
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(230px,1.5fr)_repeat(3,minmax(130px,.8fr))]">
-                        <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Tìm kiếm</span><span className="relative"><Search size={16} className="pointer-events-none absolute left-3 top-3 text-slate-400"/><input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setAdminQuery({ search: event.target.value || null, page: '1' }, true); }} placeholder={adminTab === 'requested' ? 'Mã yêu cầu, MSSV, tên môn...' : adminTab === 'user_changed' ? 'Mã SV, họ tên, môn thay đổi...' : 'Mã SV, họ tên...'} className="h-10 w-full min-w-0 rounded-md border border-gray-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></span></label>
-                        <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Học kỳ</span><select value={selectedSemester.split('_')[0]} onChange={(event) => { const year = selectedSemester.split('_').slice(1).join('_'); const next = SEMESTER_OPTIONS.find(option => option.value === `${event.target.value}_${year}`); if (next) { setSelectedSemester(next.value); setAdminQuery({ semester: next.value, year: year.replace('_', '-'), page: '1' }); } }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">{[['HK1', 'HK1'], ['HK2', 'HK2'], ['HKHE', 'Hè']].map(([term, label]) => <option key={term} value={term} disabled={!SEMESTER_OPTIONS.some(option => option.value === `${term}_${selectedSemester.split('_').slice(1).join('_')}`)}>{label}</option>)}</select></label>
-                        <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Năm học</span><select value={selectedSemester.split('_').slice(1).join('_')} onChange={(event) => { const term = selectedSemester.split('_')[0]; const next = SEMESTER_OPTIONS.find(option => option.value === `${term}_${event.target.value}`) || SEMESTER_OPTIONS.find(option => option.value.endsWith(event.target.value)); if (next) { setSelectedSemester(next.value); setAdminQuery({ semester: next.value, year: event.target.value.replace('_', '-'), page: '1' }); } }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">{[...new Set(SEMESTER_OPTIONS.map(option => option.value.split('_').slice(1).join('_')))].map(year => <option key={year} value={year}>{year.replace('_', '–')}</option>)}</select></label>
-                        {adminTab === 'requested' && <label className="grid gap-1.5"><span className="text-xs font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => { setAdminStatusFilter(event.target.value); setAdminQuery({ status: event.target.value === 'all' ? null : event.target.value, page: '1' }); }} className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"><option value="all">Tất cả</option><option value="pending">Chờ xử lý</option><option value="approved">Đã duyệt</option><option value="rejected">Đã từ chối</option></select></label>}
-                        {adminTab === 'requested' && <fieldset className="grid gap-1.5 xl:col-span-2"><legend className="text-xs font-bold text-slate-700">Ngày gửi yêu cầu</legend><div className="grid grid-cols-2 gap-2"><input value={adminRequestDateFrom} onChange={(event) => { setAdminRequestDateFrom(event.target.value); setAdminQuery({ from: event.target.value || null, page: '1' }); }} type="date" aria-label="Từ ngày gửi" className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-xs outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"/><input value={adminRequestDateTo} onChange={(event) => { setAdminRequestDateTo(event.target.value); setAdminQuery({ to: event.target.value || null, page: '1' }); }} type="date" aria-label="Đến ngày gửi" className="h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-xs outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"/></div></fieldset>}
+                        <label className="ui-secondary grid gap-1.5"><span className="ui-meta text-xs font-bold text-slate-700">Tìm kiếm</span><span className="relative"><Search size={16} className="ui-muted pointer-events-none absolute left-3 top-3 text-slate-400"/><input value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setAdminQuery({ search: event.target.value || null, page: '1' }, true); }} placeholder={adminTab === 'requested' ? 'Mã yêu cầu, MSSV, tên môn...' : adminTab === 'user_changed' ? 'Mã SV, họ tên, môn thay đổi...' : 'Mã SV, họ tên...'} className="ui-input h-10 w-full min-w-0 rounded-md border border-gray-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></span></label>
+                        <label className="ui-secondary grid gap-1.5"><span className="ui-meta text-xs font-bold text-slate-700">Học kỳ</span><select value={selectedSemester.split('_')[0]} onChange={(event) => { const year = selectedSemester.split('_').slice(1).join('_'); const next = SEMESTER_OPTIONS.find(option => option.value === `${event.target.value}_${year}`); if (next) { setSelectedSemester(next.value); setAdminQuery({ semester: next.value, year: year.replace('_', '-'), page: '1' }); } }} className="ui-input h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">{[['HK1', 'HK1'], ['HK2', 'HK2'], ['HKHE', 'Hè']].map(([term, label]) => <option key={term} value={term} disabled={!SEMESTER_OPTIONS.some(option => option.value === `${term}_${selectedSemester.split('_').slice(1).join('_')}`)}>{label}</option>)}</select></label>
+                        <label className="ui-secondary grid gap-1.5"><span className="ui-meta text-xs font-bold text-slate-700">Năm học</span><select value={selectedSemester.split('_').slice(1).join('_')} onChange={(event) => { const term = selectedSemester.split('_')[0]; const next = SEMESTER_OPTIONS.find(option => option.value === `${term}_${event.target.value}`) || SEMESTER_OPTIONS.find(option => option.value.endsWith(event.target.value)); if (next) { setSelectedSemester(next.value); setAdminQuery({ semester: next.value, year: event.target.value.replace('_', '-'), page: '1' }); } }} className="ui-input h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">{[...new Set(SEMESTER_OPTIONS.map(option => option.value.split('_').slice(1).join('_')))].map(year => <option key={year} value={year}>{year.replace('_', '–')}</option>)}</select></label>
+                        {adminTab === 'requested' && <label className="ui-secondary grid gap-1.5"><span className="ui-meta text-xs font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => { setAdminStatusFilter(event.target.value); setAdminQuery({ status: event.target.value === 'all' ? null : event.target.value, page: '1' }); }} className="ui-input h-10 min-w-0 rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"><option value="all">Tất cả</option><option value="pending">Chờ xử lý</option><option value="approved">Đã duyệt</option><option value="rejected">Đã từ chối</option></select></label>}
+                        {adminTab === 'requested' && <fieldset className="grid gap-1.5 xl:col-span-2"><legend className="ui-meta text-xs font-bold text-slate-700">Ngày gửi yêu cầu</legend><div className="grid grid-cols-2 gap-2"><input value={adminRequestDateFrom} onChange={(event) => { setAdminRequestDateFrom(event.target.value); setAdminQuery({ from: event.target.value || null, page: '1' }); }} type="date" aria-label="Từ ngày gửi" className="ui-input h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-xs outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"/><input value={adminRequestDateTo} onChange={(event) => { setAdminRequestDateTo(event.target.value); setAdminQuery({ to: event.target.value || null, page: '1' }); }} type="date" aria-label="Đến ngày gửi" className="ui-input h-10 min-w-0 rounded-md border border-gray-300 bg-white px-2 text-xs outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"/></div></fieldset>}
                     </div>
                 </section>}
 
                 <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-5" aria-label="Thao tác quản lý thời khóa biểu">
                     {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && adminTab !== 'requested' && (
-                        <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="inline-flex h-10 items-center gap-2 rounded-md bg-[#0052cc] px-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#003d99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"><Plus size={17}/> Thêm môn</button>
+                        <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="ui-action inline-flex h-10 items-center gap-2 rounded-md bg-[#0052cc] px-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#003d99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"><Plus size={17}/> Thêm môn</button>
                     )}
-                    {(adminTab === 'system' || adminTab === 'user') && <button type="button" disabled title="Xuất Excel cho danh mục thời khóa biểu chưa được cung cấp bởi API hiện tại." className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-500 opacity-60"><Download size={17}/> Xuất Excel</button>}
-                    <button onClick={() => void refreshAdminScheduleData()} disabled={isLoading} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc] disabled:opacity-50"><RefreshCw size={17} className={isLoading ? 'animate-spin' : ''}/> Làm mới</button>
-                    <label className="ml-auto flex items-center gap-2 text-xs font-bold text-slate-700">Sắp xếp
-                        <select value={adminSort} onChange={(event) => setAdminQuery({ sort: event.target.value === 'default' ? null : event.target.value, page: '1' })} className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                    {(adminTab === 'system' || adminTab === 'user') && <button type="button" disabled title="Xuất Excel cho danh mục thời khóa biểu chưa được cung cấp bởi API hiện tại." className="ui-action inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-500 opacity-60"><Download size={17}/> Xuất Excel</button>}
+                    <button onClick={() => void refreshAdminScheduleData()} disabled={isLoading} className="ui-action inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc] disabled:opacity-50"><RefreshCw size={17} className={isLoading ? 'animate-spin' : ''}/> Làm mới</button>
+                    <label className="ui-secondary ml-auto flex items-center gap-2 text-xs font-bold text-slate-700">Sắp xếp
+                        <select value={adminSort} onChange={(event) => setAdminQuery({ sort: event.target.value === 'default' ? null : event.target.value, page: '1' })} className="ui-input h-10 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
                             <option value="default">Mặc định</option>
                             <option value="name-asc">A → Z</option><option value="name-desc">Z → A</option>
                             {(adminTab === 'user' || adminTab === 'requested') && <><option value="created-desc">Mới nhất</option><option value="created-asc">Cũ nhất</option></>}
                             {adminTab === 'student_schedules' && <><option value="student-code-asc">MSSV tăng dần</option><option value="course-count-desc">Số môn nhiều → ít</option><option value="credits-desc">Tổng TC cao → thấp</option></>}
                         </select>
                     </label>
-                    {adminTab === 'requested' && quickApproveError && <p role="alert" className="w-full text-sm text-red-700">{quickApproveError}</p>}
+                    {adminTab === 'requested' && quickApproveError && <p role="alert" className="ui-secondary w-full text-sm text-red-700">{quickApproveError}</p>}
                 </div>
 
                 <div className="max-h-[calc(100vh-330px)] min-h-[460px] overflow-auto bg-white custom-scrollbar">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full text-gray-500 gap-2"><Loader2 className="animate-spin" size={20}/> Đang tải dữ liệu...</div>
                     ) : adminTab === 'student_schedules' ? (
-                        adminScheduleError ? <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center gap-2 px-4 text-center text-red-700"><AlertTriangle size={28}/><p>{adminScheduleError}</p><button type="button" onClick={() => void fetchStudentScheduleSummaries()} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button></div> : selectedStudentSchedule ? (
+                        adminScheduleError ? <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center gap-2 px-4 text-center text-red-700"><AlertTriangle size={28}/><p>{adminScheduleError}</p><button type="button" onClick={() => void fetchStudentScheduleSummaries()} className="ui-action rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button></div> : selectedStudentSchedule ? (
                             <div className="h-full flex flex-col">
                                 <div className="p-4 border-b border-gray-300 bg-emerald-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div>
-                                        <button onClick={() => { playClick(); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); navigate(`/schedule${location.search}`); }} className="text-xs font-bold text-emerald-700 hover:text-emerald-900 mb-2">
+                                        <button onClick={() => { playClick(); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); navigate(`/schedule${location.search}`); }} className="ui-action text-xs font-bold text-emerald-700 hover:text-emerald-900 mb-2">
                                             ← Quay lại danh sách sinh viên
                                         </button>
-                                        <h3 className="text-lg font-extrabold text-[#003375]">{selectedStudentSchedule.full_name}</h3>
-                                        <p className="text-sm text-gray-600">
+                                        <h3 className="ui-card-title text-lg font-extrabold text-[#003375]">{selectedStudentSchedule.full_name}</h3>
+                                        <p className="ui-body text-sm text-gray-600">
                                             MSSV: <span className="font-mono font-bold text-emerald-700">{selectedStudentSchedule.student_code}</span>
                                             {selectedStudentSchedule.email ? ` • ${selectedStudentSchedule.email}` : ''}
                                         </p>
@@ -2712,14 +2773,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <table className="w-full text-left border-collapse text-sm min-w-[900px]">
                                         <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                             <tr>
-                                                <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
-                                                <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                                <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
-                                                <th className="p-3 border-b border-gray-300 font-bold text-center">TC</th>
-                                                <th className="p-3 border-b border-gray-300 font-bold text-center">Đợt</th>
-                                                <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
-                                                <th className="p-3 border-b border-gray-300 font-bold">Lịch Học & Phòng</th>
-                                                <th className="p-3 border-b border-gray-300 font-bold">Lịch thi</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold text-center">TC</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold text-center">Đợt</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold">Lịch Học & Phòng</th>
+                                                <th className="ui-meta p-3 border-b border-gray-300 font-bold">Lịch thi</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2729,24 +2790,24 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                     <td className="p-3 font-semibold text-[#003375] whitespace-nowrap">{course.course_code}</td>
                                                     <td className="p-3 font-bold text-gray-800">{course.subject_name}</td>
                                                     <td className="p-3 text-center font-medium">{course.credits}</td>
-                                                    <td className="p-3 text-center"><span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-bold text-gray-600">{course.phase || '1'}</span></td>
+                                                    <td className="p-3 text-center"><span className="ui-meta px-2 py-0.5 bg-gray-100 rounded text-xs font-bold text-gray-600">{course.phase || '1'}</span></td>
                                                     <td className="p-3 text-gray-600 font-medium">{course.instructor || '-'}</td>
-                                                    <td className="p-3 text-xs text-gray-600 leading-relaxed">
+                                                    <td className="ui-meta p-3 text-xs text-gray-600 leading-relaxed">
                                                         <span className="font-bold text-gray-800">Thứ {course.day_of_week} ({course.shift})</span> • P.{course.room}<br/>
                                                         Tuần: {course.weeks}
                                                         {course.labels && course.labels.length > 0 && (
                                                             <div className="flex gap-1 mt-1 flex-wrap">
                                                                 {course.labels.map((label: any) => (
-                                                                    <span key={label.id} className={`text-[9px] px-1 rounded border font-semibold ${getLabelStyle(label.color)}`}>{label.date} - {label.type === 'Khác' ? label.text : label.type}</span>
+                                                                    <span key={label.id} className={`ui-meta text-[9px] px-1 rounded border font-semibold ${getLabelStyle(label.color)}`}>{label.date} - {label.type === 'Khác' ? label.text : label.type}</span>
                                                                 ))}
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="p-3 text-xs text-gray-600">
+                                                    <td className="ui-meta p-3 text-xs text-gray-600">
                                                         {course.exam_date ? (
                                                             <span><b>{course.exam_date}</b> • Ca {course.exam_shift || '-'} • P.{course.exam_room || '-'}</span>
                                                         ) : (
-                                                            <span className="text-gray-400">Chưa có</span>
+                                                            <span className="ui-muted text-gray-400">Chưa có</span>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -2756,18 +2817,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 )}
                             </div>
                         ) : studentPageData.total === 0 ? (
-                            <div className="flex min-h-[300px] flex-col items-center justify-center text-gray-500"><Search size={28} className="mb-2 text-gray-400"/><p>Không có dữ liệu phù hợp.</p></div>
+                            <div className="flex min-h-[300px] flex-col items-center justify-center text-gray-500"><Search size={28} className="ui-muted mb-2 text-gray-400"/><p>Không có dữ liệu phù hợp.</p></div>
                         ) : (
                             <table className="w-full min-w-[760px] border-collapse text-left text-[13px]">
-                                <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
+                                <thead className="ui-meta sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
                                     <tr>
-                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Mã SV</th>
-                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Họ tên</th>
-                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Học kỳ</th>
-                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3 text-center">Số môn</th>
-                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3 text-center">Tổng TC</th>
-                                        <th scope="col" className="border-b border-r border-gray-300 px-4 py-3">Email</th>
-                                        <th scope="col" className="sticky right-0 z-10 border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
+                                        <th scope="col" className="ui-meta border-b border-r border-gray-300 px-4 py-3">Mã SV</th>
+                                        <th scope="col" className="ui-meta border-b border-r border-gray-300 px-4 py-3">Họ tên</th>
+                                        <th scope="col" className="ui-meta border-b border-r border-gray-300 px-4 py-3">Học kỳ</th>
+                                        <th scope="col" className="ui-meta border-b border-r border-gray-300 px-4 py-3 text-center">Số môn</th>
+                                        <th scope="col" className="ui-meta border-b border-r border-gray-300 px-4 py-3 text-center">Tổng TC</th>
+                                        <th scope="col" className="ui-meta border-b border-r border-gray-300 px-4 py-3">Email</th>
+                                        <th scope="col" className="ui-meta sticky right-0 z-10 border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
@@ -2780,7 +2841,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             <td className="border-r border-gray-200 px-4 py-3 text-center font-semibold">{student.total_credits ?? 0}</td>
                                             <td className="border-r border-gray-200 px-4 py-3 text-slate-600">{student.email || '—'}</td>
                                             <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35">
-                                                <button type="button" onClick={() => void openStudentSchedule(student)} title="Xem TKB" aria-label={`Xem TKB ${student.student_code || student.full_name}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button>
+                                                <button type="button" onClick={() => void openStudentSchedule(student)} title="Xem TKB" aria-label={`Xem TKB ${student.student_code || student.full_name}`} className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button>
                                             </td>
                                         </tr>
                                     ))}
@@ -2789,40 +2850,40 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         )
                     ) : adminTab === 'requested' ? (
                         adminScheduleError ? (
-                            <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center gap-2 px-4 text-center text-red-700"><AlertTriangle size={28}/><p>{adminScheduleError}</p><button type="button" onClick={() => void fetchCourseRequests(1, { force: true })} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button></div>
+                            <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center gap-2 px-4 text-center text-red-700"><AlertTriangle size={28}/><p>{adminScheduleError}</p><button type="button" onClick={() => void fetchCourseRequests(1, { force: true })} className="ui-action rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button></div>
                         ) : requestedPageData.total === 0 ? (
-                            <div className="flex min-h-[300px] flex-col items-center justify-center text-gray-500"><Search size={28} className="mb-2 text-gray-400"/><p>Không có dữ liệu phù hợp.</p></div>
+                            <div className="flex min-h-[300px] flex-col items-center justify-center text-gray-500"><Search size={28} className="ui-muted mb-2 text-gray-400"/><p>Không có dữ liệu phù hợp.</p></div>
                         ) : (
                             <table className="w-full min-w-[1120px] table-fixed border-collapse text-left text-[13px]">
-                                <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
+                                <thead className="ui-meta sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
                                     <tr>
-                                        <th scope="col" className="w-[105px] border-b border-r border-gray-300 px-3 py-3">Mã yêu cầu</th>
-                                        <th scope="col" className="w-[115px] border-b border-r border-gray-300 px-3 py-3">MSSV</th>
-                                        <th scope="col" className="w-[120px] border-b border-r border-gray-300 px-3 py-3">Mã môn</th>
-                                        <th scope="col" className="border-b border-r border-gray-300 px-3 py-3">Môn học yêu cầu</th>
-                                        <th scope="col" className="w-[125px] border-b border-r border-gray-300 px-3 py-3">Giảng viên</th>
-                                        <th scope="col" className="w-[190px] border-b border-r border-gray-300 px-3 py-3">Lịch đề xuất</th>
-                                        <th scope="col" className="w-[100px] border-b border-r border-gray-300 px-3 py-3">Ngày gửi</th>
-                                        <th scope="col" className="w-[105px] border-b border-r border-gray-300 px-3 py-3">Trạng thái</th>
-                                        <th scope="col" className="sticky right-0 z-10 w-[160px] border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
+                                        <th scope="col" className="ui-meta w-[105px] border-b border-r border-gray-300 px-3 py-3">Mã yêu cầu</th>
+                                        <th scope="col" className="ui-meta w-[115px] border-b border-r border-gray-300 px-3 py-3">MSSV</th>
+                                        <th scope="col" className="ui-meta w-[120px] border-b border-r border-gray-300 px-3 py-3">Mã môn</th>
+                                        <th scope="col" className="ui-meta border-b border-r border-gray-300 px-3 py-3">Môn học yêu cầu</th>
+                                        <th scope="col" className="ui-meta w-[125px] border-b border-r border-gray-300 px-3 py-3">Giảng viên</th>
+                                        <th scope="col" className="ui-meta w-[190px] border-b border-r border-gray-300 px-3 py-3">Lịch đề xuất</th>
+                                        <th scope="col" className="ui-meta w-[100px] border-b border-r border-gray-300 px-3 py-3">Ngày gửi</th>
+                                        <th scope="col" className="ui-meta w-[105px] border-b border-r border-gray-300 px-3 py-3">Trạng thái</th>
+                                        <th scope="col" className="ui-meta sticky right-0 z-10 w-[160px] border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                     {requestedPageData.rows.map((request) => (
                                         <tr key={request.id} className="group hover:bg-blue-50/35">
-                                            <td className="border-r border-gray-200 px-3 py-3 font-mono text-xs text-slate-600" title={request.id.toUpperCase()}>{request.id.slice(0, 8).toUpperCase()}</td>
-                                            <td className="border-r border-gray-200 px-3 py-3 font-mono text-xs text-[#0052cc]">{getCourseRequestStudentCode(request)}</td>
+                                            <td className="ui-meta border-r border-gray-200 px-3 py-3 font-mono text-xs text-slate-600" title={request.id.toUpperCase()}>{request.id.slice(0, 8).toUpperCase()}</td>
+                                            <td className="ui-meta border-r border-gray-200 px-3 py-3 font-mono text-xs text-[#0052cc]">{getCourseRequestStudentCode(request)}</td>
                                             <td className="border-r border-gray-200 px-3 py-3 font-semibold text-slate-800">{request.course_code}</td>
-                                            <td className="border-r border-gray-200 px-3 py-3"><div className="line-clamp-2 font-semibold" title={request.subject_name}>{request.subject_name}</div>{request.request_note && <p className="mt-0.5 truncate text-xs text-slate-500" title={request.request_note}>{request.request_note}</p>}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3"><div className="line-clamp-2 font-semibold" title={request.subject_name}>{request.subject_name}</div>{request.request_note && <p className="ui-secondary mt-0.5 truncate text-xs text-slate-500" title={request.request_note}>{request.request_note}</p>}</td>
                                             <td className="border-r border-gray-200 px-3 py-3 text-slate-600">{request.instructor || '—'}</td>
-                                            <td className="border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{request.scheduleSessions?.length ? `${request.scheduleSessions.length} buổi` : 'Chưa có lịch cấu trúc'}<span className="block text-slate-500">{SEMESTER_OPTIONS.find(option => option.value === request.semester)?.label || request.semester}</span></td>
-                                            <td className="border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{request.created_at ? new Date(request.created_at).toLocaleDateString('vi-VN') : '—'}</td>
-                                            <td className="border-r border-gray-200 px-3 py-3"><span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-bold ${request.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : request.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{request.status === 'approved' ? 'Đã duyệt' : request.status === 'rejected' ? 'Đã từ chối' : 'Chờ xử lý'}</span></td>
+                                            <td className="ui-meta border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{request.scheduleSessions?.length ? `${request.scheduleSessions.length} buổi` : 'Chưa có lịch cấu trúc'}<span className="block text-slate-500">{SEMESTER_OPTIONS.find(option => option.value === request.semester)?.label || request.semester}</span></td>
+                                            <td className="ui-meta border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{request.created_at ? new Date(request.created_at).toLocaleDateString('vi-VN') : '—'}</td>
+                                            <td className="border-r border-gray-200 px-3 py-3"><span className={`ui-meta inline-flex rounded-md px-2 py-1 text-[11px] font-bold ${request.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : request.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>{request.status === 'approved' ? 'Đã duyệt' : request.status === 'rejected' ? 'Đã từ chối' : 'Chờ xử lý'}</span></td>
                                             <td className="sticky right-0 z-[1] bg-white px-2 py-2.5 group-hover:bg-blue-50/35">
                                                 <div className="flex items-center justify-center gap-1">
-                                                    <button type="button" onClick={() => void showAlert({ title: `${request.id.slice(0, 8).toUpperCase()} · ${request.subject_name}`, message: [`MSSV: ${getCourseRequestStudentCode(request)}`, request.user?.full_name ? `Họ tên: ${request.user.full_name}` : '', request.user?.email ? `Email: ${request.user.email}` : '', `Mã môn: ${request.course_code}`, `Giảng viên: ${request.instructor || 'Chưa cập nhật'}`, `Lịch: ${request.scheduleSessions?.map(session => formatScheduleSession(session).join(' · ')).join('; ') || 'Chưa có lịch cấu trúc'}`, request.request_note ? `Ghi chú: ${request.request_note}` : ''].filter(Boolean).join('\n') })} title="Xem yêu cầu" aria-label={`Xem yêu cầu ${request.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button>
-                                                    {!isAuditor && request.status === 'pending' && <button type="button" disabled={Boolean(quickApprovingRequestId)} onClick={() => void quickApproveCourseRequest(request)} title="Duyệt nhanh" aria-label={`Duyệt yêu cầu ${request.id.slice(0, 8).toUpperCase()}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-emerald-700 hover:border-emerald-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-50">{quickApprovingRequestId === request.id ? <Loader2 size={15} className="animate-spin"/> : <Check size={15}/>}</button>}
-                                                    {!isAuditor && request.status === 'pending' && <><button type="button" onClick={() => openCourseRequestEditor(request)} title="Duyệt yêu cầu" aria-label={`Duyệt yêu cầu ${request.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Edit size={15}/></button><button type="button" onClick={() => void rejectCourseRequest(request)} title="Từ chối yêu cầu" aria-label={`Từ chối yêu cầu ${request.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-red-600 hover:border-red-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"><Trash2 size={15}/></button></>}
+                                                    <button type="button" onClick={() => void showAlert({ title: `${request.id.slice(0, 8).toUpperCase()} · ${request.subject_name}`, message: [`MSSV: ${getCourseRequestStudentCode(request)}`, request.user?.full_name ? `Họ tên: ${request.user.full_name}` : '', request.user?.email ? `Email: ${request.user.email}` : '', `Mã môn: ${request.course_code}`, `Giảng viên: ${request.instructor || 'Chưa cập nhật'}`, `Lịch: ${request.scheduleSessions?.map(session => formatScheduleSession(session).join(' · ')).join('; ') || 'Chưa có lịch cấu trúc'}`, request.request_note ? `Ghi chú: ${request.request_note}` : ''].filter(Boolean).join('\n') })} title="Xem yêu cầu" aria-label={`Xem yêu cầu ${request.course_code}`} className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button>
+                                                    {!isAuditor && request.status === 'pending' && <button type="button" disabled={Boolean(quickApprovingRequestId)} onClick={() => void quickApproveCourseRequest(request)} title="Duyệt nhanh" aria-label={`Duyệt yêu cầu ${request.id.slice(0, 8).toUpperCase()}`} className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-emerald-700 hover:border-emerald-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-50">{quickApprovingRequestId === request.id ? <Loader2 size={15} className="animate-spin"/> : <Check size={15}/>}</button>}
+                                                    {!isAuditor && request.status === 'pending' && <><button type="button" onClick={() => openCourseRequestEditor(request)} title="Duyệt yêu cầu" aria-label={`Duyệt yêu cầu ${request.course_code}`} className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Edit size={15}/></button><button type="button" onClick={() => void rejectCourseRequest(request)} title="Từ chối yêu cầu" aria-label={`Từ chối yêu cầu ${request.course_code}`} className="ui-danger-text ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-red-600 hover:border-red-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"><Trash2 size={15}/></button></>}
                                                 </div>
                                             </td>
                                         </tr>
@@ -2831,11 +2892,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </table>
                         )
                     ) : adminScheduleError ? (
-                        <div role="alert" className="flex min-h-[300px] flex-col items-center justify-center text-red-600">
+                        <div role="alert" className="ui-danger-text flex min-h-[300px] flex-col items-center justify-center text-red-600">
                             <AlertTriangle size={40} className="mb-3 text-red-300"/>
-                            <p className="font-bold">Không tải được dữ liệu TKB sinh viên.</p>
-                            <p className="mt-1 text-sm text-red-500">{adminScheduleError}</p>
-                            <button type="button" onClick={() => void refreshAdminScheduleData()} className="mt-3 rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button>
+                            <p className="ui-secondary font-bold">Không tải được dữ liệu TKB sinh viên.</p>
+                            <p className="ui-danger-text ui-secondary mt-1 text-sm text-red-500">{adminScheduleError}</p>
+                            <button type="button" onClick={() => void refreshAdminScheduleData()} className="ui-action mt-3 rounded-md border border-gray-300 px-3 py-2 text-sm font-bold">Thử lại</button>
                         </div>
                     ) : (adminTab === 'user_changed' ? changedPageData.total === 0 : filteredAdminCourses.length === 0) ? (
                         <div className="flex flex-col items-center justify-center h-full px-6 text-center text-gray-500">
@@ -2848,14 +2909,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                     ) : adminTab === 'user_changed' ? (
                         <table className="w-full min-w-[1020px] table-fixed border-collapse text-left text-[13px]">
-                            <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600"><tr>
-                                <th scope="col" className="w-[115px] border-b border-r border-gray-300 px-3 py-3">Mã SV</th>
-                                <th scope="col" className="w-[165px] border-b border-r border-gray-300 px-3 py-3">Họ tên</th>
-                                <th scope="col" className="w-[135px] border-b border-r border-gray-300 px-3 py-3">Mã môn</th>
-                                <th scope="col" className="w-[205px] border-b border-r border-gray-300 px-3 py-3">Môn học</th>
-                                <th scope="col" className="border-b border-r border-gray-300 px-3 py-3">Nội dung thay đổi</th>
-                                <th scope="col" className="w-[130px] border-b border-r border-gray-300 px-3 py-3">Học kỳ</th>
-                                <th scope="col" className="sticky right-0 z-10 w-[80px] border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
+                            <thead className="ui-meta sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600"><tr>
+                                <th scope="col" className="ui-meta w-[115px] border-b border-r border-gray-300 px-3 py-3">Mã SV</th>
+                                <th scope="col" className="ui-meta w-[165px] border-b border-r border-gray-300 px-3 py-3">Họ tên</th>
+                                <th scope="col" className="ui-meta w-[135px] border-b border-r border-gray-300 px-3 py-3">Mã môn</th>
+                                <th scope="col" className="ui-meta w-[205px] border-b border-r border-gray-300 px-3 py-3">Môn học</th>
+                                <th scope="col" className="ui-meta border-b border-r border-gray-300 px-3 py-3">Nội dung thay đổi</th>
+                                <th scope="col" className="ui-meta w-[130px] border-b border-r border-gray-300 px-3 py-3">Học kỳ</th>
+                                <th scope="col" className="ui-meta sticky right-0 z-10 w-[80px] border-b border-gray-300 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                             </tr></thead>
                             <tbody className="divide-y divide-gray-200">{changedPageData.rows.map((course) => {
                                 const diffs = getChangedCourseDiffs(course);
@@ -2863,11 +2924,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 return <tr key={course.user_schedule_id || course.id} className="group hover:bg-blue-50/35">
                                     <td className="border-r border-gray-200 px-3 py-3 font-semibold text-[#0052cc]">{course.user?.student_code || '—'}</td>
                                     <td className="border-r border-gray-200 px-3 py-3 font-semibold">{course.user?.full_name || 'Chưa cập nhật'}</td>
-                                    <td className="border-r border-gray-200 px-3 py-3 font-semibold">{course.course_code}{duplicateCount > 1 && <span className="ml-1 text-xs text-amber-700">Trùng {duplicateCount}</span>}</td>
+                                    <td className="border-r border-gray-200 px-3 py-3 font-semibold">{course.course_code}{duplicateCount > 1 && <span className="ui-meta ml-1 text-xs text-amber-700">Trùng {duplicateCount}</span>}</td>
                                     <td className="border-r border-gray-200 px-3 py-3"><div className="line-clamp-2 font-semibold" title={course.subject_name}>{course.subject_name}</div></td>
-                                    <td className="border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{diffs.length ? diffs.slice(0, 2).map(diff => <div key={String(diff.key)} className="truncate" title={`${diff.label}: ${normalizeDiffValue(diff.originalValue)} → ${normalizeDiffValue(diff.changedValue)}`}><span className="font-bold">{diff.label}:</span> {normalizeDiffValue(diff.originalValue) || 'Trống'} → {normalizeDiffValue(diff.changedValue) || 'Trống'}</div>) : 'Chi tiết thay đổi'}</td>
+                                    <td className="ui-meta border-r border-gray-200 px-3 py-3 text-xs text-slate-600">{diffs.length ? diffs.slice(0, 2).map(diff => <div key={String(diff.key)} className="truncate" title={`${diff.label}: ${normalizeDiffValue(diff.originalValue)} → ${normalizeDiffValue(diff.changedValue)}`}><span className="font-bold">{diff.label}:</span> {normalizeDiffValue(diff.originalValue) || 'Trống'} → {normalizeDiffValue(diff.changedValue) || 'Trống'}</div>) : 'Chi tiết thay đổi'}</td>
                                     <td className="border-r border-gray-200 px-3 py-3 text-slate-600">{SEMESTER_OPTIONS.find(option => option.value === course.semester)?.label || course.semester}</td>
-                                    <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35"><button type="button" onClick={() => setSelectedChangedCourse(course)} title="Xem thay đổi" aria-label={`Xem thay đổi ${course.course_code}`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button></td>
+                                    <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35"><button type="button" onClick={() => setSelectedChangedCourse(course)} title="Xem thay đổi" aria-label={`Xem thay đổi ${course.course_code}`} className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><Eye size={15}/></button></td>
                                 </tr>;
                             })}</tbody>
                         </table>
@@ -2883,30 +2944,30 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <col className="w-[135px]" />
                                 <col className="w-[96px]" />
                             </colgroup>
-                            <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
+                            <thead className="ui-meta sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
                                 <tr>
-                                    <th className="border-b border-r border-slate-200 px-4 py-3 whitespace-nowrap">Mã môn</th>
-                                    <th className="border-b border-r border-slate-200 px-4 py-3">Tên môn</th>
-                                    <th className="border-b border-r border-slate-200 px-3 py-3 text-center">Tín chỉ</th>
-                                    <th className="border-b border-r border-slate-200 px-4 py-3">Khoa phụ trách</th>
-                                    <th className="border-b border-r border-slate-200 px-4 py-3">Học kỳ áp dụng</th>
-                                    <th className="border-b border-r border-slate-200 px-4 py-3">Loại môn</th>
-                                    <th className="sticky right-0 z-10 border-b border-slate-200 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
+                                    <th className="ui-meta border-b border-r border-slate-200 px-4 py-3 whitespace-nowrap">Mã môn</th>
+                                    <th className="ui-meta border-b border-r border-slate-200 px-4 py-3">Tên môn</th>
+                                    <th className="ui-meta border-b border-r border-slate-200 px-3 py-3 text-center">Tín chỉ</th>
+                                    <th className="ui-meta border-b border-r border-slate-200 px-4 py-3">Khoa phụ trách</th>
+                                    <th className="ui-meta border-b border-r border-slate-200 px-4 py-3">Học kỳ áp dụng</th>
+                                    <th className="ui-meta border-b border-r border-slate-200 px-4 py-3">Loại môn</th>
+                                    <th className="ui-meta sticky right-0 z-10 border-b border-slate-200 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200/80">
                                 {filteredAdminCourses.map((c) => (
                                     <tr key={c.id} className="group hover:bg-blue-50/35 transition-colors">
                                         <td className="border-r border-slate-200/80 px-4 py-3 font-bold text-[#0052cc] whitespace-nowrap">{c.course_code}</td>
-                                        <td className="border-r border-slate-200/80 px-4 py-3 font-semibold text-slate-800"><div className="truncate" title={c.subject_name}>{c.subject_name}</div><p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">{c.instructor || 'Chưa cập nhật giảng viên'}</p></td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3 font-semibold text-slate-800"><div className="truncate" title={c.subject_name}>{c.subject_name}</div><p className="ui-muted ui-secondary mt-0.5 truncate text-[11px] font-medium text-slate-400">{c.instructor || 'Chưa cập nhật giảng viên'}</p></td>
                                         <td className="border-r border-slate-200/80 px-3 py-3 text-center font-semibold text-slate-700">{c.credits}</td>
                                         <td className="border-r border-slate-200/80 px-4 py-3 text-slate-600"><div className="truncate" title={c.managing_faculty || ''}>{c.managing_faculty || '—'}</div></td>
                                         <td className="border-r border-slate-200/80 px-4 py-3 text-slate-600">{SEMESTER_OPTIONS.find(option => option.value === c.semester)?.label || c.semester || '—'}</td>
-                                        <td className="border-r border-slate-200/80 px-4 py-3"><span className="inline-flex rounded-md bg-blue-50 px-2 py-1 text-[11px] font-bold text-[#0052cc]">{adminCourseTypeLabel(c)}</span></td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3"><span className="ui-meta inline-flex rounded-md bg-blue-50 px-2 py-1 text-[11px] font-bold text-[#0052cc]">{adminCourseTypeLabel(c)}</span></td>
                                         <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35">
                                             <div className="flex items-center justify-center gap-1">
-                                                <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] transition hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]" title="Chỉnh sửa" aria-label={`Chỉnh sửa ${c.course_code}`}><Edit size={15}/></button>
-                                                {!isAuditor && ( <button onClick={() => handleAdminDeleteCourse(c.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-red-600 transition hover:border-red-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500" title="Xóa vĩnh viễn" aria-label={`Xóa ${c.course_code}`}><Trash2 size={15}/></button> )}
+                                                <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] transition hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]" title="Chỉnh sửa" aria-label={`Chỉnh sửa ${c.course_code}`}><Edit size={15}/></button>
+                                                {!isAuditor && ( <button onClick={() => handleAdminDeleteCourse(c.id)} className="ui-danger-text ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-red-600 transition hover:border-red-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500" title="Xóa vĩnh viễn" aria-label={`Xóa ${c.course_code}`}><Trash2 size={15}/></button> )}
                                             </div>
                                         </td>
                                     </tr>
@@ -2915,18 +2976,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </table>
                         {!isCourseSuggestionMode && courseTotalPages > 1 && (
                             <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                <span className="text-xs text-slate-500">Trang {coursePage + 1} · Hiển thị {filteredAdminCourses.length} kết quả của trang hiện tại</span>
+                                <span className="ui-meta text-xs text-slate-500">Trang {coursePage + 1} · Hiển thị {filteredAdminCourses.length} kết quả của trang hiện tại</span>
                                 <div className="flex items-center gap-1.5">
-                                    <label className="mr-1 text-xs text-slate-600">Số dòng <select value={managementPageSize} onChange={(event) => setAdminQuery({ pageSize: event.target.value, page: '1' })} className="h-8 rounded-md border border-gray-300 bg-white px-2"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select></label>
-                                    <button type="button" disabled={coursePage === 0 || isLoading} onClick={() => setAdminQuery({ page: String(Math.max(1, coursePage)) })} aria-label="Trang trước" title="Trang trước" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16}/></button>
+                                    <label className="ui-secondary mr-1 text-xs text-slate-600">Số dòng <select value={managementPageSize} onChange={(event) => setAdminQuery({ pageSize: event.target.value, page: '1' })} className="ui-input h-8 rounded-md border border-gray-300 bg-white px-2"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select></label>
+                                    <button type="button" disabled={coursePage === 0 || isLoading} onClick={() => setAdminQuery({ page: String(Math.max(1, coursePage)) })} aria-label="Trang trước" title="Trang trước" className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16}/></button>
                                     {coursePaginationPages.map((pageNumber, index) => {
                                         const previousPage = coursePaginationPages[index - 1];
                                         return <React.Fragment key={pageNumber}>
-                                            {previousPage && pageNumber - previousPage > 1 && <span className="px-1 text-xs text-slate-400">…</span>}
-                                            <button type="button" onClick={() => setAdminQuery({ page: String(pageNumber) })} disabled={isLoading} aria-label={`Trang ${pageNumber}`} aria-current={coursePage + 1 === pageNumber ? 'page' : undefined} className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs font-bold transition ${coursePage + 1 === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>{pageNumber}</button>
+                                            {previousPage && pageNumber - previousPage > 1 && <span className="ui-muted ui-meta px-1 text-xs text-slate-400">…</span>}
+                                            <button type="button" onClick={() => setAdminQuery({ page: String(pageNumber) })} disabled={isLoading} aria-label={`Trang ${pageNumber}`} aria-current={coursePage + 1 === pageNumber ? 'page' : undefined} className={`ui-action inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs font-bold transition ${coursePage + 1 === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>{pageNumber}</button>
                                         </React.Fragment>;
                                     })}
-                                    <button type="button" disabled={!courseHasMore || isLoading} onClick={() => setAdminQuery({ page: String(coursePage + 2) })} aria-label="Trang sau" title="Trang sau" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16}/></button>
+                                    <button type="button" disabled={!courseHasMore || isLoading} onClick={() => setAdminQuery({ page: String(coursePage + 2) })} aria-label="Trang sau" title="Trang sau" className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16}/></button>
                                 </div>
                             </footer>
                         )}
@@ -2935,12 +2996,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 </div>
                 {(adminTab === 'requested' || adminTab === 'user_changed' || adminTab === 'student_schedules') && !isLoading && !adminScheduleError && !(adminTab === 'student_schedules' && selectedStudentSchedule) && (
                     <footer aria-label="Phân trang quản lý thời khóa biểu" className="flex flex-col gap-3 border-t border-gray-300 bg-white px-4 py-3 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-                        <span className="text-xs text-slate-600">Hiển thị {currentManagementPage.start}–{currentManagementPage.end} của {currentManagementPage.total} kết quả{adminTab === 'requested' && courseRequestTotal >= 200 ? ' (trong 200 yêu cầu gần nhất)' : adminTab !== 'requested' && studentScheduleSummaries.length >= 500 ? ' (trong tối đa 500 sinh viên)' : ''}</span>
+                        <span className="ui-meta text-xs text-slate-600">Hiển thị {currentManagementPage.start}–{currentManagementPage.end} của {currentManagementPage.total} kết quả{adminTab === 'requested' && courseRequestTotal >= 200 ? ' (trong 200 yêu cầu gần nhất)' : adminTab !== 'requested' && studentScheduleSummaries.length >= 500 ? ' (trong tối đa 500 sinh viên)' : ''}</span>
                         <div className="flex flex-wrap items-center gap-1.5">
-                            <label className="mr-2 flex items-center gap-2 text-xs text-slate-600">Số dòng<select value={managementPageSize} onChange={(event) => setAdminQuery({ pageSize: event.target.value, page: '1' })} aria-label="Số kết quả mỗi trang" className="h-9 rounded-md border border-gray-300 bg-white px-2 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select></label>
-                            <button type="button" disabled={currentManagementPage.page <= 1} onClick={() => setAdminQuery({ page: String(Math.max(1, currentManagementPage.page - 1)) })} aria-label="Trang trước" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc] disabled:opacity-40"><ChevronLeft size={16}/></button>
-                            {managementPaginationPages.map((pageNumber, index) => <React.Fragment key={pageNumber}>{index > 0 && pageNumber - managementPaginationPages[index - 1] > 1 && <span className="px-1 text-xs text-slate-400">…</span>}<button type="button" onClick={() => setAdminQuery({ page: String(pageNumber) })} aria-label={`Trang ${pageNumber}`} aria-current={currentManagementPage.page === pageNumber ? 'page' : undefined} className={`h-8 min-w-8 rounded-md px-2 text-xs font-bold ${currentManagementPage.page === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc]'}`}>{pageNumber}</button></React.Fragment>)}
-                            <button type="button" disabled={currentManagementPage.page >= currentManagementPage.totalPages} onClick={() => setAdminQuery({ page: String(Math.min(currentManagementPage.totalPages, currentManagementPage.page + 1)) })} aria-label="Trang sau" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc] disabled:opacity-40"><ChevronRight size={16}/></button>
+                            <label className="ui-secondary mr-2 flex items-center gap-2 text-xs text-slate-600">Số dòng<select value={managementPageSize} onChange={(event) => setAdminQuery({ pageSize: event.target.value, page: '1' })} aria-label="Số kết quả mỗi trang" className="ui-input h-9 rounded-md border border-gray-300 bg-white px-2 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select></label>
+                            <button type="button" disabled={currentManagementPage.page <= 1} onClick={() => setAdminQuery({ page: String(Math.max(1, currentManagementPage.page - 1)) })} aria-label="Trang trước" className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc] disabled:opacity-40"><ChevronLeft size={16}/></button>
+                            {managementPaginationPages.map((pageNumber, index) => <React.Fragment key={pageNumber}>{index > 0 && pageNumber - managementPaginationPages[index - 1] > 1 && <span className="ui-muted ui-meta px-1 text-xs text-slate-400">…</span>}<button type="button" onClick={() => setAdminQuery({ page: String(pageNumber) })} aria-label={`Trang ${pageNumber}`} aria-current={currentManagementPage.page === pageNumber ? 'page' : undefined} className={`ui-action h-8 min-w-8 rounded-md px-2 text-xs font-bold ${currentManagementPage.page === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc]'}`}>{pageNumber}</button></React.Fragment>)}
+                            <button type="button" disabled={currentManagementPage.page >= currentManagementPage.totalPages} onClick={() => setAdminQuery({ page: String(Math.min(currentManagementPage.totalPages, currentManagementPage.page + 1)) })} aria-label="Trang sau" className="ui-action inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-slate-600 hover:border-[#0052cc] disabled:opacity-40"><ChevronRight size={16}/></button>
                         </div>
                     </footer>
                 )}
@@ -2948,176 +3009,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             </div>
         ) : (
             <>
-                        <div className="timetable-filter-bar rounded-xl border border-gray-300 bg-white p-2" aria-label="Điều khiển bộ lọc thời khóa biểu">
-                            <div className="timetable-filter-actions">
-                                <button ref={filterToggleRef} type="button" aria-expanded={isFilterSidebarExpanded} aria-controls="timetable-filter-sidebar" onClick={() => isFilterSidebarExpanded ? collapseFilterSidebar() : setIsFilterSidebarExpanded(true)} className="rounded-lg bg-[#0D4E9B] px-3 text-xs font-extrabold text-white">
-                                    <SlidersHorizontal size={16}/> {isFilterSidebarExpanded ? 'Thu gọn bộ lọc' : 'Mở bộ lọc'} <span aria-label={`${activeCourseFilterCount} điều kiện đang áp dụng`}>({activeCourseFilterCount})</span>
-                                </button>
-                                <button type="button" disabled={!isAuthenticated || isLoading} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setIsCourseResultsOpen(true); }} className="rounded-lg border border-gray-300 px-3 text-xs font-bold text-[#12366A] disabled:opacity-50"><List size={16}/> Xem danh sách lớp</button>
-                                <button type="button" onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); setIsFilterExpanded(true); }} className="rounded-lg px-3 text-xs font-bold text-[#155EEF]"><Settings size={16}/> Bộ lọc nâng cao</button>
-                            </div>
-                            <div className="timetable-filter-chips no-scrollbar" aria-label="Bộ lọc đang áp dụng">
-                            {!hasActiveCourseFilters && <span className="text-[11px] font-medium text-gray-400">Chưa chọn tiêu chí nào</span>}
-                            {selectedFilterSemesters.map(value => <span key={`semester-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterSemesters, value)} aria-label="Bỏ lọc học kỳ"><X size={12}/></button></span>)}
-                            {selectedFilterPhases.map(value => <span key={`phase-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} aria-label="Bỏ lọc đợt"><X size={12}/></button></span>)}
-                            {selectedSubjectName !== 'all' && <span className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{selectedSubjectName}</span><button onClick={() => setSelectedSubjectName('all')} aria-label="Bỏ lọc môn"><X size={12}/></button></span>}
-                            {selectedFilterPrograms.map(value => <span key={`program-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterPrograms, value)} aria-label="Bỏ lọc chương trình"><X size={12}/></button></span>)}
-                            {selectedFilterMajors.map(value => <span key={`major-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterMajors, value)} aria-label="Bỏ lọc chuyên ngành"><X size={12}/></button></span>)}
-                            {activeAdvancedScheduleFilters.map(([key, value]) => <span key={`advanced-${key}`} className="flex max-w-[200px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span><button onClick={() => setAdvancedScheduleFilters(previous => ({ ...previous, [key]: '' }))} aria-label={`Bỏ lọc ${key}`}><X size={12}/></button></span>)}
-                            {searchTerm.trim() && <span className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs"><span className="max-w-[180px] truncate">{searchTerm}</span><button onClick={() => setSearchTerm('')} aria-label="Bỏ lọc từ khóa"><X size={12}/></button></span>}
-                            {selectedFilterCohorts.map(value => <span key={`cohort-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">Khóa {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterCohorts, value)} aria-label="Bỏ lọc khóa"><X size={12}/></button></span>)}
-                            {selectedFilterGroups.map(value => <span key={`group-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">{value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterGroups, value)} aria-label="Bỏ lọc nhóm"><X size={12}/></button></span>)}
-                            {hasActiveCourseFilters && <button type="button" onClick={clearCourseFilters} className="shrink-0 px-3 text-xs font-bold text-[#155EEF]">Xóa tất cả bộ lọc</button>}
-                            </div>
-                        </div>
-            <div className="flex flex-col items-start gap-3 sm:gap-5 lg:h-[calc(100vh-92px)] lg:flex-row">
-            
-                {/* CỘT TRÁI: SIDEBAR FILTER */}
-                <div id="timetable-filter-sidebar" hidden={!isFilterSidebarExpanded} className={`timetable-filter-sidebar flex w-full flex-col overflow-visible rounded-xl border border-gray-300 bg-white lg:h-full lg:w-[330px] lg:shrink-0 ${hasActiveCourseFilters ? 'h-[520px]' : 'h-auto'}`}>
-                    <div className="flex items-center justify-between rounded-t-xl border-b border-blue-900 bg-gradient-to-r from-[#073B7A] to-[#062D63] px-4 py-3 text-white">
-                        <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide"><SlidersHorizontal size={16}/> Bộ lọc</h2>
-                        <div className="flex items-center gap-1.5">
-                            {isSyncing ? <Loader2 size={15} className="animate-spin text-blue-200"/> : (
-                                <button onClick={clearCourseFilters} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-blue-50 transition-colors hover:bg-white/10" title="Xóa tất cả bộ lọc">
-                                    <RefreshCw size={13}/> Xóa tất cả
-                                </button>
-                            )}
-                            <button onClick={() => setIsFilterExpanded(true)} className="rounded-md p-1.5 text-white transition-colors hover:bg-white/10" title="Mở bộ lọc nâng cao">
-                                <PanelLeftOpen size={16}/>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 border-b border-gray-300 bg-gray-50/70 px-4 py-3 text-[11px] font-medium text-gray-500">
-                        <Info size={14} className="shrink-0 text-gray-400"/>
-                        Thu hẹp kết quả để tìm lớp học phù hợp
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {([
-                            ['subject', 'Môn học', selectedSubjectName === 'all' ? 'Tất cả' : '1 môn đã chọn'],
-                            ['program', 'Chương trình', selectedFilterPrograms.length ? `${selectedFilterPrograms.length} chương trình đã chọn` : 'Tất cả'],
-                            ['semester', 'Học kỳ', selectedFilterSemesters.length ? `${selectedFilterSemesters.length} học kỳ đã chọn` : 'Tất cả'],
-                            ['phase', 'Đợt', selectedFilterPhases.length ? `${selectedFilterPhases.length} đợt đã chọn` : 'Tất cả'],
-                            ['major', 'Chuyên ngành', selectedFilterMajors.length ? `${selectedFilterMajors.length} ngành đã chọn` : 'Tất cả'],
-                            ['cohort', 'Khóa', selectedFilterCohorts.length ? `${selectedFilterCohorts.length} khóa đã chọn` : 'Tất cả'],
-                            ['group', 'Nhóm', selectedFilterGroups.length ? `${selectedFilterGroups.length} nhóm đã chọn` : 'Tất cả'],
-                        ] as const).map(([key, label, summary]) => {
-                            const isOpen = openSidebarFilterSections.has(key);
-                            return (
-                                <div key={key} className="border-b border-gray-300">
-                                    <button onClick={() => toggleSidebarFilterSection(key)} className="flex h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-gray-50">
-                                        <span className="text-sm font-extrabold text-[#12366A]">{label}</span>
-                                        <span className="flex min-w-0 items-center gap-2 pl-3">
-                                            <span className="max-w-[132px] truncate text-[11px] font-medium text-gray-500">{summary}</span>
-                                            <ChevronDown size={16} className={`shrink-0 text-[#12366A] transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
-                                        </span>
-                                    </button>
-
-                                    {isOpen && (
-                                        <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3">
-                                            {key === 'subject' && <>
-                                                <div className="relative mb-3">
-                                                    <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm tên môn hoặc mã học phần..." className="h-9 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-xs outline-none focus:border-[#155EEF]"/>
-                                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                                                </div>
-                                                <select disabled={!isAuthenticated} value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
-                                                    <option value="all">Tất cả môn học</option>
-                                                    {subjectNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
-                                                </select>
-                                            </>}
-                                            {key === 'program' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">
-                                                {academicProgramOptions.map(option => <label key={option} className="flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterPrograms.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterPrograms, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}
-                                                {academicProgramOptions.length === 0 && <p className="text-xs text-gray-400">Chưa có dữ liệu chương trình.</p>}
-                                            </div>}
-                                            {key === 'semester' && <div className="space-y-2.5">
-                                                {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => (
-                                                    <label key={option.value} className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]">
-                                                        <input type="checkbox" checked={selectedFilterSemesters.includes(option.value)} onChange={() => toggleMultiFilterValue(setSelectedFilterSemesters, option.value)} className="h-4 w-4 accent-[#0D4E9B]"/>
-                                                        <span className="flex-1">{option.label}</span>
-                                                    </label>
-                                                ))}
-                                            </div>}
-                                            {key === 'phase' && <div className="space-y-2.5">{['1', '2'].map(value => <label key={value} className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" checked={selectedFilterPhases.includes(value)} onChange={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} className="h-4 w-4 accent-[#0D4E9B]"/><span>Đợt {value}</span></label>)}</div>}
-                                            {key === 'major' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{majorOptions.map(option => <label key={option} className="flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterMajors.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterMajors, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
-                                            {key === 'cohort' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{cohortOptions.map(option => <label key={option} className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterCohorts.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterCohorts, option)} className="h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span>{option}</span></label>)}</div>}
-                                            {key === 'group' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{groupNameOptions.map(option => <label key={option} className="flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterGroups.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterGroups, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload}/>
-                    </div>
-
-                    <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-300 bg-white px-4 py-4">
-                        <button onClick={collapseFilterSidebar} className="min-h-[44px] flex items-center gap-2 text-xs font-bold text-[#28466F] hover:text-[#003375]">
-                            <ChevronDown size={15} className="rotate-180"/> Thu gọn bộ lọc
-                        </button>
-
-                    </div>
-                </div>
-
-                {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-                <div className="relative flex min-h-[600px] min-w-0 w-full flex-1 flex-col overflow-hidden bg-[#F8FAFC] lg:h-full lg:min-h-0">
-                    <div className="schedule-toolbar shrink-0 bg-[#F8FAFC]">
-                        <div className="no-scrollbar flex min-h-[62px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-1 pb-2">
-                            <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
-                                <div className="mr-1 shrink-0">
-                                    <h1 className="flex items-center gap-2 text-2xl font-black text-[#003375]"><Calendar size={20} className="text-[#990000]"/> Thời khóa biểu</h1>
-                                    <p className="mt-0.5 text-xs font-medium text-gray-500">Xem và quản lý lịch học của bạn</p>
-                                </div>
-                                <div className="relative grid w-[168px] shrink-0 grid-cols-2 items-center rounded-lg border border-gray-300 bg-gray-50 p-1">
-                                    <span className={`absolute left-1 top-1 bottom-1 w-[calc(50%-0.25rem)] rounded-md border border-gray-300 bg-white transition-transform duration-300 ease-out ${isPlanMode ? 'translate-x-full' : 'translate-x-0'}`} />
-                                    <button onClick={() => setScheduleViewMode('official')} className={`relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${!isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Lịch cá nhân</button>
-                                    <button onClick={() => setScheduleViewMode('plan')} className={`relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Kế hoạch</button>
-                                </div>
-                            </div>
-
-                            {isPlanMode && (
-                                <div className="flex shrink-0 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 p-1">
-                                    {PLAN_KEYS.map(planKey => (
-                                        <button key={planKey} onClick={() => setActivePlanKey(planKey)} className={`px-2.5 py-1 text-[11px] font-black rounded-md transition-all active:scale-[0.98] ${activePlanKey === planKey ? 'bg-white text-amber-700 border border-amber-200' : 'text-amber-600 hover:bg-white/70'}`}>
-                                            KH {planKey}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            <div className="ml-auto flex shrink-0 items-center gap-2">
-                                <div className="flex shrink-0 items-center bg-gray-50 border border-gray-300 rounded-lg p-1">
-                                    <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] border border-gray-300' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
-                                    <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] border border-gray-300' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
-                                </div>
-
-                                <button onClick={goToToday} className="shrink-0 px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">Hôm nay</button>
-                                
-                                {viewMode === 'week' ? (
-                                    <div className="flex shrink-0 items-center gap-1.5">
-                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
-                                            <button onClick={prevWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
-                                            <button onClick={nextWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                        </div>
-                                        <button ref={weekDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={14} className="text-gray-400"/>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex shrink-0 items-center gap-1.5">
-                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
-                                            <button onClick={prevMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
-                                            <button onClick={nextMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                        </div>
-                                        <button ref={monthDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)} <ChevronDown size={14} className="text-gray-400"/>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="no-scrollbar flex min-h-[34px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 pb-3 pt-1 sm:px-4">
-                            <ScheduleActionsDropdown
+<header className="timetable-page-header">
+  <div><h1 className="ui-page-title text-2xl font-black text-[#003375]">Thời khóa biểu</h1><p className="ui-secondary text-xs font-medium text-gray-500">Xem và quản lý lịch học của bạn</p></div>
+  <div className="timetable-mode rounded-lg border border-gray-300 bg-gray-50 p-1" role="group" aria-label="Loại lịch">
+    <button aria-label="Lịch cá nhân" aria-pressed={!isPlanMode} onClick={()=>setScheduleViewMode('official')} className={`ui-action text-xs font-bold rounded-md ${!isPlanMode?'bg-white text-[#003375]':'text-gray-500'}`}><span className="timetable-label-wide">Lịch cá nhân</span><span className="timetable-label-narrow">Cá nhân</span></button>
+    <button aria-pressed={isPlanMode} onClick={()=>setScheduleViewMode('plan')} className={`ui-action text-xs font-bold rounded-md ${isPlanMode?'bg-white text-[#003375]':'text-gray-500'}`}>Kế hoạch</button>
+  </div>
+  <div className="timetable-header-actions"><button type="button" aria-label="Nhập PDF" title={!isAuthenticated ? "Cần đăng nhập để nhập PDF" : isProcessingPdf ? "Đang xử lý PDF" : "Nhập PDF"} disabled={!isAuthenticated || isProcessingPdf} onClick={()=>setIsPdfGuideOpen(true)} className="ui-action rounded-lg border border-gray-300 bg-white px-3 text-xs font-bold text-[#003375] disabled:opacity-50"><FileUp size={14} aria-hidden="true"/><span className="timetable-pdf-wide">Nhập PDF</span><span className="timetable-pdf-narrow">PDF</span>{!isAuthenticated && <Lock size={12} aria-hidden="true"/>}</button>                            <ScheduleActionsDropdown
                                 isAuthenticated={isAuthenticated}
                                 hasCourses={currentSemesterSchedule.length > 0}
                                 isProcessingPdf={isProcessingPdf}
@@ -3126,25 +3024,65 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 onReport={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }}
                                 onRequest={() => setIsCreateCourseModalOpen(true)}
                                 onImport={() => setIsPdfGuideOpen(true)}
-                            />
+                            /></div>
+</header><input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload}/>
+<div className="schedule-toolbar timetable-unified-toolbar">
+  <div className="timetable-filter-actions">
+    <button ref={filterToggleRef} type="button" aria-expanded={isNarrowTimetable ? isMobileFilterSheetOpen : isFilterSidebarExpanded} aria-controls="timetable-filter-sidebar" onClick={event => {event.currentTarget.focus({preventScroll:true});isNarrowTimetable ? setIsMobileFilterSheetOpen(true) : isFilterSidebarExpanded ? collapseFilterSidebar() : setIsFilterSidebarExpanded(true);}} className="ui-action timetable-filter-toggle rounded-lg bg-[#0D4E9B] px-3 text-xs font-extrabold text-white"><PanelLeftOpen size={14} aria-hidden="true"/><span className="timetable-filter-label-wide">Bộ lọc</span><span className="timetable-filter-label-short">Lọc</span><span className="timetable-filter-count" aria-label={`${activeCourseFilterCount} điều kiện đang áp dụng`}>{activeCourseFilterCount}</span></button>
+    <button type="button" aria-label="Xem danh sách lớp" disabled={!isAuthenticated || isLoading} onClick={event => { event.currentTarget.focus({preventScroll:true}); setIsCourseResultsOpen(true); }} className="ui-action rounded-lg border border-gray-300 px-3 text-xs font-bold text-[#12366A] disabled:opacity-50"><span className="timetable-label-wide">Xem danh sách lớp</span><span className="timetable-label-narrow">DS lớp</span><span className="timetable-label-micro">Lớp</span>{!isAuthenticated && <Lock size={12} aria-hidden="true"/>}</button>
+    {isPlanMode && <label className="timetable-plan-picker"><span className="sr-only">Phương án xếp lịch</span><span aria-hidden="true"><span className="timetable-plan-label-full">Phương án {activePlanKey}</span><span className="timetable-plan-label-compact">PA {activePlanKey}</span><span className="timetable-plan-summary"> ({currentPlanSchedule.length} môn • {currentPlanSchedule.reduce((sum,c)=>sum+(Number(c.credits)||0),0)} TC)</span></span><ChevronDown size={14} aria-hidden="true"/><select className="ui-input" aria-label="Phương án xếp lịch" value={activePlanKey} onChange={e => setActivePlanKey(e.target.value as PlanScheduleKey)}>{PLAN_KEYS.map(key => {const courses=planSchedules[key].filter(c=>c.semester===selectedSemester);return <option key={key} value={key}>Phương án {key} ({courses.length} môn • {courses.reduce((sum,c)=>sum+(Number(c.credits)||0),0)} TC)</option>;})}</select></label>}
+  </div>
+                              <div className="timetable-calendar-navigation">
 
-                            {selectedWeek !== 0 && viewMode === 'week' && (
-                                <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500">
-                                    <CalendarDays size={12}/> {weekStartStr} - {weekEndStr}
-                                </span>
-                            )}
-                        </div>
 
+                                <div className="timetable-date-navigation" role="group" aria-label="Điều hướng lịch">
+                                    <button aria-label={viewMode === 'week' ? 'Tuần trước' : 'Tháng trước'} onClick={viewMode === 'week' ? prevWeek : prevMonth} className="ui-action"><ChevronLeft size={14}/></button>
+                                    <button onClick={goToToday} className="ui-action">Hôm nay</button>
+                                    <button aria-label={viewMode === 'week' ? 'Tuần sau' : 'Tháng sau'} onClick={viewMode === 'week' ? nextWeek : nextMonth} className="ui-action"><ChevronRight size={14}/></button>
+                                </div>
+<div className="timetable-view-buttons rounded-lg border border-gray-300 bg-gray-50"><button aria-pressed={viewMode === 'week'} onClick={()=>setViewMode('week')} className={`ui-action rounded-md px-2 text-xs font-bold ${viewMode==='week'?'bg-white text-[#003375]':'text-gray-500'}`}>Tuần</button><button aria-pressed={viewMode === 'month'} onClick={()=>setViewMode('month')} className={`ui-action rounded-md px-2 text-xs font-bold ${viewMode==='month'?'bg-white text-[#003375]':'text-gray-500'}`}>Tháng</button></div><label className="timetable-view-select"><span className="sr-only">Chế độ xem lịch</span><select className="ui-input" value={viewMode} onChange={e => setViewMode(e.target.value as 'week' | 'month')}><option value="week">Tuần</option><option value="month">Tháng</option></select></label>
+                                {viewMode === 'week' ? (
+                                    <button ref={weekDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="ui-action timetable-period-trigger">
+                                        {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={12} aria-hidden="true"/>
+                                    </button>
+                                ) : (
+                                    <button ref={monthDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="ui-action timetable-period-trigger">
+                                        {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)} <ChevronDown size={12} aria-hidden="true"/>
+                                    </button>
+                                )}
+                            </div>
+  <div className="timetable-filter-bar" aria-label="Điều khiển bộ lọc thời khóa biểu">                            <div className="timetable-filter-chips no-scrollbar" aria-label="Bộ lọc đang áp dụng">
+                            {!hasActiveCourseFilters && <span className="ui-muted ui-meta text-[11px] font-medium text-gray-400">Chưa chọn tiêu chí nào</span>}
+                            {selectedFilterSemesters.map(value => { const label = SEMESTER_OPTIONS.find(option => option.value === value)?.label || value; return <button key={`semester-${value}`} type="button" onClick={() => toggleMultiFilterValue(setSelectedFilterSemesters, value)} aria-label="Bỏ lọc học kỳ" title={label} className="ui-action timetable-semester-chip"><span className="timetable-semester-label-full">{label}</span><span className="timetable-semester-label-short" aria-hidden="true">{label.replace(/20(\d{2})-20(\d{2})/, '$1-$2')}</span><X size={12} aria-hidden="true"/></button>; })}
+                            {selectedFilterPhases.map(value => <span key={`phase-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} aria-label="Bỏ lọc đợt"><X size={12}/></button></span>)}
+                            {selectedSubjectName !== 'all' && <span className="ui-meta flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{selectedSubjectName}</span><button onClick={() => setSelectedSubjectName('all')} aria-label="Bỏ lọc môn"><X size={12}/></button></span>}
+                            {selectedFilterPrograms.map(value => <span key={`program-${value}`} className="ui-meta flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterPrograms, value)} aria-label="Bỏ lọc chương trình"><X size={12}/></button></span>)}
+                            {selectedFilterMajors.map(value => <span key={`major-${value}`} className="ui-meta flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterMajors, value)} aria-label="Bỏ lọc chuyên ngành"><X size={12}/></button></span>)}
+                            {activeAdvancedScheduleFilters.map(([key, value]) => <span key={`advanced-${key}`} className="ui-meta flex max-w-[200px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span><button onClick={() => setAdvancedScheduleFilters(previous => ({ ...previous, [key]: '' }))} aria-label={`Bỏ lọc ${key}`}><X size={12}/></button></span>)}
+                            {searchTerm.trim() && <span className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs"><span className="max-w-[180px] truncate">{searchTerm}</span><button onClick={() => setSearchTerm('')} aria-label="Bỏ lọc từ khóa"><X size={12}/></button></span>}
+                            {selectedFilterCohorts.map(value => <span key={`cohort-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">Khóa {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterCohorts, value)} aria-label="Bỏ lọc khóa"><X size={12}/></button></span>)}
+                            {selectedFilterGroups.map(value => <span key={`group-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 px-3 text-xs">{value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterGroups, value)} aria-label="Bỏ lọc nhóm"><X size={12}/></button></span>)}
+                            {hasActiveCourseFilters && !isMobileFilterSheetOpen && <button type="button" onClick={clearCourseFilters} aria-label="Xóa tất cả bộ lọc" className="ui-action shrink-0 px-3 text-xs font-bold text-[#155EEF]">Xóa</button>}
+                            </div>
+</div>
+</div>
+            <div className="timetable-content-frame">
 
-
+                {/* CỘT TRÁI: SIDEBAR FILTER */}
+{!isNarrowTimetable && <aside id="timetable-filter-sidebar" hidden={!isFilterSidebarExpanded} className="timetable-filter-sidebar rounded-xl border border-gray-300 bg-white">
+ <header className="timetable-sidebar-heading"><h2 className="ui-section-title text-sm font-extrabold text-[#12366A]">Bộ lọc</h2><button className="ui-action text-xs font-bold text-[#155EEF]" onClick={()=>setIsFilterExpanded(true)}>Bộ lọc nâng cao</button></header>
+ <div className="timetable-sidebar-scroll custom-scrollbar">{renderTimetableFilterFields()}</div>
+</aside>}
+                {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
+                <div data-schedule-calendar className="timetable-calendar-pane relative flex min-w-0 w-full flex-1 flex-col bg-[#F8FAFC]">
                         {isWeekDropdownOpen && createPortal(
                             <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(weekDropdownButtonRef, 192)} className="z-[100000] rounded-xl border border-gray-300 bg-white py-1 max-h-[320px] overflow-y-auto custom-scrollbar">
-                                <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
+                                <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="ui-action w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
                                 {Array.from({length: selectedSemesterMaxWeek}, (_, i) => i + 1).map(w => {
                                     const wDates = getWeekDatesFull(w, selectedSemester);
                                     return (
-                                        <button key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                            Tuần {w} <span className="text-xs text-gray-400 ml-1 font-normal">({wDates[0].substring(0,5)} - {wDates[6].substring(0,5)})</span>
+                                        <button key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`ui-action w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                            Tuần {w} <span className="ui-muted ui-meta text-xs text-gray-400 ml-1 font-normal">({wDates[0].substring(0,5)} - {wDates[6].substring(0,5)})</span>
                                         </button>
                                     );
                                 })}
@@ -3155,20 +3093,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         {isMonthDropdownOpen && createPortal(
                             <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(monthDropdownButtonRef, 128)} className="z-[100000] rounded-xl border border-gray-300 bg-white py-1 max-h-[320px] overflow-y-auto custom-scrollbar">
                                 {selectedSemesterMonths.map((_, m) => (
-                                    <button key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                    <button key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`ui-action w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
                                         {getSemesterMonthLabel(selectedSemester, m)}
                                     </button>
                                 ))}
                             </div>,
                             document.body
                         )}
-                    </div>
-
                     {/* LƯỚI LỊCH (GRID) */}
                     <div className="relative flex-1 overflow-auto rounded-xl border border-gray-300 bg-white custom-scrollbar">
                         {isSemesterHolidayWeek(selectedSemester, selectedWeek) && viewMode === 'week' && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
-                                <div className="bg-red-50 text-red-600 px-6 py-3 rounded-full font-bold text-sm border border-red-200 flex items-center gap-2 animate-bounce">
+                                <div className="ui-danger-text bg-red-50 text-red-600 px-6 py-3 rounded-full font-bold text-sm border border-red-200 flex items-center gap-2 animate-bounce">
                                     <Zap size={18} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
                                 </div>
                             </div>
@@ -3186,13 +3122,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 return (
                                     <div className="hidden min-w-[900px] bg-white">
                                         <div className="sticky top-0 z-30 grid grid-cols-[64px_repeat(7,minmax(118px,1fr))] border-b border-gray-300 bg-white">
-                                            <div className="flex items-center justify-center border-r border-gray-300 text-[11px] font-extrabold text-gray-600">Giờ</div>
+                                            <div className="ui-meta flex items-center justify-center border-r border-gray-300 text-[11px] font-extrabold text-gray-600">Giờ</div>
                                             {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                                 const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
                                                 return (
-                                                    <div key={`hourly-header-${day}`} className={`flex min-h-[52px] flex-col items-center justify-center border-r border-gray-300 text-xs ${isTodayCol ? 'bg-blue-50 text-[#003375]' : 'text-gray-700'}`}>
+                                                    <div key={`hourly-header-${day}`} className={`ui-meta flex min-h-[52px] flex-col items-center justify-center border-r border-gray-300 text-xs ${isTodayCol ? 'bg-blue-50 text-[#003375]' : 'text-gray-700'}`}>
                                                         <span className="font-extrabold">{day === 8 ? 'Chủ nhật' : `Thứ ${day}`}</span>
-                                                        {selectedWeek !== 0 && <span className="mt-0.5 text-[10px] font-medium text-gray-500">{currentWeekDates[index]?.substring(0, 5)}</span>}
+                                                        {selectedWeek !== 0 && <span className="ui-meta mt-0.5 text-[10px] font-medium text-gray-500">{currentWeekDates[index]?.substring(0, 5)}</span>}
                                                     </div>
                                                 );
                                             })}
@@ -3201,7 +3137,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <div className="grid grid-cols-[64px_repeat(7,minmax(118px,1fr))]" style={{ height: timelineHeight }}>
                                             <div className="relative border-r border-gray-300 bg-[#FCFDFE]">
                                                 {hours.map((hour, index) => (
-                                                    <div key={`hour-label-${hour}`} className="absolute left-0 right-0 border-t border-gray-200 px-2 pt-1 text-center text-[10px] font-bold text-gray-500" style={{ top: index * hourHeight }}>
+                                                    <div key={`hour-label-${hour}`} className="ui-meta absolute left-0 right-0 border-t border-gray-200 px-2 pt-1 text-center text-[10px] font-bold text-gray-500" style={{ top: index * hourHeight }}>
                                                         {String(hour).padStart(2, '0')}:00
                                                     </div>
                                                 ))}
@@ -3259,14 +3195,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                                     style={{ top, height, left: `calc(${(overlapIndex * 100) / overlapCount}% + 3px)`, width: `calc(${100 / overlapCount}% - 6px)` }}
                                                                 >
                                                                     <div className="absolute right-1 top-1 hidden items-center gap-1 group-hover:flex">
-                                                                        {selectedWeek !== 0 && <button onClick={(event) => { event.stopPropagation(); setQuickTagCourse({ ...item.course, dateStr: cellDateStr }); }} className="rounded border border-gray-300 bg-white p-1 text-blue-600" title="Gắn nhãn"><Tag size={10}/></button>}
-                                                                        <button onClick={(event) => { event.stopPropagation(); removeFromActiveSchedule(item.course.id); }} className="rounded border border-gray-300 bg-white p-1 text-red-500" title="Xóa môn"><X size={10}/></button>
+                                                                        {selectedWeek !== 0 && <button onClick={(event) => { event.stopPropagation(); setQuickTagCourse({ ...item.course, dateStr: cellDateStr }); }} className="ui-action rounded border border-gray-300 bg-white p-1 text-blue-600" title="Gắn nhãn"><Tag size={10}/></button>}
+                                                                        <button onClick={(event) => { event.stopPropagation(); removeFromActiveSchedule(item.course.id); }} className="ui-danger-text ui-action rounded border border-gray-300 bg-white p-1 text-red-500" title="Xóa môn"><X size={10}/></button>
                                                                     </div>
                                                                     {cellLabels.length > 0 && <div className="mb-1 flex gap-1">{cellLabels.slice(0, 2).map(label => <span key={label.id} className={`rounded border px-1 py-0.5 text-[7px] font-bold ${getLabelStyle(label.color)}`}>{label.type === 'Khác' ? label.text : label.type}</span>)}</div>}
-                                                                    <h4 className={`line-clamp-2 pr-5 text-[10px] font-extrabold leading-tight ${color.text}`}>{item.course.subject_name}</h4>
-                                                                    <p className={`mt-1 truncate text-[9px] font-semibold ${color.label}`}>{item.course.course_code}</p>
-                                                                    {height >= 70 && <p className={`mt-1 truncate text-[9px] font-medium ${color.label}`}>P. {item.slotDetails.room || 'Chưa cập nhật'}</p>}
-                                                                    {height >= 92 && <p className={`mt-0.5 truncate text-[9px] font-medium ${color.label}`}>{item.timeRange.label}</p>}
+                                                                    <h4 className={`ui-card-title line-clamp-2 pr-5 text-[10px] font-extrabold leading-tight ${color.text}`}>{item.course.subject_name}</h4>
+                                                                    <p className={`ui-secondary mt-1 truncate text-[9px] font-semibold ${color.label}`}>{item.course.course_code}</p>
+                                                                    {height >= 70 && <p className={`ui-secondary mt-1 truncate text-[9px] font-medium ${color.label}`}>P. {item.slotDetails.room || 'Chưa cập nhật'}</p>}
+                                                                    {height >= 92 && <p className={`ui-secondary mt-0.5 truncate text-[9px] font-medium ${color.label}`}>{item.timeRange.label}</p>}
                                                                 </div>
                                                             );
                                                         })}
@@ -3276,9 +3212,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                             const height = Math.max(48, ((Math.min(end, endMinutes) - Math.max(start, startMinutes)) / 60) * hourHeight - 4);
                                                             return (
                                                                 <div key={`hourly-exam-${course.id}`} onClick={() => setSelectedCourseInfo({ course, dateStr: cellDateStr })} className="absolute left-1 right-1 z-20 cursor-pointer overflow-hidden rounded-r-md border border-gray-300 border-l-4 border-l-red-500 bg-red-50 p-2" style={{ top, height }}>
-                                                                    <p className="text-[8px] font-black uppercase text-red-600">Lịch thi</p>
-                                                                    <h4 className="mt-1 line-clamp-2 text-[10px] font-extrabold text-red-900">{course.subject_name}</h4>
-                                                                    {height >= 70 && <p className="mt-1 text-[9px] font-medium text-red-700">{course.exam_room ? `P. ${course.exam_room}` : getExamTime(course.exam_shift)}</p>}
+                                                                    <p className="ui-danger-text ui-secondary text-[8px] font-black uppercase text-red-600">Lịch thi</p>
+                                                                    <h4 className="ui-card-title mt-1 line-clamp-2 text-[10px] font-extrabold text-red-900">{course.subject_name}</h4>
+                                                                    {height >= 70 && <p className="ui-secondary mt-1 text-[9px] font-medium text-red-700">{course.exam_room ? `P. ${course.exam_room}` : getExamTime(course.exam_shift)}</p>}
                                                                 </div>
                                                             );
                                                         })}
@@ -3292,15 +3228,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <table className="h-full w-full min-w-[700px] table-fixed border-collapse">
                                 <thead>
                                     <tr>
-                                        <th className="w-[60px] border-b border-r border-gray-300 bg-[#f8fafc]"></th>
+                                        <th className="ui-meta w-[60px] border-b border-r border-gray-300 bg-[#f8fafc]"></th>
                                         {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                             const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
                                             return (
-                                            <th key={day} className={`py-2 border-b border-r border-gray-300 transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
+                                            <th key={day} className={`ui-meta py-2 border-b border-r border-gray-300 transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
                                                 <div className={`flex flex-col items-center gap-0.5 ${isTodayCol ? 'text-[#003375]' : 'text-gray-700'}`}>
-                                                    <span className="font-extrabold text-xs uppercase tracking-wide">Thứ {day === 8 ? 'CN' : day}</span>
+                                                    <span className="ui-meta font-extrabold text-xs uppercase tracking-wide">Thứ {day === 8 ? 'CN' : day}</span>
                                                     {selectedWeek !== 0 && (
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isTodayCol ? 'bg-[#003375] text-white font-bold' : 'text-gray-500 font-medium'}`}>
+                                                        <span className={`ui-meta text-[10px] px-2 py-0.5 rounded-full ${isTodayCol ? 'bg-[#003375] text-white font-bold' : 'text-gray-500 font-medium'}`}>
                                                             {currentWeekDates[index].substring(0, 5)}
                                                         </span>
                                                     )}
@@ -3314,8 +3250,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     {['S', 'C'].map((shift) => (
                                         <tr key={shift}>
                                             <td className="border-r border-b border-gray-300 text-center align-middle bg-[#f8fafc] py-2">
-                                                <span className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'Sáng' : 'Chiều'}</span>
-                                                <span className="text-[9px] font-bold text-gray-400 whitespace-pre-line leading-tight">{shift === 'S' ? '07:00\n|\n11:05' : '13:00\n|\n17:05'}</span>
+                                                <span className={`ui-meta block text-[10px] font-black uppercase tracking-widest mb-1 ${shift === 'S' ? 'text-orange-500 max-md:text-orange-700' : 'text-indigo-500 max-md:text-indigo-700'}`}>{shift === 'S' ? 'Sáng' : 'Chiều'}</span>
+                                                <span className="ui-muted ui-meta text-[9px] font-bold text-gray-400 whitespace-pre-line leading-tight">{shift === 'S' ? '07:00\n|\n11:05' : '13:00\n|\n17:05'}</span>
                                             </td>
                                             
                                             {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
@@ -3361,11 +3297,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                                     
                                                                     <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                                         {selectedWeek !== 0 && (
-                                                                            <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateStr }); }} className="bg-white/80 hover:bg-white text-blue-600 hover:text-blue-800 rounded p-1 border border-blue-100" title="Gắn nhãn cho ngày này">
+                                                                            <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateStr }); }} className="ui-action bg-white/80 hover:bg-white text-blue-600 hover:text-blue-800 rounded p-1 border border-blue-100" title="Gắn nhãn cho ngày này">
                                                                                 <Tag size={12}/>
                                                                             </button>
                                                                         )}
-                                                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="bg-white/80 hover:bg-white text-red-500 hover:text-red-700 rounded p-1 border border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn'}>
+                                                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="ui-danger-text ui-action bg-white/80 hover:bg-white text-red-500 hover:text-red-700 rounded p-1 border border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn'}>
                                                                             <X size={12}/>
                                                                         </button>
                                                                     </div>
@@ -3373,22 +3309,22 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                                     {cellLabels.length > 0 && (
                                                                         <div className="flex flex-wrap gap-1 mb-1 relative z-0 pr-10">
                                                                             {cellLabels.map((l: any) => (
-                                                                                <span key={l.id} className={`text-[8px] px-1.5 py-0.5 rounded border font-bold whitespace-nowrap ${getLabelStyle(l.color)}`}>
+                                                                                <span key={l.id} className={`ui-meta text-[8px] px-1.5 py-0.5 rounded border font-bold whitespace-nowrap ${getLabelStyle(l.color)}`}>
                                                                                     {l.type === 'Khác' ? l.text : l.type}
                                                                                 </span>
                                                                             ))}
                                                                         </div>
                                                                     )}
 
-                                                                    <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-10 mb-0.5 mt-0.5`}>{course.subject_name}</h4>
-                                                                    <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
+                                                                    <h4 className={`ui-card-title font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-10 mb-0.5 mt-0.5`}>{course.subject_name}</h4>
+                                                                    <div className={`ui-numeric text-[9px] ${color.text} font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
                                                                     {slotDetails.isMakeup && (
-                                                                        <div className={`text-[9px] ${color.label} font-bold mb-1`}>Học bù cho ngày {slotDetails.originalDate?.substring(0, 5)}</div>
+                                                                        <div className={`ui-meta text-[9px] ${color.label} font-bold mb-1`}>Học bù cho ngày {slotDetails.originalDate?.substring(0, 5)}</div>
                                                                     )}
                                                                     
                                                                     <div className="mt-auto">
-                                                                        <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
-                                                                        <div className={`text-[10px] ${color.label} font-medium flex items-center gap-1 mt-0.5`}><Clock size={10}/> {getCourseTimeLabel(slotDetails.shift)}</div>
+                                                                        <div className={`ui-meta text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
+                                                                        <div className={`ui-meta text-[10px] ${color.label} font-medium flex items-center gap-1 mt-0.5`}><Clock size={10}/> {getCourseTimeLabel(slotDetails.shift)}</div>
                                                                     </div>
                                                                 </div>
                                                                 );
@@ -3396,10 +3332,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                                                             {slotExams.map(exam => (
                                                                 <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam, dateStr: cellDateStr })} className="border-l-4 border-y border-r border-gray-100 border-l-red-500 bg-red-50 rounded-r-lg p-2.5 cursor-pointer transition-all hover:-translate-y-0.5 relative group w-full shrink-0">
-                                                                    <div className="text-[9px] font-black text-red-600 uppercase mb-1 tracking-wider flex items-center gap-1 bg-red-100 w-fit px-1.5 py-0.5 rounded"><Zap size={10} className="fill-current"/> Lịch thi</div>
-                                                                    <h4 className="font-bold text-red-900 text-[11px] sm:text-xs leading-snug line-clamp-2 mb-1">{exam.subject_name}</h4>
-                                                                    <div className="text-[10px] text-red-700 font-bold flex items-center gap-1"><Clock size={10}/> {exam.exam_shift} {getExamTime(exam.exam_shift) ? `(${getExamTime(exam.exam_shift)})` : ''}</div>
-                                                                    {exam.exam_room && <div className="text-[10px] text-red-700 font-semibold flex items-center gap-1 mt-0.5"><MapPin size={10}/> P. {exam.exam_room}</div>}
+                                                                    <div className="ui-danger-text ui-meta text-[9px] font-black text-red-600 uppercase mb-1 tracking-wider flex items-center gap-1 bg-red-100 w-fit px-1.5 py-0.5 rounded"><Zap size={10} className="fill-current"/> Lịch thi</div>
+                                                                    <h4 className="ui-card-title font-bold text-red-900 text-[11px] sm:text-xs leading-snug line-clamp-2 mb-1">{exam.subject_name}</h4>
+                                                                    <div className="ui-meta text-[10px] text-red-700 font-bold flex items-center gap-1"><Clock size={10}/> {exam.exam_shift} {getExamTime(exam.exam_shift) ? `(${getExamTime(exam.exam_shift)})` : ''}</div>
+                                                                    {exam.exam_room && <div className="ui-meta text-[10px] text-red-700 font-semibold flex items-center gap-1 mt-0.5"><MapPin size={10}/> P. {exam.exam_room}</div>}
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -3417,7 +3353,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
                                     <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-xl border border-gray-300 min-h-full">
                                         {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
-                                            <div key={d} className="bg-[#f8fafc] text-center text-[11px] font-bold py-2.5 text-[#003375] uppercase border-b border-gray-300">{d}</div>
+                                            <div key={d} className="ui-meta bg-[#f8fafc] text-center text-[11px] font-bold py-2.5 text-[#003375] uppercase border-b border-gray-300">{d}</div>
                                         ))}
                                         
                                         {renderMonthDays().map((date, idx) => {
@@ -3430,7 +3366,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             
                                             return (
                                                 <div key={date.toISOString()} className={`bg-white min-h-[90px] p-1.5 transition-colors hover:bg-gray-50/50 ${isToday ? 'bg-[#F0F9FF]' : ''}`}>
-                                                    <div className={`text-[11px] font-bold text-center mb-1.5 ${isToday ? 'bg-[#003375] text-white rounded-full w-5 h-5 mx-auto flex items-center justify-center' : 'text-gray-600'}`}>
+                                                    <div className={`ui-meta text-[11px] font-bold text-center mb-1.5 ${isToday ? 'bg-[#003375] text-white rounded-full w-5 h-5 mx-auto flex items-center justify-center' : 'text-gray-600'}`}>
                                                         {date.getDate()}
                                                     </div>
                                                     <div className="flex flex-col gap-1 overflow-hidden px-0.5">
@@ -3438,7 +3374,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                             const color = getColorForCourse(item.course.id);
                                                             const cellLabels = item.course.labels?.filter((l: any) => l.date === cellDateStr) || [];
                                                             return (
-                                                                <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details, dateStr: cellDateStr})} className={`text-[9px] px-1.5 py-1 rounded truncate cursor-pointer font-semibold flex items-center gap-1 ${color.bg} ${color.text} border-l-2 ${color.border} hover:opacity-80 transition-opacity`}>
+                                                                <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details, dateStr: cellDateStr})} className={`ui-meta text-[9px] px-1.5 py-1 rounded truncate cursor-pointer font-semibold flex items-center gap-1 ${color.bg} ${color.text} border-l-2 ${color.border} hover:opacity-80 transition-opacity`}>
                                                                     {cellLabels.length > 0 && (
                                                                         <div className="flex gap-0.5 shrink-0">
                                                                             {cellLabels.map((l: any) => (
@@ -3451,7 +3387,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                             );
                                                         })}
                                                         {dayExams.map((exam: any, i: number) => (
-                                                            <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam, dateStr: cellDateStr})} className="text-[9px] px-1.5 py-1 rounded truncate cursor-pointer bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold hover:bg-red-100 flex items-center gap-1">
+                                                            <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam, dateStr: cellDateStr})} className="ui-meta text-[9px] px-1.5 py-1 rounded truncate cursor-pointer bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold hover:bg-red-100 flex items-center gap-1">
                                                                 <Zap size={8} className="shrink-0"/> <span className="truncate">Thi: {exam.subject_name}</span>
                                                             </div>
                                                         ))}
@@ -3467,7 +3403,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                     {/* NÚT DANH SÁCH MÔN (FAB Nằm trong khung lịch) */}
                     <div className="absolute bottom-4 right-4 flex gap-2">
-                        <button onClick={() => setIsMyScheduleModalOpen(true)} className="bg-white border border-gray-300 text-[#003375] hover:bg-gray-50 px-4 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 active:scale-95 transition-transform">
+                        <button onClick={() => setIsMyScheduleModalOpen(true)} className="ui-action bg-white border border-gray-300 text-[#003375] hover:bg-gray-50 px-4 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 active:scale-95 transition-transform">
                             <List size={16}/> {isPlanMode ? `KH ${activePlanKey}` : 'Đã lưu'} ({displayedScheduleCount})
                         </button>
                     </div>
@@ -3475,6 +3411,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             </div>
             </>
         )}
+
+{isMobileFilterSheetOpen && isNarrowTimetable && !isAdminView && <Overlay className="timetable-sheet-backdrop" onMouseDown={event => { event.preventDefault(); setIsMobileFilterSheetOpen(false); }}>
+ <section id="timetable-filter-sidebar" role="dialog" aria-modal="true" aria-label="Bộ lọc lớp học phần" ref={courseFilterDialogRef} tabIndex={-1} className="timetable-filter-sheet" onMouseDown={e=>e.stopPropagation()}>
+  <header><div><h2 className="ui-section-title font-bold text-[#12366A]">Bộ lọc lớp học phần</h2><p className="ui-meta text-gray-500">Đang áp dụng {activeCourseFilterCount} tiêu chí lọc</p></div><button className="ui-action" aria-label="Đóng bộ lọc lớp học phần" onClick={()=>setIsMobileFilterSheetOpen(false)}><X size={20}/></button></header>
+  <div className="timetable-sheet-scroll custom-scrollbar">{renderTimetableFilterFields()}<button className="ui-action text-xs font-bold text-[#155EEF]" onClick={()=>{setIsMobileFilterSheetOpen(false);setIsFilterExpanded(true);}}>Bộ lọc nâng cao</button></div>
+  <div className="timetable-sheet-footer"><button className="ui-action rounded-lg border border-gray-300 px-3 text-xs font-bold" onClick={clearCourseFilters}>Đặt lại</button><button className="ui-action rounded-lg bg-[#0D4E9B] px-4 text-xs font-bold text-white" onClick={()=>setIsMobileFilterSheetOpen(false)}>Áp dụng bộ lọc ({activeCourseFilterCount})</button></div>
+ </section>
+</Overlay>}
 
         {isFilterExpanded && !isAdminView && createPortal(
             <Overlay className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/20 backdrop-blur-[1px]" onMouseDown={() => setIsFilterExpanded(false)}>
@@ -3489,16 +3433,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div className="flex items-start gap-4">
                             <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#155EEF]"><SlidersHorizontal size={22}/></div>
                             <div>
-                                <h2 className="text-xl font-black text-[#082B68] sm:text-2xl">Bộ lọc nâng cao</h2>
-                                <p className="mt-1 text-sm text-gray-500">Tùy chỉnh để tìm thời khóa biểu phù hợp với bạn.</p>
+                                <h2 className="ui-section-title text-xl font-black text-[#082B68] sm:text-2xl">Bộ lọc nâng cao</h2>
+                                <p className="ui-secondary mt-1 text-sm text-gray-500">Tùy chỉnh để tìm thời khóa biểu phù hợp với bạn.</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="hidden items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-2 text-sm font-bold text-[#082B68] sm:flex">
                                 Bộ lọc đang áp dụng
-                                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#155EEF] px-1.5 text-xs text-white">{activeCourseFilterCount}</span>
+                                <span className="ui-meta flex h-6 min-w-6 items-center justify-center rounded-full bg-[#155EEF] px-1.5 text-xs text-white">{activeCourseFilterCount}</span>
                             </div>
-                            <button onClick={() => setIsFilterExpanded(false)} className="rounded-lg p-2 text-[#082B68] transition-colors hover:bg-gray-100" aria-label="Đóng bộ lọc"><X size={20}/></button>
+                            <button onClick={() => setIsFilterExpanded(false)} className="ui-action rounded-lg p-2 text-[#082B68] transition-colors hover:bg-gray-100" aria-label="Đóng bộ lọc"><X size={20}/></button>
                         </div>
                     </header>
 
@@ -3506,38 +3450,38 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                             <div className="space-y-4">
                                 <div className="rounded-2xl border border-gray-300 bg-white p-4">
-                                    <h3 className="mb-3 font-extrabold text-[#082B68]">Tìm kiếm</h3>
+                                    <h3 className="ui-card-title mb-3 font-extrabold text-[#082B68]">Tìm kiếm</h3>
                                     <div className="relative">
-                                        <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm môn học, mã lớp, giảng viên..." className="h-11 w-full rounded-xl border border-gray-300 bg-white pl-4 pr-11 text-sm outline-none transition focus:border-[#155EEF] focus:ring-2 focus:ring-blue-100"/>
-                                        <Search size={17} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                        <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm môn học, mã lớp, giảng viên..." className="ui-input h-11 w-full rounded-xl border border-gray-300 bg-white pl-4 pr-11 text-sm outline-none transition focus:border-[#155EEF] focus:ring-2 focus:ring-blue-100"/>
+                                        <Search size={17} className="ui-muted absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"/>
                                     </div>
                                 </div>
 
                                 <div className="rounded-2xl border border-gray-300 bg-white p-4">
-                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Học kỳ & chương trình</h3>
-                                    <label className="mb-2 block text-sm font-medium text-gray-600">Học kỳ</label>
-                                    <select value={selectedFilterSemesters[0] || ''} onChange={(event) => setSelectedFilterSemesters(event.target.value ? [event.target.value] : [])} className="mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                    <h3 className="ui-card-title mb-4 font-extrabold text-[#082B68]">Học kỳ & chương trình</h3>
+                                    <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Học kỳ</label>
+                                    <select value={selectedFilterSemesters[0] || ''} onChange={(event) => setSelectedFilterSemesters(event.target.value ? [event.target.value] : [])} className="ui-input mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
                                         <option value="">Không lọc học kỳ</option>
                                         {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                                     </select>
-                                    <label className="mb-2 block text-sm font-medium text-gray-600">Chương trình đào tạo</label>
-                                    <select value={selectedFilterPrograms[0] || 'all'} onChange={(event) => setSelectedFilterPrograms(event.target.value === 'all' ? [] : [event.target.value])} className="h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                    <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Chương trình đào tạo</label>
+                                    <select value={selectedFilterPrograms[0] || 'all'} onChange={(event) => setSelectedFilterPrograms(event.target.value === 'all' ? [] : [event.target.value])} className="ui-input h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
                                         <option value="all">Mọi chương trình</option>
                                         {academicProgramOptions.map(option => <option key={option} value={option}>{option}</option>)}
                                     </select>
                                 </div>
 
                                 <div className="rounded-2xl border border-gray-300 bg-white p-4">
-                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Môn học & đợt học</h3>
-                                    <label className="mb-2 block text-sm font-medium text-gray-600">Môn học</label>
-                                    <select value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                    <h3 className="ui-card-title mb-4 font-extrabold text-[#082B68]">Môn học & đợt học</h3>
+                                    <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Môn học</label>
+                                    <select value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="ui-input mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
                                         <option value="all">Tất cả môn học</option>
                                         {subjectNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
                                     </select>
-                                    <label className="mb-2 block text-sm font-medium text-gray-600">Đợt</label>
+                                    <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Đợt</label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {[['all', 'Mọi đợt'], ['1', 'Đợt 1'], ['2', 'Đợt 2']].map(([value, label]) => (
-                                            <button key={value} onClick={() => value === 'all' ? setSelectedFilterPhases([]) : toggleMultiFilterValue(setSelectedFilterPhases, value)} className={`h-10 rounded-xl border text-sm font-bold transition-colors ${(value === 'all' ? selectedFilterPhases.length === 0 : selectedFilterPhases.includes(value)) ? 'border-[#155EEF] bg-blue-50 text-[#155EEF]' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>{label}</button>
+                                            <button key={value} onClick={() => value === 'all' ? setSelectedFilterPhases([]) : toggleMultiFilterValue(setSelectedFilterPhases, value)} className={`ui-action h-10 rounded-xl border text-sm font-bold transition-colors ${(value === 'all' ? selectedFilterPhases.length === 0 : selectedFilterPhases.includes(value)) ? 'border-[#155EEF] bg-blue-50 text-[#155EEF]' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>{label}</button>
                                         ))}
                                     </div>
                                 </div>
@@ -3545,33 +3489,33 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                             <div className="space-y-4">
                                 <div className="rounded-2xl border border-gray-300 bg-white p-4">
-                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Ngành & khóa</h3>
-                                    <label className="mb-2 block text-sm font-medium text-gray-600">Chuyên ngành</label>
-                                    <select value={selectedFilterMajors[0] || 'all'} onChange={(event) => setSelectedFilterMajors(event.target.value === 'all' ? [] : [event.target.value])} className="mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                    <h3 className="ui-card-title mb-4 font-extrabold text-[#082B68]">Ngành & khóa</h3>
+                                    <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Chuyên ngành</label>
+                                    <select value={selectedFilterMajors[0] || 'all'} onChange={(event) => setSelectedFilterMajors(event.target.value === 'all' ? [] : [event.target.value])} className="ui-input mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
                                         <option value="all">Tất cả chuyên ngành</option>
                                         {majorOptions.map(option => <option key={option} value={option}>{option}</option>)}
                                     </select>
-                                    <label className="mb-2 block text-sm font-medium text-gray-600">Khóa</label>
-                                    <select value={selectedFilterCohorts[0] || 'all'} onChange={(event) => setSelectedFilterCohorts(event.target.value === 'all' ? [] : [event.target.value])} className="h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                    <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Khóa</label>
+                                    <select value={selectedFilterCohorts[0] || 'all'} onChange={(event) => setSelectedFilterCohorts(event.target.value === 'all' ? [] : [event.target.value])} className="ui-input h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
                                         <option value="all">Tất cả khóa</option>
                                         {cohortOptions.map(option => <option key={option} value={option}>{option}</option>)}
                                     </select>
                                 </div>
 
                                 <div className="rounded-2xl border border-gray-300 bg-white p-4">
-                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Nhóm lớp</h3>
-                                    <label className="mb-2 block text-sm font-medium text-gray-600">Nhóm học</label>
-                                    <select value={selectedFilterGroups[0] || 'all'} onChange={(event) => setSelectedFilterGroups(event.target.value === 'all' ? [] : [event.target.value])} className="h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                    <h3 className="ui-card-title mb-4 font-extrabold text-[#082B68]">Nhóm lớp</h3>
+                                    <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Nhóm học</label>
+                                    <select value={selectedFilterGroups[0] || 'all'} onChange={(event) => setSelectedFilterGroups(event.target.value === 'all' ? [] : [event.target.value])} className="ui-input h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
                                         <option value="all">Tất cả nhóm</option>
                                         {groupNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
                                     </select>
-                                    <p className="mt-3 text-xs leading-relaxed text-gray-400">Các nhóm hiển thị được lấy trực tiếp từ dữ liệu môn học của học kỳ và chương trình đã chọn.</p>
+                                    <p className="ui-muted ui-secondary mt-3 text-xs leading-relaxed text-gray-400">Các nhóm hiển thị được lấy trực tiếp từ dữ liệu môn học của học kỳ và chương trình đã chọn.</p>
                                 </div>
 
                                 <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
                                     <div className="flex items-start gap-3">
                                         <Info size={18} className="mt-0.5 shrink-0 text-[#155EEF]"/>
-                                        <p className="text-sm leading-relaxed text-[#28466F]">Bộ lọc hỗ trợ toàn bộ trường của bảng schedule: thông tin học phần, lịch học, cơ sở/phòng, kỳ thi, ngành–khóa–nhóm, quản lý, định hướng, đăng ký, ghi chú và sĩ số.</p>
+                                        <p className="ui-body text-sm leading-relaxed text-[#28466F]">Bộ lọc hỗ trợ toàn bộ trường của bảng schedule: thông tin học phần, lịch học, cơ sở/phòng, kỳ thi, ngành–khóa–nhóm, quản lý, định hướng, đăng ký, ghi chú và sĩ số.</p>
                                     </div>
                                 </div>
                             </div>
@@ -3580,21 +3524,21 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div className="mt-4 rounded-2xl border border-gray-300 bg-white p-4 sm:p-5">
                             <div className="mb-4 flex items-start justify-between gap-4">
                                 <div>
-                                    <h3 className="font-extrabold text-[#082B68]">Tất cả trường dữ liệu của bảng schedule</h3>
-                                    <p className="mt-1 text-xs leading-relaxed text-gray-500">Kết hợp cùng các tiêu chí phía trên để lọc chính xác theo học phần, lịch học, địa điểm, kỳ thi và thông tin quản lý.</p>
+                                    <h3 className="ui-card-title font-extrabold text-[#082B68]">Tất cả trường dữ liệu của bảng schedule</h3>
+                                    <p className="ui-body mt-1 text-xs leading-relaxed text-gray-500">Kết hợp cùng các tiêu chí phía trên để lọc chính xác theo học phần, lịch học, địa điểm, kỳ thi và thông tin quản lý.</p>
                                 </div>
-                                {activeAdvancedScheduleFilters.length > 0 && <button onClick={() => setAdvancedScheduleFilters({})} className="shrink-0 text-xs font-bold text-[#155EEF] hover:underline">Xóa {activeAdvancedScheduleFilters.length} trường</button>}
+                                {activeAdvancedScheduleFilters.length > 0 && <button onClick={() => setAdvancedScheduleFilters({})} className="ui-action shrink-0 text-xs font-bold text-[#155EEF] hover:underline">Xóa {activeAdvancedScheduleFilters.length} trường</button>}
                             </div>
                             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                                 {ADVANCED_SCHEDULE_FILTER_FIELDS.map(field => (
-                                    <label key={field.key} className="block">
-                                        <span className="mb-1.5 block text-xs font-bold text-[#28466F]">{field.label}</span>
+                                    <label key={field.key} className="ui-secondary block">
+                                        <span className="ui-meta mb-1.5 block text-xs font-bold text-[#28466F]">{field.label}</span>
                                         <input
                                             type={'type' in field ? field.type : 'text'}
                                             value={advancedScheduleFilters[field.key] || ''}
                                             onChange={(event) => setAdvancedScheduleFilters(previous => ({ ...previous, [field.key]: event.target.value }))}
                                             placeholder={field.placeholder}
-                                            className="h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#155EEF] focus:ring-2 focus:ring-blue-100"
+                                            className="ui-input h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#155EEF] focus:ring-2 focus:ring-blue-100"
                                         />
                                     </label>
                                 ))}
@@ -3605,17 +3549,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     <footer className="border-t border-gray-300 bg-white p-4 sm:px-6">
                         <div className="mb-4 flex min-h-12 flex-wrap items-center gap-2 rounded-xl border border-gray-300 bg-[#F8FAFC] px-4 py-2">
                             <span className="mr-1 text-sm font-extrabold text-[#082B68]">Xem trước bộ lọc ({activeCourseFilterCount})</span>
-                            {selectedFilterSemesters.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}</span>)}
-                            {selectedFilterPhases.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">Đợt {value}</span>)}
-                            {selectedFilterMajors.map(value => <span key={value} className="max-w-[180px] truncate rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{value}</span>)}
-                            {activeAdvancedScheduleFilters.slice(0, 4).map(([key, value]) => <span key={key} className="max-w-[190px] truncate rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span>)}
-                            {activeAdvancedScheduleFilters.length > 4 && <span className="text-xs font-bold text-gray-500">+{activeAdvancedScheduleFilters.length - 4} trường</span>}
-                            <button onClick={clearCourseFilters} className="ml-auto text-xs font-bold text-[#155EEF] hover:underline">Xóa tất cả</button>
+                            {selectedFilterSemesters.map(value => <span key={value} className="ui-meta rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}</span>)}
+                            {selectedFilterPhases.map(value => <span key={value} className="ui-meta rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">Đợt {value}</span>)}
+                            {selectedFilterMajors.map(value => <span key={value} className="ui-meta max-w-[180px] truncate rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{value}</span>)}
+                            {activeAdvancedScheduleFilters.slice(0, 4).map(([key, value]) => <span key={key} className="ui-meta max-w-[190px] truncate rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span>)}
+                            {activeAdvancedScheduleFilters.length > 4 && <span className="ui-meta text-xs font-bold text-gray-500">+{activeAdvancedScheduleFilters.length - 4} trường</span>}
+                            <button onClick={clearCourseFilters} className="ui-action ml-auto text-xs font-bold text-[#155EEF] hover:underline">Xóa tất cả</button>
                         </div>
                         <div className="grid grid-cols-3 gap-3">
-                            <button onClick={() => setIsFilterExpanded(false)} className="h-11 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-500 hover:bg-gray-50">Hủy</button>
-                            <button onClick={clearCourseFilters} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-600 hover:bg-gray-50"><RotateCcw size={15}/> Đặt lại</button>
-                            <button onClick={() => { setIsFilterExpanded(false); setIsCourseResultsOpen(true); }} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#155EEF] text-sm font-extrabold text-white transition hover:bg-[#0E4ED8]">Xem kết quả <Search size={16}/></button>
+                            <button onClick={() => setIsFilterExpanded(false)} className="ui-action h-11 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-500 hover:bg-gray-50">Hủy</button>
+                            <button onClick={clearCourseFilters} className="ui-action flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-600 hover:bg-gray-50"><RotateCcw size={15}/> Đặt lại</button>
+                            <button onClick={() => { setIsFilterExpanded(false); setIsCourseResultsOpen(true); }} className="ui-action flex h-11 items-center justify-center gap-2 rounded-xl bg-[#155EEF] text-sm font-extrabold text-white transition hover:bg-[#0E4ED8]">Xem kết quả <Search size={16}/></button>
                         </div>
                     </footer>
                 </section>
@@ -3630,29 +3574,29 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div className="flex items-start gap-3">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#155EEF]"><Search size={20}/></div>
                             <div>
-                                <h2 className="text-xl font-black text-[#082B68]">Kết quả phù hợp</h2>
-                                <p className="mt-1 text-sm text-gray-500">{isLoading ? 'Đang tìm lớp học...' : `Tìm thấy ${courseTotal || availableCourses.length} lớp theo bộ lọc của bạn.`}</p>
+                                <h2 className="ui-section-title text-xl font-black text-[#082B68]">Kết quả phù hợp</h2>
+                                <p className="ui-secondary mt-1 text-sm text-gray-500">{isLoading ? 'Đang tìm lớp học...' : `Tìm thấy ${courseTotal || availableCourses.length} lớp theo bộ lọc của bạn.`}</p>
                             </div>
                         </div>
-                        <button onClick={() => setIsCourseResultsOpen(false)} className="rounded-lg p-2 text-[#082B68] hover:bg-gray-100" aria-label="Đóng kết quả"><X size={20}/></button>
+                        <button onClick={() => setIsCourseResultsOpen(false)} className="ui-action rounded-lg p-2 text-[#082B68] hover:bg-gray-100" aria-label="Đóng kết quả"><X size={20}/></button>
                     </header>
 
                     <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 bg-white px-5 py-3 sm:px-6">
-                        {selectedFilterSemesters.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}</span>)}
-                        {selectedFilterPhases.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}</span>)}
-                        {selectedSubjectName !== 'all' && <span className="max-w-[190px] truncate rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{selectedSubjectName}</span>}
-                        {activeAdvancedScheduleFilters.slice(0, 3).map(([key, value]) => <span key={key} className="max-w-[190px] truncate rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span>)}
-                        {activeAdvancedScheduleFilters.length > 3 && <span className="text-[11px] font-bold text-gray-500">+{activeAdvancedScheduleFilters.length - 3} trường</span>}
-                        <button onClick={() => { setIsCourseResultsOpen(false); setIsFilterExpanded(true); }} className="ml-auto text-xs font-bold text-[#155EEF] hover:underline">Chỉnh bộ lọc</button>
+                        {selectedFilterSemesters.map(value => <span key={value} className="ui-meta rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}</span>)}
+                        {selectedFilterPhases.map(value => <span key={value} className="ui-meta rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}</span>)}
+                        {selectedSubjectName !== 'all' && <span className="ui-meta max-w-[190px] truncate rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{selectedSubjectName}</span>}
+                        {activeAdvancedScheduleFilters.slice(0, 3).map(([key, value]) => <span key={key} className="ui-meta max-w-[190px] truncate rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span>)}
+                        {activeAdvancedScheduleFilters.length > 3 && <span className="ui-meta text-[11px] font-bold text-gray-500">+{activeAdvancedScheduleFilters.length - 3} trường</span>}
+                        <button onClick={() => { setIsCourseResultsOpen(false); setIsFilterExpanded(true); }} className="ui-action ml-auto text-xs font-bold text-[#155EEF] hover:underline">Chỉnh bộ lọc</button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 custom-scrollbar sm:p-5">
                         {!isAuthenticated ? (
-                            <div className="flex h-full flex-col items-center justify-center text-center text-gray-500"><Lock size={32} className="mb-3 text-gray-300"/><p className="text-sm font-semibold">Đăng nhập để xem kết quả lớp học.</p></div>
+                            <div className="flex h-full flex-col items-center justify-center text-center text-gray-500"><Lock size={32} className="mb-3 text-gray-300"/><p className="ui-secondary text-sm font-semibold">Đăng nhập để xem kết quả lớp học.</p></div>
                         ) : isLoading ? (
                             <div className="flex h-full items-center justify-center gap-2 text-sm font-semibold text-gray-500"><Loader2 size={20} className="animate-spin text-[#155EEF]"/> Đang tải kết quả...</div>
                         ) : availableCourses.length === 0 ? (
-                            <div className="flex h-full flex-col items-center justify-center px-8 text-center"><Search size={34} className="mb-3 text-gray-300"/><h3 className="font-extrabold text-[#082B68]">Không tìm thấy lớp phù hợp</h3><p className="mt-2 text-sm leading-relaxed text-gray-500">Hãy bỏ bớt tiêu chí hoặc chọn lại học kỳ, đợt, chuyên ngành và nhóm.</p><button onClick={() => { setIsCourseResultsOpen(false); setIsFilterExpanded(true); }} className="mt-4 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#155EEF]">Chỉnh bộ lọc</button></div>
+                            <div className="flex h-full flex-col items-center justify-center px-8 text-center"><Search size={34} className="mb-3 text-gray-300"/><h3 className="ui-card-title font-extrabold text-[#082B68]">Không tìm thấy lớp phù hợp</h3><p className="ui-secondary mt-2 text-sm leading-relaxed text-gray-500">Hãy bỏ bớt tiêu chí hoặc chọn lại học kỳ, đợt, chuyên ngành và nhóm.</p><button onClick={() => { setIsCourseResultsOpen(false); setIsFilterExpanded(true); }} className="ui-action mt-4 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#155EEF]">Chỉnh bộ lọc</button></div>
                         ) : (
                             <div className="space-y-3">
                                 {availableCourses.map(course => {
@@ -3661,18 +3605,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     return (
                                         <article key={`result-${course.id}`} className={`rounded-xl border border-gray-300 border-l-4 ${color.border} bg-white p-4 transition hover:border-gray-300`}>
                                             <div className="flex items-start justify-between gap-3">
-                                                <button onClick={() => { setIsCourseResultsOpen(false); setSelectedCourseInfo({ course }); }} className="min-w-0 flex-1 text-left">
-                                                    <h3 className={`truncate text-sm font-black ${color.text}`}>{course.subject_name}</h3>
-                                                    <p className="mt-1 text-xs font-bold text-gray-500">{course.course_code} • Đợt {course.phase || '1'} • {course.credits || 0} TC</p>
+                                                <button onClick={() => { setIsCourseResultsOpen(false); setSelectedCourseInfo({ course }); }} className="ui-action min-w-0 flex-1 text-left">
+                                                    <h3 className={`ui-card-title truncate text-sm font-black ${color.text}`}>{course.subject_name}</h3>
+                                                    <p className="ui-numeric mt-1 text-xs font-bold text-gray-500">{course.course_code} • Đợt {course.phase || '1'} • {course.credits || 0} TC</p>
                                                 </button>
-                                                <button disabled={isSyncing || isAlreadySaved} onClick={() => addToActiveSchedule(course)} className={`flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${isAlreadySaved ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-[#0D4E9B] hover:bg-blue-100'} disabled:cursor-not-allowed disabled:opacity-70`}>
+                                                <button disabled={isSyncing || isAlreadySaved} onClick={() => addToActiveSchedule(course)} className={`ui-action flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${isAlreadySaved ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-[#0D4E9B] hover:bg-blue-100'} disabled:cursor-not-allowed disabled:opacity-70`}>
                                                     {isAlreadySaved ? <CheckCircle size={15}/> : <Plus size={15}/>} {isAlreadySaved ? 'Đã lưu' : 'Thêm vào lịch'}
                                                 </button>
                                             </div>
-                                            <div className="mt-3 grid grid-cols-1 gap-2 text-xs font-medium text-gray-600 sm:grid-cols-2">
-                                                <span className="flex items-center gap-1.5"><Clock size={13} className="text-gray-400"/> Thứ {course.day_of_week || '?'} • {getShiftDisplay(course.shift)}</span>
-                                                <span className="flex items-center gap-1.5"><MapPin size={13} className="text-gray-400"/> P. {course.room || 'Chưa cập nhật'}</span>
-                                                <span className="flex items-center gap-1.5 sm:col-span-2"><User size={13} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật giảng viên'}</span>
+                                            <div className="ui-meta mt-3 grid grid-cols-1 gap-2 text-xs font-medium text-gray-600 sm:grid-cols-2">
+                                                <span className="flex items-center gap-1.5"><Clock size={13} className="ui-muted text-gray-400"/> Thứ {course.day_of_week || '?'} • {getShiftDisplay(course.shift)}</span>
+                                                <span className="flex items-center gap-1.5"><MapPin size={13} className="ui-muted text-gray-400"/> P. {course.room || 'Chưa cập nhật'}</span>
+                                                <span className="flex items-center gap-1.5 sm:col-span-2"><User size={13} className="ui-muted text-gray-400"/> {course.instructor || 'Chưa cập nhật giảng viên'}</span>
                                             </div>
                                         </article>
                                     );
@@ -3683,27 +3627,27 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                     {!isCourseSuggestionMode && courseTotalPages > 1 && (
                         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-300 bg-white px-5 py-4 sm:px-6">
-                            <span className="text-xs font-bold text-gray-500">Trang {coursePage + 1}/{courseTotalPages} • {courseTotal} lớp</span>
+                            <span className="ui-meta text-xs font-bold text-gray-500">Trang {coursePage + 1}/{courseTotalPages} • {courseTotal} lớp</span>
                             <div className="flex items-center gap-1.5">
-                                <button disabled={coursePage === 0 || isLoading} onClick={() => setCoursePage(page => Math.max(0, page - 1))} className="h-9 rounded-lg border border-gray-300 px-4 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40">Trước</button>
+                                <button disabled={coursePage === 0 || isLoading} onClick={() => setCoursePage(page => Math.max(0, page - 1))} className="ui-action h-9 rounded-lg border border-gray-300 px-4 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40">Trước</button>
                                 {coursePaginationPages.map((pageNumber, index) => {
                                     const previousPage = coursePaginationPages[index - 1];
                                     return (
                                         <React.Fragment key={pageNumber}>
-                                            {previousPage && pageNumber - previousPage > 1 && <span className="px-1 text-xs text-gray-400">…</span>}
+                                            {previousPage && pageNumber - previousPage > 1 && <span className="ui-muted ui-meta px-1 text-xs text-gray-400">…</span>}
                                             <button
                                                 onClick={() => setCoursePage(pageNumber - 1)}
                                                 disabled={isLoading}
                                                 aria-label={`Trang ${pageNumber}`}
                                                 aria-current={coursePage + 1 === pageNumber ? 'page' : undefined}
-                                                className={`h-9 min-w-9 rounded-lg border px-2 text-xs font-extrabold transition disabled:opacity-40 ${coursePage + 1 === pageNumber ? 'border-[#155EEF] bg-[#155EEF] text-white' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
+                                                className={`ui-action h-9 min-w-9 rounded-lg border px-2 text-xs font-extrabold transition disabled:opacity-40 ${coursePage + 1 === pageNumber ? 'border-[#155EEF] bg-[#155EEF] text-white' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
                                             >
                                                 {pageNumber}
                                             </button>
                                         </React.Fragment>
                                     );
                                 })}
-                                <button disabled={!courseHasMore || isLoading} onClick={() => setCoursePage(page => page + 1)} className="h-9 rounded-lg bg-[#155EEF] px-4 text-xs font-bold text-white hover:bg-[#0E4ED8] disabled:opacity-40">Trang sau</button>
+                                <button disabled={!courseHasMore || isLoading} onClick={() => setCoursePage(page => page + 1)} className="ui-action h-9 rounded-lg bg-[#155EEF] px-4 text-xs font-bold text-white hover:bg-[#0E4ED8] disabled:opacity-40">Trang sau</button>
                             </div>
                         </footer>
                     )}
@@ -3773,8 +3717,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 if (!hasDetailValue(displayValue)) return null;
                 return (
                     <div className="min-w-0 rounded-lg border border-gray-100 bg-white px-3 py-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
-                        <p className="mt-0.5 break-words whitespace-pre-line text-sm font-semibold leading-snug text-gray-900">{displayValue}</p>
+                        <p className="ui-muted ui-secondary text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
+                        <p className="ui-secondary mt-0.5 break-words whitespace-pre-line text-sm font-semibold leading-snug text-gray-900">{displayValue}</p>
                     </div>
                 );
             };
@@ -3790,7 +3734,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     <section className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
                         <div className="mb-2 flex items-center gap-2">
                             <div className={`rounded-lg p-1.5 ${toneClass}`}>{icon}</div>
-                            <h3 className="text-xs font-extrabold uppercase tracking-wide text-gray-600">{title}</h3>
+                            <h3 className="ui-card-title text-xs font-extrabold uppercase tracking-wide text-gray-600">{title}</h3>
                         </div>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{rows}</div>
                     </section>
@@ -3801,28 +3745,28 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 <Overlay className="fixed inset-0 bg-black/55 z-[100000] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
                     <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] border border-gray-300 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 relative bg-gray-50 shrink-0">
-                            <button onClick={() => setSelectedCourseInfo(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300"><X size={16}/></button>
-                            <h2 className="text-lg font-bold text-[#003375] pr-8 leading-tight">{displayCourse.subject_name}</h2>
-                            <p className="text-gray-500 mt-1 text-sm font-medium">{displayCourse.course_code}</p>
+                            <button onClick={() => setSelectedCourseInfo(null)} className="ui-muted ui-action absolute top-4 right-4 text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300"><X size={16}/></button>
+                            <h2 className="ui-section-title text-lg font-bold text-[#003375] pr-8 leading-tight">{displayCourse.subject_name}</h2>
+                            <p className="ui-numeric text-gray-500 mt-1 text-sm font-medium">{displayCourse.course_code}</p>
                             
                             <div className="flex gap-1.5 flex-wrap mt-2 items-center">
-                                {displayCourse.phase && <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 shrink-0">{formatPhaseValue(displayCourse.phase)}</span>}
+                                {displayCourse.phase && <span className="ui-meta text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 shrink-0">{formatPhaseValue(displayCourse.phase)}</span>}
                                 
                                 {/* HIỂN THỊ LABELS */}
                                 {modalLabels && modalLabels.map((l: any) => (
-                                    <span key={l.id} className={`text-[10px] font-bold pl-2 pr-1 py-0.5 rounded border flex items-center gap-1 ${getLabelStyle(l.color)}`}>
+                                    <span key={l.id} className={`ui-meta text-[10px] font-bold pl-2 pr-1 py-0.5 rounded border flex items-center gap-1 ${getLabelStyle(l.color)}`}>
                                         <Tag size={10} /> 
                                         {!targetDateStr && <span className="font-normal opacity-80 mr-0.5">[{l.date?.substring(0,5)}]</span>}
                                         {l.type === 'Khác' ? l.text : l.type}
                                         {isSaved && (
-                                            <button onClick={(e) => { e.stopPropagation(); handleInlineRemoveLabel(l.id); }} className="hover:text-red-600 ml-0.5 bg-white/50 rounded-full p-0.5" title="Xóa nhãn"><X size={10}/></button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleInlineRemoveLabel(l.id); }} className="ui-danger-text ui-action hover:text-red-600 ml-0.5 bg-white/50 rounded-full p-0.5" title="Xóa nhãn"><X size={10}/></button>
                                         )}
                                     </span>
                                 ))}
 
                                 {/* NÚT THÊM NHÃN INLINE (Chỉ hiện khi thao tác tại 1 ngày cụ thể) */}
                                 {isSaved && targetDateStr && !showInlineLabelForm && (
-                                    <button onClick={() => setShowInlineLabelForm(true)} className="text-[10px] font-bold px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 flex items-center gap-1 shrink-0 transition-colors">
+                                    <button onClick={() => setShowInlineLabelForm(true)} className="ui-action text-[10px] font-bold px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 flex items-center gap-1 shrink-0 transition-colors">
                                         <Plus size={10}/> Thêm nhãn
                                     </button>
                                 )}
@@ -3834,7 +3778,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <select 
                                         value={inlineLabelData.type} 
                                         onChange={(e) => setInlineLabelData({...inlineLabelData, type: e.target.value})}
-                                        className="px-2 py-1.5 text-xs border border-gray-300 rounded outline-none focus:border-[#003375] cursor-pointer"
+                                        className="ui-input px-2 py-1.5 text-xs border border-gray-300 rounded outline-none focus:border-[#003375] cursor-pointer"
                                     >
                                         {LABEL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
@@ -3843,18 +3787,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <input 
                                             type="text" placeholder="Nhập tên..." 
                                             value={inlineLabelData.text} onChange={e => setInlineLabelData({...inlineLabelData, text: e.target.value})}
-                                            className="flex-1 min-w-[80px] px-2 py-1.5 text-xs border border-gray-300 rounded outline-none focus:border-[#003375]"
+                                            className="ui-input flex-1 min-w-[80px] px-2 py-1.5 text-xs border border-gray-300 rounded outline-none focus:border-[#003375]"
                                         />
                                     )}
                                     
                                     {inlineLabelData.type === 'Khác' && (
                                         <div className="flex gap-1 items-center bg-gray-50 px-1.5 py-1 rounded border border-gray-300 w-full mt-1">
-                                            <span className="text-[10px] font-bold text-gray-500">Màu:</span>
+                                            <span className="ui-meta text-[10px] font-bold text-gray-500">Màu:</span>
                                             {LABEL_COLORS.map(c => (
                                                 <button 
                                                     key={c.value} type="button" title={c.name}
                                                     onClick={() => setInlineLabelData({...inlineLabelData, color: c.value})}
-                                                    className={`w-4 h-4 rounded-full ${getLabelDotColor(c.value)} ${inlineLabelData.color === c.value ? 'ring-1 ring-offset-1 ring-gray-400 scale-110' : ''}`}
+                                                    className={`ui-action w-4 h-4 rounded-full ${getLabelDotColor(c.value)} ${inlineLabelData.color === c.value ? 'ring-1 ring-offset-1 ring-gray-400 scale-110' : ''}`}
                                                 />
                                             ))}
                                         </div>
@@ -3863,12 +3807,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     {inlineLabelData.type === 'Nghỉ' && (
                                         <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2 p-2 rounded-lg border border-red-100 bg-red-50/60">
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-red-700">Ngày học bù</label>
-                                                <input type="date" value={inlineLabelData.makeupDate} onChange={e => setInlineLabelData({...inlineLabelData, makeupDate: e.target.value})} className="w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white" />
+                                                <label className="ui-secondary text-[10px] font-bold text-red-700">Ngày học bù</label>
+                                                <input type="date" value={inlineLabelData.makeupDate} onChange={e => setInlineLabelData({...inlineLabelData, makeupDate: e.target.value})} className="ui-input w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white" />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-red-700">Thời gian</label>
-                                                <select value={inlineLabelData.makeupShift} onChange={e => setInlineLabelData({...inlineLabelData, makeupShift: e.target.value})} className="w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white">
+                                                <label className="ui-secondary text-[10px] font-bold text-red-700">Thời gian</label>
+                                                <select value={inlineLabelData.makeupShift} onChange={e => setInlineLabelData({...inlineLabelData, makeupShift: e.target.value})} className="ui-input w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white">
                                                     <option value="S">Sáng</option>
                                                     <option value="C">Chiều</option>
                                                     <option value="1-3">Tiết 1-3</option>
@@ -3878,17 +3822,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                 </select>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-red-700">Phòng học</label>
-                                                <input type="text" value={inlineLabelData.makeupRoom} onChange={e => setInlineLabelData({...inlineLabelData, makeupRoom: e.target.value})} placeholder="B1.303" className="w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white" />
+                                                <label className="ui-secondary text-[10px] font-bold text-red-700">Phòng học</label>
+                                                <input type="text" value={inlineLabelData.makeupRoom} onChange={e => setInlineLabelData({...inlineLabelData, makeupRoom: e.target.value})} placeholder="B1.303" className="ui-input w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white" />
                                             </div>
                                         </div>
                                     )}
                                     
                                     <div className="flex items-center gap-1 ml-auto">
-                                        <button onClick={() => setShowInlineLabelForm(false)} className="bg-gray-100 text-gray-600 px-2 py-1.5 rounded hover:bg-gray-200 text-xs font-bold">
+                                        <button onClick={() => setShowInlineLabelForm(false)} className="ui-action bg-gray-100 text-gray-600 px-2 py-1.5 rounded hover:bg-gray-200 text-xs font-bold">
                                             Hủy
                                         </button>
-                                        <button onClick={handleInlineSaveLabel} disabled={isSavingInlineLabel} className="bg-[#003375] text-white px-2 py-1.5 rounded hover:bg-[#002855] disabled:opacity-50 flex items-center gap-1 text-xs font-bold">
+                                        <button onClick={handleInlineSaveLabel} disabled={isSavingInlineLabel} className="ui-action bg-[#003375] text-white px-2 py-1.5 rounded hover:bg-[#002855] disabled:opacity-50 flex items-center gap-1 text-xs font-bold">
                                             {isSavingInlineLabel ? <Loader2 size={12} className="animate-spin"/> : <CheckCircle size={12}/>} Lưu
                                         </button>
                                     </div>
@@ -3897,7 +3841,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                         <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                             {isCourseDetailLoading && (
-                                <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-[#003375]">
+                                <div className="ui-meta flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-[#003375]">
                                     <Loader2 size={14} className="animate-spin" />
                                     Đang tải thêm chi tiết môn học...
                                 </div>
@@ -3973,27 +3917,27 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             )}
                         </div>
                         <div className="p-4 bg-white border-t border-gray-100 flex gap-2 shrink-0">
-                            <button onClick={() => { setReportData({ course_code: displayCourse.course_code, subject_name: displayCourse.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="px-3 py-2.5 rounded-lg border border-gray-300 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
+                            <button onClick={() => { setReportData({ course_code: displayCourse.course_code, subject_name: displayCourse.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="ui-danger-text ui-action px-3 py-2.5 rounded-lg border border-gray-300 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
                                 <AlertTriangle size={18} />
                             </button>
                             {isPlanMode ? (
                                 isInCurrentPlan ? (
-                                    <button onClick={() => { removeFromPlanSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-sm font-bold hover:bg-amber-100 transition-all">Xóa khỏi Kế hoạch {activePlanKey}</button>
+                                    <button onClick={() => { removeFromPlanSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="ui-action flex-1 py-2.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-sm font-bold hover:bg-amber-100 transition-all">Xóa khỏi Kế hoạch {activePlanKey}</button>
                                 ) : (
-                                    <button onClick={() => { addToPlanSchedule(displayCourse); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all disabled:opacity-50">Thêm vào Kế hoạch {activePlanKey}</button>
+                                    <button onClick={() => { addToPlanSchedule(displayCourse); setSelectedCourseInfo(null); }} disabled={isSyncing} className="ui-action flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all disabled:opacity-50">Thêm vào Kế hoạch {activePlanKey}</button>
                                 )
                             ) : !isSaved ? (
-                                <button onClick={() => { addToSchedule(displayCourse); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all disabled:opacity-50">Thêm vào Lịch</button>
+                                <button onClick={() => { addToSchedule(displayCourse); setSelectedCourseInfo(null); }} disabled={isSyncing} className="ui-action flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all disabled:opacity-50">Thêm vào Lịch</button>
                             ) : (
                                 <>
                                     <button onClick={() => {
                                         setStudentEditData(displayCourse);
                                         setIsStudentEditModalOpen(true);
                                         setSelectedCourseInfo(null);
-                                    }} className="px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors" title="Sửa thông tin cá nhân">
+                                    }} className="ui-action px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors" title="Sửa thông tin cá nhân">
                                         <Edit size={18} />
                                     </button>
-                                    <button onClick={() => { removeFromSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-bold hover:bg-red-100 transition-all">Xóa khỏi Lịch</button>
+                                    <button onClick={() => { removeFromSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="ui-danger-text ui-action flex-1 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-bold hover:bg-red-100 transition-all">Xóa khỏi Lịch</button>
                                 </>
                             )}
                         </div>
@@ -4008,27 +3952,27 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <Overlay className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-md border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="bg-gray-50 border-b border-gray-100 p-4 flex items-center justify-between shrink-0">
-                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> {isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Môn học đã lưu'} ({displayedScheduleCount})</h2>
-                        <button onClick={() => setIsMyScheduleModalOpen(false)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300"><X size={16}/></button>
+                        <h2 className="ui-section-title font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> {isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Môn học đã lưu'} ({displayedScheduleCount})</h2>
+                        <button onClick={() => setIsMyScheduleModalOpen(false)} className="ui-muted ui-action text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300"><X size={16}/></button>
                     </div>
                     <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2 bg-white">
                         {displayedSchedule.length === 0 ? (
                             <div className="text-center py-10 text-gray-500">
                                 <Search size={40} className="mx-auto text-gray-200 mb-3"/>
-                                <p className="font-medium text-sm">{isPlanMode ? `Kế hoạch ${activePlanKey} chưa có môn học nào.` : 'Chưa có môn học nào trong lịch.'}</p>
+                                <p className="ui-secondary font-medium text-sm">{isPlanMode ? `Kế hoạch ${activePlanKey} chưa có môn học nào.` : 'Chưa có môn học nào trong lịch.'}</p>
                             </div>
                         ) : (
                             displayedSchedule.map(course => (
                                 <div key={course.id} className="bg-white p-3 rounded-xl border border-gray-300 flex items-center justify-between gap-3 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-gray-800 text-sm truncate">{course.subject_name}</h4>
-                                        <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
+                                        <h4 className="ui-card-title font-bold text-gray-800 text-sm truncate">{course.subject_name}</h4>
+                                        <p className="ui-numeric text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                         {!isPlanMode && (
-                                            <button onClick={(e) => { e.stopPropagation(); setStudentEditData(course); setIsStudentEditModalOpen(true); setIsMyScheduleModalOpen(false); }} className="text-gray-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100" title="Sửa lịch cá nhân"><Edit size={16}/></button>
+                                            <button onClick={(e) => { e.stopPropagation(); setStudentEditData(course); setIsStudentEditModalOpen(true); setIsMyScheduleModalOpen(false); }} className="ui-muted ui-action text-gray-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100" title="Sửa lịch cá nhân"><Edit size={16}/></button>
                                         )}
-                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn khỏi lịch'}><Trash2 size={16}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="ui-muted ui-danger-text ui-action text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn khỏi lịch'}><Trash2 size={16}/></button>
                                     </div>
                                 </div>
                             ))
@@ -4043,15 +3987,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <Overlay className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-300 overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-red-50 text-red-700">
-                        <h2 className="font-bold text-base flex items-center gap-2"><AlertTriangle size={18}/> Báo lỗi môn học</h2>
-                        <button onClick={() => setIsReportModalOpen(false)} className="text-red-400 hover:text-red-800"><X size={20}/></button>
+                        <h2 className="ui-section-title font-bold text-base flex items-center gap-2"><AlertTriangle size={18}/> Báo lỗi môn học</h2>
+                        <button onClick={() => setIsReportModalOpen(false)} className="ui-action text-red-400 hover:text-red-800"><X size={20}/></button>
                     </div>
                     <form onSubmit={handleReportSubmit} className="p-5 space-y-4 bg-white">
-                        <div><input required placeholder="Mã học phần (VD: ACC718_2521_L04)" value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"/></div>
-                        <div><input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"/></div>
-                        <div><textarea required rows={3} placeholder="Chi tiết lỗi (VD: Đổi phòng, đổi giờ)..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
-                        <div><textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
-                        <button type="submit" className="w-full py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors ">Tạo ticket hỗ trợ</button>
+                        <div><input required placeholder="Mã học phần (VD: ACC718_2521_L04)" value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"/></div>
+                        <div><input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"/></div>
+                        <div><textarea required rows={3} placeholder="Chi tiết lỗi (VD: Đổi phòng, đổi giờ)..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
+                        <div><textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
+                        <button type="submit" className="ui-action w-full py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors ">Tạo ticket hỗ trợ</button>
                     </form>
                 </div>
             </Overlay>
@@ -4062,19 +4006,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <Overlay className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-3 md:p-6" onClick={() => setIsCreateCourseModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-[min(96vw,1280px)] border border-gray-300 overflow-hidden flex max-h-[94vh] flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-[#f8fafc]">
-                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
-                        <button onClick={() => setIsCreateCourseModalOpen(false)} className="text-gray-400 hover:text-gray-800"><X size={20}/></button>
+                        <h2 className="ui-section-title font-bold text-[#003375] text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
+                        <button onClick={() => setIsCreateCourseModalOpen(false)} className="ui-muted ui-action text-gray-400 hover:text-gray-800"><X size={20}/></button>
                     </div>
                     <form onSubmit={handleCreateCourseSubmit} className="overflow-y-auto p-5 bg-white">
-                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-gray-500">Khai báo từng tuần/buổi để Admin cập nhật đúng lịch học.</p><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-[#0056C7]">Học kỳ {selectedSemester.replaceAll('_', ' ')}</span></div>
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><p className="ui-secondary text-xs text-gray-500">Khai báo từng tuần/buổi để Admin cập nhật đúng lịch học.</p><span className="ui-meta rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-[#0056C7]">Học kỳ {selectedSemester.replaceAll('_', ' ')}</span></div>
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                          <input type="text" required placeholder="Mã học phần *" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
-                          <input type="text" required placeholder="Tên môn học *" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
-                          <input type="text" required placeholder="Giảng viên *" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
-                          <input type="text" aria-label="Học kỳ" readOnly value={selectedSemester.replaceAll('_', ' ')} className="w-full cursor-not-allowed px-3 py-2.5 border border-gray-200 rounded-lg bg-slate-50 text-sm font-semibold text-slate-600"/>
+                          <input type="text" required placeholder="Mã học phần *" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
+                          <input type="text" required placeholder="Tên môn học *" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
+                          <input type="text" required placeholder="Giảng viên *" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="ui-input w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/>
+                          <input type="text" aria-label="Học kỳ" readOnly value={selectedSemester.replaceAll('_', ' ')} className="ui-input w-full cursor-not-allowed px-3 py-2.5 border border-gray-200 rounded-lg bg-slate-50 text-sm font-semibold text-slate-600"/>
                         </div>
                         <div className="mt-4"><ScheduleSessionsEditor semester={selectedSemester} value={newCourseData.scheduleSessions} onChange={scheduleSessions => setNewCourseData({ ...newCourseData, scheduleSessions })} showSummary /></div>
-                        <button type="submit" disabled={isSubmittingCourse || !newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)} className="mt-5 w-full py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-colors disabled:bg-slate-300">{isSubmittingCourse ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
+                        <button type="submit" disabled={isSubmittingCourse || !newCourseData.subject_name.trim() || !newCourseData.course_code.trim() || !newCourseData.instructor.trim() || !scheduleSessionsAreValid(newCourseData.scheduleSessions, selectedSemester)} className="ui-action mt-5 w-full py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-colors disabled:bg-slate-300">{isSubmittingCourse ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
                     </form>
                 </div>
             </Overlay>
@@ -4092,22 +4036,22 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <Overlay className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setQuickTagCourse(null)}>
                 <div className="bg-white rounded-2xl w-full max-w-sm border-2 border-gray-100 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
-                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18} /> Gắn nhãn nhanh</h2>
-                        <button onClick={() => setQuickTagCourse(null)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300 transition-colors"><X size={16}/></button>
+                        <h2 className="ui-section-title font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18} /> Gắn nhãn nhanh</h2>
+                        <button onClick={() => setQuickTagCourse(null)} className="ui-muted ui-action text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300 transition-colors"><X size={16}/></button>
                     </div>
                     
                     <div className="p-5 flex flex-col gap-4">
                         <div>
-                            <p className="text-xs font-bold text-gray-500 mb-1">Môn học ngày {quickTagCourse.dateStr}:</p>
-                            <p className="text-sm font-bold text-[#003375] leading-tight line-clamp-2">{quickTagCourse.subject_name}</p>
+                            <p className="ui-secondary text-xs font-bold text-gray-500 mb-1">Môn học ngày {quickTagCourse.dateStr}:</p>
+                            <p className="ui-secondary text-sm font-bold text-[#003375] leading-tight line-clamp-2">{quickTagCourse.subject_name}</p>
                         </div>
 
                         <div className="flex flex-col gap-3">
-                            <label className="text-xs font-bold text-gray-600">Chọn loại nhãn:</label>
+                            <label className="ui-secondary text-xs font-bold text-gray-600">Chọn loại nhãn:</label>
                             <select 
                                 value={quickTagData.type} 
                                 onChange={(e) => setQuickTagData({...quickTagData, type: e.target.value})}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375] cursor-pointer"
+                                className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375] cursor-pointer"
                             >
                                 {LABEL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
@@ -4118,19 +4062,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     placeholder="Nhập tên nhãn (VD: Mang laptop...)" 
                                     value={quickTagData.text} 
                                     onChange={(e) => setQuickTagData({...quickTagData, text: e.target.value})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375]"
+                                    className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375]"
                                 />
                             )}
 
                             {quickTagData.type === 'Khác' && (
                                 <>
-                                    <label className="text-xs font-bold text-gray-600 mt-1">Chọn màu sắc:</label>
+                                    <label className="ui-secondary text-xs font-bold text-gray-600 mt-1">Chọn màu sắc:</label>
                                     <div className="flex gap-2 flex-wrap">
                                         {LABEL_COLORS.map(c => (
                                             <button 
                                                 key={c.value} type="button" title={c.name}
                                                 onClick={() => setQuickTagData({...quickTagData, color: c.value})}
-                                                className={`w-8 h-8 rounded-full ${getLabelDotColor(c.value)} ${quickTagData.color === c.value ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'} transition-transform`}
+                                                className={`ui-action w-8 h-8 rounded-full ${getLabelDotColor(c.value)} ${quickTagData.color === c.value ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'} transition-transform`}
                                             />
                                         ))}
                                     </div>
@@ -4141,16 +4085,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <div className="rounded-xl border border-red-100 bg-red-50/70 p-3 space-y-3">
                                     <div className="flex items-center gap-2 text-red-700">
                                         <CalendarDays size={15} />
-                                        <p className="text-xs font-bold">Lịch học bù</p>
+                                        <p className="ui-secondary text-xs font-bold">Lịch học bù</p>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div className="space-y-1">
-                                            <label className="text-xs font-bold text-gray-600">Ngày học bù</label>
-                                            <input type="date" value={quickTagData.makeupDate} onChange={e => setQuickTagData({...quickTagData, makeupDate: e.target.value})} className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white" />
+                                            <label className="ui-secondary text-xs font-bold text-gray-600">Ngày học bù</label>
+                                            <input type="date" value={quickTagData.makeupDate} onChange={e => setQuickTagData({...quickTagData, makeupDate: e.target.value})} className="ui-input w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white" />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-bold text-gray-600">Thời gian</label>
-                                            <select value={quickTagData.makeupShift} onChange={e => setQuickTagData({...quickTagData, makeupShift: e.target.value})} className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white">
+                                            <label className="ui-secondary text-xs font-bold text-gray-600">Thời gian</label>
+                                            <select value={quickTagData.makeupShift} onChange={e => setQuickTagData({...quickTagData, makeupShift: e.target.value})} className="ui-input w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white">
                                                 <option value="S">Sáng</option>
                                                 <option value="C">Chiều</option>
                                                 <option value="1-3">Tiết 1-3</option>
@@ -4161,8 +4105,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         </div>
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-bold text-gray-600">Phòng học bù</label>
-                                        <input type="text" value={quickTagData.makeupRoom} onChange={e => setQuickTagData({...quickTagData, makeupRoom: e.target.value})} placeholder="VD: B1.303" className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white" />
+                                        <label className="ui-secondary text-xs font-bold text-gray-600">Phòng học bù</label>
+                                        <input type="text" value={quickTagData.makeupRoom} onChange={e => setQuickTagData({...quickTagData, makeupRoom: e.target.value})} placeholder="VD: B1.303" className="ui-input w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white" />
                                     </div>
                                 </div>
                             )}
@@ -4170,8 +4114,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
 
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0">
-                        <button type="button" onClick={() => setQuickTagCourse(null)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors text-sm">Hủy</button>
-                        <button type="button" onClick={handleQuickSaveLabel} disabled={isSavingQuickTag} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                        <button type="button" onClick={() => setQuickTagCourse(null)} className="ui-action px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors text-sm">Hủy</button>
+                        <button type="button" onClick={handleQuickSaveLabel} disabled={isSavingQuickTag} className="ui-action px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
                             {isSavingQuickTag ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Gắn Nhãn
                         </button>
                     </div>
@@ -4184,84 +4128,84 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <Overlay className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
-                        <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> Tùy chỉnh môn học cá nhân</h2>
-                        <button onClick={() => setIsStudentEditModalOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                        <h2 className="ui-section-title font-bold text-lg flex items-center gap-2"><Edit size={18} /> Tùy chỉnh môn học cá nhân</h2>
+                        <button onClick={() => setIsStudentEditModalOpen(false)} className="ui-action hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                     <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50 flex flex-col gap-6">
                         
                         <div className="bg-white p-4 rounded-xl border border-gray-300">
-                            <h3 className="text-sm font-bold text-[#003375] mb-3 flex items-center gap-1.5"><Tag size={16}/> Nhãn dán đã gắn cho môn này</h3>
+                            <h3 className="ui-card-title text-sm font-bold text-[#003375] mb-3 flex items-center gap-1.5"><Tag size={16}/> Nhãn dán đã gắn cho môn này</h3>
                             
                             {studentEditData.labels && studentEditData.labels.length > 0 ? (
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     {studentEditData.labels.map(l => (
-                                        <div key={l.id} className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border ${getLabelStyle(l.color)}`}>
+                                        <div key={l.id} className={`ui-meta flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border ${getLabelStyle(l.color)}`}>
                                             <span className="font-normal opacity-80 mr-1">[{l.date?.substring(0,5)}]</span>
                                             <span>{l.type === 'Khác' ? l.text : l.type}</span>
-                                            <button type="button" onClick={() => handleRemoveLabel(l.id)} className="opacity-60 hover:opacity-100 hover:text-red-600 transition-colors ml-1"><X size={12}/></button>
+                                            <button type="button" onClick={() => handleRemoveLabel(l.id)} className="ui-danger-text ui-action opacity-60 hover:opacity-100 hover:text-red-600 transition-colors ml-1"><X size={12}/></button>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-xs text-gray-500 mb-4">Môn học này chưa có nhãn nào. Hãy dán nhãn từ trang Lịch!</p>
+                                <p className="ui-secondary text-xs text-gray-500 mb-4">Môn học này chưa có nhãn nào. Hãy dán nhãn từ trang Lịch!</p>
                             )}
 
                         </div>
 
                         <form id="studentCourseForm" onSubmit={handleStudentSaveCourse} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Tên môn học *</label>
-                                <input required type="text" value={studentEditData.subject_name || ''} onChange={e => setStudentEditData({...studentEditData, subject_name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Tên môn học *</label>
+                                <input required type="text" value={studentEditData.subject_name || ''} onChange={e => setStudentEditData({...studentEditData, subject_name: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Mã học phần *</label>
-                                <input required type="text" value={studentEditData.course_code || ''} onChange={e => setStudentEditData({...studentEditData, course_code: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Mã học phần *</label>
+                                <input required type="text" value={studentEditData.course_code || ''} onChange={e => setStudentEditData({...studentEditData, course_code: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Số Tín Chỉ</label>
-                                <input type="number" min="1" max="10" value={studentEditData.credits || ''} onChange={e => setStudentEditData({...studentEditData, credits: parseInt(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Số Tín Chỉ</label>
+                                <input type="number" min="1" max="10" value={studentEditData.credits || ''} onChange={e => setStudentEditData({...studentEditData, credits: parseInt(e.target.value)})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Giảng viên</label>
-                                <input type="text" value={studentEditData.instructor || ''} onChange={e => setStudentEditData({...studentEditData, instructor: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Giảng viên</label>
+                                <input type="text" value={studentEditData.instructor || ''} onChange={e => setStudentEditData({...studentEditData, instructor: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ngày học (VD: 2, 4, 6)</label>
-                                <input type="text" value={studentEditData.day_of_week || ''} onChange={e => setStudentEditData({...studentEditData, day_of_week: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ngày học (VD: 2, 4, 6)</label>
+                                <input type="text" value={studentEditData.day_of_week || ''} onChange={e => setStudentEditData({...studentEditData, day_of_week: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ca học (S, C, S C)</label>
-                                <input type="text" value={studentEditData.shift || ''} onChange={e => setStudentEditData({...studentEditData, shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ca học (S, C, S C)</label>
+                                <input type="text" value={studentEditData.shift || ''} onChange={e => setStudentEditData({...studentEditData, shift: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Phòng học (VD: B1.101, C301)</label>
-                                <input type="text" value={studentEditData.room || ''} onChange={e => setStudentEditData({...studentEditData, room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Phòng học (VD: B1.101, C301)</label>
+                                <input type="text" value={studentEditData.room || ''} onChange={e => setStudentEditData({...studentEditData, room: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Tuần học (VD: 1, 5-15)</label>
-                                <input type="text" value={studentEditData.weeks || ''} onChange={e => setStudentEditData({...studentEditData, weeks: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Tuần học (VD: 1, 5-15)</label>
+                                <input type="text" value={studentEditData.weeks || ''} onChange={e => setStudentEditData({...studentEditData, weeks: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Đợt (1, 2)</label>
-                                <input type="text" value={studentEditData.phase || ''} onChange={e => setStudentEditData({...studentEditData, phase: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Đợt (1, 2)</label>
+                                <input type="text" value={studentEditData.phase || ''} onChange={e => setStudentEditData({...studentEditData, phase: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ngày thi (VD: 15/07/2026)</label>
-                                <input type="text" value={studentEditData.exam_date || ''} onChange={e => setStudentEditData({...studentEditData, exam_date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ngày thi (VD: 15/07/2026)</label>
+                                <input type="text" value={studentEditData.exam_date || ''} onChange={e => setStudentEditData({...studentEditData, exam_date: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
-                                <input type="text" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
+                                <input type="text" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Phòng thi (VD: B1.303)</label>
-                                <input type="text" value={studentEditData.exam_room || ''} onChange={e => setStudentEditData({...studentEditData, exam_room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Phòng thi (VD: B1.303)</label>
+                                <input type="text" value={studentEditData.exam_room || ''} onChange={e => setStudentEditData({...studentEditData, exam_room: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                         </form>
                     </div>
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
-                        <button type="button" onClick={() => setIsStudentEditModalOpen(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
-                        <button type="submit" form="studentCourseForm" disabled={isSavingStudentCourse} className="px-6 py-2 bg-[#0052cc] hover:bg-[#003d99] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                        <button type="button" onClick={() => setIsStudentEditModalOpen(false)} className="ui-action px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
+                        <button type="submit" form="studentCourseForm" disabled={isSavingStudentCourse} className="ui-action px-6 py-2 bg-[#0052cc] hover:bg-[#003d99] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
                             {isSavingStudentCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu Tùy Chỉnh
                         </button>
                     </div>
@@ -4274,31 +4218,31 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 <div className="bg-white rounded-2xl w-full max-w-5xl border border-gray-300 flex flex-col max-h-[82vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-start gap-4 shrink-0">
                         <div>
-                            <h2 className="font-bold text-lg flex items-center gap-2"><Info size={18} /> So sánh thay đổi môn học</h2>
-                            <p className="mt-1 text-sm text-blue-50">
+                            <h2 className="ui-section-title font-bold text-lg flex items-center gap-2"><Info size={18} /> So sánh thay đổi môn học</h2>
+                            <p className="ui-numeric mt-1 text-sm text-blue-50">
                                 {selectedChangedCourse.course_code} - {selectedChangedCourse.subject_name}
                             </p>
-                            <p className="mt-1 text-xs text-blue-100">
+                            <p className="ui-secondary mt-1 text-xs text-blue-100">
                                 {selectedChangedCourse.user?.full_name || 'Không xác định'} • MSSV {selectedChangedCourse.user?.student_code || '-'}
                             </p>
                         </div>
-                        <button onClick={closeChangedCourseModal} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                        <button onClick={closeChangedCourseModal} className="ui-action hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
 
                     <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-blue-50/40">
                         {selectedChangedCourseDiffs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
                                 <CheckCircle size={36} className="mb-3 text-[#0052cc]"/>
-                                <p className="font-bold">Không còn khác biệt cần đồng bộ.</p>
+                                <p className="ui-secondary font-bold">Không còn khác biệt cần đồng bộ.</p>
                             </div>
                         ) : (
                             <table className="w-full text-left border-collapse text-sm bg-white rounded-xl overflow-hidden border border-gray-300">
                                 <thead className="bg-gray-100 text-gray-600">
                                     <tr>
-                                        <th className="p-3 border-b border-gray-300 font-bold w-44">Trường dữ liệu</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold">Dữ liệu gốc</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold">Sinh viên đã chỉnh</th>
-                                        <th className="p-3 border-b border-gray-300 font-bold text-center w-28">Thao tác</th>
+                                        <th className="ui-meta p-3 border-b border-gray-300 font-bold w-44">Trường dữ liệu</th>
+                                        <th className="ui-meta p-3 border-b border-gray-300 font-bold">Dữ liệu gốc</th>
+                                        <th className="ui-meta p-3 border-b border-gray-300 font-bold">Sinh viên đã chỉnh</th>
+                                        <th className="ui-meta p-3 border-b border-gray-300 font-bold text-center w-28">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -4316,7 +4260,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                     type="button"
                                                     onClick={() => handleSyncChangedField(String(diff.key), diff.label)}
                                                     disabled={isSyncingChangedCourse}
-                                                    className="px-3 py-1.5 rounded-lg bg-[#0052cc] hover:bg-[#003d99] text-white text-xs font-bold transition-colors disabled:opacity-50"
+                                                    className="ui-action px-3 py-1.5 rounded-lg bg-[#0052cc] hover:bg-[#003d99] text-white text-xs font-bold transition-colors disabled:opacity-50"
                                                 >
                                                     Đồng bộ
                                                 </button>
@@ -4329,11 +4273,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
 
                     <div className="p-4 border-t border-gray-100 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0 rounded-b-xl">
-                        <p className="text-xs text-gray-500">
+                        <p className="ui-body text-xs text-gray-500">
                             Mỗi dòng có nút đồng bộ riêng để giữ những trường đặc thù của sinh viên.
                         </p>
                         <div className="flex justify-end gap-3">
-                            <button type="button" onClick={closeChangedCourseModal} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Đóng</button>
+                            <button type="button" onClick={closeChangedCourseModal} className="ui-action px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Đóng</button>
                         </div>
                     </div>
                 </div>
@@ -4345,64 +4289,64 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <Overlay className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }}>
                 <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
-                        <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> {activeCourseRequest ? 'Sửa yêu cầu và thêm môn chính thức' : adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
-                        <button onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                        <h2 className="ui-section-title font-bold text-lg flex items-center gap-2"><Edit size={18} /> {activeCourseRequest ? 'Sửa yêu cầu và thêm môn chính thức' : adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
+                        <button onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="ui-action hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                     <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50">
                         <form id="adminCourseForm" onSubmit={handleAdminSaveCourse} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Tên môn học *</label>
-                                <input required type="text" value={adminEditData.subject_name || ''} onChange={e => setAdminEditData({...adminEditData, subject_name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Tên môn học *</label>
+                                <input required type="text" value={adminEditData.subject_name || ''} onChange={e => setAdminEditData({...adminEditData, subject_name: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Mã học phần *</label>
-                                <input required type="text" value={adminEditData.course_code || ''} onChange={e => setAdminEditData({...adminEditData, course_code: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Mã học phần *</label>
+                                <input required type="text" value={adminEditData.course_code || ''} onChange={e => setAdminEditData({...adminEditData, course_code: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Số Tín Chỉ</label>
-                                <input type="number" min="1" max="10" value={adminEditData.credits || ''} onChange={e => setAdminEditData({...adminEditData, credits: parseInt(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Số Tín Chỉ</label>
+                                <input type="number" min="1" max="10" value={adminEditData.credits || ''} onChange={e => setAdminEditData({...adminEditData, credits: parseInt(e.target.value)})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Giảng viên</label>
-                                <input type="text" value={adminEditData.instructor || ''} onChange={e => setAdminEditData({...adminEditData, instructor: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Giảng viên</label>
+                                <input type="text" value={adminEditData.instructor || ''} onChange={e => setAdminEditData({...adminEditData, instructor: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ngày học (VD: 2, 4, 6)</label>
-                                <input type="text" value={adminEditData.day_of_week || ''} onChange={e => setAdminEditData({...adminEditData, day_of_week: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ngày học (VD: 2, 4, 6)</label>
+                                <input type="text" value={adminEditData.day_of_week || ''} onChange={e => setAdminEditData({...adminEditData, day_of_week: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ca học (S, C, S C)</label>
-                                <input type="text" value={adminEditData.shift || ''} onChange={e => setAdminEditData({...adminEditData, shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ca học (S, C, S C)</label>
+                                <input type="text" value={adminEditData.shift || ''} onChange={e => setAdminEditData({...adminEditData, shift: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Phòng học (VD: B1.101, C301)</label>
-                                <input type="text" value={adminEditData.room || ''} onChange={e => setAdminEditData({...adminEditData, room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Phòng học (VD: B1.101, C301)</label>
+                                <input type="text" value={adminEditData.room || ''} onChange={e => setAdminEditData({...adminEditData, room: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Tuần học (VD: 1, 5-15)</label>
-                                <input type="text" value={adminEditData.weeks || ''} onChange={e => setAdminEditData({...adminEditData, weeks: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Tuần học (VD: 1, 5-15)</label>
+                                <input type="text" value={adminEditData.weeks || ''} onChange={e => setAdminEditData({...adminEditData, weeks: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Đợt (1, 2)</label>
-                                <input type="text" value={adminEditData.phase || ''} onChange={e => setAdminEditData({...adminEditData, phase: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Đợt (1, 2)</label>
+                                <input type="text" value={adminEditData.phase || ''} onChange={e => setAdminEditData({...adminEditData, phase: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ngày thi (VD: 15/07/2026)</label>
-                                <input type="text" value={adminEditData.exam_date || ''} onChange={e => setAdminEditData({...adminEditData, exam_date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ngày thi (VD: 15/07/2026)</label>
+                                <input type="text" value={adminEditData.exam_date || ''} onChange={e => setAdminEditData({...adminEditData, exam_date: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
-                                <input type="text" value={adminEditData.exam_shift || ''} onChange={e => setAdminEditData({...adminEditData, exam_shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
+                                <input type="text" value={adminEditData.exam_shift || ''} onChange={e => setAdminEditData({...adminEditData, exam_shift: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-600">Phòng thi (VD: B1.303)</label>
-                                <input type="text" value={adminEditData.exam_room || ''} onChange={e => setAdminEditData({...adminEditData, exam_room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                                <label className="ui-secondary text-xs font-bold text-gray-600">Phòng thi (VD: B1.303)</label>
+                                <input type="text" value={adminEditData.exam_room || ''} onChange={e => setAdminEditData({...adminEditData, exam_room: e.target.value})} className="ui-input w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                         </form>
                     </div>
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
-                        <button type="button" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
-                        <button type="submit" form="adminCourseForm" disabled={isSavingAdminCourse} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                        <button type="button" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="ui-action px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
+                        <button type="submit" form="adminCourseForm" disabled={isSavingAdminCourse} className="ui-action px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
                             {isSavingAdminCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} {activeCourseRequest ? 'Thêm thành môn chính thức' : 'Lưu Thông Tin'}
                         </button>
                     </div>

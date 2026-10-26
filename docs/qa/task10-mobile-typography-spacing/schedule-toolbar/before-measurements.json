@@ -1,0 +1,38 @@
+[
+  {
+    "width": 390,
+    "heading": {
+      "x": 19.5,
+      "y": 884,
+      "width": 213.6875,
+      "height": 33.796875,
+      "bottom": 917.796875
+    },
+    "filter": {
+      "x": 16,
+      "y": 177,
+      "width": 358,
+      "height": 164.5,
+      "bottom": 341.5
+    },
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "heading": {
+      "x": 379,
+      "y": 293.625,
+      "width": 179.3125,
+      "height": 28,
+      "bottom": 321.625
+    },
+    "filter": {
+      "x": 28,
+      "y": 159.5,
+      "width": 1384,
+      "height": 116.5,
+      "bottom": 276
+    },
+    "overflow": false
+  }
+]

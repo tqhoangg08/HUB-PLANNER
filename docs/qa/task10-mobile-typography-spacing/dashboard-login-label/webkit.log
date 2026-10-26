@@ -1,0 +1,20 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit preview login links have text only and preserve blur (62695.1315ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 73296.2764

@@ -1,0 +1,103 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit dashboard overview hierarchy and guest preview (48079.0724ms)
+Loading /dashboard?install=1 guest
+Navigated /dashboard?install=1
+Mode /dashboard?install=1
+Fonts /dashboard?install=1
+Rendered /dashboard?install=1
+✔ webkit guest header login alongside install action (8216.5085ms)
+Loading /dashboard?onboardedGuest=1 guest
+Navigated /dashboard?onboardedGuest=1
+Mode /dashboard?onboardedGuest=1
+Fonts /dashboard?onboardedGuest=1
+Rendered /dashboard?onboardedGuest=1
+✔ webkit onboarded guest keeps actual overview controls (9121.4229ms)
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit semester flat metrics desktop inline and mobile four columns (47032.0298ms)
+Loading /dashboard?emptySemester=1 student
+Navigated /dashboard?emptySemester=1
+Mode /dashboard?emptySemester=1
+Fonts /dashboard?emptySemester=1
+Rendered /dashboard?emptySemester=1
+✔ webkit semester header native selection training score and delete confirmation (10460.1673ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ webkit accept /dashboard browser student (16888.2931ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=student&appPreview=1
+✔ webkit accept /mobile-home PWA student (23258.308ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ webkit accept /dashboard browser guest (15054.6678ms)
+Loading /mobile-home PWA
+Navigated /mobile-home
+Mode /mobile-home
+Fonts /mobile-home
+Rendered /mobile-home
+URL=http://127.0.0.1:5173/mobile-home?role=guest&appPreview=1
+✔ webkit accept /mobile-home PWA guest (22124.7148ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit desktop guest banner actions share typography and geometric text centering (21295.5961ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 229897.9436

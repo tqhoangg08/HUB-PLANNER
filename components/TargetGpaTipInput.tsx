@@ -36,6 +36,7 @@ export const TargetGpaTipInput: React.FC<TargetGpaTipInputProps> = ({ value, onC
     return (
         <div
             ref={containerRef}
+            data-gpa-tip-open={isTipOpen}
             className="relative flex items-center border-b border-dashed border-gray-400 hover:border-[#003375] focus-within:border-[#0057D9]"
         >
             <input
@@ -44,18 +45,19 @@ export const TargetGpaTipInput: React.FC<TargetGpaTipInputProps> = ({ value, onC
                 max="4"
                 step="0.01"
                 value={value}
+                aria-label="GPA mục tiêu"
                 aria-describedby={isTipOpen ? tipId : undefined}
                 onClick={() => setIsTipOpen(true)}
                 onFocus={() => setIsTipOpen(true)}
                 onChange={(event) => onChange(parseFloat(event.target.value) || 0)}
-                className="w-8 sm:w-12 bg-transparent p-0 m-0 text-right font-bold text-[#003375] outline-none"
+                className="ui-input ui-gpa-goal-input w-8 sm:w-12 bg-transparent p-0 m-0 text-right font-bold text-[#003375] outline-none"
             />
 
             {isTipOpen && (
                 <div
                     id={tipId}
                     role="tooltip"
-                    className="absolute right-0 top-[calc(100%+9px)] z-[70] w-[min(238px,calc(100vw-32px))] rounded-2xl border border-sky-100 bg-white p-3 text-left shadow-[0_12px_32px_rgba(0,51,117,0.16)]"
+                    className="ui-gpa-tip ui-card-space absolute right-0 top-[calc(100%+9px)] z-[70] w-[min(238px,calc(100vw-32px))] rounded-2xl border border-sky-100 bg-white p-3 text-left shadow-[0_12px_32px_rgba(0,51,117,0.16)]"
                 >
                     <span className="absolute -top-1.5 right-3.5 h-3 w-3 rotate-45 border-l border-t border-sky-100 bg-white" />
                     <div className="flex items-start gap-2.5">
@@ -64,17 +66,17 @@ export const TargetGpaTipInput: React.FC<TargetGpaTipInputProps> = ({ value, onC
                         </span>
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                                <p className="text-[11px] font-extrabold text-[#17335C]">Mẹo nhỏ cho bạn</p>
+                                <p className="ui-card-title text-[11px] font-extrabold text-[#17335C]">Mẹo nhỏ cho bạn</p>
                                 <button
                                     type="button"
                                     aria-label="Đóng mẹo"
                                     onClick={() => setIsTipOpen(false)}
-                                    className="-mr-1 -mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                                    className="ui-action ui-icon-control flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-600"
                                 >
                                     <X size={12} />
                                 </button>
                             </div>
-                            <p className="mt-1 text-[10px] font-medium leading-[1.55] text-slate-600">
+                            <p className="ui-secondary mt-1 text-[10px] font-medium leading-[1.55] text-slate-600">
                                 Nếu mục tiêu là <strong className="text-[#0057D9]">3.2</strong>, bạn chỉ cần nhập{' '}
                                 <strong className="text-[#0057D9]">3.15</strong> vì GPA sẽ được làm tròn.
                             </p>

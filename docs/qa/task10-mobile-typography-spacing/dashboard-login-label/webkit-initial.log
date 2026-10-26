@@ -1,0 +1,113 @@
+DESIGN_ENGINE=webkit; VERSION=26.5; ORIGIN=http://127.0.0.1:5173/
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✖ webkit preview login links have text only and preserve blur (88310.5546ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard?emptyTranscript=1 guest
+Navigated /dashboard?emptyTranscript=1
+Mode /dashboard?emptyTranscript=1
+Fonts /dashboard?emptyTranscript=1
+Rendered /dashboard?emptyTranscript=1
+Loading /dashboard?onboardedGuest=1 guest
+Navigated /dashboard?onboardedGuest=1
+Mode /dashboard?onboardedGuest=1
+Fonts /dashboard?onboardedGuest=1
+Rendered /dashboard?onboardedGuest=1
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit preview blur uses actual content only (64421.7541ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+✔ webkit dashboard overview hierarchy and live data (96656.5449ms)
+Loading /dashboard?install=1 guest
+Navigated /dashboard?install=1
+Mode /dashboard?install=1
+Fonts /dashboard?install=1
+Rendered /dashboard?install=1
+✔ webkit guest header login alongside install action (10328.6244ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+Loading /dashboard?onboardedGuest=1 guest
+Navigated /dashboard?onboardedGuest=1
+Mode /dashboard?onboardedGuest=1
+Fonts /dashboard?onboardedGuest=1
+Rendered /dashboard?onboardedGuest=1
+✔ webkit guest overview uses actual data before and after profile setup (17242.9454ms)
+Loading /dashboard student
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=student
+✔ webkit accept /dashboard browser student (12975.7394ms)
+Loading /dashboard guest
+Navigated /dashboard
+Mode /dashboard
+Fonts /dashboard
+Rendered /dashboard
+URL=http://127.0.0.1:5173/dashboard?role=guest
+✔ webkit accept /dashboard browser guest (14943.0309ms)
+Loading /dashboard?emptyTranscript=1 guest
+Navigated /dashboard?emptyTranscript=1
+Mode /dashboard?emptyTranscript=1
+Fonts /dashboard?emptyTranscript=1
+Rendered /dashboard?emptyTranscript=1
+✔ webkit empty guest overview has no fabricated grades or banners (9839.5091ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 331449.5523
+
+✖ failing tests:
+
+test at tests\mobile-design.browser.test.mjs:86:1
+✖ webkit preview login links have text only and preserve blur (88310.5546ms)
+  locator.click: Timeout 20000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('[data-dashboard-login-link]').nth(4)[22m
+  [2m    - locator resolved to <a href="/login" data-discover="true" data-dashboard-login-link="true" class="dashboard-login-link ui-meta">…</a>[22m
+  [2m  - attempting click action[22m
+  [2m    - waiting for element to be visible, enabled and stable[22m
+  [2m    - element is visible, enabled and stable[22m
+  [2m    - scrolling into view if needed[22m
+  [2m    - done scrolling[22m
+
+      at TestContext.<anonymous> (C:\Users\tqhoa\.codex\worktrees\task01-release-preflight\HUB-PLANNER\tests\mobile-design.browser.test.mjs:103:32) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for locator('[data-dashboard-login-link]').nth(4)", '    - locator resolved to <a href="/login" data-discover="true" data-dashboard-login-link="true" class="dashboard-login-link ui-meta">…</a>', '  - attempting click action', '    - waiting for element to be visible, enabled and stable', '    - element is visible, enabled and stable', '    - scrolling into view if needed', '    - done scrolling' ]
+  }

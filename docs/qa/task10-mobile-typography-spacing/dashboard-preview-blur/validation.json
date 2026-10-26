@@ -1,0 +1,443 @@
+{
+  "observedAt": "2026-10-25T06:04:47.290Z",
+  "beforeSha": "e68a32c2e4cbf3c616523625e4067f4fba208cb7",
+  "environment": "Local Vite, actual StrictMode components, isolated synthetic fixtures; Chromium 155/WebKit 26.5",
+  "chromium": [
+    {
+      "role": "guest",
+      "route": "/dashboard",
+      "width": 390,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Kinh tế học kiểm thử 18.0Điểm B+",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:3.19Trung bình một tín:3.90",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "HK1/26024610",
+          "width": 335,
+          "height": 180
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "",
+          "width": 335,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRLNH 2026-2027Khá543.198.0090",
+          "width": 335,
+          "height": 65.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard",
+      "width": 1440,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Kinh tế học kiểm thử 18.0Điểm B+",
+          "width": 305.5,
+          "height": 76
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:3.19Trung bình một tín:3.90",
+          "width": 305.5,
+          "height": 76
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "HK1/26024610",
+          "width": 648,
+          "height": 240
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "",
+          "width": 304.5,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRLNH 2026-2027Khá543.198.0090",
+          "width": 304.5,
+          "height": 58.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?emptyTranscript=1",
+      "width": 390,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:0.00Trung bình một tín:3.60",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu học kỳ",
+          "width": 335,
+          "height": 180
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 335,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRL",
+          "width": 335,
+          "height": 26
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?emptyTranscript=1",
+      "width": 1440,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 305.5,
+          "height": 76
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:0.00Trung bình một tín:3.60",
+          "width": 305.5,
+          "height": 76
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu học kỳ",
+          "width": 648,
+          "height": 240
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 304.5,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRL",
+          "width": 304.5,
+          "height": 25
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?onboardedGuest=1",
+      "width": 390,
+      "blurred": false,
+      "rows": []
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?onboardedGuest=1",
+      "width": 1440,
+      "blurred": false,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "route": "/dashboard",
+      "width": 390,
+      "blurred": false,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "route": "/dashboard",
+      "width": 1440,
+      "blurred": false,
+      "rows": []
+    }
+  ],
+  "webkit": [
+    {
+      "role": "guest",
+      "route": "/dashboard",
+      "width": 390,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Kinh tế học kiểm thử 18.0Điểm B+",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:3.19Trung bình một tín:3.90",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "HK1/26024610",
+          "width": 335,
+          "height": 180
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "",
+          "width": 335,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRLNH 2026-2027Khá543.198.0090",
+          "width": 335,
+          "height": 65.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard",
+      "width": 1440,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Kinh tế học kiểm thử 18.0Điểm B+",
+          "width": 305.5,
+          "height": 75.25
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:3.19Trung bình một tín:3.90",
+          "width": 305.5,
+          "height": 75.25
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "HK1/26024610",
+          "width": 648,
+          "height": 240
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "",
+          "width": 304.5,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRLNH 2026-2027Khá543.198.0090",
+          "width": 304.5,
+          "height": 58.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?emptyTranscript=1",
+      "width": 390,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:0.00Trung bình một tín:3.60",
+          "width": 150.75,
+          "height": 124.5
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu học kỳ",
+          "width": 335,
+          "height": 180
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 335,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRL",
+          "width": 335,
+          "height": 26
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?emptyTranscript=1",
+      "width": 1440,
+      "blurred": true,
+      "rows": [
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 304,
+          "height": 75.25
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Mục tiêu:Hiện tại:0.00Trung bình một tín:3.60",
+          "width": 304,
+          "height": 75.25
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu học kỳ",
+          "width": 645,
+          "height": 240
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "Chưa có dữ liệu",
+          "width": 303,
+          "height": 130
+        },
+        {
+          "filter": "blur(2px)",
+          "opacity": "0.5",
+          "text": "NămTCGPA(4)GPA(10)ĐRL",
+          "width": 303,
+          "height": 25
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?onboardedGuest=1",
+      "width": 390,
+      "blurred": false,
+      "rows": []
+    },
+    {
+      "role": "guest",
+      "route": "/dashboard?onboardedGuest=1",
+      "width": 1440,
+      "blurred": false,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "route": "/dashboard",
+      "width": 390,
+      "blurred": false,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "route": "/dashboard",
+      "width": 1440,
+      "blurred": false,
+      "rows": []
+    }
+  ],
+  "sourceProof": {
+    "dashboard": "ENTIRE AST IDENTICAL after removing only five data-dashboard-obscured attributes",
+    "normalizedAstSha256": "9f7f4f6cdf0cdaeade088bcbfff88b9d12f83ce956db126a8055e43c5254594c",
+    "sourceManifest": [
+      {
+        "path": "components/Dashboard.tsx",
+        "sha256NormalizedLF": "567def8eda52717b6c33d2a88a6d8d986be436ff109010a7ca52678c76e1a9e0"
+      },
+      {
+        "path": "components/dashboard-overview.css",
+        "sha256NormalizedLF": "b3a05d9405d28cc0490b6527d4951520d47bff4a531db0b454232bdcba46007c"
+      },
+      {
+        "path": "tests/mobile-design.browser.test.mjs",
+        "sha256NormalizedLF": "45fd37f5b422bd265009b1fb30d4c934a89483fa918e8d27ea33fbee5033aea8"
+      }
+    ]
+  },
+  "validation": {
+    "chromium": "9/9 PASS",
+    "webkit": "9/9 PASS",
+    "frontendTypecheck": "PASS",
+    "cloudflareTypecheck": "PASS",
+    "build": "PASS (existing chunk-size warning)",
+    "diffCheck": "PASS",
+    "githubCi": "See final-HEAD PR CI"
+  },
+  "behavior": "Only guest without completed profile: five real content regions blur 2px/opacity .5. Focus within makes the actual goal input/help readable; leaving focus restores preview styling. Headings, GPA/credit summaries and onboarded/signed-in content stay clear. No sample data, lock labels or login banner; setup still routes directly to /login.",
+  "limitations": [
+    "Requested preview blur is a deliberate visual treatment, not an access-control or security boundary and not a WCAG contrast PASS for blurred content. No tests or contrast thresholds were weakened.",
+    "Physical iPhone acceptance is NOT_VERIFIED."
+  ],
+  "realDeviceAcceptance": "NOT_VERIFIED",
+  "productionUnchanged": true
+}

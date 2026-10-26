@@ -1,0 +1,657 @@
+{
+  "observedAt": "2026-10-25T06:25:14.627Z",
+  "beforeSha": "f476cd69bbffcbe182f27708bbf45d14f773d9b1",
+  "environment": "Actual StrictMode components, local Vite, isolated synthetic data/API fixtures; Chromium 155/WebKit 26.5",
+  "chromium": [
+    {
+      "role": "guest",
+      "width": 320,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 176.75,
+          "right": 279.546875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 189.703125,
+          "right": 292.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 189.703125,
+          "right": 292.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 189.703125,
+          "right": 292.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 375,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 204.25,
+          "right": 307.046875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 244.703125,
+          "right": 347.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 244.703125,
+          "right": 347.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 244.703125,
+          "right": 347.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 390,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 211.75,
+          "right": 314.546875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 167.1875,
+          "right": 269.984375
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 259.703125,
+          "right": 362.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 259.703125,
+          "right": 362.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 430,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 231.75,
+          "right": 334.546875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 187.1875,
+          "right": 289.984375
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 299.703125,
+          "right": 402.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 299.703125,
+          "right": 402.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 1440,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 945.34375,
+          "right": 1047.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 1294.84375,
+          "right": 1397
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 337.734375,
+          "right": 439.890625
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 944.34375,
+          "right": 1046.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 1294.84375,
+          "right": 1397
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 320,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 375,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 390,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 430,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 1440,
+      "rows": []
+    }
+  ],
+  "webkit": [
+    {
+      "role": "guest",
+      "width": 320,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 176.75,
+          "right": 279.546875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 189.703125,
+          "right": 292.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 189.703125,
+          "right": 292.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 189.703125,
+          "right": 292.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 375,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 204.25,
+          "right": 307.046875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 244.703125,
+          "right": 347.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 244.703125,
+          "right": 347.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 244.703125,
+          "right": 347.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 390,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 211.75,
+          "right": 314.546875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 167.1875,
+          "right": 269.984375
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 259.703125,
+          "right": 362.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 259.703125,
+          "right": 362.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 430,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 27.5,
+          "right": 130.296875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 231.75,
+          "right": 334.546875
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 187.1875,
+          "right": 289.984375
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 299.703125,
+          "right": 402.5
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.796875,
+          "height": 44,
+          "x": 299.703125,
+          "right": 402.5
+        }
+      ]
+    },
+    {
+      "role": "guest",
+      "width": 1440,
+      "rows": [
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 940.84375,
+          "right": 1043
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 1288.84375,
+          "right": 1391
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 336.234375,
+          "right": 438.390625
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 939.84375,
+          "right": 1042
+        },
+        {
+          "text": "Cần đăng nhập",
+          "href": "/login",
+          "icons": 0,
+          "inBlur": false,
+          "width": 102.15625,
+          "height": 44,
+          "x": 1288.84375,
+          "right": 1391
+        }
+      ]
+    },
+    {
+      "role": "student",
+      "width": 320,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 375,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 390,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 430,
+      "rows": []
+    },
+    {
+      "role": "student",
+      "width": 1440,
+      "rows": []
+    }
+  ],
+  "sourceProof": {
+    "dashboard": "AST IDENTICAL after removing only the dedicated login-link import and five new conditional link nodes (JSX whitespace normalized)",
+    "normalizedAstSha256": "e5b15a151fe26a5440efbdd72527f8ca0682d2cf57f980986d1a0d914fa93e48",
+    "sourceManifest": [
+      {
+        "path": "components/Dashboard.tsx",
+        "sha256NormalizedLF": "d0adedd2796b5952199fea55cddb5aa14d093e7ba677497114d521c0abb4a069"
+      },
+      {
+        "path": "components/DashboardLoginLink.tsx",
+        "sha256NormalizedLF": "f127e98ce47d4aa4a009350db6d38831082074a0089b4dada4970804fa18e343"
+      },
+      {
+        "path": "components/dashboard-overview.css",
+        "sha256NormalizedLF": "31cfeafc073aa8a9e3f7925ef4bfb907add03852e70bd10dd6ed2cb913ce3a2d"
+      },
+      {
+        "path": "tests/mobile-design.browser.test.mjs",
+        "sha256NormalizedLF": "c671943e3c75353727d1d0b3ce9b62044ba2097b544528f1e19af04ed88e1ec9"
+      }
+    ]
+  },
+  "validation": {
+    "chromium": "Initial 8/8 PASS; strengthened final pointer test 1/1 PASS",
+    "webkit": "Initial 7/8 PASS with one click timeout; affected final pointer test 1/1 PASS after explicit center scrolling and hit test. Application source unchanged; other seven scenarios retained.",
+    "frontendTypecheck": "PASS",
+    "cloudflareTypecheck": "PASS",
+    "build": "PASS (existing chunk-size warning)",
+    "diffCheck": "PASS",
+    "githubCi": "See final-HEAD PR CI"
+  },
+  "behavior": "Five text-only Cần đăng nhập links in preview headings; no lock/key/icon. All navigate to /login without opening ranking. Links stay outside blurred regions, have >=44px targets, and wrap in narrow headers. Actual content/blur/focus behavior and setup login link remain unchanged.",
+  "limitations": [
+    "Initial WebKit combined command exited nonzero on clicking the fifth link after scrolling; no application assertion was removed. An unchanged isolated rerun passed, then the final test added center positioning and a native hit-test assertion and passed on both engines. Full combined suite was not rerun after this test-only refinement.",
+    "Preview blur is deliberate presentation, not security or a contrast PASS for obscured text.",
+    "No physical iPhone test; REAL_DEVICE_ACCEPTANCE=NOT_VERIFIED."
+  ],
+  "productionUnchanged": true
+}

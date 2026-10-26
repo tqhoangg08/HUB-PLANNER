@@ -106,9 +106,9 @@ const EventImage = ({ src, alt, className, iconSize = 34 }: { src?: string | nul
 
     if (!src || failed) {
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+            <div className="ui-muted w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
                 <ImageOff size={iconSize} />
-                <span className="text-xs font-semibold">Chưa có ảnh</span>
+                <span className="ui-meta text-xs font-semibold">Chưa có ảnh</span>
             </div>
         );
     }
@@ -160,12 +160,12 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
                     <div className="w-14 h-14 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center border border-blue-200">
                         <UserPlus size={28} />
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors active:scale-95">
+                    <button onClick={onClose} className="ui-muted ui-action text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors active:scale-95">
                         <X size={18} />
                     </button>
                 </div>
-                <h3 className="text-2xl font-black text-[#003375] mb-2 mt-2">Đăng ký CTV</h3>
-                <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                <h3 className="ui-card-title text-2xl font-black text-[#003375] mb-2 mt-2">Đăng ký CTV</h3>
+                <p className="ui-body text-sm text-gray-600 mb-6 leading-relaxed">
                     Gia nhập đội ngũ phát triển nội dung, giúp cập nhật thông tin sự kiện nhanh nhất cho cộng đồng sinh viên HUB!
                 </p>
                 <div className="bg-gray-50 -mx-6 px-6 py-2 border-t border-gray-200 flex-1">
@@ -272,22 +272,22 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         <Overlay className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="bg-white rounded-xl w-full min-w-0 max-w-2xl max-h-[90dvh] overflow-hidden animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <header className="bg-[#003375] p-4 flex justify-between items-center gap-2 text-white z-10 shrink-0">
-                    <h3 id={titleId} className="min-w-0 font-bold text-[15px] flex items-center gap-2">
+                    <h3 id={titleId} className="ui-card-title min-w-0 font-bold text-[15px] flex items-center gap-2">
                         <PlusCircle size={20}/> Đóng góp Sự kiện mới
                     </h3>
                     <div className="flex items-center gap-2">
-                        <button type="button" aria-label="Đóng đóng góp sự kiện" onClick={onClose} className="min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                        <button type="button" aria-label="Đóng đóng góp sự kiện" onClick={onClose} className="ui-action min-h-[44px] min-w-[44px] shrink-0 flex items-center justify-center hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                 </header>
 
                 <div data-contribution-scroll tabIndex={0} className="p-6 min-h-0 flex-1 overflow-y-auto custom-scrollbar">
                     <form onSubmit={handleSubmit} className="event-contribution-form space-y-4">
                         <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="ui-danger-text text-red-500">*</span></label>
                             <input 
                                 type="text" 
                                 required 
-                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
                                 placeholder="VD: Cuộc thi Tiếng Anh Star Awards..."
                                 value={formData.title} 
                                 onChange={e => setFormData({...formData, title: e.target.value})} 
@@ -295,10 +295,10 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </div>
 
                         <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện</label>
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện</label>
                             <input
                                 type="url"
-                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
                                 placeholder="https://cdn.example.com/events/poster.jpg"
                                 value={formData.image_url}
                                 onChange={e => setFormData({...formData, image_url: e.target.value})}
@@ -311,18 +311,18 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-300 gap-2">
                             <div>
                                 <span className="font-bold text-gray-700 block">Đóng khi đủ số lượng</span>
-                                <span className="text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
+                                <span className="ui-meta text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                            <label className="ui-secondary relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" className="sr-only peer" checked={formData.close_on_full} onChange={e => setFormData({...formData, close_on_full: e.target.checked})} />
                                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#003375]"></div>
                             </label>
                         </div>
 
                         <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">Loại hình</label>
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Loại hình</label>
                             <select 
-                                className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                 value={isCustomCategory ? "Khác" : formData.category}
                                 onChange={e => {
                                     if (e.target.value === "Khác") {
@@ -352,7 +352,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 <input 
                                     type="text" 
                                     autoFocus
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 mt-2 outline-none focus:ring-2 focus:ring-[#003375] animate-fadeIn"
+                                    className="ui-input w-full border border-gray-300 rounded-lg p-2.5 mt-2 outline-none focus:ring-2 focus:ring-[#003375] animate-fadeIn"
                                     placeholder="Nhập loại hình khác..."
                                     value={formData.category} 
                                     onChange={e => setFormData({...formData, category: e.target.value})} 
@@ -364,9 +364,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
                                 onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                             <div className="col-span-1">
-                                <label className="block text-base font-bold text-gray-700 mb-1">Khu vực</label>
+                                <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Khu vực</label>
                                 <select 
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                    className="ui-input w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                     value={formData.location_type} 
                                     onChange={e => setFormData({...formData, location_type: e.target.value})}
                                 >
@@ -375,9 +375,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 </select>
                             </div>
                             <div className="col-span-1">
-                                 <label className="block text-base font-bold text-gray-700 mb-1">Hình thức</label>
+                                 <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Hình thức</label>
                                  <select 
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                    className="ui-input w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                     value={formData.format} 
                                     onChange={e => setFormData({...formData, format: e.target.value})}
                                 >
@@ -390,19 +390,19 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-base font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label>
+                                <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label>
                                 <div className="relative">
                                     <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers} catalogState={catalogState} onRetry={reloadCatalog}/>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-base font-bold text-gray-700 mb-1">Link tham gia <span className="text-red-500">*</span></label>
+                                <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Link tham gia <span className="ui-danger-text text-red-500">*</span></label>
                                 <div className="relative">
-                                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
+                                    <LinkIcon className="ui-muted absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
                                     <input 
                                         type="text" 
                                         required
-                                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#003375]"
+                                        className="ui-input w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#003375]"
                                         placeholder="https://..."
                                         value={formData.link} 
                                         onChange={e => setFormData({...formData, link: e.target.value})} 
@@ -415,10 +415,10 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             onType={(value) => setFormData((current) => ({ ...current, recognition_type: value }))}
                             onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
                         <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
                             <textarea 
                                 rows={4}
-                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
                                 placeholder="Thông tin chi tiết, đối tượng, quyền lợi... (Sẽ được ẩn gọn gàng, hiển thị khi user bấm xem thêm)"
                                 value={formData.description}
                                 onChange={e => setFormData({...formData, description: e.target.value})}
@@ -430,7 +430,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             <button 
                 type="submit" 
                 disabled={submitting || !turnstileToken} 
-                            className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                            className="ui-action w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                         >
                             {submitting ? <Loader2 className="animate-spin"/> : <Send size={18}/>} 
                             {submitting ? 'Đang gửi...' : 'Gửi đóng góp'}
@@ -511,25 +511,25 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         <Overlay className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white rounded-xl border border-gray-300 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
-                    <h3 className="font-bold text-lg flex items-center gap-2">
+                    <h3 className="ui-card-title font-bold text-lg flex items-center gap-2">
                         {editingEvent ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
                         {editingEvent ? 'Chỉnh sửa Sự kiện' : 'Thêm Sự kiện Mới'}
                     </h3>
                     <div className="flex items-center gap-2">
-                        <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                        <button onClick={onClose} className="ui-action hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                 </div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-4 text-base">
                     <div>
-                        <label className="block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
-                        <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                        <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Tên sự kiện <span className="ui-danger-text text-red-500">*</span></label>
+                        <input type="text" required className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
 
                     <div>
-                        <label className="block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện</label>
+                        <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Ảnh sự kiện</label>
                         <input
                             type="url"
-                            className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]"
+                            className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]"
                             placeholder="https://cdn.example.com/events/poster.jpg"
                             value={formData.image_url}
                             onChange={e => setFormData({...formData, image_url: e.target.value})}
@@ -540,21 +540,21 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     {formData.category?.toLowerCase().includes('minigame') ? (
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                                <label className="block text-base font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
-                                <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                                <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
+                                <input type="date" className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-base font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
-                                <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
+                                <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
+                                <input type="time" className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                             </div>
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
-                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                    <label className={`ui-secondary block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
+                                    <input type="date" disabled={formData.close_on_full} className={`ui-input w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
-                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                    <label className={`ui-secondary block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
+                                    <input type="time" disabled={formData.close_on_full} className={`ui-input w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                 </div>
                             </div>
                         </div>
@@ -562,31 +562,31 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className="block text-base font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
-                                    <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_date} onChange={e => setFormData({...formData, registration_start_date: e.target.value})} />
+                                    <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
+                                    <input type="date" className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_date} onChange={e => setFormData({...formData, registration_start_date: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className="block text-base font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
-                                    <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_time} onChange={e => setFormData({...formData, registration_start_time: e.target.value})} />
+                                    <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
+                                    <input type="time" className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_time} onChange={e => setFormData({...formData, registration_start_time: e.target.value})} />
                                 </div>
                             </div>
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
-                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                    <label className={`ui-secondary block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
+                                    <input type="date" disabled={formData.close_on_full} className={`ui-input w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className={`block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
-                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                    <label className={`ui-secondary block text-base font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
+                                    <input type="time" disabled={formData.close_on_full} className={`ui-input w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-base font-bold text-gray-700 mb-1">Ngày diễn ra</label>
-                                <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                                <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Ngày diễn ra</label>
+                                <input type="date" className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                             </div>
                             <div>
-                                <label className="block text-base font-bold text-gray-700 mb-1">Giờ diễn ra</label>
-                                <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
+                                <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                                <input type="time" className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                             </div>
                         </div>
                     )}
@@ -594,9 +594,9 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-300 gap-2">
                         <div>
                             <span className="font-bold text-gray-700 block">Đóng khi đủ số lượng</span>
-                            <span className="text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
+                            <span className="ui-meta text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <label className="ui-secondary relative inline-flex items-center cursor-pointer shrink-0">
                             <input type="checkbox" className="sr-only peer" checked={formData.close_on_full} onChange={e => setFormData({...formData, close_on_full: e.target.checked})} />
                             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#003375]"></div>
                         </label>
@@ -606,24 +606,24 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         <div className="col-span-2"><EventDrlRulePicker rules={rules} selectedRuleId={formData.drl_rule_id} prediction={prediction}
                             onSelect={(rule) => setFormData((current) => ({ ...current, drl_rule_id: rule?.rule_id || '', criteria: rule?.section || '', points: rule ? String(rule.points) : '' }))}/></div>
                         <div className="col-span-1">
-                            <label className="block text-base font-bold text-gray-700 mb-1">Khu vực</label>
-                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Khu vực</label>
+                            <select className="ui-input w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
                                 <option value="Trong trường">Trong trường</option>
                                 <option value="Ngoài trường">Ngoài trường</option>
                             </select>
                         </div>
                         <div className="col-span-1">
-                             <label className="block text-base font-bold text-gray-700 mb-1">Hình thức</label>
-                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.format} onChange={e => setFormData({...formData, format: e.target.value})}>
+                             <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Hình thức</label>
+                             <select className="ui-input w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.format} onChange={e => setFormData({...formData, format: e.target.value})}>
                                 <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hỗn hợp">Hỗn hợp</option>
                             </select>
                         </div>
                     </div>
 
                     <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">Loại hình</label>
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Loại hình</label>
                             <select 
-                                className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                 value={isCustomCategory ? "Khác" : (predefinedCategories.includes(formData.category) ? formData.category : "Khác")}
                                 onChange={e => {
                                     if (e.target.value === "Khác") {
@@ -645,7 +645,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                                 <input 
                                     type="text" 
                                     autoFocus
-                                    className="w-full border border-gray-300 rounded-lg p-2 mt-2 outline-none focus:ring-2 focus:ring-[#003375] animate-fadeIn"
+                                    className="ui-input w-full border border-gray-300 rounded-lg p-2 mt-2 outline-none focus:ring-2 focus:ring-[#003375] animate-fadeIn"
                                     placeholder="Nhập loại hình khác..."
                                     value={formData.category} 
                                     onChange={e => setFormData({...formData, category: e.target.value})} 
@@ -655,18 +655,18 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">BTC</label>
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">BTC</label>
                             <OrganizerPicker value={formData.organizer} onChange={(value) => setFormData((current) => ({ ...current, organizer: value }))} organizers={organizers} catalogState={catalogState} onRetry={reloadCatalog}/>
                         </div>
                         <div>
-                            <label className="block text-base font-bold text-gray-700 mb-1">Link</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
+                            <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Link</label>
+                            <input type="text" className="ui-input w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-base font-bold text-gray-700 mb-1">Trạng thái</label>
-                        <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                        <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Trạng thái</label>
+                        <select className="ui-input w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                             <option value="pending">Chờ duyệt (Pending)</option>
                             <option value="Sắp diễn ra">Sắp diễn ra</option>
                             <option value="Đang diễn ra">Đang diễn ra</option>
@@ -678,17 +678,17 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         onType={(value) => setFormData((current) => ({ ...current, recognition_type: value }))}
                         onNote={(value) => setFormData((current) => ({ ...current, recognition_note: value }))}/>
                     <div>
-                        <label className="block text-base font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
+                        <label className="ui-secondary block text-base font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
                         <textarea 
                             rows={4}
-                            className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
+                            className="ui-input w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
                             placeholder="Thông tin chi tiết, đối tượng, quyền lợi... (Sẽ được ẩn gọn gàng, hiển thị khi user bấm xem thêm)"
                             value={formData.description}
                             onChange={e => setFormData({...formData, description: e.target.value})}
                         ></textarea>
                     </div>
 
-                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
+                    <button type="submit" disabled={submitting} className="ui-action w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
                         {submitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Lưu thay đổi
                     </button>
                 </form>
@@ -757,10 +757,10 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
             <div className="bg-white rounded-xl w-full max-w-lg p-0 overflow-hidden animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
-                    <h3 className="font-bold text-lg flex items-center gap-2">
+                    <h3 className="ui-card-title font-bold text-lg flex items-center gap-2">
                         <AlertTriangle size={20}/> Báo cáo sai sót thông tin
                     </h3>
-                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    <button onClick={onClose} className="ui-action hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                 </div>
 
                 <div className="p-6">
@@ -770,26 +770,26 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Tên sự kiện bị lỗi</label>
+                            <label className="ui-secondary block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Tên sự kiện bị lỗi</label>
                             <div className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm font-medium text-gray-700 cursor-not-allowed line-clamp-2">
                                 {event.name}
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Ban tổ chức</label>
+                            <label className="ui-secondary block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Ban tổ chức</label>
                             <div className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm font-medium text-gray-700 cursor-not-allowed flex items-center gap-2">
-                                <Users size={16} className="text-gray-400"/> {event.organizer}
+                                <Users size={16} className="ui-muted text-gray-400"/> {event.organizer}
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-800 mb-1">Chi tiết sai sót <span className="text-red-500">*</span></label>
+                            <label className="ui-secondary block text-sm font-bold text-gray-800 mb-1">Chi tiết sai sót <span className="ui-danger-text text-red-500">*</span></label>
                             <textarea 
                                 rows={4}
                                 required
                                 autoFocus
-                                className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
+                                className="ui-input w-full border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
                                 placeholder="VD: Sai tên chương trình, sai số điểm ĐRL, hạn chót đã thay đổi thành ngày..."
                                 value={issue}
                                 onChange={e => setIssue(e.target.value)}
@@ -800,13 +800,13 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                             <button 
                                 type="button" 
                                 onClick={onClose} 
-                                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all"
+                                className="ui-action flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all"
                             >
                                 Hủy bỏ
                             </button>
                             <button
                                 type="submit"
-                                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+                                className="ui-action flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                             >
                                 <Send size={18}/>
                                 Tao ticket ho tro
@@ -1310,10 +1310,10 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                 {notification.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
             </div>
             <div className="flex-1">
-                <h4 className={`font-bold ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>{notification.type === 'success' ? 'Thành công' : 'Lỗi'}</h4>
-                <p className="text-sm text-gray-600">{notification.message}</p>
+                <h4 className={`ui-card-title font-bold ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>{notification.type === 'success' ? 'Thành công' : 'Lỗi'}</h4>
+                <p className="ui-secondary text-sm text-gray-600">{notification.message}</p>
             </div>
-            <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            <button onClick={() => setNotification(null)} className="ui-muted ui-action text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>, document.body
     );
   };
@@ -1336,7 +1336,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Circle size={6} fill="currentColor" /> Chờ duyệt</span>;
     else if (evt.is_deleted) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-bold">Đã ẩn</span>;
     else if (isLinkClosed) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Lock size={10} /> Đã đóng</span>;
-    else if (isDeadlineToday) badgeUI = <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Siren size={10} className="animate-pulse" /> Hạn chót</span>;
+    else if (isDeadlineToday) badgeUI = <span className="ui-danger-text bg-red-50 text-red-600 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Siren size={10} className="animate-pulse" /> Hạn chót</span>;
     else if (isActive) badgeUI = <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Circle size={6} fill="currentColor" /> Đang diễn ra</span>;
     else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold">Sắp diễn ra</span>;
 
@@ -1345,15 +1345,15 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3">
             <EventImage src={evt.image_url} alt={evt.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
             <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-slate-950/75 via-slate-950/25 to-transparent" />
-            <span className="pointer-events-none absolute inset-x-0 bottom-0 line-clamp-2 px-3 pb-3 text-sm font-bold leading-snug text-white drop-shadow-sm sm:text-base">{evt.name}</span>
+            <span className="ui-image-caption pointer-events-none absolute inset-x-0 bottom-0 line-clamp-2 px-3 pb-3 text-sm font-bold leading-snug text-white drop-shadow-sm sm:text-base">{evt.name}</span>
         </div>
         
         {/* HEADER: Organizer & Status */}
         <div className="flex justify-between items-start gap-2 mb-2 sm:mb-3">
-            <span className="text-[11px] sm:text-xs text-gray-500 font-medium flex items-center gap-1.5 line-clamp-1">
+            <span className="ui-meta text-[11px] sm:text-xs text-gray-500 font-medium flex items-center gap-1.5 line-clamp-1">
                 <Building2 size={12} className="sm:w-[14px] sm:h-[14px] shrink-0"/> <span className="truncate">{evt.organizer}</span>
             </span>
-            <div className="shrink-0 text-[10px]">
+            <div className="ui-meta shrink-0 text-[10px]">
                 {badgeUI}
             </div>
         </div>
@@ -1361,31 +1361,31 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         {/* TAGS */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2.5 sm:mb-4">
             {evt.type && (
-                <span className="bg-purple-50 text-purple-600 border border-purple-100 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
+                <span className="ui-meta bg-purple-50 text-purple-600 border border-purple-100 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
                     <Tag size={10}/> {evt.type}
                 </span>
             )}
-            <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
+            <span className={`ui-meta text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
                 <Award size={10}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
             </span>
-            <span className="bg-gray-50 text-gray-600 border border-gray-200 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md">
+            <span className="ui-meta bg-gray-50 text-gray-600 border border-gray-200 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md">
                 Mục {evt.category}
             </span>
             {evt.scope && evt.scope !== 'Khác' && (
-                <span className="bg-gray-50 text-gray-600 border border-gray-200 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
+                <span className="ui-meta bg-gray-50 text-gray-600 border border-gray-200 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
                     <MapPin size={10}/> {evt.scope}
                 </span>
             )}
         </div>
 
         <div className="mt-auto flex w-full items-center justify-between gap-3 border-t border-gray-200 pt-3 sm:pt-4">
-            <p className="flex min-w-0 items-center gap-1 text-xs text-slate-500"><Eye size={14} aria-hidden="true" />{formatEventViewCount(evt.view_count ?? 0)}</p>
+            <p className="ui-secondary flex min-w-0 items-center gap-1 text-xs text-slate-500"><Eye size={14} aria-hidden="true" />{formatEventViewCount(evt.view_count ?? 0)}</p>
             <button
                 type="button"
                 onClick={() => handleOpenEventDetail(evt)}
                 aria-label={`Xem chi tiết sự kiện: ${evt.name}`}
                 title="Xem chi tiết sự kiện"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-white text-[#003375] transition-colors hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"
+                className="ui-action flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-white text-[#003375] transition-colors hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"
             >
                 <ArrowRight size={18} aria-hidden="true" />
             </button>
@@ -1399,13 +1399,15 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         return (
             <div className="w-full min-h-[60vh] flex flex-col items-center justify-center">
                 <Loader2 className="animate-spin text-[#0052cc] mb-3" size={32} />
-                <span className="text-gray-400 text-sm font-medium">Đang tải sự kiện...</span>
+                <span className="ui-muted text-gray-400 text-sm font-medium">Đang tải sự kiện...</span>
             </div>
         );
     }
 
+const openPageAction: React.MouseEventHandler<HTMLButtonElement> | undefined = showManagementView ? handleOpenAdd : !canManage ? (event) => { event.currentTarget.focus({ preventScroll: true }); playClick(); setShowContributeModal(true); } : undefined;
+
 return (
-    <div className="animate-slideInRight">
+    <div className="animate-slideInRight events-board-page">
       {eventId && routeEvent ? <div className="w-full min-w-0 bg-white">
         <EventDetailView event={routeEvent}
           preview={(isAdmin || isAuditor) && !isStudentPreview}
@@ -1440,27 +1442,34 @@ return (
         onDelete={(id) => { void handleDeleteEvent(id); }}
       /> : <>
         {/* STICKY HEADER */}
-        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-3 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
+        <div className="events-board-header relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-3 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
             <div className="flex flex-col gap-2 w-full">
                 {/* Tiêu đề & Thông báo */}
-                <div className="w-full">
-                    <h2 className="text-2xl sm:text-[28px] font-black text-[#003375] sm:whitespace-nowrap mb-0.5">
+                <div className="events-board-heading-row w-full">
+                  <div className="min-w-0">
+                    <h2 className="ui-section-title text-2xl sm:text-[28px] font-black text-[#003375] sm:whitespace-nowrap mb-0.5">
                         Sự kiện ĐRL
                     </h2>
                     {canManage && (
-                        <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-200">
+                        <div className="ui-meta text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-200">
                             <Settings size={10} className="inline mr-1"/>
                            {isStudentPreview ? 'Đang xem giao diện sinh viên' : (isAdmin ? 'Chế độ Admin: Quản lý danh sách' : (isAuditor ? 'Chế độ Auditor: Quản lý/Sửa/Đóng' : 'Chế độ CTV: Sửa/Đóng sự kiện'))}
                         </div>
                     )}
-                    {!canManage && (
-    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1 max-w-xl md:max-w-none md:truncate leading-relaxed">
-        *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
-    </p>
-)}
+                  </div>
+                  <div className="events-board-page-actions hidden lg:flex items-center gap-2 shrink-0">
+                    <button type="button" onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); playClick(); setShowScoreGuide(true); }} aria-label="Xem hướng dẫn điểm rèn luyện" className="event-board-header-action rounded-lg border border-[#D8E0EC] bg-white px-3 text-[#243653] font-semibold"><FileText size={16} /><span>Hướng dẫn ĐRL</span></button>
+                    {openPageAction && <button type="button" onClick={openPageAction} className="event-board-header-action event-board-header-action--primary rounded-lg bg-[#003375] px-3 text-white font-semibold hover:bg-[#002855]"><PlusCircle size={16} /><span>{showManagementView ? 'Thêm mới' : 'Gửi đóng góp'}</span></button>}
+                  </div>
+                  {!canManage && (
+                    <p className="events-board-note ui-meta text-gray-500 leading-relaxed">
+                      Tra cứu hoạt động ngoại khóa, phân loại mục và điểm cộng rèn luyện dự kiến (vui lòng đối chiếu thông báo BTC).
+                    </p>
+                  )}
                 </div>
                 
                 <EventFilterControls
+                    pageLayout
                     filters={appliedFilters}
                     onChange={(next) => {
                         setAppliedFilters(next);
@@ -1473,10 +1482,10 @@ return (
                     loading={loading}
                     onRefresh={() => { playClick(); fetchEvents({ bypassCache: true }); }}
                     onOpenGuide={() => { playClick(); setShowScoreGuide(true); }}
-                    onPrimaryAction={showManagementView ? handleOpenAdd : !canManage ? (event) => { event.currentTarget.focus({ preventScroll: true }); playClick(); setShowContributeModal(true); } : undefined}
+                    onPrimaryAction={openPageAction}
                     primaryActionLabel={showManagementView ? 'Thêm mới' : 'Gửi đóng góp'}
                     extraActions={canPreviewStudentUI ? (
-                        <button type="button" onClick={() => { playClick(); setIsStudentPreview((value) => !value); }} title={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} aria-label={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} className="flex h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-[#003375] hover:bg-blue-50">
+                        <button type="button" onClick={() => { playClick(); setIsStudentPreview((value) => !value); }} title={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} aria-label={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} className="ui-action flex h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-[#003375] hover:bg-blue-50">
                             <RotateCcw size={16} /><span className="hidden sm:inline">{isStudentPreview ? 'Quản lý' : 'Sinh viên'}</span>
                         </button>
                     ) : undefined}
@@ -1485,29 +1494,26 @@ return (
  </div>
        {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
         {!canManage && (
-            <div className="bg-blue-50 border border-blue-300 rounded-lg p-2 mb-2 sm:mb-3 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
+            <div className="events-board-ctv-banner bg-blue-50 border border-blue-300 rounded-lg p-2 mb-2 sm:mb-3 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
                 <div className="flex items-center gap-2.5 sm:gap-3 relative z-10 flex-1 min-w-0">
                     <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-full flex items-center justify-center shrink-0 border border-blue-200">
                         <UserPlus className="text-blue-600 w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-[12px] sm:text-sm text-blue-900 truncate">Trở thành CTV Nhập liệu</h4>
+                    <div className="events-board-ctv-copy flex-1 min-w-0">
+                        <h4 className="ui-card-title font-bold text-[12px] sm:text-sm text-blue-900">Trở thành CTV Nhập liệu</h4>
                         {/* Dòng chữ phụ này sẽ bị ẩn trên Mobile, chỉ hiện trên màn to (sm:block) */}
-                        <p className="hidden sm:block text-xs mt-0.5 text-blue-800 opacity-60 truncate">
+                        <p className="ui-body hidden sm:block text-xs mt-0.5 text-blue-800">
                             Đóng góp xây dựng cộng đồng sinh viên HUB ngay hôm nay!
                         </p>
                     </div>
                 </div>
                 <button 
                     onClick={() => { playClick(); setShowCTVModal(true); }}
-                    className="shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] border border-transparent text-white hover:bg-[#002855] transition-colors px-2.5 py-1.5 sm:px-3 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
+                    className="events-board-ctv-action ui-action shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] border border-transparent text-white hover:bg-[#002855] transition-colors px-2.5 py-1.5 sm:px-3 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
                 >
                     <UserPlus size={12} className="sm:w-4 sm:h-4" /> 
                     <span>Đăng ký</span>
                 </button>
-                <div className="absolute right-0 top-0 opacity-[0.03] pointer-events-none transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
-                    <Users size={150} />
-                </div>
             </div>
         )}
 
@@ -1516,12 +1522,12 @@ return (
         {eventId && (
             <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm">
                 <div>
-                    <p className="font-bold text-[#003375]">Đang mở đường link riêng của sự kiện</p>
-                    <p className="text-blue-800/80">{routeEvent ? routeEvent.name : 'Không tìm thấy sự kiện này hoặc sự kiện đã bị ẩn.'}</p>
+                    <p className="ui-secondary font-bold text-[#003375]">Đang mở đường link riêng của sự kiện</p>
+                    <p className="ui-secondary text-blue-800/80">{routeEvent ? routeEvent.name : 'Không tìm thấy sự kiện này hoặc sự kiện đã bị ẩn.'}</p>
                 </div>
                 <button
                     onClick={() => { playClick(); navigate('/events'); }}
-                    className="shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[#003375] hover:bg-blue-100 transition-colors"
+                    className="ui-action shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[#003375] hover:bg-blue-100 transition-colors"
                 >
                     Xem tất cả sự kiện
                 </button>
@@ -1539,7 +1545,7 @@ return (
                         if (tab.id === 'all') setAppliedFilters((current) => ({ ...current, trainingCategories: [] }));
                         else if (['I', 'II', 'III', 'IV', 'V'].includes(tab.id)) setAppliedFilters((current) => ({ ...current, trainingCategories: [tab.id] }));
                     }}
-                    className={`flex-1 px-2 pb-3 text-center text-sm font-semibold whitespace-nowrap transition-colors z-10 ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
+                    className={`ui-action flex-1 px-2 pb-3 text-center text-sm font-semibold whitespace-nowrap transition-colors z-10 ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
                 >
                     {tab.l}
                 </button>
@@ -1551,11 +1557,11 @@ return (
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
                 <Loader2 size={40} className="text-[#003375] animate-spin mb-4" />
-                <p className="text-gray-500 font-medium">Đang tải danh sách sự kiện...</p>
+                <p className="ui-secondary text-gray-500 font-medium">Đang tải danh sách sự kiện...</p>
             </div>
         ) : error ? (
             <div className="bg-red-50 border border-red-300 text-red-700 p-6 rounded-xl text-center animate-fadeIn">
-                <p className="font-bold mb-2">Đã xảy ra lỗi</p>
+                <p className="ui-secondary font-bold mb-2">Đã xảy ra lỗi</p>
                 <p>{error}</p>
             </div>
         ) : showManagementView ? (
@@ -1563,14 +1569,14 @@ return (
             <div className="bg-white border border-gray-300 rounded-xl overflow-hidden animate-fadeIn">
                 <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
                     <table className="w-full text-sm text-left min-w-[900px]">
-                        <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-500 font-bold uppercase tracking-wider sticky top-0 z-10">
+                        <thead className="ui-meta bg-gray-50 border-b border-gray-300 text-[11px] text-gray-500 font-bold uppercase tracking-wider sticky top-0 z-10">
                             <tr>
-                                <th className="px-4 py-3">Tên sự kiện</th>
-                                <th className="px-4 py-3">BTC & Loại hình</th>
-                                <th className="px-4 py-3 text-center">ĐRL</th>
-                                <th className="px-4 py-3">Thời gian</th>
-                                <th className="px-4 py-3 text-center">Trạng thái</th>
-                                <th className="px-4 py-3 text-right">Thao tác</th>
+                                <th className="ui-meta px-4 py-3">Tên sự kiện</th>
+                                <th className="ui-meta px-4 py-3">BTC & Loại hình</th>
+                                <th className="ui-meta px-4 py-3 text-center">ĐRL</th>
+                                <th className="ui-meta px-4 py-3">Thời gian</th>
+                                <th className="ui-meta px-4 py-3 text-center">Trạng thái</th>
+                                <th className="ui-meta px-4 py-3 text-right">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -1586,50 +1592,50 @@ return (
                                     const isLinkClosed = isStatusClosed || isOverdue || isManualClose; 
                                     
                                     let badgeUI = null;
-                                    if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded border border-yellow-200 text-[10px] font-bold whitespace-nowrap">Chờ duyệt</span>;
-                                    else if (evt.is_deleted) badgeUI = <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded border border-gray-200 text-[10px] font-bold whitespace-nowrap">Đã bị ẩn</span>;
-                                    else if (isLinkClosed) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold border border-gray-200 whitespace-nowrap">Đã đóng</span>;
-                                    else if (isActive) badgeUI = <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200 text-[10px] font-bold whitespace-nowrap">Đang diễn ra</span>;
-                                    else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 text-[10px] font-bold whitespace-nowrap">Sắp diễn ra</span>;
+                                    if (isPending) badgeUI = <span className="ui-meta bg-yellow-50 text-yellow-700 px-2 py-1 rounded border border-yellow-200 text-[10px] font-bold whitespace-nowrap">Chờ duyệt</span>;
+                                    else if (evt.is_deleted) badgeUI = <span className="ui-meta bg-gray-100 text-gray-500 px-2 py-1 rounded border border-gray-200 text-[10px] font-bold whitespace-nowrap">Đã bị ẩn</span>;
+                                    else if (isLinkClosed) badgeUI = <span className="ui-meta bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold border border-gray-200 whitespace-nowrap">Đã đóng</span>;
+                                    else if (isActive) badgeUI = <span className="ui-meta bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200 text-[10px] font-bold whitespace-nowrap">Đang diễn ra</span>;
+                                    else badgeUI = <span className="ui-meta bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 text-[10px] font-bold whitespace-nowrap">Sắp diễn ra</span>;
 
                                     return (
                                         <tr key={evt.id} className={`hover:bg-gray-50 transition-colors ${evt.is_deleted ? 'opacity-60 bg-gray-50/50' : ''}`}>
                                             <td className="px-4 py-3 w-[30%] align-top">
                                                 <div className="font-bold text-[#003375] text-sm line-clamp-2 leading-snug">{evt.name}</div>
-                                                <div className="text-[10px] text-gray-500 mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                <div className="ui-meta text-[10px] text-gray-500 mt-1.5 flex flex-wrap items-center gap-1.5">
                                                     <span className="font-mono font-bold text-gray-600 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">ID: {evt.id}</span>
                                                     {evt.scope && <span className="font-medium">{evt.scope}</span>}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 align-top text-gray-700 w-[20%]">
-                                                <div className="text-xs font-bold line-clamp-2 mb-1">{evt.organizer}</div>
-                                                {evt.type && <div className="text-[10px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 font-medium inline-flex items-center gap-1 mb-1"><Tag size={10}/> {evt.type}</div>}
-                                                <div className="text-[10px] text-gray-500 flex items-center gap-1"><MapPin size={10}/> {evt.location || 'Offline'}</div>
+                                                <div className="ui-meta text-xs font-bold line-clamp-2 mb-1">{evt.organizer}</div>
+                                                {evt.type && <div className="ui-meta text-[10px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 font-medium inline-flex items-center gap-1 mb-1"><Tag size={10}/> {evt.type}</div>}
+                                                <div className="ui-meta text-[10px] text-gray-500 flex items-center gap-1"><MapPin size={10}/> {evt.location || 'Offline'}</div>
                                             </td>
                                             <td className="px-4 py-3 text-center align-top w-[10%]">
-                                                <div className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-0.5 inline-block mx-auto mb-1">
+                                                <div className="ui-meta ui-danger-text text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-0.5 inline-block mx-auto mb-1">
                                                     {evt.score.includes('+') ? evt.score : `+${evt.score}`}
                                                 </div>
-                                                <div className="text-[10px] text-gray-500 font-medium">Mục {evt.category}</div>
+                                                <div className="ui-meta text-[10px] text-gray-500 font-medium">Mục {evt.category}</div>
                                             </td>
-                                            <td className="px-4 py-3 text-xs text-gray-600 align-top w-[20%]">
+                                            <td className="ui-meta px-4 py-3 text-xs text-gray-600 align-top w-[20%]">
                                                 {evt.type?.toLowerCase().includes('minigame') ? (
                                                     <div className="flex flex-col gap-0.5">
-                                                        <span className="text-gray-400 font-medium">TG tham gia:</span>
+                                                        <span className="ui-muted text-gray-400 font-medium">TG tham gia:</span>
                                                         <span className="font-semibold text-[#003375]">
-                                                            {evt.event_date ? formatDateString(evt.event_date) : '...'} - {evt.close_on_full ? <span className="text-red-500">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '...')}
+                                                            {evt.event_date ? formatDateString(evt.event_date) : '...'} - {evt.close_on_full ? <span className="ui-danger-text text-red-500">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '...')}
                                                         </span>
                                                     </div>
                                                 ) : (
                                                     <div className="flex flex-col gap-1">
                                                         <div>
-                                                            <span className="text-gray-400 font-medium block">TG đăng ký:</span> 
+                                                            <span className="ui-muted text-gray-400 font-medium block">TG đăng ký:</span>
                                                             <span className="font-semibold text-gray-700">
-                                                                {evt.registration_start_date ? formatDateString(evt.registration_start_date) : '...'} - {evt.close_on_full ? <span className="text-red-500">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '...')}
+                                                                {evt.registration_start_date ? formatDateString(evt.registration_start_date) : '...'} - {evt.close_on_full ? <span className="ui-danger-text text-red-500">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '...')}
                                                             </span>
                                                         </div>
                                                         <div>
-                                                            <span className="text-gray-400 font-medium block">TG diễn ra:</span> 
+                                                            <span className="ui-muted text-gray-400 font-medium block">TG diễn ra:</span>
                                                             <span className="font-semibold text-[#003375]">{evt.event_date ? formatDateString(evt.event_date) : '-'}</span>
                                                         </div>
                                                     </div>
@@ -1640,11 +1646,11 @@ return (
                                             </td>
                                             <td className="px-4 py-3 text-right align-top w-[10%]">
                                                 <div className="flex items-center justify-end gap-1 relative z-20">
-                                                    <button onClick={() => handleOpenEdit(evt)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa chi tiết"><Edit2 size={16}/></button>
-                                                    <button onClick={() => handleToggleClose(evt)} className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-md transition-colors" title={evt.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'}>
+                                                    <button onClick={() => handleOpenEdit(evt)} className="ui-action p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa chi tiết"><Edit2 size={16}/></button>
+                                                    <button onClick={() => handleToggleClose(evt)} className="ui-action p-1.5 text-orange-600 hover:bg-orange-100 rounded-md transition-colors" title={evt.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'}>
                                                         {evt.is_manually_closed ? <ToggleRight size={16} className="text-green-600"/> : <ToggleLeft size={16} className="text-orange-600"/>}
                                                     </button>
-                                                    {isAdmin && <button onClick={() => handleDeleteEvent(evt.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Ẩn/Xóa sự kiện"><Trash2 size={16}/></button>}
+                                                    {isAdmin && <button onClick={() => handleDeleteEvent(evt.id)} className="ui-danger-text ui-action p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Ẩn/Xóa sự kiện"><Trash2 size={16}/></button>}
                                                 </div>
                                             </td>
                                         </tr>
@@ -1666,7 +1672,7 @@ return (
                         <div className="flex flex-wrap gap-2">
                             {['I', 'II', 'III', 'IV', 'V'].map(cat => (
                                 <div key={cat} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-200">
-                                    <span className="text-xs text-gray-600 font-semibold">Mục {cat}:</span>
+                                    <span className="ui-meta text-xs text-gray-600 font-semibold">Mục {cat}:</span>
                                     <span className="text-sm font-bold text-[#003375]">{participatedStats[cat]}</span>
                                 </div>
                             ))}
@@ -1676,7 +1682,7 @@ return (
 
                 {openingEvents.length > 0 && (
                     <div>
-                        <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
+                        <h3 className="ui-card-title text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
                             <Flame className="text-orange-500 fill-orange-100" /> 
                             {activeTab === 'participated' ? 'Đang/Đã tham gia (Mở đăng ký)' : 'Đang mở đăng ký'} ({openingEvents.length})
                         </h3>
@@ -1688,8 +1694,8 @@ return (
 
                 {expiredEvents.length > 0 && (
                     <div>
-                          <h3 className="text-xl font-bold text-gray-500 mb-4 mt-8 flex items-center gap-2">
-                            <Lock className="text-gray-400" /> 
+                          <h3 className="ui-card-title text-xl font-bold text-gray-500 mb-4 mt-8 flex items-center gap-2">
+                            <Lock className="ui-muted text-gray-400" />
                             {activeTab === 'participated' ? 'Đã tham gia (Hết hạn)' : 'Đã hết hạn'} ({expiredEvents.length})
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 opacity-80">
@@ -1701,11 +1707,11 @@ return (
                 {displayedEvents.length === 0 && (
                     <div className="col-span-full py-16 text-center bg-white rounded-xl border border-gray-300">
                         <div className="w-16 h-16 bg-gray-50 rounded-full border border-gray-200 flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div>
-                        <p className="text-gray-500 font-medium">
+                        <p className="ui-secondary text-gray-500 font-medium">
                             {activeTab === 'participated' ? 'Bạn chưa đánh dấu tham gia sự kiện nào.' : 'Không tìm thấy sự kiện phù hợp.'}
                         </p>
                         {(appliedFilters.keyword || getEventFilterCount(appliedFilters) > 0) && (
-                            <button type="button" onClick={() => { setAppliedFilters(createDefaultEventFilters()); setActiveTab('all'); }} className="mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-[#064B9B] hover:bg-blue-100">
+                            <button type="button" onClick={() => { setAppliedFilters(createDefaultEventFilters()); setActiveTab('all'); }} className="ui-action mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-[#064B9B] hover:bg-blue-100">
                                 <RotateCcw size={15} /> Đặt lại bộ lọc
                             </button>
                         )}
