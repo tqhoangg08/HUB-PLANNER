@@ -23,7 +23,7 @@ This proposal changes the *approval interface*, not deployment authority. It doe
 
 ## Guard behavior and migration
 
-- When `public-production` has exactly one required-reviewers rule, the guard demands a single owner reviewer, `prevent_self_review=false`, and a successful owner approval associated with the **current workflow run and this Environment**, as returned by the GitHub Actions deployment-approvals API. Environment variables cannot override a missing or invalid GitHub review.
+- When `public-production` has exactly one required-reviewers rule, the guard demands a single owner reviewer, `prevent_self_review=false` **on the `required_reviewers` rule in `protection_rules` (not at the Environment top level)**, and a successful owner approval associated with the **current workflow run and this Environment**, as returned by the GitHub Actions deployment-approvals API. Environment variables cannot override a missing or invalid GitHub review.
 - With no required-reviewers rule, the old `PUBLIC_RELEASE_APPROVAL_SHA` and `PUBLIC_RELEASE_APPROVAL_RUN_ID` environment-variable approval still applies. This avoids breaking existing releases while the owner has not enabled the new UI. The fallback remains gated by all the original protections; it is **not** an automatic approval.
 - The runner still rejects changed SHA, non-owner dispatch, an attempted rerun, modified/missing main protection, missing exact-SHA independent CI, missing/invalid baseline, incorrect bindings/schema, unexpected Cloudflare traffic, or failed postflight.
 - `release-public` deploys only the **Public Worker and frontend assets**. It does not deploy Auth, apply D1 migrations, upload documents, run backfills or change AI rollout configuration.
@@ -32,3 +32,7 @@ This proposal changes the *approval interface*, not deployment authority. It doe
 ## Safe acceptance
 
 After CI passes, the owner should perform a settings-only read-back, a non-production unit-test check and review the full diff. The first live release must be dispatched explicitly by the owner; do not launch a real deployment merely to smoke-test the UI. No GitHub Environment or Cloudflare production settings are changed by this PR.
+
+## 2026-10-28 release incident and correction
+
+Release #121 failed at the Owner approval guard, not at Cloudflare. GitHub's read-only approvals endpoint recorded the Owner approval and the 5-minute bot timer. The guard erroneously looked for `environment.prevent_self_review`, whereas GitHub's [Get an environment response](https://docs.github.com/en/rest/deployments/environments#get-an-environment) places it on the `protection_rules[]` entry with `type: required_reviewers`. The correction requires the **rule-level** value to equal `false` and rejects missing/true rule values, preserving all other security gates. This is a code fix, not a reason to relax Environment settings or reuse failed workflow attempts.
