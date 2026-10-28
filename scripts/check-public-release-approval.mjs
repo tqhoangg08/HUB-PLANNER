@@ -86,8 +86,14 @@ export function validateReleaseApproval(c){
       !Number.isSafeInteger(c.environment.id)||c.environment.id<=0)
       fail('OWNER_GITHUB_REVIEW_REQUIRED');
     if(!Array.isArray(c.reviewHistory))fail('OWNER_GITHUB_REVIEW_REQUIRED');
+    // GitHub also records an automatic github-actions[bot] approval when the
+    // Environment wait timer completes. It is never a human owner approval.
+    // Ignore only that exact timer receipt; any other additional reviewer
+    // stays in the checked set and fails closed.
     const reviews=c.reviewHistory.filter(r=>Array.isArray(r.environments)&&r.environments.some(e=>
-      e.id===c.environment.id&&e.name===RELEASE_ENVIRONMENT));
+      e.id===c.environment.id&&e.name===RELEASE_ENVIRONMENT)&&
+      !(r.user?.login==='github-actions[bot]'&&r.user?.type==='Bot'&&
+        r.state==='approved'&&r.comment==='5 minute wait timer'));
     if(reviews.length!==1||reviews[0].state!=='approved'||reviews[0].user?.id!==owner.id||
       reviews[0].user?.login!==owner.login||reviews[0].user?.type!=='User')
       fail('OWNER_GITHUB_REVIEW_REQUIRED');
