@@ -284,3 +284,38 @@ test('GitHub review metadata is read via Actions token; approval variables are n
   assert.ok(calls.some(x=>x.url.endsWith('/actions/runs/1234/approvals')));
   assert.ok(!base.calls.some(x=>x.url.includes('/variables/PUBLIC_RELEASE_APPROVAL_')));
 });
+
+test('real GitHub wait-timer bot receipt coexists with exact owner approval',async()=>{
+  const c=fixture(),owner=c.repository.owner;
+  c.environment.id=23989588443;
+  c.environment.prevent_self_review=false;
+  c.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]});
+  delete c.ownerApproval;delete c.ownerRunApproval;
+  const environment={id:23989588443,name:RELEASE_ENVIRONMENT};
+  const ownerReview={state:'approved',comment:'',user:{...owner},environments:[environment]};
+  const timerReview={state:'approved',comment:'5 minute wait timer',
+    user:{login:'github-actions[bot]',id:41898282,type:'Bot'},environments:[environment]};
+  // The actual production run #120 returns owner approval AND the GitHub bot timer receipt.
+  c.reviewHistory=[ownerReview,timerReview];
+  assert.equal(validateReleaseApproval(c),true);
+  c.reviewHistory=[timerReview,ownerReview];
+  assert.equal(validateReleaseApproval(c),true);
+  const base=fakeApi(c);
+  const result=await readGitHubReleaseMetadata(c,{fetchImpl:async(url,options)=>
+    url.endsWith('/actions/runs/1234/approvals')
+      ?{ok:true,json:async()=>c.reviewHistory}
+      :base.fn(url,options)});
+  assert.equal(validateReleaseApproval(result),true);
+  for(const change of [
+    x=>x.reviewHistory=[timerReview],
+    x=>x.reviewHistory[1].comment='unexpected automation',
+    x=>x.reviewHistory[1].state='rejected',
+    x=>x.reviewHistory[1].user.login='other-bot',
+    x=>x.reviewHistory.push({state:'approved',user:{id:99,login:'other',type:'User'},environments:[environment]}),
+    x=>x.reviewHistory.push({...ownerReview}),
+    x=>x.reviewHistory[0].environments=[{id:99,name:RELEASE_ENVIRONMENT}],
+  ]){
+    const bad=structuredClone(c);bad.reviewHistory=[structuredClone(ownerReview),structuredClone(timerReview)];change(bad);
+    assert.throws(()=>validateReleaseApproval(bad),/OWNER_GITHUB_REVIEW_REQUIRED/);
+  }
+});
