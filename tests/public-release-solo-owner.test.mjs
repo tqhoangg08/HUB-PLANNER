@@ -242,3 +242,45 @@ test('independent CI checks real short-lived token access without PAT, settings 
  assert.match(y,/GH_TOKEN: \$\{\{ github.token \}\}/);assert.match(y,/node scripts\/check-github-ci-read-access.mjs/);
  assert.doesNotMatch(y,/secrets\.|: write|pull_request_target|wrangler/);
 });
+
+test('GitHub Environment owner review authorizes exact run without local CLI or variable approvals',()=>{
+  const c=fixture(),owner=c.repository.owner;
+  c.environment.id=23;
+  c.environment.prevent_self_review=false;
+  c.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]});
+  delete c.ownerApproval;delete c.ownerRunApproval;
+  c.reviewHistory=[{state:'approved',user:{...owner},environments:[{id:23,name:RELEASE_ENVIRONMENT}]}];
+  assert.equal(validateReleaseApproval(c),true);
+  for(const change of [
+    x=>x.reviewHistory=[],
+    x=>x.reviewHistory[0].state='rejected',
+    x=>x.reviewHistory[0].user.id=7,
+    x=>x.reviewHistory[0].environments[0].id=24,
+    x=>x.environment.prevent_self_review=true,
+    x=>x.environment.protection_rules.at(-1).reviewers.push({type:'User',reviewer:{id:10,login:'other',type:'User'}}),
+    x=>x.environment.protection_rules.at(-1).reviewers[0].reviewer.login='other',
+    x=>x.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]}),
+  ]){
+    const bad=structuredClone(c);change(bad);
+    assert.throws(()=>validateReleaseApproval(bad));
+  }
+});
+test('GitHub review metadata is read via Actions token; approval variables are not requested',async()=>{
+  const c=fixture(),owner=c.repository.owner;
+  c.environment.id=23;c.environment.prevent_self_review=false;
+  c.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]});
+  c.reviewHistory=[{state:'approved',user:{...owner},environments:[{id:23,name:RELEASE_ENVIRONMENT}]}];
+  const calls=[],base=fakeApi(c);
+  const fetchImpl=async(url,options)=>{
+    calls.push({url,options});
+    if(url.endsWith('/actions/runs/1234/approvals')){
+      assert.equal(options.headers.Authorization,'Bearer '+credentials.ciToken);
+      return {ok:true,json:async()=>c.reviewHistory};
+    }
+    return base.fn(url,options);
+  };
+  const result=await readGitHubReleaseMetadata(c,{fetchImpl});
+  assert.equal(validateReleaseApproval(result),true);
+  assert.ok(calls.some(x=>x.url.endsWith('/actions/runs/1234/approvals')));
+  assert.ok(!base.calls.some(x=>x.url.includes('/variables/PUBLIC_RELEASE_APPROVAL_')));
+});
