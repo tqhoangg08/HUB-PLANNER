@@ -1,4 +1,4 @@
-// SOLO OWNER, not independent review. Every production check is mandatory.
+// SOLO OWNER: GitHub Environment review (preferred) or legacy variables. Every release gate remains mandatory.
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 
@@ -35,6 +35,7 @@ export function validateEnvironment(environment,policies){
   const timers=rules.filter(r=>r.type==='wait_timer');
   if(timers.length!==1||!Number.isInteger(timers[0].wait_timer)||timers[0].wait_timer<5||timers[0].wait_timer>43200)
     fail('WAIT_TIMER_REQUIRED');
+  if(rules.filter(r=>r.type==='required_reviewers').length>1)fail('OWNER_GITHUB_REVIEW_REQUIRED');
   if(policies?.total_count!==1||!Array.isArray(policies.branch_policies)||policies.branch_policies.length!==1||
     policies.branch_policies[0].name!=='main'||policies.branch_policies[0].type!=='branch')fail('MAIN_ONLY_ENVIRONMENT_REQUIRED');
   return true;
@@ -71,15 +72,34 @@ export function validateReleaseApproval(c){
   validateDispatchContext(c);
   validateEnvironment(c.environment,c.deploymentPolicies);
   validateMainProtection(c);
-  // API reads from THIS environment, never vars-context fallback or workflow inputs.
-  const approvals=[['PUBLIC_RELEASE_APPROVAL_SHA',c.sha,c.ownerApproval],['PUBLIC_RELEASE_APPROVAL_RUN_ID',c.runId,c.ownerRunApproval]];
   const now=c.now??Date.now(),created=Date.parse(c.run.created_at);
   if(!Number.isFinite(now)||!Number.isFinite(created)||created>now)fail('APPROVAL_TIME_UNVERIFIED');
   if(now-created<300000)fail('WAIT_NOT_ELAPSED');
-  for(const [name,value,a] of approvals){
-    const updated=Date.parse(a?.updated_at);
-    if(a?.name!==name||a.value!==value||!Number.isFinite(updated)||updated<created||updated>now||now-updated>86400000)
-      fail('SEPARATE_OWNER_APPROVAL_REQUIRED');
+  const reviewerRules=c.environment.protection_rules.filter(r=>r.type==='required_reviewers');
+  if(reviewerRules.length===1){
+    // GitHub itself blocks the release-public job until its required reviewer approves.
+    // Bind that review to THIS workflow run and THIS environment using read-only Actions API.
+    const rule=reviewerRules[0],owner=c.repository.owner;
+    if(rule.prevent_self_review!==false||!Array.isArray(rule.reviewers)||rule.reviewers.length!==1||
+      rule.reviewers[0].type!=='User'||rule.reviewers[0].reviewer?.type!=='User'||
+      rule.reviewers[0].reviewer?.id!==owner.id||rule.reviewers[0].reviewer?.login!==owner.login||
+      !Number.isSafeInteger(c.environment.id)||c.environment.id<=0)
+      fail('OWNER_GITHUB_REVIEW_REQUIRED');
+    if(!Array.isArray(c.reviewHistory))fail('OWNER_GITHUB_REVIEW_REQUIRED');
+    const reviews=c.reviewHistory.filter(r=>Array.isArray(r.environments)&&r.environments.some(e=>
+      e.id===c.environment.id&&e.name===RELEASE_ENVIRONMENT));
+    if(reviews.length!==1||reviews[0].state!=='approved'||reviews[0].user?.id!==owner.id||
+      reviews[0].user?.login!==owner.login||reviews[0].user?.type!=='User')
+      fail('OWNER_GITHUB_REVIEW_REQUIRED');
+  }else{
+    // Backwards-compatible owner confirmation: this branch stays protected too.
+    // Once the GitHub required reviewer is configured, no variable approval can bypass it.
+    const approvals=[['PUBLIC_RELEASE_APPROVAL_SHA',c.sha,c.ownerApproval],['PUBLIC_RELEASE_APPROVAL_RUN_ID',c.runId,c.ownerRunApproval]];
+    for(const [name,value,a] of approvals){
+      const updated=Date.parse(a?.updated_at);
+      if(a?.name!==name||a.value!==value||!Number.isFinite(updated)||updated<created||updated>now||now-updated>86400000)
+        fail('SEPARATE_OWNER_APPROVAL_REQUIRED');
+    }
   }
   const r=latestCheck(c.checkRuns,c.sha);
   if(!Array.isArray(c.ciRuns)||Date.parse(r.started_at)>now||r.status!=='completed'||r.conclusion!=='success'||!c.ciRuns.some(ci=>
@@ -125,9 +145,11 @@ export async function readGitHubReleaseMetadata(context,{ciToken,metadataToken,f
   // Never request write-only bypass metadata or fall back on a ruleset/404.
   const classicProtection=await protectedGet('/branches/main/protection');
   validateMainProtection({...c,classicProtection});
-  const [ownerApproval,ownerRunApproval,checkRuns]=await Promise.all([
-    protectedGet(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_SHA`),
-    protectedGet(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_RUN_ID`),
+  const githubReview=environment.protection_rules.some(r=>r.type==='required_reviewers');
+  const [ownerApproval,ownerRunApproval,reviewHistory,checkRuns]=await Promise.all([
+    githubReview?undefined:protectedGet(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_SHA`),
+    githubReview?undefined:protectedGet(`/environments/${RELEASE_ENVIRONMENT}/variables/PUBLIC_RELEASE_APPROVAL_RUN_ID`),
+    githubReview?get(`/actions/runs/${context.runId}/approvals`):undefined,
     readChecks(get,context.sha)]);
   const selected=latestCheck(checkRuns,context.sha);
   const ciIds=[...new Set([selected].filter(r=>r.status==='completed'&&r.conclusion==='success').map(r=>{
@@ -144,7 +166,7 @@ export async function readGitHubReleaseMetadata(context,{ciToken,metadataToken,f
   if(JSON.stringify(currentProtection)!==JSON.stringify(classicProtection))fail('MAIN_PROTECTION_CHANGED');
   validateMainProtection({...c,branch:currentBranch,classicProtection:currentProtection});
   return {...c,branch:currentBranch,environment:currentEnvironment,deploymentPolicies:currentPolicies,
-    classicProtection,ownerApproval,ownerRunApproval,checkRuns,ciRuns};
+    classicProtection,ownerApproval,ownerRunApproval,reviewHistory,checkRuns,ciRuns};
 }
 
 // Read-only CI capability probe, NOT release approval. Uses the same Checks
