@@ -246,8 +246,8 @@ test('independent CI checks real short-lived token access without PAT, settings 
 test('GitHub Environment owner review authorizes exact run without local CLI or variable approvals',()=>{
   const c=fixture(),owner=c.repository.owner;
   c.environment.id=23;
-  c.environment.prevent_self_review=false;
-  c.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]});
+
+  c.environment.protection_rules.push({type:'required_reviewers',prevent_self_review:false,reviewers:[{type:'User',reviewer:{...owner}}]});
   delete c.ownerApproval;delete c.ownerRunApproval;
   c.reviewHistory=[{state:'approved',user:{...owner},environments:[{id:23,name:RELEASE_ENVIRONMENT}]}];
   assert.equal(validateReleaseApproval(c),true);
@@ -256,10 +256,11 @@ test('GitHub Environment owner review authorizes exact run without local CLI or 
     x=>x.reviewHistory[0].state='rejected',
     x=>x.reviewHistory[0].user.id=7,
     x=>x.reviewHistory[0].environments[0].id=24,
-    x=>x.environment.prevent_self_review=true,
+    x=>x.environment.protection_rules.at(-1).prevent_self_review=true,
+    x=>{delete x.environment.protection_rules.at(-1).prevent_self_review;x.environment.prevent_self_review=false;},
     x=>x.environment.protection_rules.at(-1).reviewers.push({type:'User',reviewer:{id:10,login:'other',type:'User'}}),
     x=>x.environment.protection_rules.at(-1).reviewers[0].reviewer.login='other',
-    x=>x.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]}),
+    x=>x.environment.protection_rules.push({type:'required_reviewers',prevent_self_review:false,reviewers:[{type:'User',reviewer:{...owner}}]}),
   ]){
     const bad=structuredClone(c);change(bad);
     assert.throws(()=>validateReleaseApproval(bad));
@@ -267,8 +268,8 @@ test('GitHub Environment owner review authorizes exact run without local CLI or 
 });
 test('GitHub review metadata is read via Actions token; approval variables are not requested',async()=>{
   const c=fixture(),owner=c.repository.owner;
-  c.environment.id=23;c.environment.prevent_self_review=false;
-  c.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]});
+  c.environment.id=23;
+  c.environment.protection_rules.push({type:'required_reviewers',prevent_self_review:false,reviewers:[{type:'User',reviewer:{...owner}}]});
   c.reviewHistory=[{state:'approved',user:{...owner},environments:[{id:23,name:RELEASE_ENVIRONMENT}]}];
   const calls=[],base=fakeApi(c);
   const fetchImpl=async(url,options)=>{
@@ -288,8 +289,8 @@ test('GitHub review metadata is read via Actions token; approval variables are n
 test('real GitHub wait-timer bot receipt coexists with exact owner approval',async()=>{
   const c=fixture(),owner=c.repository.owner;
   c.environment.id=23989588443;
-  c.environment.prevent_self_review=false;
-  c.environment.protection_rules.push({type:'required_reviewers',reviewers:[{type:'User',reviewer:{...owner}}]});
+
+  c.environment.protection_rules.push({type:'required_reviewers',prevent_self_review:false,reviewers:[{type:'User',reviewer:{...owner}}]});
   delete c.ownerApproval;delete c.ownerRunApproval;
   const environment={id:23989588443,name:RELEASE_ENVIRONMENT};
   const ownerReview={state:'approved',comment:'',user:{...owner},environments:[environment]};
@@ -318,4 +319,25 @@ test('real GitHub wait-timer bot receipt coexists with exact owner approval',asy
     const bad=structuredClone(c);bad.reviewHistory=[structuredClone(ownerReview),structuredClone(timerReview)];change(bad);
     assert.throws(()=>validateReleaseApproval(bad),/OWNER_GITHUB_REVIEW_REQUIRED/);
   }
+});
+
+test('rule-level prevent_self_review is authoritative; top-level Environment cannot substitute',()=>{
+  const c=fixture(),owner=c.repository.owner;
+  c.environment.id=23989588443;
+  c.environment.prevent_self_review=false; // Not the location returned by GitHub's environment GET.
+  c.environment.protection_rules.push({type:'required_reviewers',prevent_self_review:false,
+    reviewers:[{type:'User',reviewer:{...owner}}]});
+  delete c.ownerApproval;delete c.ownerRunApproval;
+  c.reviewHistory=[
+    {state:'approved',comment:'',user:{...owner},environments:[{id:23989588443,name:RELEASE_ENVIRONMENT}]},
+    {state:'approved',comment:'5 minute wait timer',
+      user:{login:'github-actions[bot]',id:41898282,type:'Bot'},
+      environments:[{id:23989588443,name:RELEASE_ENVIRONMENT}]}
+  ];
+  assert.equal(validateReleaseApproval(c),true);
+  const bad=structuredClone(c);
+  delete bad.environment.protection_rules.at(-1).prevent_self_review;
+  assert.throws(()=>validateReleaseApproval(bad),/OWNER_GITHUB_REVIEW_REQUIRED/);
+  bad.environment.protection_rules.at(-1).prevent_self_review=true;
+  assert.throws(()=>validateReleaseApproval(bad),/OWNER_GITHUB_REVIEW_REQUIRED/);
 });
