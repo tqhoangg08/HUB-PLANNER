@@ -246,7 +246,7 @@ test('independent CI checks real short-lived token access without PAT, settings 
 test('GitHub Environment owner review authorizes exact run without local CLI or variable approvals',()=>{
   const c=fixture(),owner=c.repository.owner;
   c.environment.id=23;
-  
+
   c.environment.protection_rules.push({type:'required_reviewers',prevent_self_review:false,reviewers:[{type:'User',reviewer:{...owner}}]});
   delete c.ownerApproval;delete c.ownerRunApproval;
   c.reviewHistory=[{state:'approved',user:{...owner},environments:[{id:23,name:RELEASE_ENVIRONMENT}]}];
@@ -289,7 +289,7 @@ test('GitHub review metadata is read via Actions token; approval variables are n
 test('real GitHub wait-timer bot receipt coexists with exact owner approval',async()=>{
   const c=fixture(),owner=c.repository.owner;
   c.environment.id=23989588443;
-  
+
   c.environment.protection_rules.push({type:'required_reviewers',prevent_self_review:false,reviewers:[{type:'User',reviewer:{...owner}}]});
   delete c.ownerApproval;delete c.ownerRunApproval;
   const environment={id:23989588443,name:RELEASE_ENVIRONMENT};
