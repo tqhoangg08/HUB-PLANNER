@@ -80,7 +80,7 @@ export function validateReleaseApproval(c){
     // GitHub itself blocks the release-public job until its required reviewer approves.
     // Bind that review to THIS workflow run and THIS environment using read-only Actions API.
     const rule=reviewerRules[0],owner=c.repository.owner;
-    if(rule.prevent_self_review!==false||!Array.isArray(rule.reviewers)||rule.reviewers.length!==1||
+    if(c.environment.prevent_self_review!==false||!Array.isArray(rule.reviewers)||rule.reviewers.length!==1||
       rule.reviewers[0].type!=='User'||rule.reviewers[0].reviewer?.type!=='User'||
       rule.reviewers[0].reviewer?.id!==owner.id||rule.reviewers[0].reviewer?.login!==owner.login||
       !Number.isSafeInteger(c.environment.id)||c.environment.id<=0)
