@@ -1,0 +1,61 @@
+{
+  "task": "Review the already-serving Public Worker version 470 as exact predeploy baseline for subsequent code releases",
+  "previousVersion": "e14d5e2c-e381-46b3-a27d-2f41e9c21249",
+  "version": "d4b614d4-1b59-47ec-be36-ad54a40e49f4",
+  "worker": "hub-planner-public-dev-api",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "runId": "40669494474",
+  "sha": "555b1f78aa58b399393f547a21dbe86e906d0b4d",
+  "release": {
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/40669494474",
+    "name": "Approved Public-only production release",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "actorId": 252552483,
+    "releasePublicStartedAt": "2026-10-30T13:55:35Z",
+    "releasePublicCompletedAt": "2026-10-30T13:56:37Z",
+    "validateConclusion": "success",
+    "publicConclusion": "success",
+    "stepConclusions": {
+      "predeploy": "success",
+      "ownerApproval": "success",
+      "deploy": "success",
+      "postdeploy": "success"
+    },
+    "receipts": {
+      "predeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=e14d5e2c-e381-46b3-a27d-2f41e9c21249",
+      "ownerApproval": "PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "deployedVersion": "Current Version ID: d4b614d4-1b59-47ec-be36-ad54a40e49f4",
+      "postdeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=d4b614d4-1b59-47ec-be36-ad54a40e49f4"
+    }
+  },
+  "liveMetadata": {
+    "method": "Cloudflare Workers API read-only GETs via connected Cloudflare account",
+    "environment": "Production",
+    "deployment": {
+      "id": "6c01379c-9a3b-4b2f-80e1-c22e1d88762e",
+      "createdOn": "2026-10-30T13:56:28.880299Z",
+      "source": "wrangler",
+      "versions": [
+        {
+          "version_id": "d4b614d4-1b59-47ec-be36-ad54a40e49f4",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "d4b614d4-1b59-47ec-be36-ad54a40e49f4",
+      "number": 470,
+      "createdOn": "2026-10-30T13:56:28.097513Z",
+      "source": "wrangler"
+    }
+  },
+  "limitations": [
+    "Point-in-time serving metadata: the unchanged predeploy guard must revalidate all live bindings, D1 schema/ledger, traffic and observability.",
+    "This baseline update does not deploy anything, change Cloudflare resources or authorize a production release.",
+    "No user data, tokens, secret values, or private subscription details are recorded."
+  ]
+}
