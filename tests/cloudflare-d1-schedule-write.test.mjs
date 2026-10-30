@@ -612,6 +612,9 @@ test('D1 transactional failures expose no partial schedule, revision, receipt, o
                  BEGIN SELECT RAISE(ABORT, 'injected'); END`;
       await harness.exec([trigger]);
       const response = await add(harness, { key: `failure-${failure}-0001` });
+      // Consume the response before dispatching another request through Miniflare.
+      // The Miniflare/undici response stream may be invalidated by a subsequent D1 query.
+      const responseBody = await response.text();
       assert.equal(response.status, 503);
       assert.deepEqual(await state(harness), {
         schedules: 0,
@@ -620,7 +623,7 @@ test('D1 transactional failures expose no partial schedule, revision, receipt, o
         receipts: 0,
         assertions: 0,
       });
-      assert.doesNotMatch(await response.text(), /injected|sqlite|d1_error/i);
+      assert.doesNotMatch(responseBody, /injected|sqlite|d1_error/i);
     } finally {
       await harness.dispose();
     }
