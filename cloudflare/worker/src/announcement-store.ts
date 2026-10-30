@@ -33,7 +33,9 @@ export const syncCrawledSchoolAnnouncements = async (
         AND NOT EXISTS (SELECT 1 FROM school_announcements WHERE title_search=?)
       ON CONFLICT(link) DO NOTHING`)
       .bind(item.title, titleSearch, item.link, item.date, isNew ? 1 : 0, now, now, item.link, titleSearch).run();
-    const created = Number(result.meta?.changes || 0) === 1;
+    // D1 includes the ID/paging trigger writes from migration 0025 in
+    // meta.changes (3 for one insert). A deduped insert still changes 0 rows.
+    const created = Number(result.meta?.changes || 0) > 0;
     inserted += created ? 1 : 0;
     if (created && isNew) {
       // The content row is committed before we create/signal its durable

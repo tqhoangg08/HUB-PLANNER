@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import test from 'node:test';
+import {Miniflare} from 'miniflare';
 import {syncCrawledSchoolAnnouncements} from '../cloudflare/worker/src/announcement-store.ts';
 import {runNotificationQueueControl} from '../cloudflare/worker/src/notification-cron.ts';
 
@@ -26,6 +27,88 @@ function fixture() {
 }
 const crawl=(items: Array<{title:string;link:string;date:string}>)=>({items,sources:[],complete:true});
 const item={title:'New announcement',link:'https://example.invalid/new',date:new Date().toISOString().slice(0,10)};
+
+// Exercise the actual D1 binding: node:sqlite's run().changes omits trigger
+// writes, so the lightweight fixture above cannot reproduce D1 metadata.
+async function d1Fixture() {
+  const mf = new Miniflare({modules:true, script:'export default {fetch(){return new Response("ok")}}',
+    compatibilityDate:'2026-07-29', d1Databases:['DB']});
+  try {
+    const DB = await mf.getD1Database('DB');
+    for (const path of [
+      '0001_create_school_announcements.sql',
+      '0023_create_event_push_deliveries.sql',
+      '0024_create_native_push_runtime.sql',
+      '0025_announcement_d1_authority.sql',
+      '0033_reduce_push_delivery_write_amplification.sql',
+    ]) {
+      if (path.startsWith('0025')) {
+        await DB.exec('ALTER TABLE sync_metadata ADD COLUMN visible_row_count INTEGER; ALTER TABLE sync_metadata ADD COLUMN source_cursor TEXT;');
+      }
+      await DB.exec(readFileSync(`cloudflare/migrations/${path}`,'utf8').replace(/^\s*--.*$/gm,'').replace(/\s+/g,' '));
+    }
+    return {mf, DB};
+  } catch (error) { await mf.dispose(); throw error; }
+}
+
+test('D1 changes includes both migration 0025 insert triggers, unlike SQLite changes()',async()=>{
+  const {mf,DB}=await d1Fixture(); try {
+    const result=await DB.prepare(`INSERT INTO school_announcements
+      (id,title,title_search,link,date,is_new,created_at,is_hidden)
+      VALUES (1,'Probe','probe','https://example.invalid/probe',?,1,?,0)`)
+      .bind(item.date,new Date().toISOString()).run();
+    assert.equal(result.meta.changes,3); // content + ID high watermark + paging metadata
+    assert.equal(await DB.prepare('SELECT changes() AS n').first('n'),1);
+    assert.equal(await DB.prepare('SELECT last_id FROM announcement_id_sequence').first('last_id'),1);
+    assert.equal(await DB.prepare("SELECT source_row_count FROM sync_metadata WHERE resource='school_announcements'").first('source_row_count'),1);
+    // A previously committed is_new row without an outbox is historical
+    // backlog: subsequent crawls must not silently replay it.
+    let signals=0;
+    const env={DB,PUSH_EVENTS_QUEUE:{send:async()=>{signals++;}} as Queue};
+    await syncCrawledSchoolAnnouncements(env,crawl([{title:'Probe',link:'https://example.invalid/probe',date:item.date}]));
+    assert.equal(await DB.prepare('SELECT COUNT(*) n FROM school_announcement_push_queue').first('n'),0);
+    assert.equal(signals,0);
+  }finally{await mf.dispose();}
+});
+
+test('real D1 crawl enqueues and signals once; retries, aliases, edits and old rows never resend',async()=>{
+  const {mf,DB}=await d1Fixture(); try {
+    const signals: unknown[]=[];
+    const env={DB,PUSH_EVENTS_QUEUE:{send:async(message:unknown)=>{signals.push(message);}} as Queue};
+    const first=await syncCrawledSchoolAnnouncements(env,crawl([item]));
+    assert.equal(await DB.prepare('SELECT COUNT(*) n FROM school_announcement_push_queue').first('n'),1);
+    assert.equal(first.inserted,1);
+    assert.deepEqual(signals,[{v:1,type:'school',sourceId:1}]);
+    await DB.prepare("UPDATE school_announcement_push_queue SET sent_at=? WHERE announcement_id=1").bind(new Date().toISOString()).run();
+    assert.equal((await syncCrawledSchoolAnnouncements(env,crawl([item,item,{...item,link:item.link+'/alias'}]))).inserted,0);
+    await syncCrawledSchoolAnnouncements(env,crawl([{...item,title:'Edited announcement'}]));
+    await syncCrawledSchoolAnnouncements(env,crawl([{...item,title:'Old announcement',link:item.link+'/old',date:'2020-01-01'}]));
+    assert.equal(signals.length,1);
+    assert.equal(await DB.prepare('SELECT COUNT(*) n FROM school_announcement_push_queue').first('n'),1);
+  }finally{await mf.dispose();}
+});
+
+test('concurrent D1 crawls of the same new item create only one outbox record and signal',async()=>{
+  const {mf,DB}=await d1Fixture(); try {
+    const signals: unknown[]=[];
+    const env={DB,PUSH_EVENTS_QUEUE:{send:async(message:unknown)=>{signals.push(message);}} as Queue};
+    const results=await Promise.all([syncCrawledSchoolAnnouncements(env,crawl([item])),syncCrawledSchoolAnnouncements(env,crawl([item]))]);
+    assert.equal(results.reduce((n,result)=>n+result.inserted,0),1);
+    assert.equal(await DB.prepare('SELECT COUNT(*) n FROM school_announcement_push_queue').first('n'),1);
+    assert.equal(signals.length,1);
+  }finally{await mf.dispose();}
+});
+
+test('Queue signal failure keeps the D1 school outbox pending without duplicate enqueue on retry',async()=>{
+  const {mf,DB}=await d1Fixture(); try {
+    let attempts=0;
+    const env={DB,PUSH_EVENTS_QUEUE:{send:async()=>{attempts++; throw new Error('synthetic queue failure');}} as Queue};
+    await syncCrawledSchoolAnnouncements(env,crawl([item]));
+    await syncCrawledSchoolAnnouncements(env,crawl([item]));
+    assert.equal(attempts,1);
+    assert.equal(await DB.prepare('SELECT COUNT(*) n FROM school_announcement_push_queue WHERE sent_at IS NULL AND failed_at IS NULL').first('n'),1);
+  }finally{await mf.dispose();}
+});
 
 test('direct D1 crawl inserts once and newest date matches upstream',async()=>{
   const {sql,DB}=fixture(); try {
