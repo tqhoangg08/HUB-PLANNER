@@ -564,7 +564,7 @@ export const corsHeaders = (
     'Access-Control-Allow-Methods':
       'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': options.allowEventCandidateExtension
-      ? 'Authorization, Content-Type, Idempotency-Key, X-Image-Rights-Confirmed, X-Image-Rights-Basis'
+      ? 'Authorization, Content-Type, Idempotency-Key, X-Image-Ingest-Requested, X-Image-Rights-Confirmed, X-Image-Rights-Basis'
       : 'Authorization, Content-Type, Idempotency-Key',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
@@ -1290,9 +1290,22 @@ const worker = {
 
     const eventBannerMatch = requestUrl.pathname.match(/^\/api\/public\/v1\/event-banners\/(.+)$/);
     if (eventBannerMatch) {
-      try { return await readEventBanner(request, eventBannerMatch[1], env); }
+      try {
+        const response = await readEventBanner(request, eventBannerMatch[1], env);
+        // Ingesting a candidate image does not publish it. Staff may preview
+        // pending/rejected images, but public access waits for moderation.
+        const unreviewed = await env.DB.prepare(`SELECT id FROM event_candidates
+          WHERE image_url=? AND review_status != 'approved' LIMIT 1`)
+          .bind(`/api/public/v1/event-banners/${eventBannerMatch[1]}`).first<{ id: number }>();
+        if (unreviewed) {
+          await requireBetterAuthStaff(request, env);
+          response.headers.set('Cache-Control', 'private, no-store');
+          response.headers.set('Vary', 'Cookie');
+        }
+        return response;
+      }
       catch (error) {
-        const status = error instanceof EventBannerError ? error.status : 500;
+        const status = error instanceof EventBannerError || error instanceof BetterAuthIdentityError ? error.status : 500;
         return json({ error: status === 404 ? 'Không tìm thấy ảnh.' : 'Không tải được ảnh.' }, status, {
           ...cors, 'Cache-Control': 'no-store',
         });
