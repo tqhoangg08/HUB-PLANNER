@@ -1,0 +1,70 @@
+{
+  "task": "Review the already-serving Public Worker version 471 as exact predeploy baseline for subsequent code releases",
+  "previousVersion": "d4b614d4-1b59-47ec-be36-ad54a40e49f4",
+  "version": "edcbad46-de0e-439a-b00b-4e4a06a683b0",
+  "worker": "hub-planner-public-dev-api",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "runId": "41093636381",
+  "sha": "b8950ae5fa4101a38401d729e4428c9979fcb957",
+  "release": {
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/41093636381",
+    "name": "Approved Public-only production release",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "actorId": 252552483,
+    "releasePublicStartedAt": "2026-10-30T17:00:49Z",
+    "releasePublicCompletedAt": "2026-10-30T17:01:44Z",
+    "validateConclusion": "success",
+    "publicConclusion": "success",
+    "stepConclusions": {
+      "predeploy": "success",
+      "ownerApproval": "success",
+      "deploy": "success",
+      "postdeploy": "success"
+    },
+    "receipts": {
+      "predeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=d4b614d4-1b59-47ec-be36-ad54a40e49f4",
+      "ownerApproval": "PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "deployedVersion": "Current Version ID: edcbad46-de0e-439a-b00b-4e4a06a683b0",
+      "postdeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=edcbad46-de0e-439a-b00b-4e4a06a683b0"
+    }
+  },
+  "liveMetadata": {
+    "method": "Cloudflare Workers API read-only GETs via connected Cloudflare account",
+    "environment": "Production",
+    "deployment": {
+      "id": "cf9deefc-e376-495e-a906-27e826030084",
+      "createdOn": "2026-10-30T17:01:34.629Z",
+      "source": "wrangler",
+      "versions": [
+        {
+          "version_id": "edcbad46-de0e-439a-b00b-4e4a06a683b0",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "edcbad46-de0e-439a-b00b-4e4a06a683b0",
+      "number": 471,
+      "createdOn": "2026-10-30T17:01:33.378612Z",
+      "source": "wrangler"
+    }
+  },
+  "rollout": {
+    "v2Mode": "canary",
+    "v2Percent": "100",
+    "documentFlags": {
+      "AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED": "false",
+      "AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED": "false",
+      "AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT": "0"
+    }
+  },
+  "limitations": [
+    "Snapshot of successful owner-approved deployment and independent read-only Cloudflare version/deployment metadata; unchanged release gates must still recheck all live bindings, schema/ledger, observability and traffic.",
+    "No production deployment, Cloudflare config or D1 mutations, environment approval, or real push messages are made by this baseline PR.",
+    "No credentials, tokens, secret values or private user data are captured."
+  ]
+}
