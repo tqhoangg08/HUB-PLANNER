@@ -3,6 +3,8 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building, ChevronDown } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { fetchSchoolAnnouncements } from '../utils/announcementsApi';
+import { isRecentSchoolAnnouncement } from '../utils/schoolAnnouncementRecency';
+import { useVietnamCalendarDate } from '../hooks/useVietnamCalendarDate';
 import './school-announcements-modal.css';
 
 const ITEMS_PER_PAGE = 10;
@@ -65,6 +67,7 @@ const getDepartmentName = (link) => {
 };
 
 const SchoolAnnouncements = () => {
+  const today = useVietnamCalendarDate();
   // === STATE CHO WIDGET BÊN NGOÀI ===
   const [news, setNews] = useState([]);
 
@@ -266,6 +269,7 @@ const SchoolAnnouncements = () => {
             news.map((item) => {
               const finalLink = processLinkData(item);
               const deptName = getDepartmentName(finalLink);
+              const isRecent = isRecentSchoolAnnouncement(item.date, today);
 
               return (
                 <a 
@@ -277,7 +281,7 @@ const SchoolAnnouncements = () => {
                     <p className="ui-secondary text-xs lg:text-sm font-medium text-gray-800 group-hover:text-[#003375] line-clamp-2 leading-snug transition-colors">
                       {item.title}
                     </p>
-                    {item.is_new && <span className="ui-meta ui-new-badge bg-red-500 text-white text-[8px] lg:text-[9px] px-1 lg:px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
+                    {isRecent && <span className="ui-meta ui-new-badge bg-red-500 text-white text-[8px] lg:text-[9px] px-1 lg:px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
                   </div>
                   
                   <div className="flex justify-between items-center mt-2">
@@ -424,6 +428,7 @@ const SchoolAnnouncements = () => {
                   {modalNews.map((item) => {
                     const finalLink = processLinkData(item);
                     const deptName = getDepartmentName(finalLink);
+                    const isRecent = isRecentSchoolAnnouncement(item.date, today);
 
                     return (
                       <a 
@@ -432,8 +437,8 @@ const SchoolAnnouncements = () => {
                       >
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
-                            {item.is_new && <span className="ui-meta ui-new-badge bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
-                            <span className={`ui-meta ui-muted text-[10px] text-gray-400 flex items-center gap-1 font-medium bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100 ${!item.is_new ? 'ml-auto' : ''}`}>
+                            {isRecent && <span className="ui-meta ui-new-badge bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
+                            <span className={`ui-meta ui-muted text-[10px] text-gray-400 flex items-center gap-1 font-medium bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100 ${!isRecent ? 'ml-auto' : ''}`}>
                                <Calendar size={10}/> {formatDate(item.date)}
                             </span>
                           </div>

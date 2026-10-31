@@ -34,8 +34,11 @@ test.after(async () => {
   }
 });
 const catalog = Array.from({ length: 45 }, (_, i) => ({ id: i + 1, title: `Thông báo học vụ ${i + 1} — lịch đăng ký học phần và hướng dẫn sinh viên`, date: '2026-10-20', is_new: i < 2, link: `https://phongdaotao.hub.edu.vn/thong-bao/${i + 1}` }));
-async function fixture(width = 390, height = 844, internal = false, visual = false) {
-  const context = await browser.newContext({ ...(width < 768 ? devices['iPhone 13'] : {}), viewport: { width, height }, serviceWorkers: 'block' });
+async function fixture(width = 390, height = 844, internal = false, visual = false, options = {}) {
+  const context = await browser.newContext({ ...(width < 768 ? devices['iPhone 13'] : {}), viewport: { width, height }, serviceWorkers: 'block', ...(options.now ? { timezoneId: 'America/Los_Angeles' } : {}) });
+  if (options.cache) await context.addInitScript(({rows, now}) => {
+    sessionStorage.setItem('hub_school_announcements_widget_v1', JSON.stringify({ rows, cachedAt: Date.parse(now) }));
+  }, {rows:options.rows, now:options.now});
   if (visual) await context.addInitScript(() => {
     const viewport = new EventTarget(); Object.assign(viewport, { height: innerHeight, offsetTop: 0, scale: 1 });
     Object.defineProperty(window, 'visualViewport', { value: viewport });
@@ -51,13 +54,14 @@ async function fixture(width = 390, height = 844, internal = false, visual = fal
       const query = Object.fromEntries(u.searchParams); calls.push(query);
       if (hold && query.search === hold) await new Promise(resolve => pending.push(resolve));
       if (query.search === 'error') return route.fulfill({ status: 503, json: { error: 'Fixture temporarily unavailable' } });
-      const data = query.search === 'empty' ? [] : catalog;
+      const data = query.search === 'empty' ? [] : options.rows || catalog;
       const offset = Number(query.offset || 0), limit = Number(query.limit);
       return route.fulfill({ json: { data: data.slice(offset, offset + limit).map(row => ({ ...row, title: `${query.search || 'initial'}: ${row.title}` })), total: data.length } }).catch(() => {});
     }
     throw Error(`Unexpected network read: ${r.url()}`);
   });
   const page = await context.newPage();
+  if (options.now) await page.clock.install({ time: new Date(options.now) });
   page.setDefaultTimeout(15000);
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (['error', 'warning'].includes(m.type()) && !m.text().includes('503 (Service Unavailable)')) errors.push(m.text()); });
@@ -65,6 +69,85 @@ async function fixture(width = 390, height = 844, internal = false, visual = fal
   const opener = page.getByRole('button', { name: 'Xem tất cả', exact: true });
   await opener.scrollIntoViewIfNeeded();
   return { context, page, calls, errors, writes, pending, hold: s => { hold = s; }, opener };
+}
+
+const badgeRow = (id, date, is_new = 1) => ({ id, title: `Badge case ${id}`, date, is_new, created_at: '2026-10-31T00:00:00Z', link: `https://phongdaotao.hub.edu.vn/badge/${id}` });
+async function badges(page, rows, expectedIds) {
+  const surfaces = [page.locator('#root'), panel(page)];
+  for (const surface of surfaces) {
+    for (const row of rows) {
+      const card = surface.locator(`a[href="${row.link}"]`);
+      await card.waitFor();
+      assert.equal(await card.locator('.ui-new-badge').count(), expectedIds.includes(row.id) ? 1 : 0, `${row.id} badge`);
+      if (surface === surfaces[1]) {
+        assert.equal(await card.locator('span').filter({has: page.locator('svg.lucide-calendar')}).evaluate(n => n.classList.contains('ml-auto')), !expectedIds.includes(row.id), `${row.id} date alignment`);
+      }
+    }
+  }
+}
+
+if (!before) for (const width of [390, 1440]) {
+  for (const [label, now, dates] of [
+    ['month', '2026-10-31T16:00:00Z', ['2026-10-31','2026-10-25','2026-10-24','2026-11-01']],
+    ['year', '2026-12-31T16:00:00Z', ['2026-12-31','2026-12-25','2026-12-24','2027-01-01']],
+  ]) test(`${engine} ${width}: ${label} midnight updates cached widget and open modal without refetch`, {timeout:120000}, async () => {
+    const rows = [badgeRow(1,dates[0],0), badgeRow(2,dates[1]), badgeRow(3,dates[2]), badgeRow(4,dates[3]), badgeRow(5,'2026-02-30'), badgeRow(6,null)];
+    const f = await fixture(width, 844, false, false, {now, rows, cache:true}), p = f.page;
+    try {
+      await f.opener.click(); await loaded(p);
+      await p.clock.pauseAt(new Date(now.slice(0,10) + 'T16:59:59.000Z'));
+      await badges(p,rows,[1,2]);
+      const reads = f.calls.length;
+      assert.equal(f.calls.filter(c=>c.offset===undefined).length,0,'Widget uses session cache');
+      await p.clock.runFor(999); await badges(p,rows,[1,2]);
+      await p.clock.runFor(1);
+      await p.clock.resume();
+      await p.waitForFunction(() => document.querySelector('#root a[href$="/badge/4"] .ui-new-badge'));
+      await badges(p,rows,[1,4]);
+      assert.equal(f.calls.length,reads,'Midnight only rerenders badges');
+      // Observe long-lived timers after focus rearms the clock. StrictMode
+      // and unmount must leave neither a timer nor listeners that rearm it.
+      await p.evaluate(() => {
+        const pending = window.announcementDailyTimers = new Set();
+        const schedule = window.setTimeout.bind(window), cancel = window.clearTimeout.bind(window);
+        window.setTimeout = (callback, delay, ...args) => {
+          if (!(delay > 60_000)) return schedule(callback, delay, ...args);
+          const id = schedule(() => { pending.delete(id); callback(...args); }, delay);
+          pending.add(id); return id;
+        };
+        window.clearTimeout = id => { pending.delete(id); cancel(id); };
+        window.dispatchEvent(new Event('focus'));
+      });
+      assert.equal(await p.evaluate(()=>window.announcementDailyTimers.size),1);
+      await close(p).click(); await panel(p).waitFor({state:'detached'});
+      await p.evaluate(()=>window.announcementsHarness.unmount());
+      await p.waitForFunction(()=>!document.querySelector('#root a[href$="/badge/1"]'));
+      assert.equal(await p.evaluate(()=>window.announcementDailyTimers.size),0);
+      await p.clock.fastForward(86_400_000);
+      await p.evaluate(()=>{window.dispatchEvent(new Event('focus'));document.dispatchEvent(new Event('visibilitychange'));});
+      assert.equal(await p.evaluate(()=>window.announcementDailyTimers.size),0);
+      assert.equal(f.calls.length,reads);
+      assert.deepEqual(f.errors,[]); assert.deepEqual(f.writes,[]);
+    } finally { await f.context.close(); }
+  });
+
+  for (const event of ['focus','visibilitychange']) test(`${engine} ${width}: ${event} resynchronizes the day after suspended timers`, {timeout:120000}, async () => {
+    const rows = [badgeRow(1,'2026-10-25'),badgeRow(2,'2026-11-03',0)];
+    const f = await fixture(width,844,false,false,{now:'2026-10-31T10:00:00Z',rows}),p=f.page;
+    try {
+      await f.opener.click(); await loaded(p); await badges(p,rows,[1]);
+      const reads = f.calls.length;
+      await p.clock.setSystemTime(new Date('2026-11-03T10:00:00Z'));
+      await badges(p,rows,[1]); // Wall time changed while no timer fired.
+      await p.evaluate(event=>{
+        if(event==='visibilitychange') Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});
+        (event==='focus'?window:document).dispatchEvent(new Event(event));
+      },event);
+      await p.waitForFunction(()=>document.querySelector('#root a[href$="/badge/2"] .ui-new-badge'));
+      await badges(p,rows,[2]);
+      assert.equal(f.calls.length,reads); assert.deepEqual(f.errors,[]); assert.deepEqual(f.writes,[]);
+    } finally { await f.context.close(); }
+  });
 }
 const panel = p => p.locator('[data-overlay-root] > div');
 const search = p => p.getByPlaceholder('Nhập tên thông báo cần tìm...');
