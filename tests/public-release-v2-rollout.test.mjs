@@ -208,7 +208,7 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
 
 test('current reviewed v473 baseline matches official receipts, exact-SHA validation and Cloudflare live metadata',()=>{
   const e=JSON.parse(readFileSync('docs/public-release-baseline-655fda62.json','utf8'));
-  assert.equal(before,'655fda62-1767-4fb9-992e-780de214d2ec');assert.equal(e.version,before);
+  assert.equal(e.version,'655fda62-1767-4fb9-992e-780de214d2ec');assert.equal(e.version,before);
   assert.equal(e.previousVersion,historicalV472);assert.equal(e.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-2a898cfc.json','utf8')).version);
   assert.equal(e.runId,'41164138113');assert.equal(e.sha,'bba1b6f357077646b9ce16070e4abf8fc0ac0304');
   assert.equal(e.worker,'hub-planner-public-dev-api');assert.equal(e.account,PUBLIC_RELEASE_ACCOUNT);
