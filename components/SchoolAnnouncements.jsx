@@ -1,6 +1,6 @@
 import { Overlay } from './Overlay';
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building, ChevronDown } from 'lucide-react';
+import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building, ChevronDown, Star } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { fetchSchoolAnnouncements } from '../utils/announcementsApi';
 import { isRecentSchoolAnnouncement } from '../utils/schoolAnnouncementRecency';
@@ -279,6 +279,7 @@ const SchoolAnnouncements = () => {
                 >
                   <div className="flex justify-between items-start gap-2 mb-1">
                     <p className="ui-secondary text-xs lg:text-sm font-medium text-gray-800 group-hover:text-[#003375] line-clamp-2 leading-snug transition-colors">
+                      {item.is_highlighted && <Star size={13} fill="currentColor" className="inline-block mr-1 text-[#0052cc]" aria-label="Thông báo nổi bật" />}
                       {item.title}
                     </p>
                     {isRecent && <span className="ui-meta ui-new-badge bg-red-500 text-white text-[8px] lg:text-[9px] px-1 lg:px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
@@ -443,6 +444,7 @@ const SchoolAnnouncements = () => {
                             </span>
                           </div>
                           <p className="text-sm font-bold text-gray-800 group-hover:text-[#003375] line-clamp-3 leading-snug transition-colors">
+                            {item.is_highlighted && <Star size={13} fill="currentColor" className="inline-block mr-1 text-[#0052cc]" aria-label="Thông báo nổi bật" />}
                             {item.title}
                           </p>
                         </div>

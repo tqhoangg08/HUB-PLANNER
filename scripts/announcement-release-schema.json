@@ -1,0 +1,112 @@
+[
+  {
+    "type": "index",
+    "name": "school_announcements_admin_order",
+    "sql": "CREATE INDEX school_announcements_admin_order ON school_announcements(is_deleted,date DESC,id DESC)"
+  },
+  {
+    "type": "index",
+    "name": "school_announcements_crawler_title",
+    "sql": "CREATE INDEX school_announcements_crawler_title ON school_announcements(crawler_title_search)"
+  },
+  {
+    "type": "index",
+    "name": "school_announcements_date_idx",
+    "sql": "CREATE INDEX school_announcements_date_idx ON school_announcements(date DESC)"
+  },
+  {
+    "type": "index",
+    "name": "school_announcements_title_search_idx",
+    "sql": "CREATE INDEX school_announcements_title_search_idx\n  ON school_announcements (title_search)"
+  },
+  {
+    "type": "index",
+    "name": "school_announcements_visible_date_created_idx",
+    "sql": "CREATE INDEX school_announcements_visible_date_created_idx\n  ON school_announcements (is_hidden, date DESC, created_at DESC)"
+  },
+  {
+    "type": "index",
+    "name": "school_push_claim_idx",
+    "sql": "CREATE INDEX school_push_claim_idx\n  ON school_announcement_push_queue(sent_at, failed_at, next_retry_at, lease_expires_at, scheduled_at)"
+  },
+  {
+    "type": "index",
+    "name": "school_push_due_idx",
+    "sql": "CREATE INDEX school_push_due_idx\n  ON school_announcement_push_queue(sent_at, failed_at, scheduled_at)"
+  },
+  {
+    "type": "table",
+    "name": "announcement_id_sequence",
+    "sql": "CREATE TABLE announcement_id_sequence (singleton INTEGER PRIMARY KEY CHECK(singleton=1), last_id INTEGER NOT NULL)"
+  },
+  {
+    "type": "table",
+    "name": "school_announcement_push_queue",
+    "sql": "CREATE TABLE school_announcement_push_queue (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  announcement_id INTEGER NOT NULL UNIQUE,\n  title TEXT NOT NULL,\n  link TEXT,\n  scheduled_at TEXT NOT NULL,\n  sent_at TEXT,\n  failed_at TEXT,\n  attempts INTEGER NOT NULL DEFAULT 0,\n  delivery_cursor TEXT,\n  sent_count INTEGER NOT NULL DEFAULT 0,\n  failed_count INTEGER NOT NULL DEFAULT 0,\n  skipped_count INTEGER NOT NULL DEFAULT 0,\n  last_error TEXT,\n  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP\n, lease_expires_at TEXT, next_retry_at TEXT)"
+  },
+  {
+    "type": "table",
+    "name": "school_announcements",
+    "sql": "CREATE TABLE school_announcements (\n  id INTEGER PRIMARY KEY,\n  title TEXT NOT NULL,\n  title_search TEXT NOT NULL,\n  link TEXT NOT NULL UNIQUE,\n  date TEXT,\n  is_new INTEGER NOT NULL DEFAULT 0 CHECK (is_new IN (0, 1)),\n  created_at TEXT,\n  is_hidden INTEGER NOT NULL DEFAULT 0 CHECK (is_hidden IN (0, 1))\n, updated_at TEXT, department TEXT NOT NULL DEFAULT '', department_search TEXT NOT NULL DEFAULT '', is_highlighted INTEGER NOT NULL DEFAULT 0 CHECK(is_highlighted IN (0,1)), is_deleted INTEGER NOT NULL DEFAULT 0 CHECK(is_deleted IN (0,1)), source_kind TEXT NOT NULL DEFAULT 'crawler' CHECK(source_kind IN ('crawler','manual')), admin_revision INTEGER NOT NULL DEFAULT 0, content_overridden INTEGER NOT NULL DEFAULT 0 CHECK(content_overridden IN (0,1)), crawler_title_search TEXT)"
+  },
+  {
+    "type": "trigger",
+    "name": "announcement_id_high_watermark",
+    "sql": "CREATE TRIGGER announcement_id_high_watermark AFTER INSERT ON school_announcements BEGIN\n UPDATE announcement_id_sequence SET last_id=MAX(last_id,NEW.id) WHERE singleton=1;\nEND"
+  },
+  {
+    "type": "trigger",
+    "name": "announcement_metadata_delete",
+    "sql": "CREATE TRIGGER announcement_metadata_delete AFTER DELETE ON school_announcements BEGIN\n UPDATE sync_metadata SET source_row_count=source_row_count-1,\n visible_row_count=visible_row_count-(OLD.is_hidden=0),\n synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE resource='school_announcements';\nEND"
+  },
+  {
+    "type": "trigger",
+    "name": "announcement_metadata_insert",
+    "sql": "CREATE TRIGGER announcement_metadata_insert AFTER INSERT ON school_announcements BEGIN\n UPDATE sync_metadata SET source_row_count=source_row_count+1,\n visible_row_count=visible_row_count+(NEW.is_hidden=0),\n source_max_created_at=MAX(COALESCE(source_max_created_at,''),COALESCE(NEW.created_at,'')),\n synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE resource='school_announcements';\nEND"
+  },
+  {
+    "type": "trigger",
+    "name": "announcement_metadata_visibility",
+    "sql": "CREATE TRIGGER announcement_metadata_visibility AFTER UPDATE OF is_hidden ON school_announcements\nWHEN OLD.is_hidden IS NOT NEW.is_hidden BEGIN\n UPDATE sync_metadata SET visible_row_count=visible_row_count+(NEW.is_hidden=0)-(OLD.is_hidden=0),\n synced_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE resource='school_announcements';\nEND"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_capture_source_title",
+    "sql": "CREATE TRIGGER school_announcements_capture_source_title AFTER UPDATE OF title ON school_announcements\r\nWHEN OLD.source_kind='crawler' AND NEW.admin_revision!=OLD.admin_revision\r\n AND NEW.title IS NOT OLD.title AND OLD.crawler_title_search IS NULL\r\nBEGIN UPDATE school_announcements SET crawler_title_search=OLD.title_search WHERE id=NEW.id; END"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_content_owner",
+    "sql": "CREATE TRIGGER school_announcements_content_owner BEFORE UPDATE OF title,title_search,date ON school_announcements\r\nWHEN (OLD.content_overridden=1 OR OLD.source_kind='manual') AND NEW.admin_revision=OLD.admin_revision\r\nBEGIN\r\n UPDATE school_announcements SET crawler_title_search=NEW.title_search\r\n WHERE id=OLD.id AND crawler_title_search IS NOT NEW.title_search;\r\n SELECT RAISE(IGNORE);\r\nEND"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_crawler_identity",
+    "sql": "CREATE TRIGGER school_announcements_crawler_identity BEFORE UPDATE OF link ON school_announcements\r\nWHEN OLD.source_kind='crawler' AND NEW.link IS NOT OLD.link\r\nBEGIN SELECT RAISE(ABORT,'crawler_source_url_is_immutable'); END"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_crawler_revision",
+    "sql": "CREATE TRIGGER school_announcements_crawler_revision AFTER UPDATE OF title,title_search,date ON school_announcements\r\nWHEN NEW.admin_revision=OLD.admin_revision AND\r\n (NEW.title IS NOT OLD.title OR NEW.title_search IS NOT OLD.title_search OR NEW.date IS NOT OLD.date)\r\nBEGIN UPDATE school_announcements SET admin_revision=admin_revision+1 WHERE id=NEW.id; END"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_deleted_insert",
+    "sql": "CREATE TRIGGER school_announcements_deleted_insert BEFORE INSERT ON school_announcements\r\nWHEN NEW.is_deleted=1 AND NEW.is_hidden!=1 BEGIN SELECT RAISE(ABORT,'deleted_announcement_must_be_hidden'); END"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_deleted_visibility",
+    "sql": "CREATE TRIGGER school_announcements_deleted_visibility BEFORE UPDATE ON school_announcements\r\nWHEN NEW.is_deleted=1 AND NEW.is_hidden!=1 BEGIN SELECT RAISE(ABORT,'deleted_announcement_must_be_hidden'); END"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_hide_push",
+    "sql": "CREATE TRIGGER school_announcements_hide_push AFTER UPDATE OF is_hidden ON school_announcements\r\nWHEN NEW.is_hidden=1 AND OLD.is_hidden!=1\r\nBEGIN\r\n UPDATE school_announcement_push_queue\r\n SET failed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),last_error='ANNOUNCEMENT_HIDDEN'\r\n WHERE announcement_id=NEW.id AND sent_at IS NULL AND failed_at IS NULL;\r\nEND"
+  },
+  {
+    "type": "trigger",
+    "name": "school_announcements_source_title_dedupe",
+    "sql": "CREATE TRIGGER school_announcements_source_title_dedupe BEFORE INSERT ON school_announcements\r\nWHEN NEW.source_kind='crawler' AND EXISTS(SELECT 1 FROM school_announcements WHERE crawler_title_search=NEW.title_search)\r\nBEGIN SELECT RAISE(IGNORE); END"
+  }
+]

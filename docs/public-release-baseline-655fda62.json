@@ -1,0 +1,90 @@
+{
+  "task": "Review the serving Public Worker v473 as the exact predeploy baseline; add the separate 0060 release prerequisite without deploying",
+  "previousVersion": "2a898cfc-0e65-4e33-bd07-49901f0ec06b",
+  "version": "655fda62-1767-4fb9-992e-780de214d2ec",
+  "worker": "hub-planner-public-dev-api",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "runId": "41164138113",
+  "sha": "bba1b6f357077646b9ce16070e4abf8fc0ac0304",
+  "release": {
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/41164138113",
+    "name": "Approved Public-only production release",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "releasePublicStartedAt": "2026-10-31T03:32:04Z",
+    "releasePublicCompletedAt": "2026-10-31T03:32:59Z",
+    "validateConclusion": "success",
+    "publicConclusion": "success",
+    "stepConclusions": {
+      "predeploy": "success",
+      "ownerApproval": "success",
+      "deploy": "success",
+      "postdeploy": "success"
+    },
+    "receipts": {
+      "predeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=2a898cfc-0e65-4e33-bd07-49901f0ec06b",
+      "ownerApproval": "PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "deployedVersion": "Current Version ID: 655fda62-1767-4fb9-992e-780de214d2ec",
+      "postdeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=655fda62-1767-4fb9-992e-780de214d2ec"
+    },
+    "logReceipts": [
+      "2026-10-31T03:32:43.4097860Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=2a898cfc-0e65-4e33-bd07-49901f0ec06b",
+      "2026-10-31T03:32:43.5132311Z   APPROVED_SHA: bba1b6f357077646b9ce16070e4abf8fc0ac0304",
+      "2026-10-31T03:32:44.9806215Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "2026-10-31T03:32:54.3286287Z Current Version ID: 655fda62-1767-4fb9-992e-780de214d2ec",
+      "2026-10-31T03:32:57.1198707Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=655fda62-1767-4fb9-992e-780de214d2ec"
+    ]
+  },
+  "independentValidation": {
+    "runId": "41163724015",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/41163724015",
+    "sha": "bba1b6f357077646b9ce16070e4abf8fc0ac0304",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "liveMetadata": {
+    "method": "Cloudflare Workers API read-only GETs via connected Cloudflare account",
+    "environment": "Production",
+    "deployment": {
+      "id": "aa640be5-ed89-47fd-92c0-5973404782d2",
+      "createdOn": "2026-10-31T03:32:50.358239Z",
+      "source": "wrangler",
+      "versions": [
+        {
+          "version_id": "655fda62-1767-4fb9-992e-780de214d2ec",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "655fda62-1767-4fb9-992e-780de214d2ec",
+      "number": 473,
+      "createdOn": "2026-10-31T03:32:49.749467Z",
+      "source": "wrangler",
+      "etag": "ed004cf2a6075b7e20f603eea4d8d957ae17ff18b4395503632c48353e57702d"
+    }
+  },
+  "rollout": {
+    "v2Mode": "canary",
+    "v2Percent": "100",
+    "documentFlags": {
+      "AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED": "false",
+      "AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT": "0",
+      "AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED": "false"
+    }
+  },
+  "limitations": [
+    "The serving version has no Git SHA annotation; source SHA is correlated through the successful official workflow checkout, deployed UUID, timestamps and postflight receipt.",
+    "Historical v472 evidence is preserved without edits in docs/public-release-baseline-2a898cfc.json.",
+    "Migration 0060 is not applied by this change. New code must fail closed until its exact schema and ledger are separately approved and verified.",
+    "Connected GitHub App returns 403 for classic branch protection; this is a release blocker, not a reason to bypass its mandatory Administration:read check.",
+    "No deployment, production D1 writes, migrations, replay/backfill, push delivery, traffic/config/secret changes or release approval are performed while preparing this PR."
+  ]
+}

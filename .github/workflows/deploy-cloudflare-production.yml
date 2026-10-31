@@ -52,6 +52,8 @@ jobs:
       - run: npm run test:advisor
       - name: Text-first schema, authorization, publication and revision regressions
         run: node --test --experimental-strip-types tests/ai-text-documents.test.ts
+      - name: School announcement CRUD, crawler, Highlight, push and migration release regressions
+        run: node --test --experimental-strip-types tests/admin-announcements.test.ts tests/announcement-d1-authority.test.ts tests/cloudflare-announcements-model.test.ts tests/push-delivery-write-optimization.test.ts tests/announcement-release-schema.test.mjs
       - run: npm run typecheck
       - run: npm run cf:typecheck
 

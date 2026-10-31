@@ -37,6 +37,8 @@ jobs:
         run: npm run test:advisor
       - name: Text-first schema, authorization, revisions and receipt regressions
         run: node --test --experimental-strip-types tests/ai-text-documents.test.ts
+      - name: School announcement CRUD, crawler, Highlight, push and migration release regressions
+        run: node --test --experimental-strip-types tests/admin-announcements.test.ts tests/announcement-d1-authority.test.ts tests/cloudflare-announcements-model.test.ts tests/push-delivery-write-optimization.test.ts tests/announcement-release-schema.test.mjs
       - name: Frontend typecheck
         run: npm run typecheck
       - name: Worker typecheck
@@ -45,6 +47,8 @@ jobs:
         run: npm run build
       - name: Text-first local browser acceptance (no provider or deployment)
         run: node --test --experimental-strip-types tests/ai-text-documents.browser.test.ts
+      - name: School announcement desktop and mobile browser acceptance (local transports only)
+        run: node --test --experimental-strip-types tests/admin-announcements.browser.test.ts
       - name: Build isolated OCR review UI without deploying
         run: npx vite build --config staging/advisor/vite.config.mjs
       - name: Full offline/local suite

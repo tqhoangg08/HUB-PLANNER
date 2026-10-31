@@ -25,7 +25,7 @@ const RESOURCE_CARDS = [
     key: 'school_announcements',
     label: 'Thông báo trường',
     description: 'Danh sách thông báo công khai trên trang tổng quan.',
-    route: '/dashboard',
+    route: '/admin/announcements',
     actionLabel: 'Mở quản lý',
     secondaryLabel: 'Đang hiển thị',
     icon: BellRing,

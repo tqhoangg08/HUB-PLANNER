@@ -16,7 +16,7 @@ const schedule: StaffNavItem = { kind: 'link', label: 'Thời khóa biểu', to:
 const content: StaffNavItem[] = [
   { kind: 'link', label: 'Sự kiện ĐRL', to: '/events', icon: 'star' },
   { kind: 'link', label: 'Duyệt sự kiện', to: '/admin/event-candidates', icon: 'sparkles', badge: 'candidates' },
-  { kind: 'link', label: 'Thông báo trường', to: '/dashboard#announcements', icon: 'megaphone' },
+  { kind: 'link', label: 'Thông báo trường', to: '/admin/announcements', icon: 'megaphone' },
   { kind: 'link', label: 'Đồ thất lạc', to: '/lost-found', icon: 'search' },
 ];
 const reports: StaffNavItem = { kind: 'link', label: 'Báo cáo & vi phạm', to: '/admin-reports', icon: 'clipboard', badge: 'reports' };
