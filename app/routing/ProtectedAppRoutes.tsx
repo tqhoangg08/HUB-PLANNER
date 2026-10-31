@@ -6,6 +6,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { isOwnProfileRoute } from '../../utils/profileRouteApi';
 import {
     AdminEventCandidates,
+    AdminSchoolAnnouncements,
     AdminEventEditorPage,
     AdminOperationsDashboard,
     AdminAIDocuments,
@@ -179,6 +180,7 @@ export const ProtectedAppRoutes = ({
                 <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets isAdmin={isAdmin} /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/admin/announcements" element={isManagementUser ? <AdminSchoolAnnouncements isAdmin={isAdmin} /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/ai-documents" element={isAdmin ? <AdminAIDocuments /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/internal-accounts" element={isAdmin ? <AdminInternalAccounts /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates isAdmin={isAdmin} isAuditor={isAuditor} /> : <Navigate to="/mobile-home" replace />} />
@@ -283,6 +285,7 @@ export const ProtectedAppRoutes = ({
             <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets isAdmin={isAdmin} /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/admin/announcements" element={isManagementUser ? <AdminSchoolAnnouncements isAdmin={isAdmin} /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/ai-documents" element={isAdmin ? <AdminAIDocuments /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/internal-accounts" element={isAdmin ? <AdminInternalAccounts /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates isAdmin={isAdmin} isAuditor={isAuditor} /> : <Navigate to="/dashboard" replace />} />

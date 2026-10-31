@@ -25,6 +25,7 @@ import {
   type LostFoundEnv,
 } from './lost-found.ts';
 import { handleAdminEvents } from './admin-events.ts';
+import { handleAdminAnnouncements, adminAnnouncementErrorStatus, AdminAnnouncementError } from './admin-announcements.ts';
 import { EventBannerError, readEventBanner, uploadEventBanner } from './event-banner.ts';
 import { EventDrlApiError, handleEventDrlApi } from './event-drl-api.ts';
 import {
@@ -256,6 +257,7 @@ interface AnnouncementRow {
   is_new: number;
   date: string | null;
   created_at: string | null;
+  is_highlighted: number;
 }
 
 
@@ -923,7 +925,7 @@ const handleAnnouncements = async (requestUrl: URL, env: WorkerEnv) => {
 
   const total = Number(countRow?.total || 0);
   const rows = await env.DB.prepare(
-    `SELECT id, title, link, is_new, date, created_at
+    `SELECT id, title, link, is_new, date, created_at, is_highlighted
        FROM school_announcements
       WHERE ${whereSql}
       ORDER BY date DESC, created_at DESC
@@ -937,6 +939,7 @@ const handleAnnouncements = async (requestUrl: URL, env: WorkerEnv) => {
     title: row.title,
     link: row.link,
     is_new: Boolean(row.is_new),
+    is_highlighted: Boolean(row.is_highlighted),
     date: row.date,
     created_at: formatPostgrestTimestamp(row.created_at),
   }));
@@ -1965,6 +1968,15 @@ const worker = {
           ...cors,
           'Cache-Control': 'no-store',
         });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/v1/announcements') {
+      try {
+        return json(await handleAdminAnnouncements(request,requestUrl,env),200,{...cors,'Cache-Control':'private, no-store'});
+      } catch (error) {
+        const status=adminAnnouncementErrorStatus(error);
+        return json({error:error instanceof AdminAnnouncementError ? error.message : status===401 ? 'Phiên đăng nhập không hợp lệ.' : status===403 ? 'Không có quyền truy cập.' : 'Không thể quản lý thông báo lúc này.'},status,{...cors,'Cache-Control':'private, no-store'});
       }
     }
 

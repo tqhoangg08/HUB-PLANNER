@@ -461,6 +461,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       ? 'Quản lý hoạt động'
                                       : location.pathname.includes('admin/data')
                                       ? 'Trung tâm dữ liệu'
+                                      : location.pathname.includes('admin/announcements')
+                                      ? 'Quản lý thông báo trường'
                                       : location.pathname.includes('admin/event-candidates')
                                       ? 'Quản lý Duyệt sự kiện'
                                       : location.pathname.includes('admin-reports')

@@ -16,7 +16,7 @@ export class NotificationCronError extends Error {
 type QueueAction = 'status' | 'suppress_backlog' | 'dry_run' | 'process';
 type OutboxTable = 'school_announcement_push_queue' | 'lost_found_push_queue';
 type SourceColumn = 'announcement_id' | 'lost_found_item_id';
-type QueueRow = { id: number; source_id: string | number; title: string; body?: string; url: string };
+type QueueRow = { id: number; source_id: string | number; title: string; body?: string; url: string; source_hidden: number | null };
 export type OutboxProcessResult = {
   success: boolean; queued: number; sent: number; state: 'idle' | 'claimed' | 'sent' | 'pending';
   hasMore?: boolean; retryAt?: string | null;
@@ -31,10 +31,11 @@ export const enqueueSchoolAnnouncementPush = async (
   env: NotificationCronEnv,
   announcement: { id: string | number; title: string; link: string | null },
 ) => {
+  const scheduledAt = new Date().toISOString();
   const inserted = await env.DB.prepare(
-    `INSERT OR IGNORE INTO school_announcement_push_queue
-       (announcement_id, title, link, scheduled_at) VALUES (?, ?, ?, ?)`,
-  ).bind(announcement.id, announcement.title, announcement.link, new Date().toISOString()).run();
+    `INSERT OR IGNORE INTO school_announcement_push_queue (announcement_id,title,link,scheduled_at)
+     SELECT id,title,link,? FROM school_announcements WHERE id=? AND is_hidden=0`,
+  ).bind(scheduledAt,announcement.id).run();
   const created = Number(inserted.meta?.changes || 0) === 1;
   return { inserted: created, signaled: created ? await publishPushEvent(env, { v: 1, type: 'school', sourceId: announcement.id }) : false };
 };
@@ -70,7 +71,8 @@ const findDueRow = async (env: NotificationCronEnv, type: Extract<PushEventType,
   if (sourceId !== undefined) bindings.push(sourceId);
   return env.DB.prepare(
     `SELECT id, ${sourceColumn} AS source_id, title, ${bodyExpression},
-            ${table === 'school_announcement_push_queue' ? "COALESCE(link, '/announcements')" : 'url'} AS url
+            ${table === 'school_announcement_push_queue' ? "COALESCE(link, '/announcements')" : 'url'} AS url,
+            ${type === 'school' ? '(SELECT is_hidden FROM school_announcements WHERE id=announcement_id)' : '0'} AS source_hidden
        FROM ${table}
       WHERE sent_at IS NULL AND failed_at IS NULL AND scheduled_at <= ?
         AND (next_retry_at IS NULL OR next_retry_at <= ?)
@@ -90,6 +92,13 @@ export const processNotificationOutboxItem = async (
   const row = await findDueRow(env, type, sourceId);
   if (!row) return { success: true, queued: 0, sent: 0, state: 'idle' };
   const now = new Date().toISOString();
+  if (type === 'school' && row.source_hidden !== 0) {
+    await env.DB.prepare(`UPDATE school_announcement_push_queue
+      SET failed_at=?,last_error='ANNOUNCEMENT_HIDDEN'
+      WHERE id=? AND sent_at IS NULL AND failed_at IS NULL
+        AND (lease_expires_at IS NULL OR lease_expires_at<=?)`).bind(now,row.id,now).run();
+    return { success: true, queued: 0, sent: 0, state: 'idle' };
+  }
   const leaseExpiresAt = new Date(Date.now() + CLAIM_LEASE_MS).toISOString();
   // Shared atomic lease: fallback cron and duplicate Queue messages race
   // safely, with exactly one winner allowed to deliver this outbox item.
@@ -97,7 +106,8 @@ export const processNotificationOutboxItem = async (
     `UPDATE ${table} SET lease_expires_at = ?
       WHERE id = ? AND ${sourceColumn} = ? AND sent_at IS NULL AND failed_at IS NULL
         AND (next_retry_at IS NULL OR next_retry_at <= ?)
-        AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`,
+        AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+        ${type === 'school' ? 'AND EXISTS(SELECT 1 FROM school_announcements WHERE id=announcement_id AND is_hidden=0)' : ''}`,
   ).bind(leaseExpiresAt, row.id, row.source_id, now, now).run();
   if (Number(claimed.meta?.changes || 0) !== 1) return { success: true, queued: 0, sent: 0, state: 'claimed' };
 

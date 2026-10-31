@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     Bell,
+    Star,
     Book,
     BookOpen,
     Calculator,
@@ -179,7 +180,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                                         <Newspaper size={21} strokeWidth={2.2} />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                        <span className="ui-readable ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.title}</span>
+                                        <span className="ui-readable ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.is_highlighted && <Star size={12} fill="currentColor" className="inline-block mr-1 text-[#0052cc]" aria-label="Thông báo nổi bật"/>}{news.title}</span>
                                         <span className="ui-meta mt-1 block text-[10px] font-bold text-[#475569]">{formatNewsDate(news)}</span>
                                     </span>
                                     <ChevronRight size={18} className="shrink-0 text-[#B0BCDA]" />
@@ -343,7 +344,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                                     <Newspaper size={21} strokeWidth={2.2} />
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="ui-readable ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.title}</span>
+                                    <span className="ui-readable ui-card-title line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{news.is_highlighted && <Star size={12} fill="currentColor" className="inline-block mr-1 text-[#0052cc]" aria-label="Thông báo nổi bật"/>}{news.title}</span>
                                     <span className="ui-meta mt-1 block text-[10px] font-bold text-[#475569]">{formatNewsDate(news)}</span>
                                 </span>
                                 <ChevronRight size={18} className="shrink-0 text-[#B0BCDA]" />
