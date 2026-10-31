@@ -474,7 +474,7 @@ const recoverMissingR2CandidateImage = async (
 // A claim prevents concurrent duplicate submissions from storing multiple R2 objects.
 // Neither this path nor its completion changes moderation state or staff-selected banners.
 const claimCandidateImage = async (
-  env: EventCandidatesEnv, candidate: StoredCandidate, basis: CandidateImageRightsBasis,
+  env: EventCandidatesEnv, candidate: StoredCandidate, basis: CandidateImageRightsBasis | null,
 ): Promise<string | null> => {
   if (candidate.review_status !== 'pending' || isDurableCandidateImage(candidate.image_url)) return null;
   const claimedAt = new Date().toISOString();
@@ -530,9 +530,9 @@ const downloadCandidateImage = async (
 
 const scheduleCandidateImage = async (
   env: EventCandidatesEnv, candidate: StoredCandidate, source: URL | null,
-  basis: CandidateImageRightsBasis | null, defer: (task: Promise<unknown>) => void,
+  basis: CandidateImageRightsBasis | null, requested: boolean, defer: (task: Promise<unknown>) => void,
 ) => {
-  if (!source || !basis || !env.SUPPORT_ATTACHMENTS_BUCKET) return false;
+  if (!source || !requested || !env.SUPPORT_ATTACHMENTS_BUCKET) return false;
   const current = await recoverMissingR2CandidateImage(env, candidate);
   const claimedAt = await claimCandidateImage(env, current, basis);
   if (!claimedAt) return false;
@@ -558,8 +558,11 @@ const ingestCandidate = async (
   }
   const imageSource = allowedCandidateImageUrl(body.image_url);
   const rightsBasis = imageRightsBasis(body.image_rights_basis, body.image_rights_confirmed);
+  // A request to ingest for moderation is not a declaration of ownership.
+  // Preserve explicit rights from legacy clients; newer clients may leave it null.
+  const imageRequested = body.image_ingest_requested === true || rightsBasis !== null;
   const duplicateResult = async (candidate: StoredCandidate) => {
-    const imageScheduled = await scheduleCandidateImage(env, candidate, imageSource, rightsBasis, defer);
+    const imageScheduled = await scheduleCandidateImage(env, candidate, imageSource, rightsBasis, imageRequested, defer);
     let predictionStatus: CandidatePredictionStatus = null;
     try { predictionStatus = await ensureCandidateDrlPrediction(env, candidate.id, defer); }
     catch { console.warn(JSON.stringify({ event: 'event_candidate_drl_prediction_unavailable' })); }
@@ -589,9 +592,9 @@ const ingestCandidate = async (
       RETURNING ${CANDIDATE_COLUMNS}`)
       .bind(
         id, createdAt, sourceName, postUrl, rawContent,
-        imageSource && rightsBasis && env.SUPPORT_ATTACHMENTS_BUCKET ? 'pending'
+        imageSource && imageRequested && env.SUPPORT_ATTACHMENTS_BUCKET ? 'pending'
           : body.image_url ? 'manual_required' : 'missing',
-        imageSource && rightsBasis && env.SUPPORT_ATTACHMENTS_BUCKET ? createdAt : null,
+        imageSource && imageRequested && env.SUPPORT_ATTACHMENTS_BUCKET ? createdAt : null,
         rightsBasis,
         optionalText(body.submitted_from, 120) || 'chrome_extension',
         normalizeTimestamp(body.client_created_at),
@@ -644,8 +647,8 @@ export const handleEventCandidateIngest = async (
 };
 
 // Optional extension fallback when a public CDN image cannot be fetched by the
-// Worker. The bearer secret is the existing ingest credential; the extension
-// must explicitly attest its right to supply this particular binary.
+// Worker. The bearer secret remains required. An explicit ingest request stores
+// the binary for moderation without asserting ownership; legacy rights still work.
 export const handleEventCandidateImageUpload = async (
   request: Request, env: EventCandidatesEnv, candidateId: string,
 ) => {
@@ -653,7 +656,8 @@ export const handleEventCandidateImageUpload = async (
   await requireIngestSecret(request, env);
   const basis = imageRightsBasis(request.headers.get('X-Image-Rights-Basis'),
     request.headers.get('X-Image-Rights-Confirmed') === 'true');
-  if (!basis) throw new EventCandidateError(403, 'Thiếu xác nhận quyền sử dụng ảnh.');
+  const requested = request.headers.get('X-Image-Ingest-Requested') === 'true';
+  if (!requested && !basis) throw new EventCandidateError(403, 'Thiếu yêu cầu lưu ảnh.');
   const initialCandidate = await candidateById(env, asCandidateId(candidateId));
   const candidate = initialCandidate ? await recoverMissingR2CandidateImage(env, initialCandidate) : null;
   if (!candidate) throw new EventCandidateError(404, 'Không tìm thấy candidate.');

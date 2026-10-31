@@ -74,6 +74,9 @@ const makeEnv = (role: 'admin' | 'auditor' | 'user' = 'admin') => {
       async put(key: string, bytes: Uint8Array) { imageObjects.set(key, bytes); },
       async delete(key: string) { imageObjects.delete(key); },
       async head(key: string) { return imageObjects.has(key) ? { key } : null; },
+      async get(key: string) { const bytes=imageObjects.get(key); return bytes ? {
+        body:bytes, httpMetadata:{contentType:'image/png'},
+      } : null; },
     },
     __imageObjects: imageObjects,
     __sql: sql,
@@ -768,4 +771,186 @@ test('binary fallback cannot overwrite reviewed candidates or staff-selected ban
   env.__imageObjects.set('event-banners/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png', TEST_IMAGE);
   await assert.rejects(handleEventCandidateImageUpload(binaryImageRequest(CANDIDATE_ID), env, String(CANDIDATE_ID)),
     (error: unknown) => error instanceof EventCandidateError && error.status === 409);
+});
+
+const requestedImageIngest = (postUrl: string, imageUrl: string | null = IMAGE_SOURCE, requested: unknown = true) =>
+  new Request(`${ORIGIN}/api/event-candidates`, {
+    method: 'POST', headers: { Authorization: 'Bearer fixture-ingest-secret', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ source_name: 'fixture', post_url: postUrl, raw_content: 'fixture event',
+      image_url: imageUrl, image_ingest_requested: requested }),
+  });
+const requestedBinaryImage = (headers: Record<string, string> = {}, bytes = TEST_IMAGE) =>
+  new Request(`${ORIGIN}/api/event-candidates/${CANDIDATE_ID}/image`, {
+    method: 'POST', headers: { Origin: OFFICIAL_EXTENSION_ORIGIN,
+      Authorization: 'Bearer fixture-ingest-secret', 'Content-Type': 'image/png',
+      'X-Image-Ingest-Requested': 'true', ...headers }, body: bytes,
+  });
+
+test('new image-ingest header passes preflight without expanding the origin or route allowlist', async () => {
+  const env = { ALLOWED_ORIGINS: ORIGIN, EVENT_CANDIDATE_EXTENSION_ORIGINS: OFFICIAL_EXTENSION_ORIGIN } as never;
+  const preflight = (origin: string, path = `/api/event-candidates/${CANDIDATE_ID}/image`) => worker.fetch(
+    new Request(`${ORIGIN}${path}`, { method: 'OPTIONS', headers: { Origin: origin,
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,content-type,x-image-ingest-requested' } }), env);
+  const allowed = await preflight(OFFICIAL_EXTENSION_ORIGIN);
+  assert.equal(allowed.status, 204);
+  assert.match(allowed.headers.get('Access-Control-Allow-Headers') || '', /X-Image-Ingest-Requested/i);
+  assert.match(allowed.headers.get('Access-Control-Allow-Headers') || '', /X-Image-Rights-Basis/i);
+  assert.equal((await preflight('chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')).status, 403);
+  assert.equal((await preflight(OFFICIAL_EXTENSION_ORIGIN, '/api/private/v1/me')).status, 403);
+});
+
+test('new binary protocol saves R2 and D1 through Worker instead of returning 403 or inventing image ownership', async () => {
+  const env = makeEnv(); seedCandidate(env);
+  Object.assign(env, { ALLOWED_ORIGINS: ORIGIN, EVENT_CANDIDATE_EXTENSION_ORIGINS: OFFICIAL_EXTENSION_ORIGIN });
+  try {
+    const response = await worker.fetch(requestedBinaryImage(), env);
+    assert.equal(response.status, 200, await response.clone().text());
+    assert.equal(response.headers.get('Access-Control-Allow-Origin'), OFFICIAL_EXTENSION_ORIGIN);
+    const payload = await response.json();
+    assert.equal(payload.candidate.image_ingest_status, 'stored');
+    assert.equal(env.__imageObjects.size, 1);
+    assert.deepEqual([...env.__imageObjects.values()][0], TEST_IMAGE);
+    const row = env.__sql.prepare('SELECT * FROM event_candidates WHERE id=?').get(CANDIDATE_ID);
+    assert.equal(row.image_rights_basis, null);
+    assert.equal(row.review_status, 'pending');
+    assert.equal(row.image_url, payload.candidate.image_url);
+    assert.equal(env.__sql.prepare('SELECT COUNT(*) n FROM public_events').get().n, 0);
+    assert.equal(env.__sql.prepare('SELECT COUNT(*) n FROM admin_events').get().n, 0);
+    const status = await handleEventCandidateImageStatus(new Request(`${ORIGIN}/api/event-candidates/${CANDIDATE_ID}/image-status`, {
+      headers: { Authorization: 'Bearer fixture-ingest-secret' },
+    }), env, String(CANDIDATE_ID));
+    assert.equal(status.image_stored, true);
+    // Merely knowing the stored URL must not bypass moderation or staff auth.
+    const imageRequest = (cookie = '') => new Request(`${ORIGIN}${row.image_url}`, { headers: cookie ? {Cookie:cookie} : {} });
+    assert.equal((await worker.fetch(imageRequest(),env)).status,401);
+    const preview=await worker.fetch(imageRequest('better-auth.session=opaque'),env);
+    assert.equal(preview.status,200);
+    assert.equal(preview.headers.get('Cache-Control'),'private, no-store');
+    env.__sql.prepare("UPDATE event_candidates SET review_status='rejected' WHERE id=?").run(CANDIDATE_ID);
+    assert.equal((await worker.fetch(imageRequest(),env)).status,401);
+    // An explicit staff approval is still the existing publication gate.
+    await handleAdminEventCandidates(actionRequest('approve'),new URL(`${ORIGIN}/api/admin/v1/event-candidates`),env)
+      .then(()=>assert.fail('Rejected candidates must not be approved'),error=>assert.equal(error.status,409));
+    env.__sql.prepare("UPDATE event_candidates SET review_status='pending' WHERE id=?").run(CANDIDATE_ID);
+    await handleAdminEventCandidates(actionRequest('approve'),new URL(`${ORIGIN}/api/admin/v1/event-candidates`),env);
+    assert.equal((await worker.fetch(imageRequest(),env)).status,200);
+  } finally { env.__sql.close(); }
+});
+
+test('new JSON protocol downloads once; duplicate candidates may add a missing image without creating another candidate', async () => {
+  const originalFetch = globalThis.fetch;
+  let downloads = 0;
+  globalThis.fetch = async input => {
+    if (String(input) !== IMAGE_SOURCE) throw new Error('fixture provider unavailable');
+    downloads++; return new Response(TEST_IMAGE, { headers: { 'Content-Type': 'image/png' } });
+  };
+  try {
+    for (const existing of [false, true]) {
+      const env = makeEnv();
+      if (existing) seedCandidate(env, {post_url:'https://example.test/new-protocol'});
+      try {
+        const tasks: Promise<unknown>[] = [];
+        const first = await handleEventCandidateIngest(requestedImageIngest('https://example.test/new-protocol'), env, task=>tasks.push(task));
+        await Promise.all(tasks);
+        assert.equal(first.duplicate, existing);
+        assert.equal(first.httpStatus, existing ? 200 : 201);
+        assert.equal(env.__sql.prepare('SELECT COUNT(*) n FROM event_candidates').get().n, 1);
+        const stored = env.__sql.prepare('SELECT * FROM event_candidates').get();
+        assert.equal(stored.image_ingest_status, 'stored');
+        assert.equal(stored.image_rights_basis, null);
+        assert.equal(stored.review_status, 'pending');
+        const again: Promise<unknown>[] = [];
+        const duplicate = await handleEventCandidateIngest(requestedImageIngest('https://example.test/new-protocol'), env, task=>again.push(task));
+        await Promise.all(again);
+        assert.equal(duplicate.candidate.id, first.candidate.id);
+        assert.equal(env.__imageObjects.size, 1);
+        assert.equal(env.__sql.prepare('SELECT COUNT(*) n FROM event_candidates').get().n, 1);
+        if (existing) assert.equal(stored.created_at, '2026-09-01T00:00:00.000000+00:00');
+        assert.equal(env.__sql.prepare('SELECT COUNT(*) n FROM public_events').get().n, 0);
+      } finally { env.__sql.close(); }
+    }
+    assert.equal(downloads, 2);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('duplicate candidate with no image can use the new binary fallback exactly once under concurrent uploads', async () => {
+  const env = makeEnv(); seedCandidate(env);
+  try {
+    const tasks: Promise<unknown>[] = [];
+    const duplicate = await handleEventCandidateIngest(requestedImageIngest('https://example.test/post', null), env,task=>tasks.push(task));
+    await Promise.all(tasks);
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(duplicate.candidate.id, CANDIDATE_ID);
+    const uploads = await Promise.allSettled([0,1].map(()=>handleEventCandidateImageUpload(requestedBinaryImage(),env,String(CANDIDATE_ID))));
+    assert.equal(uploads.filter(result=>result.status==='fulfilled').length, 1);
+    const rejected = uploads.find(result=>result.status==='rejected') as PromiseRejectedResult;
+    assert.equal(rejected.reason.status, 409);
+    assert.equal(env.__imageObjects.size, 1);
+    assert.equal(env.__sql.prepare('SELECT COUNT(*) n FROM event_candidates').get().n, 1);
+    assert.equal(env.__sql.prepare('SELECT image_ingest_status FROM event_candidates').get().image_ingest_status, 'stored');
+  } finally { env.__sql.close(); }
+});
+
+test('new binary protocol retains bearer, explicit request, MIME, size and moderation guards', async () => {
+  const env = makeEnv(); seedCandidate(env);
+  try {
+    for (const [headers, bytes, status] of [
+      [{Authorization:'Bearer wrong'}, TEST_IMAGE, 401],
+      [{'X-Image-Ingest-Requested':''}, TEST_IMAGE, 403],
+      [{'X-Image-Ingest-Requested':'false'}, TEST_IMAGE, 403],
+      [{'X-Image-Ingest-Requested':'1'}, TEST_IMAGE, 403],
+      [{'Content-Type':'image/jpeg'}, TEST_IMAGE, 415],
+      [{}, new Uint8Array(2*1024*1024+1), 413],
+    ] as const) {
+      await assert.rejects(handleEventCandidateImageUpload(requestedBinaryImage(headers,bytes),env,String(CANDIDATE_ID)),
+        (error: unknown)=>error instanceof EventCandidateError && error.status===status);
+      assert.equal(env.__imageObjects.size,0);
+    }
+    for (const reviewStatus of ['approved','rejected']) {
+      env.__sql.prepare('UPDATE event_candidates SET review_status=? WHERE id=?').run(reviewStatus,CANDIDATE_ID);
+      await assert.rejects(handleEventCandidateImageUpload(requestedBinaryImage(),env,String(CANDIDATE_ID)),
+        (error: unknown)=>error instanceof EventCandidateError && error.status===409);
+    }
+    assert.equal(env.__imageObjects.size,0);
+  } finally { env.__sql.close(); }
+});
+
+test('new JSON protocol does not fetch unsafe sources or treat truthy strings as ingest requests', async () => {
+  const env = makeEnv(), originalFetch = globalThis.fetch;
+  let downloads=0;
+  globalThis.fetch = async input=>{
+    if (String(input).includes('fbcdn') || String(input).includes('localhost')) downloads++;
+    throw new Error('fixture provider unavailable');
+  };
+  try {
+    const tasks: Promise<unknown>[] = [];
+    for (const [url, requested] of [[IMAGE_SOURCE,'true'],[IMAGE_SOURCE,false],['https://localhost/image.png',true]]) {
+      const result = await handleEventCandidateIngest(requestedImageIngest(`https://example.test/unsafe-${tasks.length}`,String(url),requested),env,task=>tasks.push(task));
+      assert.equal(result.candidate.image_ingest_status,'manual_required');
+    }
+    await Promise.all(tasks);
+    assert.equal(downloads,0); assert.equal(env.__imageObjects.size,0);
+  } finally { globalThis.fetch=originalFetch; env.__sql.close(); }
+});
+
+test('new binary upload failures leave failed state and remove orphan R2 objects before retry', async () => {
+  for (const failure of ['r2','d1']) {
+    const env = makeEnv(); seedCandidate(env);
+    const put = env.SUPPORT_ATTACHMENTS_BUCKET.put;
+    try {
+      if (failure==='r2') env.SUPPORT_ATTACHMENTS_BUCKET.put=async()=>{throw new Error('fixture R2 unavailable');};
+      else env.__sql.exec(`CREATE TRIGGER fixture_image_failure BEFORE UPDATE OF image_url ON event_candidates
+        WHEN NEW.image_url IS NOT NULL BEGIN SELECT RAISE(ABORT,'fixture D1 unavailable'); END;`);
+      await assert.rejects(handleEventCandidateImageUpload(requestedBinaryImage(),env,String(CANDIDATE_ID)),
+        (error: unknown)=>error instanceof EventCandidateError && error.status===503);
+      assert.equal(env.__imageObjects.size,0);
+      const failed=env.__sql.prepare('SELECT image_ingest_status,image_url,review_status FROM event_candidates').get();
+      assert.equal(failed.image_ingest_status,'failed'); assert.equal(failed.image_url,null); assert.equal(failed.review_status,'pending');
+      env.SUPPORT_ATTACHMENTS_BUCKET.put=put;
+      if(failure==='d1') env.__sql.exec('DROP TRIGGER fixture_image_failure');
+      assert.equal((await handleEventCandidateImageUpload(requestedBinaryImage(),env,String(CANDIDATE_ID))).candidate?.image_ingest_status,'stored');
+      assert.equal(env.__imageObjects.size,1);
+    } finally { env.__sql.close(); }
+  }
 });
