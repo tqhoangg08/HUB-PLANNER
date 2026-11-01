@@ -435,7 +435,7 @@
   background:#f2f6fc}
 @media(max-width:767px) {
   .ann-admin {
-  padding:16px}
+  padding:16px 0}
 .ann-admin-heading {
   align-items:flex-start;
   gap:12px;
