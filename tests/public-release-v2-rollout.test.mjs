@@ -16,6 +16,7 @@ const historicalBefore='e14d5e2c-e381-46b3-a27d-2f41e9c21249';
 const historicalV470='d4b614d4-1b59-47ec-be36-ad54a40e49f4';
 const historicalV471='edcbad46-de0e-439a-b00b-4e4a06a683b0';
 const historicalV472='2a898cfc-0e65-4e33-bd07-49901f0ec06b';
+const historicalV473='655fda62-1767-4fb9-992e-780de214d2ec';
 const {objects:announcementObjects,ledger:announcementLedger}=announcementReleaseFixture();
 const scratch=new DatabaseSync(':memory:');
 for(const migration of ['0032_ai_documents_chat_d1_r2_authority','0044_ai_document_ocr_ingestion','0045_ai_document_public_view_policy','0049_ai_document_derived_index_identity','0054_ai_document_search_ingestion_state','0055_ai_document_index_segment_count','0056_ai_text_document_revisions'])scratch.exec(readFileSync(`cloudflare/migrations/${migration}.sql`,'utf8'));
@@ -153,7 +154,7 @@ test('state reader uses only Public metadata GETs and the fixed read-only schema
 
 test('wrong account, Auth DB, absent previous version or invalid phase fail before network access',async()=>{
   for(const patch of [{account:'wrong'},{token:''},{phase:'skip'},{phase:'postdeploy',beforeVersion:undefined},{phase:'postdeploy',beforeVersion:after},
-    {phase:'postdeploy',beforeVersion:historicalV470},{phase:'postdeploy',beforeVersion:historicalV472},
+    {phase:'postdeploy',beforeVersion:historicalV470},{phase:'postdeploy',beforeVersion:historicalV472},{phase:'postdeploy',beforeVersion:historicalV473},
     {phase:'postdeploy',beforeVersion:'ecee213b-dbe8-4ce9-98e8-a8c9a13e184b'},
     {phase:'postdeploy',beforeVersion:'79c4f615-cab1-49be-81b4-6622bfe415d1'},
     {phase:'postdeploy',beforeVersion:'bba26eca-7811-4f1a-802e-f6bc7c6f7421'},
@@ -206,7 +207,41 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
   }
 });
 
-test('current reviewed v473 baseline matches official receipts, exact-SHA validation and Cloudflare live metadata',()=>{
+test('current reviewed v474 baseline matches official receipts, exact-SHA validation and Cloudflare live metadata',()=>{
+  const e=JSON.parse(readFileSync('docs/public-release-baseline-782cd1c4.json','utf8'));
+  assert.equal(before,'782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6');assert.equal(e.version,before);
+  assert.equal(e.previousVersion,historicalV473);assert.equal(e.previousVersion,JSON.parse(readFileSync(e.previousEvidence.path,'utf8')).version);
+  const hash=spawnSync('git',['hash-object',`--path=${e.previousEvidence.path}`,e.previousEvidence.path],{encoding:'utf8'});
+  assert.equal(hash.status,0);assert.equal(hash.stdout.trim(),e.previousEvidence.gitBlob);
+  assert.equal(e.runId,'41268885309');assert.equal(e.sha,'a1c4c9ccd47b767160424a32615870ccb7a1027e');
+  assert.equal(e.worker,config.name);assert.equal(e.account,PUBLIC_RELEASE_ACCOUNT);
+  assert.equal(e.release.url,`https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/${e.runId}`);
+  assert.equal(e.release.event,'workflow_dispatch');assert.equal(e.release.branch,'main');assert.equal(e.release.attempt,1);
+  assert.equal(e.release.status,'completed');assert.equal(e.release.conclusion,'success');
+  assert.equal(e.release.actorId,252552483);assert.equal(e.release.triggeringActorId,e.release.actorId);
+  assert.equal(e.release.validateConclusion,'success');assert.equal(e.release.publicConclusion,'success');
+  assert.deepEqual(e.release.stepConclusions,{predeploy:'success',ownerApproval:'success',deploy:'success',postdeploy:'success'});
+  assert.equal(e.release.receipts.predeploy,`PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=${historicalV473}`);
+  assert.equal(e.release.receipts.ownerApproval,'PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS');
+  assert.equal(e.release.receipts.deployedVersion,`Current Version ID: ${before}`);
+  assert.equal(e.release.receipts.postdeploy,`PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=${before}`);
+  for(const receipt of Object.values(e.release.receipts))assert.ok(e.release.logReceipts.some(line=>line.endsWith(receipt)));
+  assert.equal(e.independentValidation.runId,'41265433274');assert.equal(e.independentValidation.sha,e.sha);
+  assert.equal(e.independentValidation.event,'workflow_dispatch');assert.equal(e.independentValidation.branch,'main');
+  assert.equal(e.independentValidation.status,'completed');assert.equal(e.independentValidation.conclusion,'success');
+  assert.equal(e.liveMetadata.deployment.id,'f5bdbea8-5ce9-42e6-b3ac-31e2368f3b60');
+  assert.deepEqual(e.liveMetadata.deployment.versions,[{version_id:before,percentage:100}]);
+  assert.equal(e.liveMetadata.version.id,before);assert.equal(e.liveMetadata.version.number,474);
+  assert.equal(e.liveMetadata.version.etag,'4b22ecde4eecd2fe03e07f1b82415ccfc752efdf6a7fb188edea087a78764d89');
+  assert.equal(e.liveMetadata.version.source,'wrangler');assert.equal(e.liveMetadata.deployment.source,'wrangler');
+  assert.ok(Date.parse(e.release.releasePublicStartedAt)<=Date.parse(e.liveMetadata.version.createdOn));
+  assert.ok(Date.parse(e.liveMetadata.version.createdOn)<=Date.parse(e.liveMetadata.deployment.createdOn));
+  assert.ok(Date.parse(e.liveMetadata.deployment.createdOn)<=Date.parse(e.release.releasePublicCompletedAt));
+  assert.deepEqual(e.rollout,{v2Mode:'canary',v2Percent:'100',documentFlags:{AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED:'false',AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT:'0',AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED:'false'}});
+});
+
+test('historical reviewed v473 baseline matches official receipts, exact-SHA validation and Cloudflare live metadata',()=>{
+  const before=historicalV473;
   const e=JSON.parse(readFileSync('docs/public-release-baseline-655fda62.json','utf8'));
   assert.equal(e.version,'655fda62-1767-4fb9-992e-780de214d2ec');assert.equal(e.version,before);
   assert.equal(e.previousVersion,historicalV472);assert.equal(e.previousVersion,JSON.parse(readFileSync('docs/public-release-baseline-2a898cfc.json','utf8')).version);
@@ -361,8 +396,8 @@ test('historical reviewed v470 baseline is backed by successful owner-approved r
   assert.ok(Date.parse(evidence.liveMetadata.deployment.createdOn)<=Date.parse(evidence.release.releasePublicCompletedAt));
 });
 
-test('predeploy accepts reviewed v473 and retains historical v469 provenance assertions',async()=>{
-  assert.equal(before,'655fda62-1767-4fb9-992e-780de214d2ec');
+test('predeploy accepts reviewed v474 and retains historical v469 provenance assertions',async()=>{
+  assert.equal(before,'782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6');
   const evidence=JSON.parse(readFileSync('docs/public-release-baseline-e14d5e2c.json','utf8'));
   assert.equal(evidence.version,historicalBefore);assert.equal(evidence.runId,'39923225777');
   assert.equal(evidence.sha,'d92dc81c658891cbb0a60a93393dcc7ff41adae5');
@@ -456,7 +491,7 @@ test('predeploy accepts reviewed v473 and retains historical v469 provenance ass
   const unknown=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:after,percentage:100}]}]}):undefined);
   await assert.rejects(()=>checkPublicReleaseState(config,opts(unknown)),/UNREVIEWED_PREDEPLOY_VERSION/);
   assert.ok(!unknown.calls.some(c=>c.url.includes('/versions/')));
-  for(const obsoleteVersion of [historicalV472,historicalV471,historicalV470,historicalBefore,'ecee213b-dbe8-4ce9-98e8-a8c9a13e184b','79c4f615-cab1-49be-81b4-6622bfe415d1','bba26eca-7811-4f1a-802e-f6bc7c6f7421','f5abb252-a042-45e7-9f4e-96bdb550dd8e','58c94fc8-5bfe-41e3-97f5-d0c39bc8be65','cd1d81be-966f-4518-8729-0b1c3e5484ce','66bc5fd9-55f4-4983-9048-0a271550ef9f','93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
+  for(const obsoleteVersion of [historicalV473,historicalV472,historicalV471,historicalV470,historicalBefore,'ecee213b-dbe8-4ce9-98e8-a8c9a13e184b','79c4f615-cab1-49be-81b4-6622bfe415d1','bba26eca-7811-4f1a-802e-f6bc7c6f7421','f5abb252-a042-45e7-9f4e-96bdb550dd8e','58c94fc8-5bfe-41e3-97f5-d0c39bc8be65','cd1d81be-966f-4518-8729-0b1c3e5484ce','66bc5fd9-55f4-4983-9048-0a271550ef9f','93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
     const obsolete=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:obsoleteVersion,percentage:100}]}]}):undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(obsolete)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!obsolete.calls.some(c=>c.url.includes('/versions/')));
@@ -517,6 +552,18 @@ test('CLI cannot select arbitrary from/to percentages or disable drift checking'
     const r=spawnSync(process.execPath,['scripts/check-public-release-state.mjs',...flag.split(' ')],{encoding:'utf8',env:{}});
     assert.equal(r.status,1);assert.match(r.stderr,/UNSUPPORTED_RELEASE_ARGUMENT/);
   }
+});
+
+test('v474 baseline changes only the reviewed pin and comments; release workflow and owner approval stay unchanged',()=>{
+  const evidence=JSON.parse(readFileSync('docs/public-release-baseline-782cd1c4.json','utf8'));
+  const git=path=>{const r=spawnSync('git',['show',`${evidence.sha}:${path}`],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.replace(/\r\n/g,'\n');};
+  const normalize=s=>s.replace(/^\/\/ Reviewed release baseline:.*$/m,'<BASELINE_RECEIPT>')
+    .replace(/^\/\/ See docs\/public-release-baseline-.*$/m,'<BASELINE_EVIDENCE>')
+    .replace(/export const PUBLIC_RELEASE_PREDEPLOY_VERSION='[^']+';/,'<BASELINE_PIN>');
+  const path='scripts/check-public-release-state.mjs';
+  assert.equal(normalize(readFileSync(path,'utf8').replace(/\r\n/g,'\n')),normalize(git(path)));
+  for(const path of ['scripts/check-public-release-approval.mjs','.github/workflows/deploy-cloudflare-production.yml'])
+    assert.equal(readFileSync(path,'utf8').replace(/\r\n/g,'\n'),git(path));
 });
 
 test('0060 extends the gate without changing historical checks or baseline Git evidence',()=>{
