@@ -1,0 +1,106 @@
+{
+  "task": "Review serving Public Worker v474 as the exact predeploy baseline without changing release policies or production",
+  "previousVersion": "655fda62-1767-4fb9-992e-780de214d2ec",
+  "previousEvidence": {
+    "path": "docs/public-release-baseline-655fda62.json",
+    "gitBlob": "d7c7d64c75e1300bdeeafaad9d5cabf619d18137"
+  },
+  "version": "782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6",
+  "worker": "hub-planner-public-dev-api",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "runId": "41268885309",
+  "sha": "a1c4c9ccd47b767160424a32615870ccb7a1027e",
+  "release": {
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/41268885309",
+    "name": "Approved Public-only production release",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "releasePublicJobId": 124738139699,
+    "releasePublicStartedAt": "2026-11-01T03:31:05Z",
+    "releasePublicCompletedAt": "2026-11-01T03:32:03Z",
+    "validateConclusion": "success",
+    "publicConclusion": "success",
+    "stepConclusions": {
+      "predeploy": "success",
+      "ownerApproval": "success",
+      "deploy": "success",
+      "postdeploy": "success"
+    },
+    "receipts": {
+      "predeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=655fda62-1767-4fb9-992e-780de214d2ec",
+      "ownerApproval": "PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "deployedVersion": "Current Version ID: 782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6",
+      "postdeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6"
+    },
+    "logReceipts": [
+      "2026-11-01T03:31:07.5696505Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a1c4c9ccd47b767160424a32615870ccb7a1027e:refs/remotes/origin/main",
+      "2026-11-01T03:31:09.5907882Z  * [new ref]         a1c4c9ccd47b767160424a32615870ccb7a1027e -> origin/main",
+      "2026-11-01T03:31:09.9273261Z a1c4c9ccd47b767160424a32615870ccb7a1027e",
+      "2026-11-01T03:31:45.2641811Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=655fda62-1767-4fb9-992e-780de214d2ec",
+      "2026-11-01T03:31:45.2889638Z   APPROVED_SHA: a1c4c9ccd47b767160424a32615870ccb7a1027e",
+      "2026-11-01T03:31:46.8262506Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "2026-11-01T03:31:58.0033446Z Current Version ID: 782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6",
+      "2026-11-01T03:32:01.1225416Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6"
+    ]
+  },
+  "independentValidation": {
+    "runId": "41265433274",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/41265433274",
+    "sha": "a1c4c9ccd47b767160424a32615870ccb7a1027e",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "liveMetadata": {
+    "method": "Cloudflare Workers API read-only GETs via connected account",
+    "environment": "Production",
+    "checkedAtUtc": "2026-11-01T04:06:20.634Z",
+    "deployment": {
+      "id": "f5bdbea8-5ce9-42e6-b3ac-31e2368f3b60",
+      "createdOn": "2026-11-01T03:31:54.40274Z",
+      "source": "wrangler",
+      "versions": [
+        {
+          "version_id": "782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6",
+      "number": 474,
+      "createdOn": "2026-11-01T03:31:53.818908Z",
+      "source": "wrangler",
+      "etag": "4b22ecde4eecd2fe03e07f1b82415ccfc752efdf6a7fb188edea087a78764d89"
+    },
+    "database": [
+      {
+        "database_id": "88d702e1-60d3-490a-8514-38ef881cf133",
+        "id": "88d702e1-60d3-490a-8514-38ef881cf133",
+        "name": "DB",
+        "type": "d1"
+      }
+    ]
+  },
+  "rollout": {
+    "v2Mode": "canary",
+    "v2Percent": "100",
+    "documentFlags": {
+      "AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_ENABLED": "false",
+      "AI_ADVISOR_DOCUMENT_CLOUDFLARE_FIRST_PERCENT": "0",
+      "AI_ADVISOR_RETRIEVAL_COMPLETENESS_ENABLED": "false"
+    }
+  },
+  "limitations": [
+    "The serving version has no Git SHA annotation; the source SHA is correlated through official workflow checkout, deployed UUID, timestamps and postflight receipt.",
+    "This v474 deployment contains SHA a1c4c9ccd47b767160424a32615870ccb7a1027e; it does not establish deployment of PR #154.",
+    "All earlier baseline files, including v473, remain unchanged. Pin updates do not approve a subsequent release.",
+    "This change performs no deployment, production D1 writes, migration, replay/backfill, push, traffic/binding/secret changes, or release approval."
+  ]
+}
