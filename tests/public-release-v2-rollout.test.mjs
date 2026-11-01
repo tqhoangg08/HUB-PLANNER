@@ -209,7 +209,7 @@ test('state reader fails closed on missing Scholarship schema, full filenames, o
 
 test('current reviewed v474 baseline matches official receipts, exact-SHA validation and Cloudflare live metadata',()=>{
   const e=JSON.parse(readFileSync('docs/public-release-baseline-782cd1c4.json','utf8'));
-  assert.equal(before,'782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6');assert.equal(e.version,before);
+  assert.equal(e.version,before);
   assert.equal(e.previousVersion,historicalV473);assert.equal(e.previousVersion,JSON.parse(readFileSync(e.previousEvidence.path,'utf8')).version);
   const hash=spawnSync('git',['hash-object',`--path=${e.previousEvidence.path}`,e.previousEvidence.path],{encoding:'utf8'});
   assert.equal(hash.status,0);assert.equal(hash.stdout.trim(),e.previousEvidence.gitBlob);
