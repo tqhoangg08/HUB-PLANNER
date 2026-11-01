@@ -96,16 +96,36 @@ jobs:
               const created = Date.parse(run.created_at);
               requireValue(Number.isFinite(created) && now - created >= 300000 && now - created <= 86400000, 'TIME_BLOCKED');
             };
-            const validateEnvironment = (environment, policies) => {
+            const validateEnvironment = (environment, policies, owner) => {
               requireValue(environment.name === ENV && environment.can_admins_bypass === false &&
                 environment.deployment_branch_policy?.protected_branches === false && environment.deployment_branch_policy?.custom_branch_policies === true,
                 'ENVIRONMENT_BLOCKED');
               const rules = environment.protection_rules;
-              requireValue(Array.isArray(rules) && rules.length === 2 && rules.filter(r => r.type === 'branch_policy').length === 1 &&
-                rules.filter(r => r.type === 'wait_timer' && Number.isInteger(r.wait_timer) && r.wait_timer >= 5 && r.wait_timer <= 43200).length === 1,
+              // Exactly branch + timer, optionally the same solo-owner reviewer policy
+              // checked by check-public-release-approval.mjs. This is NOT approval.
+              const ruleFields = {
+                branch_policy: ['id', 'node_id', 'type'],
+                wait_timer: ['id', 'node_id', 'type', 'wait_timer'],
+                required_reviewers: ['id', 'node_id', 'type', 'prevent_self_review', 'reviewers']
+              };
+              requireValue(Array.isArray(rules) && (rules.length === 2 || rules.length === 3) &&
+                rules.every(r => r && typeof r === 'object' && !Array.isArray(r) && typeof r.type === 'string' &&
+                  Object.hasOwn(ruleFields, r.type) && Object.keys(r).every(key => ruleFields[r.type].includes(key))) &&
+                new Set(rules.map(r => r.type)).size === rules.length && rules.some(r => r.type === 'branch_policy'),
                 'ENVIRONMENT_BLOCKED');
+              const timer = rules.find(r => r.type === 'wait_timer');
+              requireValue(timer && Number.isInteger(timer.wait_timer) && timer.wait_timer >= 5 && timer.wait_timer <= 43200,
+                'ENVIRONMENT_BLOCKED');
+              const reviewerRule = rules.find(r => r.type === 'required_reviewers');
+              if (reviewerRule) {
+                requireValue(Number.isSafeInteger(environment.id) && environment.id > 0 && reviewerRule.prevent_self_review === false &&
+                  Array.isArray(reviewerRule.reviewers) && reviewerRule.reviewers.length === 1 &&
+                  reviewerRule.reviewers[0]?.type === 'User' && reviewerRule.reviewers[0].reviewer?.type === 'User' &&
+                  reviewerRule.reviewers[0].reviewer.id === owner.id && reviewerRule.reviewers[0].reviewer.login === owner.login,
+                  'ENVIRONMENT_BLOCKED');
+              }
               requireValue(policies.total_count === 1 && Array.isArray(policies.branch_policies) && policies.branch_policies.length === 1 &&
-                policies.branch_policies[0].name === 'main' && policies.branch_policies[0].type === 'branch', 'ENVIRONMENT_BLOCKED');
+                policies.branch_policies[0]?.name === 'main' && policies.branch_policies[0].type === 'branch', 'ENVIRONMENT_BLOCKED');
             };
             const validateClassic = p => {
               requireValue(p.enforce_admins?.enabled === true && p.allow_force_pushes?.enabled === false && p.allow_deletions?.enabled === false &&
@@ -121,7 +141,7 @@ jobs:
             const snapshot = async () => {
               const data = await Promise.all(['', '/branches/main', `/actions/runs/${c.runId}`, '/actions/workflows/public-release-metadata-probe.yml',
                 `/environments/${ENV}`, `/environments/${ENV}/deployment-branch-policies?per_page=100`].map(path => read(path)));
-              validateContext(...data.slice(0, 4)); validateEnvironment(...data.slice(4));
+              validateContext(...data.slice(0, 4)); validateEnvironment(data[4], data[5], data[0].owner);
               return data;
             };
             const before = await snapshot(); // Validate owner/provenance/live policy BEFORE sending PAT.

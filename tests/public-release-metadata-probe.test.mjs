@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
+import {validateEnvironment as validateReleaseEnvironment} from '../scripts/check-public-release-approval.mjs';
 
 // Test the exact embedded workflow code, not a duplicate implementation.
 const workflow = readFileSync(new URL('../.github/workflows/public-release-metadata-probe.yml', import.meta.url), 'utf8').replace(/\r\n/g,'\n');
@@ -30,6 +31,15 @@ const fixtures = () => ({
   '/environments/public-production/variables?per_page=100': {total_count:0,variables:[]}
 });
 const variable = name => ({name,value:'DO_NOT_OUTPUT_THIS_VALUE',created_at:'2026-10-10T00:00:00Z',updated_at:'2026-10-10T00:00:00Z'});
+const environmentPath = '/environments/public-production';
+const policiesPath = `${environmentPath}/deployment-branch-policies?per_page=100`;
+function reviewerFixtures() {
+  const f=fixtures();
+  f[environmentPath].id=23;
+  f[environmentPath].protection_rules.push({id:3,node_id:'rule-reviewers',type:'required_reviewers',prevent_self_review:false,
+    reviewers:[{type:'User',reviewer:{...f[''].owner}}]});
+  return f;
+}
 function harness(data = fixtures(), override) {
   const calls=[];
   return {calls, options:{now,ciToken:'short-lived-ci-fixture',metadataToken:'read-only-pat-fixture',fetchImpl:async(url,options)=>{
@@ -51,6 +61,89 @@ test('valid protected owner probe passes while approval variables absent: not re
   }
   assert.equal(h.calls.filter(c=>c.options.headers.Authorization.includes('read-only-pat-fixture')).length,3);
   assert.ok(h.calls.findIndex(c=>c.suffix==='/branches/main/protection')>=6,'verify provenance/environment before PAT reads');
+});
+
+for(const [label,change] of [
+  ['two rules',()=>{}],
+  ['three rules with exact owner reviewer',f=>Object.assign(f,reviewerFixtures())],
+  ['three rules in API-independent order',f=>{Object.assign(f,reviewerFixtures());f[environmentPath].protection_rules.reverse();}],
+  ['maximum wait timer',f=>{Object.assign(f,reviewerFixtures());f[environmentPath].protection_rules.find(r=>r.type==='wait_timer').wait_timer=43200;}],
+  ['GitHub rule identifiers',f=>{Object.assign(f,reviewerFixtures());f[environmentPath].protection_rules.forEach((r,i)=>Object.assign(r,{id:i+1,node_id:`rule-${i}`}));}]
+])test(`environment ${label} agrees with release guard and remains metadata-only`,async()=>{
+  const f=fixtures();change(f);
+  assert.equal(validateReleaseEnvironment(f[environmentPath],f[policiesPath]),true);
+  const h=harness(f);
+  assert.deepEqual(await probe(context(),h.options),{approvalVariablesPresent:false});
+  assert.ok(h.calls.every(c=>c.options.method==='GET'));
+});
+
+for(const [label,change] of [
+  ['rules missing',e=>delete e.protection_rules],
+  ['rules not array',e=>e.protection_rules={}],
+  ['no rules',e=>e.protection_rules=[]],
+  ['missing branch rule',e=>e.protection_rules=e.protection_rules.filter(r=>r.type!=='branch_policy')],
+  ['missing wait rule',e=>e.protection_rules=e.protection_rules.filter(r=>r.type!=='wait_timer')],
+  ['only reviewer rule',e=>e.protection_rules=e.protection_rules.filter(r=>r.type==='required_reviewers')],
+  ['unknown fourth rule',e=>e.protection_rules.push({type:'custom_deployment_protection_rule'})],
+  ['unknown third rule',e=>e.protection_rules[2]={type:'custom_deployment_protection_rule'}],
+  ['null rule',e=>e.protection_rules[2]=null],
+  ['array rule',e=>e.protection_rules[2]=[]],
+  ['missing type',e=>delete e.protection_rules[2].type],
+  ['non-string type',e=>e.protection_rules[2].type=['required_reviewers']],
+  ['duplicate branch rule',e=>e.protection_rules[2]={type:'branch_policy'}],
+  ['duplicate wait rule',e=>e.protection_rules[2]={type:'wait_timer',wait_timer:5}],
+  ['duplicate reviewer rule',e=>e.protection_rules[1]=structuredClone(e.protection_rules[2])],
+  ['reviewer added to branch rule',e=>e.protection_rules[0].reviewers=[]],
+  ['unknown rule attribute',e=>e.protection_rules[1].unexpected=true],
+  ['wait missing',e=>delete e.protection_rules[1].wait_timer],
+  ['wait below minimum',e=>e.protection_rules[1].wait_timer=4],
+  ['wait above maximum',e=>e.protection_rules[1].wait_timer=43201],
+  ['wait string',e=>e.protection_rules[1].wait_timer='5'],
+  ['wait fractional',e=>e.protection_rules[1].wait_timer=5.5],
+  ['reviewers missing',e=>delete e.protection_rules[2].reviewers],
+  ['reviewers null',e=>e.protection_rules[2].reviewers=null],
+  ['reviewers not array',e=>e.protection_rules[2].reviewers={}],
+  ['reviewers empty',e=>e.protection_rules[2].reviewers=[]],
+  ['extra reviewer',e=>e.protection_rules[2].reviewers.push({type:'User',reviewer:{type:'User',id:43,login:'other'}})],
+  ['duplicate reviewer',e=>e.protection_rules[2].reviewers.push(structuredClone(e.protection_rules[2].reviewers[0]))],
+  ['null reviewer entry',e=>e.protection_rules[2].reviewers[0]=null],
+  ['team reviewer',e=>e.protection_rules[2].reviewers[0].type='Team'],
+  ['reviewer payload missing',e=>delete e.protection_rules[2].reviewers[0].reviewer],
+  ['reviewer payload type mismatch',e=>e.protection_rules[2].reviewers[0].reviewer.type='Bot'],
+  ['reviewer ID mismatch',e=>e.protection_rules[2].reviewers[0].reviewer.id=43],
+  ['reviewer ID string',e=>e.protection_rules[2].reviewers[0].reviewer.id='42'],
+  ['reviewer login mismatch',e=>e.protection_rules[2].reviewers[0].reviewer.login='other'],
+  ['self review prevented',e=>e.protection_rules[2].prevent_self_review=true],
+  ['self review string',e=>e.protection_rules[2].prevent_self_review='false'],
+  ['self review metadata missing',e=>delete e.protection_rules[2].prevent_self_review],
+  ['top-level self review cannot substitute',e=>{e.prevent_self_review=false;delete e.protection_rules[2].prevent_self_review;}],
+  ['environment ID missing',e=>delete e.id],
+  ['environment ID invalid',e=>e.id=0],
+  ['environment bypass enabled',e=>e.can_admins_bypass=true],
+  ['environment bypass missing',e=>delete e.can_admins_bypass],
+  ['protected branch mode',e=>e.deployment_branch_policy.protected_branches=true],
+  ['custom policy disabled',e=>e.deployment_branch_policy.custom_branch_policies=false]
+])test(`environment ${label} fails closed before metadata credential use`,async()=>{
+  const f=reviewerFixtures();change(f[environmentPath]);
+  const h=harness(f);
+  await assert.rejects(probe(context(),h.options),{message:'ENVIRONMENT_BLOCKED'});
+  assert.ok(h.calls.every(c=>c.options.headers.Authorization===`Bearer ${h.options.ciToken}`));
+});
+
+test('valid reviewer metadata does not bypass classic protection HTTP 403',async()=>{
+  const h=harness(reviewerFixtures(),suffix=>suffix==='/branches/main/protection'?new Response(null,{status:403}):undefined);
+  await assert.rejects(probe(context(),h.options),{message:'HTTP_403_BLOCKED'});
+});
+
+test('owner reviewer changes during the second snapshot are rejected',async()=>{
+  const f=reviewerFixtures();
+  const h=harness(f,(suffix,calls)=>{
+    if(suffix===environmentPath&&calls.filter(c=>c.suffix===suffix).length===2){
+      const changed=structuredClone(f[suffix]);changed.protection_rules[2].reviewers[0].reviewer.id=43;
+      return Response.json(changed);
+    }
+  });
+  await assert.rejects(probe(context(),h.options),{message:'ENVIRONMENT_BLOCKED'});
 });
 test('reads each existing approval variable with PAT without interpreting its value as approval',async()=>{
   const f=fixtures(), names=['PUBLIC_RELEASE_APPROVAL_SHA','PUBLIC_RELEASE_APPROVAL_RUN_ID'];
