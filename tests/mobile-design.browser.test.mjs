@@ -177,6 +177,80 @@ test(`${engine} dashboard overview hierarchy and live data`, {timeout:240000}, a
   }
   records.push({scenario:'dashboard overview',measurements});
 });
+test(`${engine} compact academic dashboard browser density and transcript`,{timeout:240000},async()=>{
+  const before=process.env.COMPACT_DASHBOARD_AUDIT==='1', measurements=[];
+  for(const width of [320,375,390,430,768,1440]){
+    const f=await fixture('/dashboard',false,'student',width,900),p=f.page;
+    try{
+      await p.getByRole('heading',{name:'Tổng quan học tập',exact:true}).waitFor();
+      await p.locator('table tbody input[type=text]').first().waitFor({state:'attached'});
+      const hint=p.getByRole('button',{name:'Ẩn gợi ý AI',exact:true});if(await hint.isVisible())await hint.click();
+      await p.evaluate(async()=>{for(const weight of [400,500,600,700])await document.fonts.load(`${weight} 14px Inter`,'Tổng quan học tập');await document.fonts.ready;});
+      if(!before)await p.locator('.dashboard-distribution .recharts-sector').first().waitFor();
+      if(!before)await p.waitForFunction(()=>{
+        const sectors=[...document.querySelectorAll('.dashboard-distribution .recharts-sector')];
+        return sectors.some(e=>{const r=e.getBoundingClientRect();return r.width>50&&r.height>50;})&&[...sectors,...document.querySelectorAll('.dashboard-trend .recharts-cartesian-axis-tick text')].every(e=>{const r=e.getBoundingClientRect(),s=e.closest('svg').getBoundingClientRect();return r.x>=s.x-1&&r.right<=s.right+1&&r.y>=s.y-1&&r.bottom<=s.bottom+1;});
+      });
+      const m=await p.evaluate(()=>{
+        const read=e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return {size:parseFloat(s.fontSize),weight:s.fontWeight,line:parseFloat(s.lineHeight),height:r.height,width:r.width,x:r.x,right:r.right};};
+        const heading=document.querySelector('.ui-page-title'),bar=document.querySelector('[data-transcript-toolbar]'),cards=[...document.querySelectorAll('[data-dashboard-kpi]')],content=cards[0].closest('.dashboard-overview-kpis').parentElement;
+        const input=document.querySelector('table tbody input[type=text]'),scroll=input.closest('table').parentElement;
+        return {width:innerWidth,overviewHeight:bar.getBoundingClientRect().top-heading.getBoundingClientRect().top,heading:read(heading),cards:cards.map(read),cardTitles:cards.map(e=>read(e.querySelector('.dashboard-kpi-heading'))),course:read(input),courseCell:read(input.closest('td')),scroll:{width:scroll.clientWidth,content:scroll.scrollWidth},overflow:document.documentElement.scrollWidth>innerWidth+1,
+          weights:[...content.querySelectorAll('[data-dashboard-kpi] span,h1,h3')].map(e=>getComputedStyle(e).fontWeight),fontFaces:[400,500,600,700].map(w=>document.fonts.check(`${w} 14px Inter`,'Tổng quan học tập'))};
+      });
+      measurements.push(m);
+      fs.writeFileSync(`${out}/${engine}-compact-${before?'before':'after'}.json`,JSON.stringify(measurements,null,2));
+      if([390,1440].includes(width)){
+        if(!before)await p.locator('.dashboard-distribution-chart').screenshot({path:`${out}/${engine}-compact-donut-${width}.png`,scale:'css'});
+        await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:`${out}/${engine}-compact-${before?'before':'after'}-${width}.png`,fullPage:true,scale:'css'});
+      }
+      if(before)continue;
+      assert.equal(await p.locator('#mode').innerText(),width<768?'browser':'desktop');
+      assert.equal(m.overflow,false);assert.ok(m.fontFaces.every(Boolean));
+      if(width<=430){
+        assert.ok(m.heading.size>=23&&m.heading.size<=25);assert.equal(m.heading.weight,'700');
+        assert.equal(m.cards.length,4);assert.ok(Math.abs(m.cards[0].x-m.cards[2].x)<1&&m.cards[1].x>m.cards[0].x);
+        assert.ok(m.weights.every(w=>[400,500,600,700].includes(Number(w))));
+        assert.ok(m.scroll.content>m.scroll.width,'Wide transcript stays in its own horizontal scroller');
+        assert.ok(m.courseCell.width>=240,'Course names retain room instead of collapsing at the right edge');
+        const baselinePath=`${out}/${engine}-compact-before.json`;
+        if(width===390&&fs.existsSync(baselinePath)){const original=JSON.parse(fs.readFileSync(baselinePath,'utf8')).find(x=>x.width===390);assert.ok(m.overviewHeight<=original.overviewHeight*.85,'Overview should remove at least 15% excess height');}
+        const scroller=p.locator('table tbody input[type=text]').first().locator('xpath=ancestor::table/parent::div');
+        await scroller.evaluate(e=>{e.scrollLeft=e.scrollWidth;});assert.ok(await scroller.evaluate(e=>e.scrollLeft>0));
+        const courseName=p.locator('.dashboard-course-name-mobile').first();
+        assert.equal(await courseName.isVisible(),true);assert.equal(await courseName.evaluate(e=>getComputedStyle(e).fontWeight),'600');
+        assert.equal(await courseName.evaluate(e=>e.scrollWidth<=e.clientWidth+1),true,'Full course name wraps inside the table cell');
+        await courseName.scrollIntoViewIfNeeded();
+        await scroller.focus();
+        assert.equal(await courseName.evaluate(e=>{const r=e.getBoundingClientRect(),s=e.closest('.dashboard-transcript-scroll').getBoundingClientRect();return r.x>=s.x-1&&r.right<=s.right+1;}),true);
+        if(width===390)await scroller.screenshot({path:`${out}/${engine}-compact-course-scroll-390.png`,scale:'css'});
+        assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+        await scroller.evaluate(e=>{e.scrollLeft=0;});
+        const search=p.getByPlaceholder('Tìm môn học...').first();await search.fill('Không có học phần khớp');
+        assert.equal(await p.locator('table tbody input[type=text]').count(),0);await search.fill('');
+        await p.getByTitle('Sắp xếp theo điểm',{exact:true}).first().click();
+        await p.getByTitle('Ẩn/hiện cột điểm',{exact:true}).first().click();
+        const columns=p.locator('.dashboard-score-columns').first(),checkbox=columns.locator('input[type=checkbox]').first();
+        const popup=await columns.boundingBox();assert.ok(popup.x>=0&&popup.x+popup.width<=width+1);
+        const columnCount=await p.locator('table thead th').count();await checkbox.uncheck();assert.equal(await p.locator('table thead th').count(),columnCount-1);await checkbox.check();
+        await p.getByTitle('Ẩn/hiện cột điểm',{exact:true}).first().click();
+        await p.getByRole('button',{name:'Chỉnh sửa',exact:true}).click();
+        const course=p.locator('table tbody input[type=text]').first();await course.fill('Tên học phần tiếng Việt đủ dài để kiểm tra chỉnh sửa trên điện thoại');
+        const inputSize=await course.evaluate(e=>parseFloat(getComputedStyle(e).fontSize));assert.ok(inputSize>=16,'Editable iOS fields must not trigger focus zoom');
+        assert.equal(await p.getByRole('button',{name:'Mở trợ lý AI',exact:true}).isVisible(),false,'Closed AI launcher must not cover focused transcript fields');
+        assert.equal(await p.locator('.mobile-ai-bubble-position').isVisible(),false,'AI hint must not cover focused transcript fields');
+        await p.getByRole('button',{name:'Lưu',exact:true}).click();assert.equal(await p.locator('table tbody input[type=text]').first().inputValue(),'Tên học phần tiếng Việt đủ dài để kiểm tra chỉnh sửa trên điện thoại');
+        if(width===390){await captureFontSnapshot(p);await applyTextMode(p,'text200');assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Larger accessible text stays within the page');}
+      }else{
+        const baselinePath=`${out}/${engine}-compact-before.json`;
+        if(fs.existsSync(baselinePath)){const original=JSON.parse(fs.readFileSync(baselinePath,'utf8')).find(x=>x.width===width);assert.deepEqual(m.heading,original.heading);assert.deepEqual(m.cards,original.cards);assert.ok(Math.abs(m.overviewHeight-original.overviewHeight)<2);}
+      }
+      assert.deepEqual(f.errors,[]);assert.deepEqual(f.writes,[]);
+    }finally{await f.context.close();}
+  }
+  fs.writeFileSync(`${out}/${engine}-compact-${before?'before':'after'}.json`,JSON.stringify(measurements,null,2));
+});
+
 test(`${engine} guest header login alongside install action`,{timeout:90000},async()=>{
   const f=await fixture('/dashboard?install=1',false,'guest'),p=f.page;
   const geometry=[];
@@ -941,7 +1015,8 @@ if (process.env.DESIGN_MATRIX !== '0') for (const [width, height] of viewports) 
         content: mode === 'text200' ? 'html{font-size:28px!important}' : mode === 'textSpacing' ? 'html{font-size:14px!important}#root *{line-height:1.5!important;letter-spacing:.12em!important;word-spacing:.16em!important}#root p{margin-bottom:2em!important}' : 'html{font-size:14px!important}'
       });
       await f.page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-      if (!audit && width < 768) await f.page.waitForFunction(expected => Math.abs(parseFloat(getComputedStyle(document.querySelector('.ui-page-title')).fontSize) - expected) < .05, mode === 'text200' ? 52 : 26, {
+      const pageSize=width<=430&&await f.page.locator('.academic-dashboard').count()?24:26;
+      if (!audit && width < 768) await f.page.waitForFunction(expected => Math.abs(parseFloat(getComputedStyle(document.querySelector('.ui-page-title')).fontSize) - expected) < .05, pageSize*(mode === 'text200'?2:1), {
         timeout: 5000
       });
       if (mode === 'text200') await f.page.evaluate(() => {
@@ -1099,8 +1174,10 @@ function assertDesign(m) {
     meta: 12,
     input: 16
   };
+  const compactSizes={...sizes,'page-title':24,'card-title':14,body:14,secondary:13,action:13};
   for (const t of m.text.filter(t => t.role)) {
-    assert.ok(Math.abs(t.size - sizes[t.role] * m.rootFont / 14) < .1, `${t.role}: ${t.text.slice(0, 50)} computed ${t.size} expected ${sizes[t.role] * m.rootFont / 14}`);
+    const expected=(t.compactAcademic?compactSizes:sizes)[t.role]*m.rootFont/14;
+    assert.ok(Math.abs(t.size-expected)<.1, `${t.role}: ${t.text.slice(0,50)} computed ${t.size} expected ${expected}`);
     assert.ok(t.font.includes('Inter'), `Inter: ${t.text}`);
     assert.ok(t.line >= t.size * 1.29, `Vietnamese line height: ${t.text}`);
     assert.deepEqual(t.clipping, [], `Clipping: ${t.tag} ${t.text.slice(0, 70)}`);

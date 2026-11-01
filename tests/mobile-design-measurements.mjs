@@ -122,6 +122,7 @@ export function designMeasurements() {
       text: element.textContent.trim().slice(0, 160),
       classes: element.className,
       role,
+      compactAcademic: innerWidth <= 430 && !!element.closest('.academic-dashboard'),
       size: parseFloat(style.fontSize),
       line: parseFloat(style.lineHeight),
       font: style.fontFamily,
