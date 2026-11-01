@@ -28,3 +28,84 @@
 
 .dashboard-year-summary .grid > span { min-width: 0; overflow-wrap: anywhere; }
 .dashboard-year-summary .truncate { white-space: normal; overflow: visible; }
+
+/* Browser Dashboard only: leave the standalone app and tablet/desktop scale intact.
+   Reuse the existing type/space roles, with real 400/500/600/700 Inter faces.
+   Inputs stay 16px and primary touch targets stay 44px on iOS Safari. */
+@media (max-width: 430px) {
+  .academic-dashboard {
+    --ui-font-page: 1.714286rem;
+    --ui-font-section: 1.285714rem;
+    --ui-font-card: 1rem;
+    --ui-font-body: 1rem;
+    --ui-font-secondary: .928571rem;
+    --ui-font-action: .928571rem;
+    --ui-font-meta: .857143rem;
+    --ui-line-body: 1.4;
+    font-weight: 500;
+    font-synthesis: none;
+    min-width: 0;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+  .academic-dashboard :is(.font-black, .font-extrabold, .font-bold) { font-weight: 700; }
+  .academic-dashboard .ui-page-title { font-weight: 700; line-height: 1.3 !important; }
+  .academic-dashboard .ui-section-title { font-weight: 700; }
+  .academic-dashboard .ui-card-title { font-weight: 600; }
+  .academic-dashboard .ui-body { font-weight: 500; }
+  .academic-dashboard .ui-secondary { font-weight: 400; }
+  .academic-dashboard .ui-meta { font-weight: 500; }
+  .academic-dashboard .dashboard-kpi-heading .ui-meta { font-weight: 600; }
+  .academic-dashboard .dashboard-profile-status { margin-bottom: 0; }
+  .academic-dashboard .dashboard-academic-header { padding-block: 4px; margin-block: 0; }
+  .academic-dashboard .dashboard-academic-header > .flex { gap: 8px; }
+  .academic-dashboard .dashboard-lookback { padding-block: 2px; }
+  .academic-dashboard .dashboard-lookback p { font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .academic-dashboard .dashboard-academic-content > :not(:last-child) { margin-bottom: 10px; }
+  .academic-dashboard :is(.dashboard-overview-kpis, .dashboard-overview-layout, .dashboard-overview-layout > div, .dashboard-overview-secondary) { gap: 10px; }
+  .academic-dashboard [data-dashboard-kpi], .academic-dashboard .dashboard-overview-layout .bg-white:not(.dashboard-announcements *) { padding: var(--ui-space-3); min-width: 0; }
+  .academic-dashboard [data-dashboard-kpi] { justify-content: flex-start; }
+  .academic-dashboard [data-dashboard-value] { font-size: 1.857143rem; line-height: 1.15; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .academic-dashboard .dashboard-credit-progress { gap: 4px; margin-top: 4px; }
+  .academic-dashboard .dashboard-top-course {
+    display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    overflow: hidden !important; line-height: 1.35 !important;
+  }
+  .academic-dashboard .ui-gpa-goal-row { display: grid; grid-template-columns: minmax(0, 1fr) max-content; align-items: center; gap: 6px; }
+  .academic-dashboard .ui-gpa-goal-row > :last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .academic-dashboard .dashboard-goal-label-full { display: none; }
+  .academic-dashboard .dashboard-goal-label-short { display: inline; }
+  .academic-dashboard .dashboard-trend-chart { height: 10rem; }
+  .academic-dashboard .dashboard-trend .recharts-cartesian-axis-tick text { font-size: var(--ui-font-meta); font-weight: 500; }
+  .academic-dashboard .dashboard-distribution-chart { min-height: 6.857143rem; height: 6.857143rem; }
+  .academic-dashboard .dashboard-year-summary .grid { gap: 2px; padding-block: 2px; letter-spacing: 0; }
+  .academic-dashboard .dashboard-announcements { padding: 0 !important; min-height: 204px; }
+  .academic-dashboard .dashboard-announcements > div { position: static; max-height: 204px; }
+  .academic-dashboard .dashboard-announcements h3 { min-width: 0; font-weight: 600; }
+  .academic-dashboard .dashboard-announcements h3 span { white-space: normal; }
+  .academic-dashboard .dashboard-announcements > div > div > div:first-child { padding-block: 2px; gap: 8px; }
+  .academic-dashboard .dashboard-announcements a { padding: 6px 10px; }
+  .academic-dashboard .dashboard-announcements a > div { margin-block: 2px; }
+  .academic-dashboard .dashboard-announcements p { line-height: 1.4 !important; }
+  .academic-dashboard [data-semester-card] { margin-bottom: 12px; min-width: 0; }
+  .academic-dashboard .semester-title-copy { font-size: 1.071429rem; line-height: 1.35; }
+  .academic-dashboard .dashboard-semester-tools { gap: 6px; padding: 8px 10px; min-width: 0; }
+  .academic-dashboard .dashboard-semester-tools > .relative:last-child { min-width: 0; }
+  .academic-dashboard .dashboard-semester-tools > .relative:last-child:has(button) input { padding-right: 44px; }
+  .academic-dashboard .dashboard-semester-tools > .relative:last-child button { right: 0; }
+  .academic-dashboard .dashboard-score-columns { left: auto; right: 0; }
+  .academic-dashboard .dashboard-transcript-scroll { max-width: 100%; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  .academic-dashboard .dashboard-transcript-scroll:focus-visible { outline: 2px solid #0052cc; outline-offset: -2px; }
+  .academic-dashboard .dashboard-transcript-scroll table { min-width: 100%; font-variant-numeric: tabular-nums; }
+  .academic-dashboard .dashboard-transcript-scroll :is(th, td) { padding: 6px; font-size: 12px; line-height: 1.35; }
+  .academic-dashboard .dashboard-transcript-scroll td[data-transcript-editable] { min-width: 56px; }
+  .academic-dashboard .dashboard-transcript-scroll td.dashboard-course-cell { min-width: 260px; max-width: 300px; padding-inline: 10px; }
+  .academic-dashboard .dashboard-course-cell > input[readonly] { display: none; }
+  .academic-dashboard .dashboard-course-name-mobile { display: block; font-size: 1rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+  .academic-dashboard .dashboard-course-cell label { min-height: 28px; line-height: 1.35 !important; }
+  .academic-dashboard :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { font-size: var(--ui-font-input) !important; }
+  body:has(.academic-dashboard) .mobile-browser-header { min-height: 56px; padding-block: 4px; }
+  body:has(.academic-dashboard) .mobile-browser-header .hub-brand-title { font-weight: 700; }
+  body:has(.academic-dashboard) .mobile-browser-header .hub-brand-subtitle { font-weight: 400; }
+  html body:has(.academic-dashboard :is(input, select, textarea):focus, .academic-dashboard .dashboard-transcript-scroll:focus-within, .academic-dashboard [role=menu], .academic-dashboard .dashboard-score-columns)
+    :is(.mobile-ai-advisor[data-ai-open="false"], .mobile-ai-advisor[data-ai-open="false"] .mobile-ai-button, .mobile-ai-bubble-position) { visibility: hidden !important; pointer-events: none !important; }
+}

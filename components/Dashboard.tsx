@@ -1277,7 +1277,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       {isValidFormat ? (
         <>
             {semester.subjects.length > 0 && (
-                <div className="px-3 py-2 sm:px-6 sm:py-2 bg-gray-50/50 border-b border-gray-300 flex flex-row gap-2 justify-between sm:justify-end items-center">
+                <div className="dashboard-semester-tools px-3 py-2 sm:px-6 sm:py-2 bg-gray-50/50 border-b border-gray-300 flex flex-row gap-2 justify-between sm:justify-end items-center">
                     <button onClick={handleSortToggle} className={`ui-action shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-300 text-[#003375]' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`} title="Sắp xếp theo điểm">
                         {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao ➝ Thấp</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Thấp ➝ Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sắp xếp</span></>)}
                     </button>
@@ -1299,7 +1299,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         </button>
 
                         {showScoreColumns && (
-                            <div className="absolute left-0 top-full z-30 mt-2 w-36 rounded-xl border border-gray-300 bg-white p-2 shadow-xl">
+                            <div className="dashboard-score-columns absolute left-0 top-full z-30 mt-2 w-36 rounded-xl border border-gray-300 bg-white p-2 shadow-xl">
                                 {scoreColumnConfig.map((column) => (
                                     <label key={column.key} className="ui-secondary flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-[#003375]">
                                         <span>{column.label}</span>
@@ -1326,7 +1326,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 </div>
             )}
 
-            <div className="overflow-x-auto">
+            <div className="dashboard-transcript-scroll overflow-x-auto" role="region" aria-label={`Bảng điểm ${semester.name}`} tabIndex={0}>
                 <table className="w-full text-sm text-left">
                 <thead className="ui-meta text-xs text-white uppercase bg-[#003375] border-b border-[#002855]">
                     <tr>
@@ -1376,7 +1376,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                     </td>
                                 ))}
 
-                                <td className="px-3 py-2" data-transcript-editable="true">
+                                <td className="dashboard-course-cell px-3 py-2" data-transcript-editable="true">
+                                    {isReadOnly && <span className="dashboard-course-name-mobile hidden">{subject.name}</span>}
                                     <input type="text" readOnly={isReadOnly} aria-readonly={isReadOnly} className="ui-input w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375] read-only:cursor-default" value={subject.name} onChange={(e) => !isReadOnly && handleSubjectChange(subject.id, 'name', e.target.value)} />
                                     <div className="flex items-center gap-2 mt-1">
                                         <label className="ui-secondary text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
@@ -2245,7 +2246,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
  return (
-    <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
+    <div className={`w-full ${showAdminPanel ? '' : 'academic-dashboard pb-10'}`}>
         {showSemesterLookback && (
             <React.Suspense fallback={null}>
                 <SemesterLookbackDialog
@@ -2420,8 +2421,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
         ) : (
-            <div className="w-full space-y-2 sm:space-y-4 pt-1 animate-fadeIn">
-                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 border-b border-transparent md:border-gray-300">                
+            <div className="dashboard-academic-content w-full space-y-2 sm:space-y-4 pt-1 animate-fadeIn">
+                <div className="dashboard-academic-header relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 border-b border-transparent md:border-gray-300">
                     
                     {(isAdmin || isAuditor) && (
                         <button 
@@ -2447,7 +2448,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         {!isGuest && !selectedUserOverview && (
                             <button
                                 onClick={() => { playClick(); setShowSemesterLookback(true); }}
-                                className="ui-action shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 hover:border-[#003375] hover:bg-blue-50 hover:shadow-sm active:scale-[0.98] motion-reduce:transition-none"
+                                className="dashboard-lookback ui-action shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 hover:border-[#003375] hover:bg-blue-50 hover:shadow-sm active:scale-[0.98] motion-reduce:transition-none"
                             >
                                 <div className="flex items-center gap-2">
                                     <p className="ui-secondary text-xs font-black uppercase tracking-wide text-[#003375]">Nhìn lại kỳ học vừa qua</p>
@@ -2464,7 +2465,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Tổng GPA tích lũy</span>
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
-                            <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.gpa4.toFixed(2)}</span>
+                            <span data-dashboard-value className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.gpa4.toFixed(2)}</span>
                             <span className="ui-muted ui-meta text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
                         </div>
                         <div className="ui-meta text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
@@ -2477,7 +2478,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <span className="ui-meta text-[11px] sm:text-xs font-bold text-gray-600">Tín chỉ tích lũy</span>
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
-                            <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.passedCredits}</span>
+                            <span data-dashboard-value className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.passedCredits}</span>
                             <span className="ui-meta text-[10px] sm:text-[13px] font-bold text-gray-500">/ {totalCreditsRequired} TC</span>
                         </div>
                         <DashboardCreditProgress earned={stats.passedCredits} required={totalCreditsRequired} />
@@ -2493,7 +2494,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                             {highestSubject ? (
                                 <div className="mt-1">
-                                    <span className="ui-readable ui-card-title text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
+                                    <span className="dashboard-top-course ui-readable ui-card-title text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight" title={highestSubject.name}>{highestSubject.name}</span>
                                     <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                                         <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
                                         <span className="ui-meta text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Điểm {highestSubject.letter}</span>
@@ -2527,7 +2528,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <span className="font-bold text-gray-900">{(Math.floor(stats.rawGPA4 * 100) / 100).toFixed(2)}</span>
                                 </div>
                                 <div className="ui-gpa-goal-row flex justify-between items-center">
-                                    <span className="ui-secondary ui-readable">Trung bình một tín:</span>
+                                    <span className="ui-secondary ui-readable" title="GPA trung bình cần đạt cho mỗi tín chỉ còn lại"><span className="dashboard-goal-label-full">Trung bình một tín:</span><span className="dashboard-goal-label-short hidden">TB / tín chỉ:</span></span>
                                     {requiredAnalysis?.isTargetAchieved ? (
                                         <span className="font-bold text-emerald-600">Đã đạt</span>
                                     ) : requiredAnalysis && requiredAnalysis.isPossible ? (
@@ -2542,9 +2543,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <div className="dashboard-overview-layout grid grid-cols-1 lg:grid-cols-4 gap-4">
                     <div className="lg:col-span-2 flex flex-col gap-3 sm:gap-4">
-                        <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col">
+                        <div className="dashboard-trend bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col">
                             <div className="flex flex-wrap gap-2 justify-between items-center mb-2 sm:mb-6">
                                 <h3 className="ui-card-title text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
                                 {needsProfileSetup && <DashboardLoginLink />}
@@ -2554,7 +2555,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                             </div>
 
-                            <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="w-full relative h-[180px] sm:h-[240px]">
+                            <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="dashboard-trend-chart w-full relative h-[180px] sm:h-[240px]">
 
 
                                 {trendData.length > 0 ? (
@@ -2589,15 +2590,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
                         <div className="dashboard-overview-secondary shrink-0">
-                            <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                            <div className="dashboard-distribution bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                                 <div className="dashboard-kpi-heading mb-2"><h3 className="ui-card-title text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight">Phân bố điểm</h3>
                                     {needsProfileSetup && <DashboardLoginLink />}
                                 </div>
 
-                                <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="w-full relative flex flex-col justify-center shrink-0 min-h-[130px]">
+                                <div data-dashboard-obscured={needsProfileSetup ? 'true' : undefined} className="dashboard-distribution-chart w-full relative flex flex-col justify-center shrink-0 h-[130px] min-h-[130px]">
 
                                     {pieData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height={130} initialDimension={{ width: 1, height: 1 }}>
+                                        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 1, height: 1 }}>
                                             <PieChart>
                                                 <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
                                                     {pieData.map((entry, index) => (
@@ -2652,7 +2653,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         </div>
 
-                        <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-[300px] lg:min-h-0 relative">
+                        <div className="dashboard-announcements bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-[300px] lg:min-h-0 relative">
                             <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
                                 <SchoolAnnouncements />
                             </div>
