@@ -45,6 +45,41 @@ const fixture=async(width=1440,role='admin')=>{
   return {page,context,sql,signals,calls,errors,close:async()=>{await context.close();sql.close();}};
 };
 
+for(const width of [320,375,390,430])test(`${width}: mobile spacing uses one shell gutter and keeps filters and drawer within the viewport`,{timeout:120000},async()=>{
+  const f=await fixture(width),p=f.page;
+  const assertFits=async()=>{
+    const layout=await p.evaluate(()=>{
+      const rect=(selector:string)=>{const r=document.querySelector(selector)!.getBoundingClientRect();return {left:r.left,right:r.right};};
+      const page=rect('.ann-admin');
+      const controls=Array.from(document.querySelectorAll<HTMLElement>('.ann-admin-heading button,.ann-admin-filters button,.ann-admin-filters input,.ann-admin-filters select,.ann-table-footer button,.ann-table-footer select'))
+        .filter(e=>e.getClientRects().length).map(e=>{const r=e.getBoundingClientRect();return {name:e.getAttribute('aria-label')||e.textContent,left:r.left,right:r.right};});
+      return {page,sections:['.ann-admin-heading','.ann-admin-filters','.ann-admin-table-panel'].map(rect),controls,
+        overflow:document.documentElement.scrollWidth>innerWidth,canvasOverflow:document.querySelector('.admin-content-scroll')!.scrollWidth>document.querySelector('.admin-content-scroll')!.clientWidth};
+    });
+    for(const section of layout.sections){assert.ok(Math.abs(section.left-16)<1,`left gutter: ${JSON.stringify(section)}`);assert.ok(Math.abs(width-section.right-16)<1,`right gutter: ${JSON.stringify(section)}`);}
+    assert.equal(layout.overflow,false);assert.equal(layout.canvasOverflow,false);
+    for(const control of layout.controls)assert.ok(control.left>=layout.page.left-1&&control.right<=layout.page.right+1,`overflowing control: ${JSON.stringify(control)}`);
+  };
+  try{
+    await assertFits();
+    await p.getByRole('button',{name:'Bộ lọc',exact:true}).click();await p.getByLabel('Từ ngày',{exact:true}).waitFor();await assertFits();
+    await p.getByRole('button',{name:'Bộ lọc',exact:true}).click();
+    const selected=p.locator('.ann-mobile-rows input[type=checkbox]').first();await selected.check();await p.getByText('Đã chọn 1',{exact:true}).waitFor();await assertFits();await selected.uncheck();
+    mkdirSync('.cache/admin-announcements-qa',{recursive:true});
+    await p.screenshot({path:`.cache/admin-announcements-qa/spacing-${width}.png`,fullPage:false});
+    const opener=p.locator('.ann-mobile-rows .ann-row-title button').first();await opener.click();
+    const drawer=p.getByRole('dialog',{name:'Chi tiết thông báo',exact:true});await drawer.waitFor();
+    const bounds=await drawer.boundingBox();assert.ok(bounds&&bounds.x>=0&&bounds.x+bounds.width<=width+1);
+    assert.equal(await drawer.evaluate(e=>e.scrollWidth<=e.clientWidth),true);
+    await drawer.getByLabel('Tiêu đề',{exact:true}).fill('Kiểm tra drawer mobile');
+    await p.screenshot({path:`.cache/admin-announcements-qa/spacing-${width}-drawer.png`,fullPage:false});
+    p.once('dialog',dialog=>dialog.accept());await drawer.getByRole('button',{name:'Đóng chi tiết',exact:true}).click();
+    await drawer.waitFor({state:'hidden'});assert.equal(await opener.evaluate(e=>e===document.activeElement),true);await assertFits();
+    await opener.click();await drawer.waitFor();await p.keyboard.press('Escape');await drawer.waitFor({state:'hidden'});
+    assert.equal(f.calls.some(call=>call.method!=='GET'),false);assert.deepEqual(f.errors,[]);
+  }catch(error){mkdirSync('.cache/admin-announcements-qa',{recursive:true});await p.screenshot({path:`.cache/admin-announcements-qa/spacing-${width}-failure.png`,fullPage:true});throw error;}finally{await f.close();}
+});
+
 for(const width of [1440,390])test(`${width}: V2 content uses existing shell, real CRUD/highlight/push API and accessible detail drawer`,{timeout:120000},async()=>{
   const f=await fixture(width),p=f.page;
   try{
