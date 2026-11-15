@@ -3,6 +3,8 @@ import type { Semester, UserData } from '../types';
 import {
     countTranscriptSubjects,
     reconstructTranscriptSemesters,
+    applyTranscriptImport,
+    type TranscriptImportIntegrity,
 } from '../features/transcript-import/model';
 import { playClick } from '../utils/audio';
 import { showAlert } from '../utils/appNotifications';
@@ -11,6 +13,8 @@ import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
 
 export interface PendingTranscriptImport {
     semesters: Semester[];
+    integrity?: TranscriptImportIntegrity;
+    error?: string;
     onImportedSemesters?: (semesters: Semester[]) => void;
 }
 
@@ -54,6 +58,7 @@ export const useTranscriptTransfer = ({
         if (!file) return;
 
         setShowImportGuide(false);
+        setPendingTranscriptImport(null);
         setIsImporting(true);
         setShowImportLoadingToast(true);
 
@@ -62,6 +67,11 @@ export const useTranscriptTransfer = ({
             const { parseHubPdf } = await import('../utils/pdfImport');
             const result = await parseHubPdf(file, gradeImportTurnstileToken);
             const importedSubjectCount = countTranscriptSubjects(result.semesters);
+
+            if (importedSubjectCount === 0 && result.error && result.integrity) {
+                await showAlert(result.error);
+                return;
+            }
 
             if (importedSubjectCount === 0) {
                 try {
@@ -83,7 +93,6 @@ export const useTranscriptTransfer = ({
                     action: 'import_transcript',
                     error: parserMessage,
                     metadata: {
-                        fileName: file.name,
                         fileSize: file.size,
                         fileType: file.type,
                         semesterCount: result.semesters.length,
@@ -106,16 +115,16 @@ export const useTranscriptTransfer = ({
 
             setPendingTranscriptImport({
                 semesters: reconstructTranscriptSemesters(result.semesters, result.yearRanges),
+                integrity: result.integrity,
+                error: result.error,
                 onImportedSemesters,
             });
         } catch (error) {
-            console.error(error);
             const errorLogId = await logWebError({
                 source: 'parser',
                 action: 'import_transcript',
-                error,
+                error: 'Transcript PDF import failed',
                 metadata: {
-                    fileName: file.name,
                     fileSize: file.size,
                     fileType: file.type,
                 },
@@ -157,21 +166,24 @@ export const useTranscriptTransfer = ({
     const confirmTranscriptImport = useCallback(async () => {
         if (!pendingTranscriptImport) return;
 
-        const subjectCount = countTranscriptSubjects(pendingTranscriptImport.semesters);
-        if (subjectCount === 0) {
-            await showAlert('Danh sách xem trước đang trống. Vui lòng giữ lại ít nhất một môn học.');
+        if (pendingTranscriptImport.error) {
+            await showAlert(pendingTranscriptImport.error);
             return;
         }
 
+        const subjectCount = countTranscriptSubjects(pendingTranscriptImport.semesters);
         setIsConfirmingTranscriptImport(true);
         try {
-            if (pendingTranscriptImport.onImportedSemesters) {
-                pendingTranscriptImport.onImportedSemesters(pendingTranscriptImport.semesters);
-            } else {
-                commitDataUpdate(previousData => ({
-                    ...previousData,
-                    semesters: pendingTranscriptImport.semesters,
-                }));
+            const issue = applyTranscriptImport(pendingTranscriptImport.semesters, pendingTranscriptImport.integrity, semesters => {
+                if (pendingTranscriptImport.onImportedSemesters) {
+                    pendingTranscriptImport.onImportedSemesters(semesters);
+                } else {
+                    commitDataUpdate(previousData => ({ ...previousData, semesters }));
+                }
+            });
+            if (issue) {
+                await showAlert(issue);
+                return;
             }
             setPendingTranscriptImport(null);
             await showAlert(
