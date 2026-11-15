@@ -25,9 +25,12 @@ interface TranscriptColumnLayout {
     detailLeft: number;
 }
 
+type CreditSummaryEvidence = 'verified' | 'missing' | 'unreadable' | 'ambiguous';
+
 interface DirectHubSemester extends Semester {
     expectedCredits: number | null;
     assessedCredits: number | null;
+    summaryCount: number;
     sequences: number[];
 }
 
@@ -43,6 +46,7 @@ export interface DirectHubParseResult {
         actual: number;
         assessed: number;
         pending: number;
+        summaryEvidence: CreditSummaryEvidence;
         valid: boolean;
     }>;
     rowChecks: Array<{ semesterId: string; expected: number; detected: number; parsed: number; valid: boolean }>;
@@ -205,6 +209,7 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
                 trainingScore: null,
                 expectedCredits: null,
                 assessedCredits: null,
+                summaryCount: 0,
                 sequences: [],
             };
             if (!parsedSemesters.includes(currentSemester)) {
@@ -240,11 +245,14 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
         }
 
         if (/stc dau/i.test(normalizedRow)) {
-            const passedAndFailed = normalizedRow.match(/stc dau\s*\((\d+(?:[.,]\d+)?)\)\s*\+\s*stc rot\s*\((\d+(?:[.,]\d+)?)\)/i);
-            currentSemester.assessedCredits = passedAndFailed
-                ? Number(passedAndFailed[1].replace(',', '.')) + Number(passedAndFailed[2].replace(',', '.'))
+            // Require a complete source summary. Neither contiguous STT nor the
+            // parsed pending credits can prove that the final rows were retained.
+            currentSemester.summaryCount += normalizedRow.match(/stc dau/gi)?.length ?? 1;
+            const summary = normalizedRow.match(/\bstc dau\s*\((\d+(?:[.,]\d+)?)\)\s*\+\s*stc rot\s*\((\d+(?:[.,]\d+)?)\)\s*=\s*(?:\|\s*)?(\d+(?:[.,]\d+)?)(?=\s*(?:\||diem trung binh|$))/i);
+            currentSemester.assessedCredits = summary
+                ? Number(summary[1].replace(',', '.')) + Number(summary[2].replace(',', '.'))
                 : null;
-            currentSemester.expectedCredits = parseSummaryValue(row, /stc dau/i);
+            currentSemester.expectedCredits = summary ? Number(summary[3].replace(',', '.')) : null;
             lastCourse = null;
             pendingNameLine = null;
             continue;
@@ -344,17 +352,20 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
             subject.scoreFinal === null && !subject.importedScoreLabel ? subject.credits : 0
         ), 0);
         const assessed = actual - pending;
-        const expected = semester.expectedCredits ?? (
-            semester.assessedCredits === null ? null : semester.assessedCredits + pending
-        );
+        const expected = semester.expectedCredits;
+        const summaryEvidence: CreditSummaryEvidence = semester.summaryCount === 0 ? 'missing'
+            : semester.summaryCount !== 1 ? 'ambiguous'
+            : expected === null || semester.assessedCredits === null ? 'unreadable' : 'verified';
         return {
             semesterId: semester.id,
             expected,
             actual,
             assessed,
             pending,
-            valid: (expected === null || Math.abs(actual - expected) < 0.001)
-                && (semester.assessedCredits === null || Math.abs(assessed - semester.assessedCredits) < 0.001),
+            summaryEvidence,
+            valid: summaryEvidence === 'verified' && expected !== null && semester.assessedCredits !== null
+                && Math.abs(actual - expected) < 0.001
+                && Math.abs(assessed - semester.assessedCredits) < 0.001,
         };
     });
     const rowChecks = parsedSemesters.map(semester => {
@@ -367,7 +378,7 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
                 && new Set(semester.sequences).size === detected,
         };
     });
-    const semesters = parsedSemesters.map(({ expectedCredits: _, assessedCredits: __, sequences: ___, ...semester }) => semester);
+    const semesters = parsedSemesters.map(({ expectedCredits: _, assessedCredits: __, sequences: ___, summaryCount: ____, ...semester }) => semester);
     const subjectCount = semesters.reduce((total, semester) => total + semester.subjects.length, 0);
     const reliable = detectedSemesterCount > 0
         && semesters.length === detectedSemesterCount

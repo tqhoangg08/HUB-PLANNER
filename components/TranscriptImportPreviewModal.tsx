@@ -1,6 +1,6 @@
 import { Overlay } from './Overlay';
 import React, { useMemo } from 'react';
-import { AlertTriangle, Check, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, X } from 'lucide-react';
 import type { Semester, Subject } from '../types';
 import { getTranscriptImportIssue, type TranscriptImportIntegrity } from '../features/transcript-import/model';
 
@@ -70,14 +70,6 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
     })));
   };
 
-  const handleDelete = (semesterId: string, subjectId: string) => {
-    onChange(semesters.map(semester => (
-      semester.id === semesterId
-        ? { ...semester, subjects: semester.subjects.filter(subject => subject.id !== subjectId) }
-        : semester
-    )));
-  };
-
   return (
     <Overlay className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/55 p-3 sm:p-6">
       <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
@@ -85,7 +77,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
           <div>
             <h2 className="text-lg font-black text-slate-900 sm:text-xl">Xem trước bảng điểm</h2>
             <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Kiểm tra, sửa hoặc xóa các môn trước khi đưa vào bản nháp.
+              Rà soát, sửa tên môn và điểm trước khi đưa vào bản nháp.
             </p>
           </div>
           <button
@@ -105,6 +97,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
             <p>
               <strong>Chú ý:</strong> Khi xác nhận, toàn bộ danh sách bảng điểm cũ sẽ được thay thế
               bằng danh sách dưới đây. Hãy rà soát kỹ tên môn, số tín chỉ và điểm trung bình.
+              {' '}Số môn và tín chỉ được giữ theo PDF để bảo đảm nhập đủ. Nếu không khớp, hãy hủy và xuất lại PDF từ BUH Portal.
             </p>
           </div>
 
@@ -159,16 +152,10 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
                         min="0"
                         step="1"
                         value={subject.credits}
-                        onChange={event => {
-                          const credits = Math.max(0, Math.round(Number(event.target.value) || 0));
-                          onChange(updateSubject(
-                            semesters,
-                            semester.id,
-                            subject.id,
-                            current => ({ ...current, credits }),
-                          ));
-                        }}
-                        className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500"
+                        readOnly
+                        aria-label={`Số tín chỉ theo PDF: ${subject.name}`}
+                        title="Tín chỉ giữ theo PDF, không sửa tại bước nhập"
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-semibold text-slate-800 outline-none"
                       />
                     </label>
                     <label className="block">
@@ -182,14 +169,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
                       />
                     </label>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(semester.id, subject.id)}
-                    className="mt-6 flex h-9 w-9 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 sm:mt-0"
-                    aria-label={`Xóa ${subject.name}`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <span aria-hidden="true" />
                 </div>
               ))}
             </section>

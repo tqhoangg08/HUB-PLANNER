@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { build } from 'esbuild';
 import { chromium } from 'playwright-core';
@@ -28,7 +28,9 @@ test('desktop preview and both hook write paths reject partial imports, preserve
         else { res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><html lang="vi"><meta charset="UTF-8"><link rel="stylesheet" href="/app.css"><div id="root"></div><script type="module" src="/app.js"></script></html>'); }
     });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+    const executablePath = process.env.CHROME_PATH || ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome', '/usr/bin/chromium'].find(existsSync);
+    assert.ok(executablePath, 'Chrome is required for browser regression tests');
+    const browser = await chromium.launch({ executablePath, headless: true });
     try {
         const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
         const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -43,6 +45,13 @@ test('desktop preview and both hook write paths reject partial imports, preserve
             assert.equal(await page.locator('input').filter({ visible: true }).count(), 126);
             assert.equal(await page.locator('input').evaluateAll(inputs => inputs.filter(i => i.value === 'M').length), 4);
             assert.equal(await page.locator('section').last().locator('input[placeholder="-"]').evaluateAll(inputs => inputs.every(i => i.value === '')), true);
+            assert.equal(await page.getByRole('button', { name: /^Xóa / }).count(), 0);
+            assert.equal(await page.getByLabel(/^Số tín chỉ theo PDF:/).evaluateAll(inputs => inputs.length === 42 && inputs.every(i => i.readOnly)), true);
+            assert.match(await page.locator('body').innerText(), /Số môn và tín chỉ được giữ theo PDF/);
+            // Supported edits must leave confirmation available.
+            await page.locator('section').first().locator('input').first().fill('Tên môn đã rà soát');
+            await page.locator('section').first().locator('input[placeholder="-"]').first().fill('7,5');
+            assert.equal(await confirm.isEnabled(), true);
             await page.getByRole('button', { name: 'Truncate semesters', exact: true }).click();
             assert.equal(await confirm.isDisabled(), true);
             assert.match(await page.getByRole('alert').innerText(), /5 học kỳ \/ 42 môn.*1 học kỳ \/ 11 môn/);

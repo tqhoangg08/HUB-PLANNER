@@ -44,7 +44,11 @@ export const parseHubPdf = async (file: File, _turnstileToken: string): Promise<
             }),
             sourceReliable: direct.reliable,
         };
-        const error = getTranscriptImportIssue(direct.semesters, integrity) ?? undefined;
+        const unverifiedSummaries = direct.creditChecks.filter(check => check.summaryEvidence !== 'verified').length;
+        const error = unverifiedSummaries > 0
+            ? `Có ${unverifiedSummaries} học kỳ thiếu hoặc không đọc rõ một dòng tổng kết STC duy nhất với tổng tín chỉ sau dấu =. `
+                + 'Vui lòng xuất lại PDF đầy đủ từ BUH Portal. Không thể xác nhận nhập; bảng điểm cũ được giữ nguyên.'
+            : getTranscriptImportIssue(direct.semesters, integrity) ?? undefined;
         const debug = {
             stage: direct.reliable ? 'hub-layout-parser-success' : 'hub-layout-parser-incomplete',
             pages: pdf.numPages,

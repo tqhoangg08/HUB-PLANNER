@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { twoPageTranscriptFixture } from './fixtures/transcript-two-page.ts';
+import { applyTranscriptImport } from '../features/transcript-import/model.ts';
 
 // Exercise the real parseHubPdf orchestration with only PDF decoding and AI I/O stubbed.
 const bundle = await build({ entryPoints: ['utils/pdfImport.ts'], bundle: true, write: false, platform: 'node', format: 'esm', plugins: [{
@@ -59,4 +60,22 @@ test('unsupported source layouts fail closed locally without spending AI quota',
     assert.equal(result.semesters.length, 0);
     assert.ok(result.error);
     assert.equal(result.integrity.sourceReliable, false);
+});
+
+test('missing summary, including with contiguous tail loss, cannot authorize either write path', async () => {
+    for (const loseTail of [false, true]) {
+        const rows = twoPageTranscriptFixture();
+        const summary = rows.filter(r => r.text.includes('STC Đậu'))[4];
+        const { result, aiCalls, debug } = await run(rows.filter(r => r !== summary && (!loseTail || !/DEMO_4_[23]\b/.test(r.text))));
+        assert.equal(result.integrity.sourceReliable, false);
+        assert.match(result.error, /thiếu hoặc không đọc rõ.*tổng kết STC/);
+        assert.equal(JSON.parse(debug).directCreditChecks[4].summaryEvidence, 'missing');
+        assert.equal(aiCalls, 0);
+        const oldData = [{ id: 'old-saved-data', subjects: [] }];
+        let saved = oldData, draftCalls = 0;
+        assert.ok(applyTranscriptImport(result.semesters, result.integrity, semesters => { saved = semesters; }));
+        assert.ok(applyTranscriptImport(result.semesters, result.integrity, () => { draftCalls++; }));
+        assert.equal(saved, oldData);
+        assert.equal(draftCalls, 0);
+    }
 });

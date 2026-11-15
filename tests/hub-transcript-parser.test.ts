@@ -69,6 +69,7 @@ test('transcript parser derives shifted columns and ignores overlapping portal n
     actual: 2,
     assessed: 2,
     pending: 0,
+    summaryEvidence: 'verified',
     valid: true,
   });
 });
@@ -86,7 +87,7 @@ test('native two-page transcript retains five semesters, 42 courses, M, zero and
   assert.equal(result.semesters[0].subjects[1].isNonGPA, true);
   assert.equal(result.semesters[0].subjects[2].scoreFinal, 8.5);
   assert.ok(result.semesters[4].subjects.every(s => s.scoreCC === null && s.scoreProcess === null && s.scoreMid === null && s.scoreFinal === null && !s.importedScoreLabel));
-  assert.deepEqual(result.creditChecks[4], { semesterId: 'imported_2033_2034_hk1', expected: 9, actual: 9, assessed: 0, pending: 9, valid: true });
+  assert.deepEqual(result.creditChecks[4], { semesterId: 'imported_2033_2034_hk1', expected: 9, actual: 9, assessed: 0, pending: 9, summaryEvidence: 'verified', valid: true });
   assert.ok(result.rowChecks.every(check => check.valid));
 });
 
@@ -105,12 +106,13 @@ test('summary reads the explicit total after =, including inserted separators, i
   assert.equal(parseHubTranscriptRows(rows).creditChecks[4].valid, false);
 });
 
-test('summary without registered total compares assessed credits separately from pending credits', () => {
+test('summary without registered total cannot infer evidence from parsed pending credits', () => {
   const rows = twoPageTranscriptFixture();
   rows.findLast(r => r.text.includes('STC Đậu'))!.text = 'STC Đậu (0) + STC Rớt (0)';
   const result = parseHubTranscriptRows(rows);
-  assert.equal(result.reliable, true);
-  assert.equal(result.creditChecks[4].expected, 9);
+  assert.equal(result.reliable, false);
+  assert.equal(result.creditChecks[4].expected, null);
+  assert.equal(result.creditChecks[4].summaryEvidence, 'unreadable');
 });
 
 test('missing, duplicate and malformed course rows fail closed even without a credit summary', () => {
@@ -138,4 +140,46 @@ test('a repeated semester title and header on page two continue the same semeste
   assert.equal(result.detectedSemesterCount, 5);
   assert.equal(result.subjectCount, 42);
   assert.equal(result.reliable, true);
+});
+
+test('every supported BUH semester requires an explicit readable STC total', () => {
+  for (let term = 0; term < 5; term++) {
+    const rows = twoPageTranscriptFixture();
+    const summary = rows.filter(r => r.text.includes('STC Đậu'))[term];
+    const result = parseHubTranscriptRows(rows.filter(r => r !== summary));
+    assert.equal(result.subjectCount, 42);
+    assert.equal(result.rowChecks[term].valid, true);
+    assert.equal(result.creditChecks[term].valid, false, `missing summary for term ${term}`);
+    assert.equal(result.creditChecks[term].summaryEvidence, 'missing');
+    assert.equal(result.reliable, false);
+  }
+});
+
+test('losing the final course rows and their STC summary fails closed even when STT stays contiguous', () => {
+  const rows = twoPageTranscriptFixture();
+  const summary = rows.filter(r => r.text.includes('STC Đậu'))[4];
+  const result = parseHubTranscriptRows(rows.filter(r => r !== summary && !/DEMO_4_[23]\b/.test(r.text)));
+  assert.equal(result.subjectCount, 40);
+  assert.deepEqual(result.rowChecks[4], { semesterId: 'imported_2033_2034_hk1', expected: 1, detected: 1, parsed: 1, valid: true });
+  assert.equal(result.creditChecks[4].valid, false);
+  assert.equal(result.reliable, false);
+});
+
+test('unreadable or ambiguous STC evidence never validates a BUH semester', () => {
+  for (const text of [
+    'STC Đậu (0) + STC Rớt (0)',
+    'STC Đậu (0) + STC Rớt (0) = | ? | Điểm Trung Bình : 0.00',
+    'STC Đậu (?) + STC Rớt (0) = | 9 | Điểm Trung Bình : 0.00',
+    'STC Đậu (0) + STC Rớt (0) = | 9abc | Điểm Trung Bình : 0.00',
+    'STC Đậu (0) + STC Rớt (0) = | 9 12 | Điểm Trung Bình : 0.00',
+  ]) {
+    const rows = twoPageTranscriptFixture();
+    rows.filter(r => r.text.includes('STC Đậu'))[4].text = text;
+    const result = parseHubTranscriptRows(rows);
+    assert.equal(result.creditChecks[4].valid, false, text);
+    assert.equal(result.reliable, false, text);
+  }
+  const rows = twoPageTranscriptFixture();
+  rows.push(structuredClone(rows.filter(r => r.text.includes('STC Đậu'))[4]));
+  assert.equal(parseHubTranscriptRows(rows).reliable, false, 'duplicate summary is ambiguous');
 });
