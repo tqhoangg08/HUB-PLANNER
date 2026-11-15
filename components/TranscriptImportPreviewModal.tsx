@@ -1,10 +1,13 @@
 import { Overlay } from './Overlay';
 import React, { useMemo } from 'react';
-import { AlertTriangle, Check, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, X } from 'lucide-react';
 import type { Semester, Subject } from '../types';
+import { getTranscriptImportIssue, type TranscriptImportIntegrity } from '../features/transcript-import/model';
 
 interface TranscriptImportPreviewModalProps {
   semesters: Semester[];
+  integrity?: TranscriptImportIntegrity;
+  importError?: string;
   isSaving?: boolean;
   onChange: (semesters: Semester[]) => void;
   onCancel: () => void;
@@ -14,7 +17,7 @@ interface TranscriptImportPreviewModalProps {
 const getImportedAverage = (subject: Subject) => {
   const scores = [subject.scoreCC, subject.scoreProcess, subject.scoreMid, subject.scoreFinal]
     .filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
-  if (scores.length === 0) return '';
+  if (scores.length === 0) return subject.importedScoreLabel ?? '';
   return String(Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100) / 100);
 };
 
@@ -36,6 +39,8 @@ const updateSubject = (
 
 export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModalProps> = ({
   semesters,
+  integrity,
+  importError,
   isSaving = false,
   onChange,
   onCancel,
@@ -46,10 +51,12 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
     [semesters],
   );
   const totalSubjects = nonEmptySemesters.reduce((total, semester) => total + semester.subjects.length, 0);
+  const completenessIssue = importError || getTranscriptImportIssue(semesters, integrity);
 
   const handleAverageChange = (semesterId: string, subjectId: string, rawValue: string) => {
     const normalizedValue = rawValue.replace(',', '.').trim();
-    const parsedValue = normalizedValue === '' ? null : Number(normalizedValue);
+    const importedScoreLabel = /^(M|Đạt)$/i.test(normalizedValue) ? normalizedValue : undefined;
+    const parsedValue = normalizedValue === '' || importedScoreLabel ? null : Number(normalizedValue);
     if (parsedValue !== null && (!Number.isFinite(parsedValue) || parsedValue < 0 || parsedValue > 10)) return;
 
     onChange(updateSubject(semesters, semesterId, subjectId, subject => ({
@@ -58,15 +65,9 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
       scoreProcess: parsedValue,
       scoreMid: parsedValue,
       scoreFinal: parsedValue,
+      importedScoreLabel,
+      isNonGPA: importedScoreLabel ? true : subject.isNonGPA,
     })));
-  };
-
-  const handleDelete = (semesterId: string, subjectId: string) => {
-    onChange(semesters.map(semester => (
-      semester.id === semesterId
-        ? { ...semester, subjects: semester.subjects.filter(subject => subject.id !== subjectId) }
-        : semester
-    )));
   };
 
   return (
@@ -76,7 +77,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
           <div>
             <h2 className="text-lg font-black text-slate-900 sm:text-xl">Xem trước bảng điểm</h2>
             <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Kiểm tra, sửa hoặc xóa các môn trước khi đưa vào bản nháp.
+              Rà soát, sửa tên môn và điểm trước khi đưa vào bản nháp.
             </p>
           </div>
           <button
@@ -96,8 +97,15 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
             <p>
               <strong>Chú ý:</strong> Khi xác nhận, toàn bộ danh sách bảng điểm cũ sẽ được thay thế
               bằng danh sách dưới đây. Hãy rà soát kỹ tên môn, số tín chỉ và điểm trung bình.
+              {' '}Số môn và tín chỉ được giữ theo PDF để bảo đảm nhập đủ. Nếu không khớp, hãy hủy và xuất lại PDF từ BUH Portal.
             </p>
           </div>
+
+          {completenessIssue && (
+            <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
+              {completenessIssue}
+            </p>
+          )}
 
           {nonEmptySemesters.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 py-14 text-center text-sm text-slate-500">
@@ -144,16 +152,10 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
                         min="0"
                         step="1"
                         value={subject.credits}
-                        onChange={event => {
-                          const credits = Math.max(0, Math.round(Number(event.target.value) || 0));
-                          onChange(updateSubject(
-                            semesters,
-                            semester.id,
-                            subject.id,
-                            current => ({ ...current, credits }),
-                          ));
-                        }}
-                        className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500"
+                        readOnly
+                        aria-label={`Số tín chỉ theo PDF: ${subject.name}`}
+                        title="Tín chỉ giữ theo PDF, không sửa tại bước nhập"
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-semibold text-slate-800 outline-none"
                       />
                     </label>
                     <label className="block">
@@ -167,14 +169,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
                       />
                     </label>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(semester.id, subject.id)}
-                    className="mt-6 flex h-9 w-9 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 sm:mt-0"
-                    aria-label={`Xóa ${subject.name}`}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <span aria-hidden="true" />
                 </div>
               ))}
             </section>
@@ -182,7 +177,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
         </div>
 
         <footer className="flex flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <span className="text-xs font-semibold text-slate-500">{totalSubjects} môn sẽ được nhập</span>
+          <span className="text-xs font-semibold text-slate-500">{nonEmptySemesters.length} học kỳ / {totalSubjects} môn sẽ được nhập</span>
           <div className="flex gap-2">
             <button
               type="button"
@@ -195,7 +190,7 @@ export const TranscriptImportPreviewModal: React.FC<TranscriptImportPreviewModal
             <button
               type="button"
               onClick={onConfirm}
-              disabled={isSaving || totalSubjects === 0}
+              disabled={isSaving || totalSubjects === 0 || Boolean(completenessIssue)}
               className="flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-[#0056C7] px-5 text-sm font-bold text-white hover:bg-[#0047A5] disabled:cursor-not-allowed disabled:bg-slate-300 sm:flex-none"
             >
               <Check size={16} />

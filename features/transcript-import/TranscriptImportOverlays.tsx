@@ -48,6 +48,8 @@ export const TranscriptImportOverlays = ({
         {pendingImport && (
             <TranscriptImportPreviewModal
                 semesters={pendingImport.semesters}
+                integrity={pendingImport.integrity}
+                importError={pendingImport.error}
                 isSaving={isConfirmingImport}
                 onChange={onPendingSemestersChange}
                 onCancel={onCancelPendingImport}

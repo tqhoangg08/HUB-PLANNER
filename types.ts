@@ -7,6 +7,7 @@ export interface Subject {
   scoreMid: number | null; // 20%
   scoreFinal: number | null; // 50%
   isNonGPA: boolean; // Physical Edu, Defense Edu, etc.
+  importedScoreLabel?: string; // Preserve transcript labels such as M separately from a pending score.
 }
 
 export interface Semester {

@@ -25,8 +25,13 @@ interface TranscriptColumnLayout {
     detailLeft: number;
 }
 
+type CreditSummaryEvidence = 'verified' | 'missing' | 'unreadable' | 'ambiguous';
+
 interface DirectHubSemester extends Semester {
     expectedCredits: number | null;
+    assessedCredits: number | null;
+    summaryCount: number;
+    sequences: number[];
 }
 
 export interface DirectHubParseResult {
@@ -39,8 +44,12 @@ export interface DirectHubParseResult {
         semesterId: string;
         expected: number | null;
         actual: number;
+        assessed: number;
+        pending: number;
+        summaryEvidence: CreditSummaryEvidence;
         valid: boolean;
     }>;
+    rowChecks: Array<{ semesterId: string; expected: number; detected: number; parsed: number; valid: boolean }>;
     reliable: boolean;
 }
 
@@ -119,7 +128,8 @@ const getColumnText = (row: PositionedPdfRow, minX: number, maxX: number) => row
 const parseSummaryValue = (row: PositionedPdfRow, label: RegExp): number | null => {
     const normalized = normalizeForMatch(row.text);
     if (!label.test(normalized)) return null;
-    const match = normalized.match(/(?:=|\|)\s*(\d+(?:[.,]\d+)?)/);
+    // PDF.js can insert column separators between '=' and the total.
+    const match = normalized.match(/=\s*(?:\|\s*)?(\d+(?:[.,]\d+)?)/);
     return match ? Number.parseFloat(match[1].replace(',', '.')) : null;
 };
 
@@ -192,15 +202,20 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
             const startYear = Number(semesterMatch[2]);
             const endYear = Number(semesterMatch[3]);
             const semesterId = `imported_${startYear}_${endYear}_hk${semesterNo}`;
-            currentSemester = {
+            currentSemester = parsedSemesters.find(semester => semester.id === semesterId) ?? {
                 id: semesterId,
                 name: `Học kỳ ${semesterNo} Năm học ${startYear}-${endYear}`,
                 subjects: [],
                 trainingScore: null,
                 expectedCredits: null,
+                assessedCredits: null,
+                summaryCount: 0,
+                sequences: [],
             };
-            parsedSemesters.push(currentSemester);
-            detectedSemesterCount += 1;
+            if (!parsedSemesters.includes(currentSemester)) {
+                parsedSemesters.push(currentSemester);
+                detectedSemesterCount += 1;
+            }
             lastCourse = null;
             pendingNameLine = null;
             if (!yearRanges.some(range => range.start === startYear && range.end === endYear)) {
@@ -230,11 +245,14 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
         }
 
         if (/stc dau/i.test(normalizedRow)) {
-            const passedAndFailed = normalizedRow.match(/stc dau\s*\((\d+)\)\s*\+\s*stc rot\s*\((\d+)\)/i);
-            const expectedCredits = passedAndFailed
-                ? Number(passedAndFailed[1]) + Number(passedAndFailed[2])
-                : parseSummaryValue(row, /stc dau/i);
-            if (Number.isFinite(expectedCredits)) currentSemester.expectedCredits = expectedCredits;
+            // Require a complete source summary. Neither contiguous STT nor the
+            // parsed pending credits can prove that the final rows were retained.
+            currentSemester.summaryCount += normalizedRow.match(/stc dau/gi)?.length ?? 1;
+            const summary = normalizedRow.match(/\bstc dau\s*\((\d+(?:[.,]\d+)?)\)\s*\+\s*stc rot\s*\((\d+(?:[.,]\d+)?)\)\s*=\s*(?:\|\s*)?(\d+(?:[.,]\d+)?)(?=\s*(?:\||diem trung binh|$))/i);
+            currentSemester.assessedCredits = summary
+                ? Number(summary[1].replace(',', '.')) + Number(summary[2].replace(',', '.'))
+                : null;
+            currentSemester.expectedCredits = summary ? Number(summary[3].replace(',', '.')) : null;
             lastCourse = null;
             pendingNameLine = null;
             continue;
@@ -243,6 +261,8 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
         const sequenceItem = findColumnItem(row, currentLayout.sequenceLeft, currentLayout.codeLeft, text => /^\d+$/.test(text.trim()));
         const codeItem = findColumnItem(row, currentLayout.codeLeft, currentLayout.nameLeft, text => /^[A-Z0-9][A-Z0-9_.-]*$/i.test(text.trim()));
         const creditItem = findColumnItem(row, currentLayout.creditLeft, currentLayout.typeLeft, text => /^\d+(?:[.,]\d+)?$/.test(text.trim()));
+        // Count source course rows even if a required cell is unreadable.
+        if (sequenceItem) currentSemester.sequences.push(Number(sequenceItem.text));
 
         if (sequenceItem && codeItem && creditItem) {
             const inlineName = getColumnText(row, currentLayout.nameLeft, currentLayout.creditLeft);
@@ -262,6 +282,11 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
                 text => /^-?\d+(?:[.,]\d+)?$|^(?:M|Đạt)$/i.test(text.trim()),
             );
             const { score, isNonGPA: nonNumericScore } = normalizeScore(scoreItem?.text);
+            const rawScore = getColumnText(row, currentLayout.scoreLeft, currentLayout.resultLeft);
+            if (!name || (rawScore && !scoreItem) || (score !== null && (score < 0 || score > 10))) {
+                lastCourse = null;
+                continue;
+            }
             const normalizedName = name || codeItem.text.trim();
             const nameLower = normalizedName.toLowerCase();
             const isNonGPA = nonNumericScore
@@ -276,6 +301,7 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
                 scoreMid: score,
                 scoreFinal: score,
                 isNonGPA,
+                ...(nonNumericScore ? { importedScoreLabel: scoreItem!.text.trim() } : {}),
             };
             currentSemester.subjects.push(subject);
             lastCourse = { subject, pageNumber: row.pageNumber, y: row.y };
@@ -322,19 +348,43 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
 
     const creditChecks = parsedSemesters.map(semester => {
         const actual = semester.subjects.reduce((total, subject) => total + subject.credits, 0);
+        const pending = semester.subjects.reduce((total, subject) => total + (
+            subject.scoreFinal === null && !subject.importedScoreLabel ? subject.credits : 0
+        ), 0);
+        const assessed = actual - pending;
+        const expected = semester.expectedCredits;
+        const summaryEvidence: CreditSummaryEvidence = semester.summaryCount === 0 ? 'missing'
+            : semester.summaryCount !== 1 ? 'ambiguous'
+            : expected === null || semester.assessedCredits === null ? 'unreadable' : 'verified';
         return {
             semesterId: semester.id,
-            expected: semester.expectedCredits,
+            expected,
             actual,
-            valid: semester.expectedCredits === null || Math.abs(actual - semester.expectedCredits) < 0.001,
+            assessed,
+            pending,
+            summaryEvidence,
+            valid: summaryEvidence === 'verified' && expected !== null && semester.assessedCredits !== null
+                && Math.abs(actual - expected) < 0.001
+                && Math.abs(assessed - semester.assessedCredits) < 0.001,
         };
     });
-    const semesters = parsedSemesters.map(({ expectedCredits: _expectedCredits, ...semester }) => semester);
+    const rowChecks = parsedSemesters.map(semester => {
+        const expected = Math.max(0, ...semester.sequences);
+        const detected = semester.sequences.length;
+        const parsed = semester.subjects.length;
+        return {
+            semesterId: semester.id, expected, detected, parsed,
+            valid: expected > 0 && expected === detected && detected === parsed
+                && new Set(semester.sequences).size === detected,
+        };
+    });
+    const semesters = parsedSemesters.map(({ expectedCredits: _, assessedCredits: __, sequences: ___, summaryCount: ____, ...semester }) => semester);
     const subjectCount = semesters.reduce((total, semester) => total + semester.subjects.length, 0);
     const reliable = detectedSemesterCount > 0
         && semesters.length === detectedSemesterCount
         && semesters.every(semester => semester.subjects.length > 0)
-        && creditChecks.every(check => check.valid);
+        && creditChecks.every(check => check.valid)
+        && rowChecks.every(check => check.valid);
 
     return {
         studentInfo,
@@ -343,6 +393,7 @@ export const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParse
         detectedSemesterCount,
         subjectCount,
         creditChecks,
+        rowChecks,
         reliable,
     };
 };

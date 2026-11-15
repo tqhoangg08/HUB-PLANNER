@@ -1,398 +1,71 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { requestPdfAi } from './pdfAiApi';
-import { UserData, Semester, Subject } from '../types';
-import {
-    extractPageRows,
-    parseHubTranscriptRows,
-    PositionedPdfRow,
-    renderPageRows,
-} from './hubTranscriptParser';
+import type { UserData, Semester } from '../types';
+import { getTranscriptImportIssue, type TranscriptImportIntegrity } from '../features/transcript-import/model';
+import { extractPageRows, parseHubTranscriptRows, type PositionedPdfRow } from './hubTranscriptParser';
 
-// Set worker for PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
-    yearRanges: {start: number, end: number}[];
+    yearRanges: { start: number; end: number }[];
     error?: string;
-    debug?: Record<string, any>;
+    debug?: Record<string, unknown>;
+    integrity?: TranscriptImportIntegrity;
 }
 
-const summarizeKeys = (value: any) => {
-    if (!value || typeof value !== 'object') return 'none';
-    return Object.keys(value).slice(0, 12).join(', ') || 'none';
-};
-
-const saveImportDebug = (payload: Record<string, any>) => {
+const saveImportDebug = (payload: Record<string, unknown>) => {
     try {
         localStorage.setItem('hub_last_transcript_import_debug', JSON.stringify({
-            ...payload,
-            at: new Date().toISOString()
+            ...payload, at: new Date().toISOString(),
         }));
     } catch {
-        // ignore storage errors
+        // Diagnostics are best-effort and contain only counts/checks, never PDF text or identity.
     }
 };
 
-
-const extractJsonObject = (raw: string): any | null => {
-    const cleanText = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-
+// Keep the existing call signature; native BUH text does not need an AI token.
+export const parseHubPdf = async (file: File, _turnstileToken: string): Promise<ParsedResult> => {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     try {
-        return JSON.parse(cleanText);
-    } catch {
-        const start = cleanText.indexOf('{');
-        const end = cleanText.lastIndexOf('}');
-        if (start === -1 || end === -1 || end <= start) return null;
-
-        try {
-            return JSON.parse(cleanText.slice(start, end + 1));
-        } catch {
-            return null;
+        const positionedRows: PositionedPdfRow[] = [];
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+            const page = await pdf.getPage(pageNumber);
+            const textContent = await page.getTextContent();
+            positionedRows.push(...extractPageRows(textContent.items, pageNumber));
         }
-    }
-};
-
-const normalizeYear = (value: any): number | null => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value !== 'string') return null;
-
-    const match = value.match(/\b(20\d{2})\b/);
-    return match ? Number(match[1]) : null;
-};
-
-const normalizeYearRange = (hk: any): { start: number; end: number } | null => {
-    const combinedYearText = [
-        hk.nam_hoc,
-        hk.nien_khoa,
-        hk.nam,
-        hk.year,
-        hk.academic_year,
-        hk.ten_hoc_ky,
-        hk.hoc_ky,
-        hk.semester,
-        hk.semester_name,
-        hk.name
-    ].filter(Boolean).join(' ');
-
-    const rangeMatch = combinedYearText.match(/\b(20\d{2})\s*[-–]\s*(20\d{2})\b/);
-    const start = normalizeYear(hk.nam_bat_dau ?? hk.start_year ?? hk.year_start) ?? (rangeMatch ? Number(rangeMatch[1]) : null);
-    const end = normalizeYear(hk.nam_ket_thuc ?? hk.end_year ?? hk.year_end) ?? (rangeMatch ? Number(rangeMatch[2]) : (start ? start + 1 : null));
-
-    if (!start || !end) return null;
-    return { start, end };
-};
-
-const normalizeSemesterNo = (value: any): 1 | 2 | 'Hè' | null => {
-    const raw = String(value ?? '').trim().toLowerCase();
-    if (value === 1 || raw === '1' || raw.includes('học kỳ 1') || raw.includes('hoc ky 1') || raw.includes('hk1') || raw.includes('semester 1')) return 1;
-    if (value === 2 || raw === '2' || raw.includes('học kỳ 2') || raw.includes('hoc ky 2') || raw.includes('hk2') || raw.includes('semester 2')) return 2;
-    if (value === 3 || raw === '3' || raw.includes('hè') || raw.includes('he') || raw.includes('summer') || raw.includes('phụ') || raw.includes('phu')) return 'Hè';
-    return null;
-};
-
-const normalizeScore = (value: any): { score: number | null; isNonGPA: boolean } => {
-    if (typeof value === 'number' && Number.isFinite(value)) return { score: value, isNonGPA: false };
-    if (typeof value !== 'string') return { score: null, isNonGPA: false };
-
-    const numeric = Number.parseFloat(value.replace(',', '.'));
-    if (!Number.isNaN(numeric)) return { score: numeric, isNonGPA: false };
-    return { score: null, isNonGPA: value.trim().length > 0 };
-};
-
-const getFirstValue = (source: any, keys: string[]) => {
-    if (!source || typeof source !== 'object') return undefined;
-    for (const key of keys) {
-        if (source[key] !== undefined && source[key] !== null && source[key] !== '') return source[key];
-    }
-    return undefined;
-};
-
-const getFirstArray = (source: any, keys: string[]) => {
-    if (!source || typeof source !== 'object') return null;
-    for (const key of keys) {
-        if (Array.isArray(source[key])) return source[key];
-    }
-    return null;
-};
-
-// ==========================================
-// 🛡️ PHẦN 1: GIỚI HẠN RIÊNG CHO AI FALLBACK
-// ==========================================
-const consumeAiRequestQuota = (): { allowed: boolean; waitMinutes: number } => {
-    const LIMIT_CONFIG = {
-        MAX_REQUESTS: 2,
-        TIME_WINDOW: 60 * 60 * 1000, // 1 giờ
-        STORAGE_KEY: 'hub_planner_transcript_ai_rate_limit_v2'
-    };
-
-    const now = Date.now();
-    let data: { startTime: number; count: number } | null = null;
-    try {
-        const rawData = localStorage.getItem(LIMIT_CONFIG.STORAGE_KEY);
-        data = rawData ? JSON.parse(rawData) : null;
-    } catch {
-        data = null;
-    }
-
-    if (!data || !Number.isFinite(data.startTime) || !Number.isFinite(data.count) || now - data.startTime > LIMIT_CONFIG.TIME_WINDOW) {
-        const newData = { startTime: now, count: 1 };
-        localStorage.setItem(LIMIT_CONFIG.STORAGE_KEY, JSON.stringify(newData));
-        return { allowed: true, waitMinutes: 0 };
-    }
-
-    if (data.count >= LIMIT_CONFIG.MAX_REQUESTS) {
-        const waitMinutes = Math.ceil((data.startTime + LIMIT_CONFIG.TIME_WINDOW - now) / 60000);
-        return { allowed: false, waitMinutes: Math.max(1, waitMinutes) };
-    }
-
-    data.count++;
-    localStorage.setItem(LIMIT_CONFIG.STORAGE_KEY, JSON.stringify(data));
-    return { allowed: true, waitMinutes: 0 };
-};
-
-// ==========================================
-// 🤖 PHẦN 2: CẤU HÌNH AI (PROMPT NÂNG CẤP)
-// ==========================================
-const AI_SYSTEM_PROMPT = `
-Bạn là chuyên gia OCR xử lý bảng điểm đại học.
-Nhiệm vụ: Trích xuất toàn bộ dữ liệu từ văn bản đầu vào và trả về 1 JSON duy nhất.
-
-CẤU TRÚC JSON YÊU CẦU (Bắt buộc tuân thủ):
-{
-  "sinh_vien": {
-    "ho_ten": "string",
-    "ma_sv": "string",
-    "chuyen_nganh": "string"
-  },
-  "hoc_ky": [
-    {
-      "nam_bat_dau": number,
-      "nam_ket_thuc": number,
-      "hoc_ky_so": number hoặc string (Chỉ được trả về: 1, 2, hoặc "Hè"),
-      "diem_ren_luyen": number,
-      "mon_hoc": [
-        {
-          "ten_mon": "Tên đầy đủ môn học",
-          "tin_chi": number,
-          "diem_so": number hoặc string (ví dụ: 8.5 hoặc "Đạt", "M")
-        }
-      ]
-    }
-  ]
-}
-
-QUY TẮC QUAN TRỌNG:
-1. Tìm và trả về TẤT CẢ các học kỳ xuất hiện trong toàn bộ văn bản, không chỉ học kỳ đầu tiên. Trước khi trả kết quả, phải tự đếm số tiêu đề học kỳ trong đầu vào và bảo đảm mảng "hoc_ky" có đủ số học kỳ tương ứng.
-2. Tự động sửa lỗi dính chữ.
-3. Nếu là học kỳ Hè/Học kỳ phụ, ở trường "hoc_ky_so" bắt buộc ghi là "Hè" hoặc 3.
-4. Nếu điểm là "M", "Đạt" hoặc môn thể chất/quốc phòng -> ghi vào "diem_so".
-5. Văn bản đầu vào được giữ theo từng dòng của PDF. Dấu "|" biểu thị khoảng cách giữa các cụm/cột trên cùng một dòng.
-6. "tin_chi" chỉ được lấy đúng từ cột có tiêu đề "Số tín chỉ", "Tín chỉ" hoặc "TC" trên cùng dòng của môn học. Tuyệt đối không lấy STT, lần học, hệ số, điểm hệ 4, điểm hệ 10 hay số thứ tự học kỳ làm tín chỉ.
-7. Không tự suy đoán tín chỉ. Nếu không xác định rõ giá trị trong đúng cột tín chỉ thì trả về 0 để sinh viên kiểm tra, không được tự điền 1.
-8. Giữ nguyên tên môn và đối chiếu lại từng dòng trước khi trả kết quả.
-9. Chỉ trả về JSON thuần, viết gọn, không thêm giải thích và không bỏ bớt học kỳ để rút ngắn câu trả lời.
-`;
-
-// ==========================================
-// 📡 PHẦN 3: GỌI API
-// ==========================================
-const extractFullTranscriptWithAI = async (text: string, turnstileToken: string): Promise<any> => {
-    try {
-        const fullMessage = `${AI_SYSTEM_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${text}`;
-        return extractJsonObject(await requestPdfAi(fullMessage, turnstileToken));
-    } catch (error) {
-        console.error("AI Full Extraction Error:", error);
-        throw error;
-    }
-};
-
-// ==========================================
-// 🚀 PHẦN 4: HÀM CHÍNH  (MAIN FUNCTION)
-// ==========================================
-export const parseHubPdf = async (file: File, turnstileToken: string): Promise<ParsedResult> => {
-    const result: ParsedResult = {
-        studentInfo: {},
-        semesters: [],
-        yearRanges: [],
-        debug: {
-            fileName: file.name,
+        const direct = parseHubTranscriptRows(positionedRows);
+        const integrity: TranscriptImportIntegrity = {
+            detectedSemesterCount: direct.detectedSemesterCount,
+            semesters: direct.rowChecks.map(check => {
+                const credits = direct.creditChecks.find(credit => credit.semesterId === check.semesterId);
+                return { id: check.semesterId, subjectCount: check.expected, credits: credits?.expected ?? credits?.actual ?? 0 };
+            }),
+            sourceReliable: direct.reliable,
+        };
+        const unverifiedSummaries = direct.creditChecks.filter(check => check.summaryEvidence !== 'verified').length;
+        const error = unverifiedSummaries > 0
+            ? `Có ${unverifiedSummaries} học kỳ thiếu hoặc không đọc rõ một dòng tổng kết STC duy nhất với tổng tín chỉ sau dấu =. `
+                + 'Vui lòng xuất lại PDF đầy đủ từ BUH Portal. Không thể xác nhận nhập; bảng điểm cũ được giữ nguyên.'
+            : getTranscriptImportIssue(direct.semesters, integrity) ?? undefined;
+        const debug = {
+            stage: direct.reliable ? 'hub-layout-parser-success' : 'hub-layout-parser-incomplete',
+            pages: pdf.numPages,
             fileSize: file.size,
-            stage: 'start'
-        }
-    };
-
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    result.debug = { ...result.debug, stage: 'pdf-loaded', pages: pdf.numPages };
-    let fullText = '';
-    const positionedRows: PositionedPdfRow[] = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageRows = extractPageRows(textContent.items as any[], i);
-        positionedRows.push(...pageRows);
-        fullText += `\n=== TRANG ${i} ===\n${renderPageRows(pageRows)}\n`;
-    }
-    fullText = fullText
-        .split('\n')
-        .map(line => line.replace(/[ \t]+/g, ' ').trim())
-        .filter(Boolean)
-        .join('\n');
-    result.debug = { ...result.debug, stage: 'pdf-text-extracted', textLength: fullText.length };
-
-    if (fullText.length < 80) {
-        result.error = 'PDF không trích xuất được đủ văn bản. Hãy dùng file PDF gốc dạng text, không phải ảnh scan.';
-        saveImportDebug(result.debug || {});
-        return result;
-    }
-
-    const directResult = parseHubTranscriptRows(positionedRows);
-    result.debug = {
-        ...result.debug,
-        stage: 'hub-layout-parser-completed',
-        directDetectedSemesterCount: directResult.detectedSemesterCount,
-        directSubjectCount: directResult.subjectCount,
-        directCreditChecks: directResult.creditChecks,
-        directReliable: directResult.reliable,
-    };
-
-    if (directResult.reliable) {
-        result.studentInfo = directResult.studentInfo;
-        result.semesters = directResult.semesters;
-        result.yearRanges = directResult.yearRanges;
-        result.debug = {
-            ...result.debug,
-            stage: 'hub-layout-parser-success',
-            mappedSemesterCount: result.semesters.length,
+            directDetectedSemesterCount: direct.detectedSemesterCount,
+            directSubjectCount: direct.subjectCount,
+            directCreditChecks: direct.creditChecks,
+            directRowChecks: direct.rowChecks,
+            directReliable: direct.reliable,
+            mappedSemesterCount: direct.semesters.length,
+            mappedSubjectCount: direct.subjectCount,
         };
-        saveImportDebug(result.debug);
-        return result;
+        saveImportDebug(debug);
+        // Unverifiable native tables and unsupported layouts fail closed locally.
+        // A whole-document AI response cannot establish missing source evidence.
+        return { studentInfo: direct.studentInfo, semesters: direct.semesters, yearRanges: direct.yearRanges, integrity, error, debug };
+    } finally {
+        await pdf.destroy();
     }
-
-    const aiQuota = consumeAiRequestQuota();
-    if (!aiQuota.allowed) {
-        result.error = `Parser trực tiếp chưa nhận diện chắc chắn bố cục này. Giới hạn phân tích AI là 2 lần/giờ; vui lòng thử lại sau ${aiQuota.waitMinutes} phút.`;
-        result.debug = { ...result.debug, stage: 'ai-rate-limited', waitMinutes: aiQuota.waitMinutes };
-        saveImportDebug({ ...result.debug, error: result.error });
-        return result;
-    }
-
-    console.log("Đang gửi toàn bộ bảng điểm lên AI...");
-    let aiResult: any = null;
-    try {
-        result.debug = { ...result.debug, stage: 'calling-pdf-ai-worker' };
-        aiResult = await extractFullTranscriptWithAI(fullText, turnstileToken);
-    } catch (error) {
-        result.error = `Lỗi tại bước gọi dịch vụ phân tích PDF: ${error instanceof Error ? error.message : 'Không gọi được API Groq.'}`;
-        saveImportDebug({ ...(result.debug || {}), error: result.error });
-        return result;
-    }
-
-    if (!aiResult) {
-        result.error = 'Groq không trả về JSON hợp lệ.';
-        saveImportDebug({ ...(result.debug || {}), stage: 'invalid-ai-json' });
-        return result;
-    }
-    result.debug = { ...result.debug, stage: 'ai-json-parsed', aiKeys: summarizeKeys(aiResult) };
-
-    const studentInfo = aiResult.sinh_vien || aiResult.student || aiResult.student_info || aiResult.thong_tin_sinh_vien;
-    if (studentInfo) {
-        result.studentInfo = {
-            studentName: getFirstValue(studentInfo, ['ho_ten', 'name', 'full_name', 'student_name']),
-            studentCode: getFirstValue(studentInfo, ['ma_sv', 'mssv', 'student_code', 'student_id']),
-            majorName: getFirstValue(studentInfo, ['chuyen_nganh', 'nganh', 'major', 'major_name'])
-        } as any;
-    }
-
-    const semesterRows = getFirstArray(aiResult, ['hoc_ky', 'semesters', 'semester', 'terms', 'hocKy', 'bang_diem'])
-        || getFirstArray(aiResult.data, ['hoc_ky', 'semesters', 'semester', 'terms', 'hocKy', 'bang_diem'])
-        || [];
-    result.debug = { ...result.debug, semesterRowCount: semesterRows.length };
-
-    if (semesterRows.length > 0) {
-        const skippedReasons: Record<string, number> = {};
-        const markSkip = (reason: string) => {
-            skippedReasons[reason] = (skippedReasons[reason] || 0) + 1;
-        };
-
-        result.semesters = semesterRows.reduce((semesters: Semester[], hk: any, index: number) => {
-            const yearRange = normalizeYearRange(hk) || normalizeYearRange(aiResult);
-            const hky = normalizeSemesterNo(
-                getFirstValue(hk, ['hoc_ky_so', 'hoc_ky', 'ten_hoc_ky', 'semester', 'semester_no', 'semester_name', 'ky', 'term'])
-            ) || ((index % 2) + 1 as 1 | 2);
-
-            if (!yearRange || !hky) {
-                markSkip(!yearRange ? 'missing-year-range' : 'missing-semester');
-                return semesters;
-            }
-
-            const y1 = yearRange.start;
-            const y2 = yearRange.end;
-
-            if (!result.yearRanges.some(y => y.start === y1 && y.end === y2)) {
-                result.yearRanges.push({ start: y1, end: y2 });
-            }
-
-            const subjectRows = getFirstArray(hk, ['mon_hoc', 'subjects', 'courses', 'hoc_phan', 'items', 'details', 'bang_diem']) || [];
-            const subjects: Subject[] = subjectRows
-                .filter((mon: any) => mon && getFirstValue(mon, ['ten_mon', 'ten_hoc_phan', 'subject_name', 'course_name', 'name', 'mon_hoc', 'hoc_phan']))
-                .map((mon: any, monIdx: number) => {
-                    const rawName = String(getFirstValue(mon, ['ten_mon', 'ten_hoc_phan', 'subject_name', 'course_name', 'name', 'mon_hoc', 'hoc_phan']) || '').trim();
-                    const { score, isNonGPA: scoreIsNonGPA } = normalizeScore(getFirstValue(mon, ['diem_so', 'diem', 'score', 'tb10', 'diem_tb', 'diem_tong_ket', 'average', 'final_score', 'diem_he_10']));
-                    const credits = Number.parseFloat(String(getFirstValue(mon, ['tin_chi', 'so_tin_chi', 'credits', 'credit']) ?? 0).replace(',', '.')) || 0;
-                    const nameLower = rawName.toLowerCase();
-                    const nonGpaKeywords = ['gdtc', 'thể chất', 'the chat', 'quốc phòng', 'quoc phong', 'an ninh', 'kỹ năng', 'ky nang', 'đầu vào', 'dau vao', 'tiếng anh tăng cường', 'tieng anh tang cuong', 'học phần', 'hoc phan', 'quân sự', 'quan su', 'chiến đấu', 'chien dau'];
-                    const isNonGPA = scoreIsNonGPA || credits === 0 || nonGpaKeywords.some(kw => nameLower.includes(kw));
-
-                    return {
-                        id: `ai_${y1}_${hky}_${index}_${monIdx}`,
-                        name: rawName || "Môn học",
-                        credits,
-                        scoreCC: score,
-                        scoreProcess: score,
-                        scoreMid: score,
-                        scoreFinal: score,
-                        isNonGPA
-                    };
-                });
-
-            if (subjects.length === 0) {
-                markSkip(`no-subjects keys=${summarizeKeys(hk)}`);
-                return semesters;
-            }
-
-            const trainingScore = Number.parseInt(String(getFirstValue(hk, ['diem_ren_luyen', 'drl', 'training_score']) ?? ''), 10);
-
-            semesters.push({
-                id: `imported_${y1}_${y2}_hk${hky}`,
-                name: `Học kỳ ${hky} Năm học ${y1}-${y2}`,
-                subjects,
-                trainingScore: Number.isFinite(trainingScore) ? trainingScore : null
-            });
-
-            return semesters;
-        }, []);
-
-        result.debug = {
-            ...result.debug,
-            mappedSemesterCount: result.semesters.length,
-            skippedReasons,
-            firstSemesterKeys: summarizeKeys(semesterRows[0])
-        };
-    }
-
-    if (result.semesters.length === 0) {
-        const debug = result.debug || {};
-        result.error = semesterRows.length === 0
-            ? `Groq đã trả JSON nhưng không có danh sách học kỳ/môn học mà app nhận ra. Keys Groq: ${debug.aiKeys || summarizeKeys(aiResult)}.`
-            : `Groq đã trả ${semesterRows.length} học kỳ nhưng app không map được môn. Keys học kỳ đầu: ${debug.firstSemesterKeys || summarizeKeys(semesterRows[0])}. Lý do: ${JSON.stringify(debug.skippedReasons || {})}.`;
-        saveImportDebug({ ...debug, error: result.error });
-    } else {
-        saveImportDebug(result.debug || {});
-    }
-
-    return result;
 };
