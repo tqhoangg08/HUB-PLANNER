@@ -171,10 +171,39 @@ for(const [name,mutation]of [
   ['split traffic',e=>e.deployment.versions.push({version_id:next,percentage:1})],
   ['missing logs',e=>e.logs=''],['duplicated marker',e=>e.logs+=e.logs],['wrong postflight version',e=>e.logs=e.logs.replace(version,next)],
   ['failed run',e=>e.run.conclusion='failure'],['wrong job SHA',e=>e.job.head_sha='b'.repeat(40)],['wrong job run',e=>e.job.run_id=800],
+  ['wrong release run',e=>e.run.id=901],['wrong release SHA',e=>e.run.head_sha='b'.repeat(40)],
+  ['missing owner approval',e=>e.logs=e.logs.replace('PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS','')],
+  ['rerun attempt',e=>e.run.run_attempt=2],
   ['replayed version',e=>e.version.metadata.created_on='2026-10-17T00:00:00Z'],
   ['later rollback deployment',e=>e.deployment.created_on='2026-10-18T03:00:00Z'],
   ['non Owner',e=>e.run.actor={id:9}],['no postflight step',e=>e.job.steps=[]],['concurrent release',e=>e.s.runs=fixture().runs]
 ])test(`baseline rejects ${name}`,()=>{const e=evidence();mutation(e);assert.throws(()=>validateBaselineEvidence(e));});
+
+test('v475 retained receipts pass provenance checks without authorizing newer main or its CI',()=>{
+  const e=JSON.parse(readFileSync('docs/public-release-baseline-4a9e7d99.json','utf8'));
+  const owner={type:'User',id:e.release.actorId,login:'tqhoangg08'};
+  const s=fixture();s.user=owner;s.repository.owner=owner;s.runs=[];s.branch.commit.sha=e.mainAtPreparation;
+  const run={...fixture().runs[0],id:Number(e.runId),head_sha:e.sha,status:e.release.status,conclusion:e.release.conclusion,
+    actor:owner,triggering_actor:owner,run_attempt:e.release.attempt};
+  const candidate={s,run,job:{id:e.release.releasePublicJobId,run_id:Number(e.runId),head_sha:e.sha,name:'release-public',status:'completed',conclusion:'success',
+    started_at:e.release.releasePublicStartedAt,completed_at:e.release.releasePublicCompletedAt,
+    steps:[{name:'Verify serving Public version preserves V2',conclusion:e.release.stepConclusions.postdeploy}]},
+    logs:e.release.logReceipts.join('\n')+'\n',
+    version:{id:e.version,metadata:{created_on:e.liveMetadata.version.createdOn}},
+    deployment:{...e.liveMetadata.deployment,created_on:e.liveMetadata.deployment.createdOn}};
+  assert.equal(validateBaselineEvidence(candidate),e.version);
+  const ci={...run,id:Number(e.independentValidation.runId),path:VALIDATION};
+  s.ciRuns=[ci];s.checkRuns[0]={...s.checkRuns[0],head_sha:e.sha,details_url:`${runUrl(ci.id)}/job/${s.checkRuns[0].id}`};
+  assert.throws(()=>validateCI(s),/EXACT_SHA_CI_REQUIRED/,'CI for deployed SHA must not authorize preparation main');
+  for(const mutation of [
+    x=>x.job.run_id++,x=>x.job.head_sha=e.mainAtPreparation,x=>x.run.head_sha=e.mainAtPreparation,
+    x=>x.logs=x.logs.replace(e.release.receipts.ownerApproval,''),
+    x=>x.logs=x.logs.replace(e.release.receipts.postdeploy,''),
+    x=>x.deployment.versions.push({version_id:next,percentage:1}),
+  ]){
+    const changed=structuredClone(candidate);mutation(changed);assert.throws(()=>validateBaselineEvidence(changed));
+  }
+});
 test('baseline patch updates only reviewed static pin and its assertion',()=>{
   const source=readFileSync('scripts/check-public-release-state.mjs','utf8'),tests=readFileSync('tests/public-release-v2-rollout.test.mjs','utf8');
   const patch=baselinePatch(source,tests,next);
