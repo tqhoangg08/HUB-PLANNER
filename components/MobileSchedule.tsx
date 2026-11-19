@@ -394,7 +394,7 @@ const splitData = (str?: string) => {
 const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: number, targetShiftType: string) => {
   const weekArr = splitData(course.weeks);
   const dayArr = splitData(course.day_of_week);
-  const roomArr = splitData(course.room);
+  const roomArr = (course.room || '').split(/\r?\n/).map(room => room.trim());
   const shiftArr = splitData(course.shift);
 
   if (weekArr.length === 0) return null;

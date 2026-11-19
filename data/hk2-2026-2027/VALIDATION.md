@@ -6,9 +6,9 @@ Ngày kiểm tra: 19/11/2026, giờ Việt Nam. Base: `bdfb86567497948a371d4ac44
 
 | Lệnh / kiểm tra | Kết quả |
 | --- | --- |
-| `npm run test:hk2-import` | PASS, 10 tests, không skip |
+| `npm run test:hk2-import` | PASS, 13 tests, không skip; chạy helper thực tế của cả ScheduleBoard và MobileSchedule |
 | `node --test --experimental-strip-types tests/cloudflare-course-authority-foundation.test.ts tests/cloudflare-course-authority-integration.test.mjs tests/cloudflare-course-schedule-sessions.test.ts tests/course-browser-d1-wiring.test.mjs tests/calendar-export.test.ts tests/calendar-export-ui.test.ts tests/schedule-board-model.test.ts` | PASS, 40 tests, không skip |
-| `npm test` | PASS, exit 0; 1.353 tests qua trong 19 lượt Node test runner, 0 fail / 0 skip |
+| `npm test` | Lượt nền tại `e267885`: PASS, exit 0; 1.353 tests, 0 fail / 0 skip. Kết quả full suite của bản bổ sung mobile được ghi trong mô tả và Checks của PR #159 |
 | `npm run typecheck` | PASS, exit 0 |
 | `npm run cf:typecheck` | PASS, exit 0 |
 | `npm run build` | PASS, exit 0; có cảnh báo bundle trên 500 kB, không thay phạm vi để tối ưu bundle |
@@ -17,7 +17,7 @@ Ngày kiểm tra: 19/11/2026, giờ Việt Nam. Base: `bdfb86567497948a371d4ac44
 | SHA-256 cả 5 input trong Git index | PASS, không bị chuyển đổi xuống dòng khi `git add` |
 | `git diff --check` / `git diff --cached --check` | PASS |
 
-Các log cục bộ ở `.cache/hk2-*.log`, không commit file log sinh tự động. CI của PR chạy lại full suite qua `npm test`; không thêm/bỏ qua workflow hoặc guard bảo vệ.
+Các log cục bộ ở `.cache/hk2-*.log`, không commit file log sinh tự động. CI của PR chạy lại full suite qua `npm test`; không thêm/bỏ qua workflow hoặc guard bảo vệ. [Checks của PR #159](https://github.com/tqhoangg08/HUB-PLANNER/pull/159/checks) là bằng chứng CI cho commit head hiện hành; kết quả full suite cục bộ và SHA bản bổ sung được ghi vào mô tả PR sau khi kiểm tra xong.
 
 Lượt full suite đầu dừng tại test so sánh nguyên văn `0058_seed_drl_catalog_2026.sql` vì checkout Windows `core.autocrlf=true` tạo CRLF. Đã xác minh nội dung sau chuẩn hóa xuống dòng khớp chính xác blob `origin/main`, rồi tạm đưa working copy của tệp đó về LF để kiểm tra. `npm run test:event-drl` kiểm tra lại đạt 13/13; sau đó chạy lại **toàn bộ** `npm test` đạt kết quả PASS nêu trên. Sau kiểm thử đã khôi phục CRLF của working copy ban đầu; không có diff/commit migration DRL. Không bỏ qua hoặc sửa test để qua. Trên Windows, test DRL nguyên văn này cần working copy LF như blob Git/checkout Linux của CI.
 
@@ -27,8 +27,9 @@ Lượt full suite đầu dừng tại test so sánh nguyên văn `0058_seed_drl
 - 2.349 mã đủ điều kiện kỹ thuật; 8 mã chặn vì giờ chưa biết; 3 placeholder cách ly ngoài staging. 112 lớp có 113 lượt cờ, 104 lớp cảnh báo không bị tự loại. Tất cả vẫn chờ owner cho phép công bố.
 - 2.357 instructor NULL; 8 mã `_GHÉP` nguyên vẹn; 124 tiểu luận không ngày/ca thi giả; 15 marker không trở thành phòng; 78 lịch thi hè giữ nguyên và đều có ghi chú nguồn `PM`.
 - 22 tuần × 7 ngày đối chiếu độc lập trong từng Excel và với code calendar. 0 buổi học và 0 lịch thi trùng ngày nghỉ theo phạm vi chương trình; không thêm holidayWeeks. Các hoạt động/online riêng advanced giữ đúng phạm vi.
-- 3.144 đoạn buổi học của 2.349 lớp đủ điều kiện, gồm 782 lớp nhiều đoạn, khớp với parser frontend hiện hữu. Test gọi chính hàm xác định slot của `ScheduleBoard.tsx` để đối chiếu thứ/tuần/giờ/phòng.
-- Test đã bắt lỗi thật trước sửa: `MLM308_262_D05_GHÉP` hiển thị phòng `LỚP` thay vì `LỚP ẢO`. Chỉ đổi cách tách phòng sang xuống dòng, giữ nguyên khoảng trắng trong tên. 13 lớp đủ điều kiện có tên phòng một dòng chứa dấu cách. Không đổi dashboard, typography, bảng hoặc layout.
+- 3.144 đoạn buổi học của 2.349 lớp đủ điều kiện, gồm 782 lớp nhiều đoạn, khớp với parser frontend hiện hữu. Test lấy AST và chạy chính các helper slot, phân loại ca và tách trường của **từng** `ScheduleBoard.tsx` và `MobileSchedule.tsx`, cùng parser tuần production; không dùng classifier ca giả lập. Kiểm tra mọi tuần của các buổi học, đủ thứ/tuần/giờ/phòng và không mutate course.
+- Test ban đầu mới chạy ScheduleBoard dù tên nói desktop/mobile. Bản bổ sung đã tái hiện lỗi riêng MobileSchedule trước sửa: `MLM308_262_D05_GHÉP` trả `LỚP` thay vì `LỚP ẢO`, và mẫu HK1 `GYM303_261_BB_D01` trả `Nhà` thay vì `Nhà tập luyện Bóng bàn`. MobileSchedule được sửa đúng một dòng để giống ScheduleBoard: chỉ tách phòng theo newline, giữ nguyên khoảng trắng trong tên. 13 lớp HK2 đủ điều kiện có tên phòng một dòng chứa dấu cách. Không đổi dashboard, typography, spacing, bảng hoặc layout.
+- Cả hai component được chạy với ba mẫu trường lịch từ export HK1 cũ (`ACC306_261_L02`, `GYM303_261_BB_D01`, `MLM303_261_L16`), không copy giảng viên/ID/trường cá nhân. Kiểm tra thêm phòng undefined/null/rỗng/whitespace, `LỚP ẢO`/`Sân bóng đá`/`Nhà thi đấu`, khoảng trắng nội bộ, thứ/ca/tuần legacy phân cách bằng dấu cách, CRLF, phòng trống ở đầu/cuối mảng nhiều buổi, nhiều ca cùng ngày, tuần tổng quan 0, thứ phân cách dấu phẩy và các slot không khớp. Thứ tự phòng nhiều dòng được giữ; đối tượng HK1 đầu vào không bị sửa.
 
 ## Replay, rollback và giới hạn kiểm thử
 
@@ -49,11 +50,12 @@ Production chỉ được SELECT: `production-readonly.json` ghi metadata 0 rows
 | `generated/exceptions.json` | `eb472ae12b106ee1fcc221a12dd2a10bf3312fbe8bcea66829fa095ca088d6ab` |
 | Payload nội dung 2.349 lớp cần thêm | `6f941e6d5504763facdd737863de0863374758039fa832d8ef8a2e74e6387415` |
 
-## Danh sách đầy đủ 19 tệp thay đổi
+## Danh sách đầy đủ 20 tệp thay đổi
 
 ```text
 .gitattributes
 components/ScheduleBoard.tsx
+components/MobileSchedule.tsx
 package.json
 scripts/hk2-2026-2027/catalogue.mjs
 scripts/prepare-hk2-course-import.mjs

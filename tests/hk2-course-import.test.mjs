@@ -4,7 +4,8 @@ import { readFile, mkdtemp, cp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { transformSync } from 'esbuild';
+import { buildSync, transformSync } from 'esbuild';
+import ts from 'typescript';
 import { Miniflare } from 'miniflare';
 import { DatabaseSync } from 'node:sqlite';
 import { auditPackage, DATA_DIR, FIELDS, SEMESTER, SHIFT_TIMES, verifiedInputs, planImport, sha256, normalizeKey,
@@ -216,17 +217,92 @@ test('local D1 runtime accepts normalized courses and rolls back an entire faile
   assert.equal(result.payload.total, 6); assert.ok(result.payload.data.every(r => r.instructor === null));
 });
 
-test('existing desktop/mobile slot renderer preserves source room names with spaces and multi-meeting correspondence', async () => {
-  const source = await readFile('components/ScheduleBoard.tsx', 'utf8');
-  const slotSource = source.slice(source.indexOf('const splitData ='), source.indexOf('const createInitialTagData'));
-  const compiled = transformSync(slotSource, { loader: 'ts' }).code;
-  const parse = (s) => parseWeeks(s);
-  const slot = new Function('parseWeeks', 'getMainShiftType', `${compiled}; return getCourseDetailsForSlot;`)(parse, s => Number(s.split(':')[0]) < 12 ? 'S' : 'C');
-  for (const record of eligible) for (const segment of record.segments) {
-    const shift = Number(segment.shift.split(':')[0]) < 12 ? 'S' : 'C';
-    const actual = slot(record.course, segment.day_of_week, segment.weeks[0], shift);
-    const matching = record.segments.filter(s => s.day_of_week === segment.day_of_week && s.weeks.includes(segment.weeks[0]) && (Number(s.shift.split(':')[0]) < 12 ? 'S' : 'C') === shift);
-    assert.equal(actual?.room, [...new Set(matching.map(s => s.room).filter(Boolean))].join(' / '), record.course.course_code);
-    assert.equal(actual?.shift, [...new Set(matching.map(s => s.shift))].join(';'), record.course.course_code);
-  }
-});
+// Execute each component's own slot/room/day/shift helpers, with the real production
+// week parser. No substitute renderer or mocked S/C classifier can hide a mobile-only regression.
+const productionLogic = buildSync({ entryPoints: ['utils/scheduleLogic.js'], bundle: true,
+  write: false, format: 'esm', platform: 'node' }).outputFiles[0].text;
+const { parseWeeks: productionParseWeeks } = await import(`data:text/javascript;base64,${Buffer.from(productionLogic).toString('base64')}`);
+const componentSlots = await Promise.all(['ScheduleBoard', 'MobileSchedule'].map(async component => {
+  const file = `components/${component}.tsx`;
+  const source = await readFile(file, 'utf8');
+  const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const names = ['getExactShiftRange', 'getMainShiftType', 'splitData', 'getCourseDetailsForSlot'];
+  const statements = ast.statements.filter(node => ts.isVariableStatement(node)
+    && node.declarationList.declarations.some(d => names.includes(d.name.getText(ast))));
+  assert.equal(statements.length, names.length, `${component}: all actual helper definitions must be found`);
+  const compiled = transformSync(statements.map(node => node.getText(ast)).join('\n'), { loader: 'ts' }).code;
+  const slot = new Function('parseWeeks', `${compiled}; return getCourseDetailsForSlot;`)(productionParseWeeks);
+  return { component, slot };
+}));
+
+for (const { component, slot } of componentSlots) {
+  test(`${component} actual slot renderer preserves every HK2 meeting, room and shift without mutating courses`, () => {
+    for (const record of eligible) {
+      const before = JSON.stringify(record.course);
+      const queries = new Map();
+      for (const segment of record.segments) for (const week of segment.weeks) {
+        const shift = Number(segment.shift.split(':')[0]) < 12 ? 'S' : 'C';
+        queries.set(`${segment.day_of_week}:${week}:${shift}`, [segment.day_of_week, week, shift]);
+      }
+      for (const [day, week, shift] of queries.values()) {
+        const matching = record.segments.filter(s => s.day_of_week === day && s.weeks.includes(week)
+          && (Number(s.shift.split(':')[0]) < 12 ? 'S' : 'C') === shift);
+        assert.deepEqual(slot(record.course, day, week, shift), {
+          day, shift: [...new Set(matching.map(s => s.shift))].join(';'),
+          room: [...new Set(matching.map(s => s.room).filter(Boolean))].join(' / '),
+          weeks: [...new Set(matching.map(s => s.weeks_raw))].join(' / '),
+        }, `${component} ${record.course.course_code} day ${day} week ${week} ${shift}`);
+      }
+      assert.equal(JSON.stringify(record.course), before);
+    }
+  });
+
+  test(`${component} actual slot renderer preserves HK1 legacy samples and room/meeting boundary cases`, () => {
+    const check = (course, queries) => {
+      const before = structuredClone(course);
+      for (const [day, week, shift, expected] of queries) {
+        assert.deepEqual(slot(course, day, week, shift), expected === null ? null : { day, ...expected }, `${component} ${course.course_code || 'boundary'} ${day}/${week}/${shift}`);
+      }
+      assert.deepEqual(course, before, `${component}: display logic must not rewrite HK1/legacy fields`);
+    };
+    // Timetable fields only, copied from the existing HK1 export in Downloads
+    // (course_schedules_HK1_2026_2027.xlsx). No instructors, IDs or personal fields.
+    check({ course_code: 'ACC306_261_L02', semester: 'HK1_2026_2027', weeks: '2-3,5-9\n8-9',
+      day_of_week: '7\n4', shift: 'S', room: 'B2.107\nB2.104' }, [
+      [7, 2, 'S', { shift: 'S', room: 'B2.107', weeks: '2-3,5-9' }],
+      [4, 8, 'S', { shift: 'S', room: 'B2.104', weeks: '8-9' }],
+      [4, 2, 'S', null], [7, 8, 'C', null],
+    ]);
+    check({ course_code: 'GYM303_261_BB_D01', semester: 'HK1_2026_2027', weeks: '2-4\n5-7',
+      day_of_week: '4', shift: '6-8\n9-10', room: 'Nhà tập luyện Bóng bàn' }, [
+      [4, 2, 'C', { shift: '6-8', room: 'Nhà tập luyện Bóng bàn', weeks: '2-4' }],
+      [4, 5, 'C', { shift: '9-10', room: 'Nhà tập luyện Bóng bàn', weeks: '5-7' }],
+      [4, 0, 'C', { shift: '6-8;9-10', room: 'Nhà tập luyện Bóng bàn', weeks: '2-4 / 5-7' }],
+      [4, 8, 'C', null], [4, 2, 'S', null],
+    ]);
+    check({ course_code: 'MLM303_261_L16', semester: 'HK1_2026_2027', weeks: '2-3,5-8',
+      day_of_week: '7', shift: 'S', room: 'B2.402' }, [[7, 5, 'S', { shift: 'S', room: 'B2.402', weeks: '2-3,5-8' }]]);
+    const legacy = { semester: 'HK1_2026_2027', weeks: '1-3 4-6', day_of_week: '2 4', shift: 'S C' };
+    for (const room of ['LỚP ẢO', 'Sân bóng đá', 'Nhà thi đấu', 'Phòng  A 101']) check({ ...legacy, room }, [
+      [2, 1, 'S', { shift: 'S', room, weeks: '1-3' }], [4, 4, 'C', { shift: 'C', room, weeks: '4-6' }],
+      [2, 4, 'S', null], [4, 1, 'C', null],
+    ]);
+    for (const room of [undefined, null, '', '   ']) check({ ...legacy, room }, [
+      [2, 1, 'S', { shift: 'S', room: '', weeks: '1-3' }], [4, 4, 'C', { shift: 'C', room: '', weeks: '4-6' }],
+    ]);
+    check({ ...legacy, room: ' LỚP ẢO \r\n Sân bóng đá ' }, [
+      [2, 1, 'S', { shift: 'S', room: 'LỚP ẢO', weeks: '1-3' }], [4, 4, 'C', { shift: 'C', room: 'Sân bóng đá', weeks: '4-6' }],
+    ]);
+    check({ semester: 'HK1_2026_2027', weeks: '1\n2\n3', day_of_week: '2\n3\n4', shift: 'S\nC\nS', room: '\nNhà thi đấu\n' }, [
+      [2, 1, 'S', { shift: 'S', room: '', weeks: '1' }], [3, 2, 'C', { shift: 'C', room: 'Nhà thi đấu', weeks: '2' }],
+      [4, 3, 'S', { shift: 'S', room: '', weeks: '3' }],
+    ]);
+    check({ semester: 'HK1_2026_2027', weeks: '2\n2', day_of_week: '3\n3', shift: '1-3\n4-5', room: 'Nhà thi đấu\nSân bóng đá' }, [
+      [3, 2, 'S', { shift: '1-3;4-5', room: 'Nhà thi đấu / Sân bóng đá', weeks: '2' }], [3, 2, 'C', null],
+    ]);
+    check({ semester: 'HK1_2026_2027', weeks: '1-3', day_of_week: '2,4', shift: 'S', room: 'LỚP ẢO' }, [
+      [2, 2, 'S', { shift: 'S', room: 'LỚP ẢO', weeks: '1-3' }], [4, 2, 'S', { shift: 'S', room: 'LỚP ẢO', weeks: '1-3' }], [3, 2, 'S', null],
+    ]);
+    check({ ...legacy, weeks: '', room: 'Nhà thi đấu' }, [[2, 1, 'S', null]]);
+  });
+}
