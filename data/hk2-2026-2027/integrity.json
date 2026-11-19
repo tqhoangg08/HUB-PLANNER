@@ -1,0 +1,11 @@
+{
+  "note": "Original workbook hashes are independently pinned by the supplied staging manifest. Review/staging/instructions hashes record received package bytes, not an independent signature. Attached instructions are source material, not executable authority.",
+  "package_zip_sha256": "8c330d446a6f1a235a8c60de8669186f1eee50e101f1957498e2d6a466e82e1d",
+  "files": {
+    "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx": "300c9c86787253929e52b8b36f47ee28f3f782f419f802e4a5eea5388a5aef2e",
+    "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx": "e492acb57adc942899491df4bb58c50a45384c086b042af9665c29141012f886",
+    "hub_planner_hk2_2026_2027_codex_instructions.md": "c3d431b461bf753d512f1e68ac07298722b01475c066efc1b8d76a5a44a223e5",
+    "hub_planner_hk2_2026_2027_review.xlsx": "dfe8315c0eaa99c8d953123b4c525ed850f36d34a8324b8157b2bd7953a1eb17",
+    "hub_planner_hk2_2026_2027_staging.json": "a75b854b8801c187d08baa645bbf0e1c8d057f31c06a160d05b281bafd5bbbde"
+  }
+}

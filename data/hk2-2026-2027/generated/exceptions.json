@@ -1,0 +1,2226 @@
+{
+  "semester": "HK2_2026_2027",
+  "placeholders": [
+    {
+      "kind": "advanced",
+      "source_row": 1214,
+      "source_order": "1192",
+      "course_code": "_262_",
+      "subject_name": "Kiến tập (3 đợt)",
+      "cohort": "2",
+      "reason": "PLACEHOLDER_CODE_NOT_UNIQUE",
+      "source_fields": {
+        "course_code": "_262_",
+        "subject_name": "Kiến tập (3 đợt)",
+        "prerequisite": "",
+        "credits": "1",
+        "knowledge_block": "",
+        "shift": "S\nC",
+        "day_of_week": "6",
+        "weeks": "1-22",
+        "room": "",
+        "campus": "",
+        "managing_faculty": "PQLĐT",
+        "exam_date": "",
+        "exam_shift": "",
+        "exam_room": "",
+        "phase": "1,2",
+        "exam_campus": "",
+        "cohort": "2",
+        "major": "TCNH",
+        "group_name": "TCNH_N1"
+      }
+    },
+    {
+      "kind": "advanced",
+      "source_row": 1320,
+      "source_order": "1298",
+      "course_code": "_262_",
+      "subject_name": "Thực tập giữa khóa",
+      "cohort": "1",
+      "reason": "PLACEHOLDER_CODE_NOT_UNIQUE",
+      "source_fields": {
+        "course_code": "_262_",
+        "subject_name": "Thực tập giữa khóa",
+        "prerequisite": "",
+        "credits": "",
+        "knowledge_block": "",
+        "shift": "S\nC",
+        "day_of_week": "6",
+        "weeks": "1-22",
+        "room": "",
+        "campus": "",
+        "managing_faculty": "PQLĐT",
+        "exam_date": "",
+        "exam_shift": "",
+        "exam_room": "",
+        "phase": "1,2",
+        "exam_campus": "",
+        "cohort": "1",
+        "major": "TCNH",
+        "group_name": "TCNH_N1,2"
+      }
+    },
+    {
+      "kind": "advanced",
+      "source_row": 1321,
+      "source_order": "1299",
+      "course_code": "_262_",
+      "subject_name": "Thực tập giữa khóa",
+      "cohort": "1",
+      "reason": "PLACEHOLDER_CODE_NOT_UNIQUE",
+      "source_fields": {
+        "course_code": "_262_",
+        "subject_name": "Thực tập giữa khóa",
+        "prerequisite": "",
+        "credits": "",
+        "knowledge_block": "",
+        "shift": "S\nC",
+        "day_of_week": "6",
+        "weeks": "1-22",
+        "room": "",
+        "campus": "",
+        "managing_faculty": "PQLĐT",
+        "exam_date": "",
+        "exam_shift": "",
+        "exam_room": "",
+        "phase": "1,2",
+        "exam_campus": "",
+        "cohort": "1",
+        "major": "TCNH",
+        "group_name": "TCNH_N1,2"
+      }
+    }
+  ],
+  "classes": [
+    {
+      "code": "MLM308_262_D05_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 76,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "1-6",
+        "room": "LỚP ẢO",
+        "campus": "TĐ"
+      },
+      "exam_date": "22/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC301_262_D01",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 97,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_STANDARD_EXAM_SUNDAY_25_APR"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "1-6",
+        "room": "B1.402",
+        "campus": "TĐ"
+      },
+      "exam_date": "25/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC301_262_D02",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 98,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_STANDARD_EXAM_SUNDAY_25_APR"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6\n7",
+        "weeks": "6-8\n6-8",
+        "room": "A004\nA104",
+        "campus": "TĐ"
+      },
+      "exam_date": "25/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM302_262_PI_D17",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 195,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "4-5\n3-5",
+        "day_of_week": "6",
+        "weeks": "1-3\n4-6",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM302_262_PI_D18",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 196,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "4-5\n3-5",
+        "day_of_week": "6",
+        "weeks": "1-3\n4-6",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM304_262_PI_D52",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 268,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "4-5\n3-5",
+        "day_of_week": "2",
+        "weeks": "13-15\n16-18",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM304_262_PI_D53",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 269,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "4-5\n3-5",
+        "day_of_week": "2",
+        "weeks": "13-15\n16-18",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM304_262_QV_D27",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 270,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "1-3\n1-2",
+        "day_of_week": "6",
+        "weeks": "1-3\n4-6",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM304_262_QV_D28",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 271,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "1-3\n1-2",
+        "day_of_week": "6",
+        "weeks": "1-3\n4-6",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM304_262_QV_D54",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 272,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "1-3\n1-2",
+        "day_of_week": "2",
+        "weeks": "13-15\n16-18",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "GYM304_262_QV_D55",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 273,
+      "status": "REVIEW_REQUIRED",
+      "publication": "BLOCKED",
+      "issues": [
+        "UNMAPPED_SHIFT_TIME"
+      ],
+      "raw_schedule": {
+        "shift": "1-3\n1-2",
+        "day_of_week": "2",
+        "weeks": "13-15\n16-18",
+        "room": "",
+        "campus": "TĐ"
+      },
+      "exam_date": null,
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM308_262_D08_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 300,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "1-6",
+        "room": "LỚP ẢO",
+        "campus": "TĐ"
+      },
+      "exam_date": "22/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MES303_262_D11_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 331,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7\n6",
+        "weeks": "12-15,17-20\n20",
+        "room": "LỚP ẢO",
+        "campus": "TĐ"
+      },
+      "exam_date": "12/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "AMA303_262_D11_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 455,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B1.104",
+        "campus": "TĐ"
+      },
+      "exam_date": "16/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM308_262_D15_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 541,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "12-17",
+        "room": "LỚP ẢO",
+        "campus": "TĐ"
+      },
+      "exam_date": "13/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "BAF310_262_D01",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 611,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_STANDARD_EXAM_SUNDAY_25_APR"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "4",
+        "weeks": "1-9",
+        "room": "B1.304",
+        "campus": "TĐ"
+      },
+      "exam_date": "25/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "BAF310_262_D02",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 612,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_STANDARD_EXAM_SUNDAY_25_APR"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "1-9",
+        "room": "B1.304",
+        "campus": "TĐ"
+      },
+      "exam_date": "25/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MAE702_262_D10_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 886,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4\n2",
+        "weeks": "1-5\n5",
+        "room": "LỚP ẢO",
+        "campus": "TĐ"
+      },
+      "exam_date": "23/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM303_262_D10_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 931,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "1-6",
+        "room": "LỚP ẢO",
+        "campus": "TĐ"
+      },
+      "exam_date": "28/04/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM303_262_D18_GHÉP",
+      "source_file": "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx",
+      "source_row": 940,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_MERGED_CLASS_CODE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "12-17",
+        "room": "LỚP ẢO",
+        "campus": "TĐ"
+      },
+      "exam_date": "12/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS324_262_L01",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 46,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "C306",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L01",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 62,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "C306",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 63,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "4",
+        "weeks": "12-20",
+        "room": "C206",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L03",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 64,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "C306",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L04",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 65,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "12-20",
+        "room": "C306",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L05",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 66,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "C206",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L06",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 67,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "C206",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L07",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 68,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "C303",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L08",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 69,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "12-20",
+        "room": "C303",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L19",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 80,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "C306",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L20",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 81,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "C206",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L21",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 82,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "12-20",
+        "room": "C206",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L22",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 83,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "C303",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L23",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 84,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "C304",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L24",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 85,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "LAB 503",
+        "campus": "39HN - SG"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L25",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 86,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "LAB 503",
+        "campus": "39HN - SG"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS301_262_L26",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 87,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "C303",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS723_262_L07",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 101,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.703",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS723_262_L08",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 102,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "4",
+        "weeks": "12-17",
+        "room": "B2.703",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS723_262_L09",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 103,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "12-17",
+        "room": "B2.604",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "ITS723_262_L10",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 104,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.804",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 155,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-17",
+        "room": "B2.502",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L03",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 156,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "2",
+        "weeks": "13-18",
+        "room": "B2.602",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L04",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 157,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "12-17",
+        "room": "B2.401",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L05",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 158,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.402",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L19",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 172,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-17",
+        "room": "B2.602",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L20",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 173,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.402",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L25",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 178,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.501",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM307_262_L26",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 179,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.501",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L01",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 208,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-17",
+        "room": "B2.604",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 209,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "4",
+        "weeks": "12-17",
+        "room": "B2.604",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L03",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 210,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.604",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L04",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 211,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7",
+        "weeks": "12-15,17-18",
+        "room": "B2.803",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L05",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 212,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "12-17",
+        "room": "B2.504",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L06",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 213,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-17",
+        "room": "B2.404",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L07",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 214,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "12-17",
+        "room": "A005",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "SOC303_262_L08",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 215,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "6",
+        "weeks": "12-17",
+        "room": "B2.804",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MLM306_262_L21",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 237,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "6\n7",
+        "weeks": "1-8\n8",
+        "room": "B2.402\nA003",
+        "campus": "TĐ"
+      },
+      "exam_date": "26/04/2027",
+      "exam_room_raw": "ĐCGĐ2"
+    },
+    {
+      "code": "MLM306_262_L29",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 245,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "1-9",
+        "room": "A005",
+        "campus": "TĐ"
+      },
+      "exam_date": "25/04/2027",
+      "exam_room_raw": "ĐC LG,LTHI"
+    },
+    {
+      "code": "MES302_262_L01",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 345,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B2.402",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MES302_262_L02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 346,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "B2.401",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MES302_262_L03",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 347,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "B2.501",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MES302_262_L04",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 348,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B2.401",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MES302_262_L10",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 354,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "2",
+        "weeks": "1-9",
+        "room": "A005",
+        "campus": "TĐ"
+      },
+      "exam_date": "22/04/2027",
+      "exam_room_raw": "ĐC LG"
+    },
+    {
+      "code": "MES302_262_L12",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 356,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "501",
+        "campus": "36 TTĐ-SG"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MES302_262_L13",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 357,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "12-20",
+        "room": "B2.402",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "LAW798_262_L02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 487,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7",
+        "weeks": "1,3-7",
+        "room": "A003",
+        "campus": "TĐ"
+      },
+      "exam_date": "27/04/2027",
+      "exam_room_raw": "ĐCGĐ2"
+    },
+    {
+      "code": "BAF744_262_L24",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 597,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n3",
+        "weeks": "12-15,17-20\n20",
+        "room": "A102\nB2.504",
+        "campus": "TĐ"
+      },
+      "exam_date": "14/07/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "BAF745_262_L20",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 627,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n5",
+        "weeks": "12-15,17-20\n20",
+        "room": "A103\nB2.403",
+        "campus": "TĐ"
+      },
+      "exam_date": "16/07/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "BAF306_2621_L01",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 679,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B2.203",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "BAF306_2621_L02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 680,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "12-20",
+        "room": "B2.202",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "BAF306_262_L03",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 681,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "B2.203",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MAG713_262_L06",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 813,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7\n4",
+        "weeks": "12-15,17-20\n20",
+        "room": "A102\nB2.504",
+        "campus": "TĐ"
+      },
+      "exam_date": "14/07/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "DIM742_262_L09",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 830,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7\n5",
+        "weeks": "1,3-8\n8-9",
+        "room": "A102\nB2.404",
+        "campus": "TĐ"
+      },
+      "exam_date": "28/04/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "DIM706_262_L05",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 852,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "4",
+        "weeks": "12-20",
+        "room": "B2.503",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "DIM706_262_L06",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 853,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n3",
+        "weeks": "12-15,17-20\n20",
+        "room": "B2.403\nB2.704",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "DIM706_262_L07",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 854,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "12-20",
+        "room": "B2.404",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "DIM706_262_L08",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 855,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "B2.503",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "DIM706_262_L09",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 856,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n2",
+        "weeks": "12-15,17-20\n21",
+        "room": "405\n503",
+        "campus": "36 TTĐ-SG"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "DIM706_262_L10",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 857,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "1-9",
+        "room": "A005",
+        "campus": "TĐ"
+      },
+      "exam_date": "27/04/2027",
+      "exam_room_raw": "ĐC LG,LTHI"
+    },
+    {
+      "code": "DIM706_262_L11",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 858,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7\n2",
+        "weeks": "1,3-8\n8-9",
+        "room": "A005\nA005",
+        "campus": "TĐ"
+      },
+      "exam_date": "27/04/2027",
+      "exam_room_raw": "ĐC LG,LTHI"
+    },
+    {
+      "code": "DIM706_262_L12",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 859,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "B2.504",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MAG722_262_L08",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 867,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n5",
+        "weeks": "1,3-8\n8-9",
+        "room": "A102\nB2.306",
+        "campus": "TĐ"
+      },
+      "exam_date": "26/04/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "MAG717_262_L01",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 870,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "406",
+        "campus": "36 TTĐ-SG"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MAG717_262_L02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 871,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "4",
+        "weeks": "12-20",
+        "room": "403",
+        "campus": "36 TTĐ-SG"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MAG717_262_L03",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 872,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "406",
+        "campus": "36 TTĐ-SG"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "MAG717_262_L04",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 873,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n3",
+        "weeks": "12-15,17-20\n20",
+        "room": "B2.107\nB2.603",
+        "campus": "TĐ"
+      },
+      "exam_date": "19/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_E01",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 902,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n2",
+        "weeks": "12-15,17-20\n18",
+        "room": "301",
+        "campus": "39HN - SG"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_E02",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 903,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "A001",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L11",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 914,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "B2.102",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L12",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 915,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n3",
+        "weeks": "12-15,17-20\n20",
+        "room": "B2.101\nB2.503",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L13",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 916,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B2.104",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L14",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 917,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER",
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7\n6",
+        "weeks": "12-15,17-20\n20",
+        "room": "A103\nB2.704",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "FIN726_262_L15",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 918,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "B2.103",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L16",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 919,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "B2.101",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L17",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 920,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B2.103",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L18",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 921,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "B2.101",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L19",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 922,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "B2.104",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L20",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 923,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "6",
+        "weeks": "12-20",
+        "room": "B2.103",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L21",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 924,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "6",
+        "weeks": "12-20",
+        "room": "B2.104",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L22",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 925,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "2",
+        "weeks": "13-21",
+        "room": "B2.102",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L23",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 926,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n6",
+        "weeks": "12-15,17-20\n20",
+        "room": "B2.104\nB2.604",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L24",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 927,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B2.105",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L25",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 928,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "B2.102",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L26",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 929,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7\n3",
+        "weeks": "12-15,17-20\n20",
+        "room": "B2.101\nB2.603",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L27",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 930,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "5",
+        "weeks": "12-20",
+        "room": "B2.103",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L28",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 931,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "4",
+        "weeks": "12-20",
+        "room": "B2.106",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L29",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 932,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "6",
+        "weeks": "12-20",
+        "room": "B2.107",
+        "campus": "TĐ"
+      },
+      "exam_date": "20/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN726_262_L30",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 933,
+      "status": "CANDIDATE",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_SUMMER_SOFTWARE"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "3",
+        "weeks": "12-20",
+        "room": "B2.103",
+        "campus": "TĐ"
+      },
+      "exam_date": "21/07/2027",
+      "exam_room_raw": null
+    },
+    {
+      "code": "FIN303_262_L14",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 1024,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "7\n3",
+        "weeks": "1,3-8\n8-9",
+        "room": "A103\nB2.404",
+        "campus": "TĐ"
+      },
+      "exam_date": "29/04/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "FIN303_262_L15",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 1025,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "S",
+        "day_of_week": "7\n3",
+        "weeks": "1,3-8\n8-9",
+        "room": "A103\nB2.307",
+        "campus": "TĐ"
+      },
+      "exam_date": "29/04/2027",
+      "exam_room_raw": "ĐCGĐ"
+    },
+    {
+      "code": "INE346_262_L18",
+      "source_file": "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx",
+      "source_row": 1238,
+      "status": "REVIEW_REQUIRED",
+      "publication": "ELIGIBLE_PENDING_OWNER_APPROVAL",
+      "issues": [
+        "REVIEW_EXAM_ROOM_MARKER"
+      ],
+      "raw_schedule": {
+        "shift": "C",
+        "day_of_week": "5\n7",
+        "weeks": "12-20\n17-19",
+        "room": "B2.801\nA003",
+        "campus": "TĐ"
+      },
+      "exam_date": "17/07/2027",
+      "exam_room_raw": "ĐCGĐ2"
+    }
+  ]
+}
