@@ -2638,7 +2638,7 @@ const worker = {
     const announcementCron = controller.cron === '*/15 * * * *';
     const pushQueueCron = controller.cron === '7 * * * *';
     const adminEventCron = controller.cron === '37 19 * * *';
-    const facebookCollectorCron = controller.cron === '11 */6 * * *';
+    const facebookCollectorCron = pushQueueCron && new Date(controller.scheduledTime).getUTCHours() % 6 === 0;
     const runAll =
       !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !adminEventCron && !facebookCollectorCron;
     const reconcileCourseDeletes =
