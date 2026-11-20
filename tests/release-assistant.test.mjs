@@ -179,8 +179,9 @@ for(const [name,mutation]of [
   ['non Owner',e=>e.run.actor={id:9}],['no postflight step',e=>e.job.steps=[]],['concurrent release',e=>e.s.runs=fixture().runs]
 ])test(`baseline rejects ${name}`,()=>{const e=evidence();mutation(e);assert.throws(()=>validateBaselineEvidence(e));});
 
-test('v475 retained receipts pass provenance checks without authorizing newer main or its CI',()=>{
-  const e=JSON.parse(readFileSync('docs/public-release-baseline-4a9e7d99.json','utf8'));
+for(const [label,path] of [['v475','docs/public-release-baseline-4a9e7d99.json'],['v476','docs/public-release-baseline-78a4f08b.json']])
+test(`${label} retained receipts pass provenance checks without authorizing newer main or its CI`,()=>{
+  const e=JSON.parse(readFileSync(path,'utf8'));
   const owner={type:'User',id:e.release.actorId,login:'tqhoangg08'};
   const s=fixture();s.user=owner;s.repository.owner=owner;s.runs=[];s.branch.commit.sha=e.mainAtPreparation;
   const run={...fixture().runs[0],id:Number(e.runId),head_sha:e.sha,status:e.release.status,conclusion:e.release.conclusion,
@@ -200,6 +201,9 @@ test('v475 retained receipts pass provenance checks without authorizing newer ma
     x=>x.logs=x.logs.replace(e.release.receipts.ownerApproval,''),
     x=>x.logs=x.logs.replace(e.release.receipts.postdeploy,''),
     x=>x.deployment.versions.push({version_id:next,percentage:1}),
+    x=>x.deployment.versions[0].percentage=99,
+    x=>x.run.actor={id:9},
+    x=>x.logs=x.logs.replace(e.release.receipts.postdeploy,e.release.receipts.postdeploy.replace(e.version,next)),
   ]){
     const changed=structuredClone(candidate);mutation(changed);assert.throws(()=>validateBaselineEvidence(changed));
   }

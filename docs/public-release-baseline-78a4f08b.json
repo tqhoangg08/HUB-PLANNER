@@ -1,0 +1,542 @@
+{
+  "task": "Prepare owner-reviewed Public Worker v476 predeploy baseline only; no deployment or release approval",
+  "version": "78a4f08b-ea3b-4fad-839e-baec2da98c56",
+  "previousVersion": "4a9e7d99-c2cb-4206-8318-2b13b5fb249a",
+  "previousEvidence": {
+    "path": "docs/public-release-baseline-4a9e7d99.json",
+    "gitBlob": "eb047bd87446ecc89ded2eff9540004bcd44988e"
+  },
+  "worker": "hub-planner-public-dev-api",
+  "account": "6cd8bac6009a55f96bdf9df7c2057548",
+  "sha": "bdfb86567497948a371d4ac44cc9952068bc1431",
+  "runId": "44540683447",
+  "mainAtPreparation": "6baed20ffc55f1e781629dc167b3606853613d46",
+  "mainAtPreparationDeploymentVerified": false,
+  "ownerAcceptance": {
+    "scope": "baseline PR preparation only",
+    "basis": "Explicit owner instruction in this chat on 2026-11-20",
+    "frontendArtifactByteComparisonLimitationAccepted": false,
+    "requiresOwnerReview": true,
+    "authorizesRelease": false
+  },
+  "release": {
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/44540683447",
+    "name": "Approved Public-only production release",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "attempt": 1,
+    "actorId": 252552483,
+    "triggeringActorId": 252552483,
+    "releasePublicJobId": 135620808408,
+    "releasePublicJobUrl": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/44540683447/job/135620808408",
+    "releasePublicStartedAt": "2026-11-19T14:19:06Z",
+    "releasePublicCompletedAt": "2026-11-19T14:20:15Z",
+    "validateConclusion": "success",
+    "publicConclusion": "success",
+    "stepConclusions": {
+      "predeploy": "success",
+      "ownerApproval": "success",
+      "deploy": "success",
+      "postdeploy": "success"
+    },
+    "steps": [
+      {
+        "key": "predeploy",
+        "number": 6,
+        "name": "Verify live settings and schema without applying migrations",
+        "conclusion": "success",
+        "startedAt": "2026-11-19T14:19:47Z",
+        "completedAt": "2026-11-19T14:19:50Z"
+      },
+      {
+        "key": "ownerApproval",
+        "number": 7,
+        "name": "Verify solo owner approval, live protections and exact-SHA CI",
+        "conclusion": "success",
+        "startedAt": "2026-11-19T14:19:50Z",
+        "completedAt": "2026-11-19T14:19:52Z"
+      },
+      {
+        "key": "deploy",
+        "number": 8,
+        "name": "Deploy Public Worker and frontend assets",
+        "conclusion": "success",
+        "startedAt": "2026-11-19T14:19:52Z",
+        "completedAt": "2026-11-19T14:20:08Z"
+      },
+      {
+        "key": "postdeploy",
+        "number": 9,
+        "name": "Verify serving Public version preserves V2 100 percent and document flags remain OFF",
+        "conclusion": "success",
+        "startedAt": "2026-11-19T14:20:08Z",
+        "completedAt": "2026-11-19T14:20:13Z"
+      }
+    ],
+    "receipts": {
+      "predeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=4a9e7d99-c2cb-4206-8318-2b13b5fb249a",
+      "ownerApproval": "PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "deployedVersion": "Current Version ID: 78a4f08b-ea3b-4fad-839e-baec2da98c56",
+      "postdeploy": "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=78a4f08b-ea3b-4fad-839e-baec2da98c56"
+    },
+    "logReceipts": [
+      "2026-11-19T14:19:10.6201580Z bdfb86567497948a371d4ac44cc9952068bc1431",
+      "2026-11-19T14:19:50.9335531Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=4a9e7d99-c2cb-4206-8318-2b13b5fb249a",
+      "2026-11-19T14:19:50.9574920Z   APPROVED_SHA: bdfb86567497948a371d4ac44cc9952068bc1431",
+      "2026-11-19T14:19:52.6990176Z PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "2026-11-19T14:19:57.8985704Z Uploaded 18 of 55 assets",
+      "2026-11-19T14:19:58.0297533Z Uploaded 36 of 55 assets",
+      "2026-11-19T14:19:58.0912343Z Uploaded 55 of 55 assets",
+      "2026-11-19T14:20:08.3629955Z Current Version ID: 78a4f08b-ea3b-4fad-839e-baec2da98c56",
+      "2026-11-19T14:20:13.2383890Z PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=78a4f08b-ea3b-4fad-839e-baec2da98c56"
+    ]
+  },
+  "independentValidation": {
+    "runId": "44279728583",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/44279728583",
+    "sha": "bdfb86567497948a371d4ac44cc9952068bc1431",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "preparationValidation": {
+    "runId": "44736905686",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/44736905686",
+    "sha": "6baed20ffc55f1e781629dc167b3606853613d46",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "authorizesRelease": false
+  },
+  "liveMetadata": {
+    "method": "Fresh read-only Cloudflare Workers GET metadata; no D1 queries or production writes during this baseline PR preparation",
+    "environment": "Production",
+    "checkedAtUtc": "2026-11-20T12:56:57.312Z",
+    "deployment": {
+      "id": "390fb7da-16d3-4a07-a244-d092424e5ecc",
+      "createdOn": "2026-11-19T14:20:00.051245Z",
+      "source": "wrangler",
+      "strategy": "percentage",
+      "versions": [
+        {
+          "version_id": "78a4f08b-ea3b-4fad-839e-baec2da98c56",
+          "percentage": 100
+        }
+      ]
+    },
+    "version": {
+      "id": "78a4f08b-ea3b-4fad-839e-baec2da98c56",
+      "number": 476,
+      "createdOn": "2026-11-19T14:19:59.118004Z",
+      "source": "wrangler",
+      "etag": "7d470fa90e3ebfbc7f1ce3161c7f53a32d8c69e5e3279971bc5bf7f4c62e6064",
+      "hasGitShaAnnotation": false
+    },
+    "latestUploadedVersionId": "78a4f08b-ea3b-4fad-839e-baec2da98c56",
+    "comparisonWithV475": {
+      "bindingCount": 66,
+      "bindingsMatch": true,
+      "runtimeMatches": true,
+      "scriptEtagMatches": false
+    }
+  },
+  "auditReceipts": {
+    "source": "Fresh read-only Cloudflare Audit Logs v2 GET; historical write receipts, not actions performed by this task",
+    "entries": [
+      {
+        "id": "01a1f42d-a8e3-71b9-9a37-e4f23483a338",
+        "atUtc": "2026-11-19T14:19:55.491Z",
+        "httpStatus": 200,
+        "method": "POST",
+        "uri": "/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/assets-upload-session",
+        "resourceType": "scripts.assets-upload-session"
+      },
+      {
+        "id": "01a1f42d-b42a-72d0-b6c4-637ce4c781f2",
+        "atUtc": "2026-11-19T14:19:58.378Z",
+        "httpStatus": 200,
+        "method": "POST",
+        "uri": "/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/versions",
+        "resourceType": "scripts.versions",
+        "version": 476,
+        "versionId": "78a4f08b-ea3b-4fad-839e-baec2da98c56"
+      },
+      {
+        "id": "01a1f42d-ba2b-75e1-a4c8-fd7c75655dc7",
+        "atUtc": "2026-11-19T14:19:59.915Z",
+        "httpStatus": 200,
+        "method": "POST",
+        "uri": "/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api/deployments",
+        "resourceType": "scripts.deployments",
+        "deploymentId": "390fb7da-16d3-4a07-a244-d092424e5ecc",
+        "versions": [
+          {
+            "percentage": 100,
+            "version_id": "78a4f08b-ea3b-4fad-839e-baec2da98c56"
+          }
+        ]
+      }
+    ]
+  },
+  "assets": {
+    "checkedAtUtc": "2026-11-20T12:58:04.806Z",
+    "manifestUrl": "https://hotrosinhvienhub.id.vn/.vite/manifest.json",
+    "pathInventory": {
+      "buildCount": 134,
+      "liveCount": 134,
+      "missing": [],
+      "extra": [],
+      "buildSha256": "c356890f84e9118401ee8188e45f4cb49673472fac86c8d5d59d8b8ce2186f9c",
+      "liveSha256": "c356890f84e9118401ee8188e45f4cb49673472fac86c8d5d59d8b8ce2186f9c",
+      "paths": [
+        "/assets/AdminAIDocuments-hUc2rJx-.js",
+        "/assets/AdminEventCandidates-D2CHCnhd.js",
+        "/assets/AdminEventEditorPage-tpRrIORC.js",
+        "/assets/AdminInternalAccounts-Dhadxyz4.js",
+        "/assets/AdminOperationsDashboard-CLXr4PYC.js",
+        "/assets/AdminReports-DpuTw0cG.js",
+        "/assets/AdminScholarships-HALgJog2.js",
+        "/assets/AdminSchoolAnnouncements-CxCRxSTf.js",
+        "/assets/AdminSchoolAnnouncements-wYPZKmte.css",
+        "/assets/AdminStudentExcelExportModal-KxGcf0Co.js",
+        "/assets/AdminSupportTickets-TeWITnuf.js",
+        "/assets/CelebrationStudio-snZOpcn-.js",
+        "/assets/CloudflareDataAdmin-Ds3nMS4P.js",
+        "/assets/Dashboard-5FvIOlkl.js",
+        "/assets/Dashboard-BrZJE1aM.css",
+        "/assets/EventDetailView-BcgRQuDp.js",
+        "/assets/EventDrlAssistant-BLxx-01G.js",
+        "/assets/EventFilterControls-Cew2HpiM.js",
+        "/assets/EventFilterControls-SbrT3rWH.css",
+        "/assets/EventsBoard-DnNJw9NT.js",
+        "/assets/Handbook-BpNa6Al-.js",
+        "/assets/LineChart-CtNsrwpw.js",
+        "/assets/LoginScreen-CtbWX9Jv.js",
+        "/assets/LostFoundBoard-CggPXSm8.js",
+        "/assets/MobileEvents-ClzT-yxw.js",
+        "/assets/MobileHandbook-NEUHSPHQ.js",
+        "/assets/MobileHome-BXfhcSmM.js",
+        "/assets/MobileLearning-BU-Ld5Q6.js",
+        "/assets/MobileLostFound-CwVxDnhd.js",
+        "/assets/MobileProfile-DVLufiyB.js",
+        "/assets/NotificationNudge-SBnw-l6V.js",
+        "/assets/Onboarding-C_pRK6_y.js",
+        "/assets/PrivacyPolicy-DmWcB_YJ.js",
+        "/assets/ProfilePage-DUO5ESOR.js",
+        "/assets/ProfileSearchPage-DIp63Id5.js",
+        "/assets/PublicAIDocumentViewer-BwVS2amv.js",
+        "/assets/PublicRankings-CzGir0ij.js",
+        "/assets/PushNotificationPrompt-uKQchKTi.js",
+        "/assets/RecoveryAccountScreen-BbGQqECU.js",
+        "/assets/RecoveryForgotPasswordScreen-nTRsgtWY.js",
+        "/assets/RecoveryLoginScreen-F3yQvsLZ.js",
+        "/assets/RecoveryResetPasswordScreen-B5jU9Fan.js",
+        "/assets/RegistrationPasswordScreen-BwqB6udb.js",
+        "/assets/ScheduleBoard-BE1BG0P1.css",
+        "/assets/ScheduleBoard-Dzoqqbls.js",
+        "/assets/ScholarshipList-D72tzCTz.js",
+        "/assets/ScholarshipMe-CQkZqoxW.js",
+        "/assets/SemesterLookbackDialog-aCwt-92n.js",
+        "/assets/SemesterLookbackModal-DoY9Xcu7.js",
+        "/assets/StaffPasswordActivationScreen-Dd3B7jOW.js",
+        "/assets/SupportTickets-BmYDto7A.js",
+        "/assets/TermsOfUse-BCv6jLei.js",
+        "/assets/academicCalendar-BCG6WxHh.js",
+        "/assets/adminEventForm-C6QbD7VP.js",
+        "/assets/adminStudentsApi-DlZ0oth1.js",
+        "/assets/ai-document-categories-BB35AqNU.js",
+        "/assets/announcementsApi-D04Fmkvj.js",
+        "/assets/bell-ring-BVo5P20j.js",
+        "/assets/benchmarkRankingsApi-DvGCDb-A.js",
+        "/assets/bookmark-iisWdLmy.js",
+        "/assets/browserBootstrap-BYEihZnv.js",
+        "/assets/calculations-OC--dhHh.js",
+        "/assets/chart-column-CV2POxW-.js",
+        "/assets/check-check-DnL0uAO8.js",
+        "/assets/circle-check-big-CxHjQpq2.js",
+        "/assets/circle-plus-DpEPMJU8.js",
+        "/assets/clock-3-B01loyWH.js",
+        "/assets/cloudflareAdminApi-DjvTTspQ.js",
+        "/assets/copy-Gbr0PoTR.js",
+        "/assets/crown-CloLEB29.js",
+        "/assets/earth-BxYVMfgi.js",
+        "/assets/ellipsis-xPDkD_TE.js",
+        "/assets/eventsApi-CmhQMySS.js",
+        "/assets/excelExport-CjdSs6kR.js",
+        "/assets/flag-Cwm1EQKF.js",
+        "/assets/handbookFaqs-CXXrTw14.js",
+        "/assets/html2canvas.esm-OkJIQ-sN.js",
+        "/assets/image-off-C-R4Jz4L.js",
+        "/assets/index-CQ-4OQhX.js",
+        "/assets/index-DOPywclM.css",
+        "/assets/index-Dmlpfm3s.js",
+        "/assets/index.es-BsnhIA5g.js",
+        "/assets/inter-latin-400-italic-BmFrN47l.woff",
+        "/assets/inter-latin-400-italic-D1l0FflY.woff2",
+        "/assets/inter-latin-400-normal-C38fXH4l.woff2",
+        "/assets/inter-latin-400-normal-CyCys3Eg.woff",
+        "/assets/inter-latin-500-normal-BL9OpVg8.woff",
+        "/assets/inter-latin-500-normal-Cerq10X2.woff2",
+        "/assets/inter-latin-600-normal-CiBQ2DWP.woff",
+        "/assets/inter-latin-600-normal-LgqL8muc.woff2",
+        "/assets/inter-latin-700-normal-BLAVimhd.woff",
+        "/assets/inter-latin-700-normal-Yt3aPRUw.woff2",
+        "/assets/inter-latin-800-normal-BYj_oED-.woff2",
+        "/assets/inter-latin-800-normal-D1mf63XC.woff",
+        "/assets/inter-vietnamese-400-italic-Ceaj4WUo.woff2",
+        "/assets/inter-vietnamese-400-italic-E-DnQMHp.woff",
+        "/assets/inter-vietnamese-400-normal-Bbgyi5SW.woff",
+        "/assets/inter-vietnamese-400-normal-DMkecbls.woff2",
+        "/assets/inter-vietnamese-500-normal-DOriooB6.woff2",
+        "/assets/inter-vietnamese-500-normal-mJboJaSs.woff",
+        "/assets/inter-vietnamese-600-normal-BuLX-rYi.woff",
+        "/assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2",
+        "/assets/inter-vietnamese-700-normal-BZaoP0fm.woff",
+        "/assets/inter-vietnamese-700-normal-DlLaEgI2.woff2",
+        "/assets/inter-vietnamese-800-normal-Cm7tD1pz.woff2",
+        "/assets/inter-vietnamese-800-normal-DDlpr_Ee.woff",
+        "/assets/key-round-DW64ru6F.js",
+        "/assets/legacy-entry-CVXtg1b3.css",
+        "/assets/legacy-entry-hKOggVQF.js",
+        "/assets/list-filter-DJ6J49o-.js",
+        "/assets/lostFoundApi-CF-iWdKe.js",
+        "/assets/map-pin-Bz7oSKkj.js",
+        "/assets/moderatorNotifications-DCO7-sIR.js",
+        "/assets/pdf-DT5A8ONP.js",
+        "/assets/pdf.worker.min-D8eRykn8.js",
+        "/assets/pdf.worker.min-yatZIOMy.mjs",
+        "/assets/pdfExport-DrVTVpbU.js",
+        "/assets/pdfImport-Br0xwYaq.js",
+        "/assets/pen-mOHYR4kr.js",
+        "/assets/pencil-C-R3SMA9.js",
+        "/assets/purify.es-DiIPND8F.js",
+        "/assets/recovery-entry-Bu5VYdi9.js",
+        "/assets/recoveryAuthClient-C3ahcgj9.js",
+        "/assets/scheduleCoursePageCache-Bd52daOO.css",
+        "/assets/scheduleCoursePageCache-CckfSAYV.js",
+        "/assets/scholarshipApi-Co1KxjDk.js",
+        "/assets/scholarshipApi-evfgKZFd.css",
+        "/assets/scholarshipDetailsModel-DNdqiA0f.js",
+        "/assets/scholarshipListModel-CjMt_VrN.js",
+        "/assets/schoolAnnouncementRecency-C8qDu2Fn.js",
+        "/assets/tag-Cj3K5NT9.js",
+        "/assets/target-BD5CegBd.js",
+        "/assets/upload-D9XhOVOE.js",
+        "/assets/user-round-1Lf5rjjf.js"
+      ]
+    },
+    "observedLiveHashes": [
+      {
+        "path": "/.vite/manifest.json",
+        "sha256": "a1ae38629804973b687ea1d9d964e0b55f7629052aa8f181c8499f5bcb61891e"
+      },
+      {
+        "path": "/",
+        "sha256": "71412f5845f59df4cda96b0816a8b84d6d7e21ce06c10457afdbc9179e2eb8cd"
+      },
+      {
+        "path": "/assets/index-Dmlpfm3s.js",
+        "sha256": "0153fcc2296f4a64e1378b5e0fddd68935667522126dabbeba97146404927ad3"
+      }
+    ],
+    "originalArtifactAvailable": false,
+    "originalArtifactDigest": null,
+    "frontendByteForByteVerified": false,
+    "originalArtifactsCheckedRunId": 44540683447
+  },
+  "validation": {
+    "guardChangedLines": [
+      13,
+      14,
+      15
+    ],
+    "guardLogicEquivalentExceptPinAndComments": true,
+    "guardSourceSha256IgnoringPinAndComments": "5a94dff3b03e9d453772e4d1b0e0ceb79ae272c3c7917bdfb6bc1c15b30aee3f",
+    "historicalBaselineManifest": [
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/README.md",
+        "blob": "6c46fd74ccffe40c5c1604d353daa11e5046ab64"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/SHA256SUMS.txt",
+        "blob": "76efbc6eecca7dbbb6030b9ddc2eeb8690fa0b52"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/dashboard-metadata.json",
+        "blob": "1cbbce25633d33d4f37b535e5b9d05ab30af7e94"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/dashboard-observation.json",
+        "blob": "ec41de228bd1d37aad4d440f388bd767952d735e"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/github-provenance.json",
+        "blob": "59d62fbbd510a6139b45ae6659e4b6b80d819101"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/release-receipts.txt",
+        "blob": "1cd6438bd19059b33ebe2c5fc33ef514a2bff7c8"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-3e7f80ec/validation.json",
+        "blob": "d676cd2f66ae11c133283eea95698540f117fa24"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/README.md",
+        "blob": "b3276bfb16782f8477d209790c3de730748d1916"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/SHA256SUMS.txt",
+        "blob": "e69ec6f3b7ec93a9d30db11a9273a96b2a12e849"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/active-deployment.png",
+        "blob": "cfcb7e80bb95b050f52ed01e80226ad81e89d472"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/dashboard-metadata.json",
+        "blob": "532b2e01d1011554bddf26865c06c60f56a8183c"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/github-provenance.json",
+        "blob": "7ab7d151b5281c2adb65f39f54688999e43dfb6f"
+      },
+      {
+        "path": "docs/evidence/public-release-baseline-77374643/validation.json",
+        "blob": "e46937ef1ea2c331a01d8d10e99af361658bb3db"
+      },
+      {
+        "path": "docs/public-release-baseline-2a898cfc.json",
+        "blob": "26097c31b3075ed6e5cc503eaebd70273d04db4c"
+      },
+      {
+        "path": "docs/public-release-baseline-3e7f80ec.json",
+        "blob": "933c7f5f3504d7c3aa2fd6b582aa0d61250937df"
+      },
+      {
+        "path": "docs/public-release-baseline-3e7f80ec.md",
+        "blob": "bf4ec45095dd92ac85271983ea6b54ab33b37aec"
+      },
+      {
+        "path": "docs/public-release-baseline-4a9e7d99.json",
+        "blob": "eb047bd87446ecc89ded2eff9540004bcd44988e"
+      },
+      {
+        "path": "docs/public-release-baseline-58c94fc8.json",
+        "blob": "d0022c06c8db4bdb4104353ea18ed1cdb34d7bdc"
+      },
+      {
+        "path": "docs/public-release-baseline-58c94fc8.md",
+        "blob": "7d81e60184c9c6ca3e39b897e2c949b70cd9bafe"
+      },
+      {
+        "path": "docs/public-release-baseline-655fda62.json",
+        "blob": "d7c7d64c75e1300bdeeafaad9d5cabf619d18137"
+      },
+      {
+        "path": "docs/public-release-baseline-66bc5fd9.json",
+        "blob": "7054a15276ecf27dc58180b11fcf1537d4b9384a"
+      },
+      {
+        "path": "docs/public-release-baseline-66bc5fd9.md",
+        "blob": "4f9f0ce71518d3592808598a140a16ce703157b7"
+      },
+      {
+        "path": "docs/public-release-baseline-782cd1c4.json",
+        "blob": "3a6ece8f3a0b2cfa398c126e27aad7e77550a34b"
+      },
+      {
+        "path": "docs/public-release-baseline-79c4f615.json",
+        "blob": "1091d788741ba6f8eb896aa30868209cccba4f2a"
+      },
+      {
+        "path": "docs/public-release-baseline-79c4f615.md",
+        "blob": "fbfde3a17501b230fb47093ee211457110e4fba4"
+      },
+      {
+        "path": "docs/public-release-baseline-8869278a.md",
+        "blob": "0477085de936cdefc1cf801109f203c5b552ba97"
+      },
+      {
+        "path": "docs/public-release-baseline-93e9bad7.json",
+        "blob": "c1766fc056d070db74e60c132ab8cc150a59f508"
+      },
+      {
+        "path": "docs/public-release-baseline-93e9bad7.md",
+        "blob": "cda44f10de857bb09b204c2fda8e2b3ff5ab83ef"
+      },
+      {
+        "path": "docs/public-release-baseline-bba26eca.json",
+        "blob": "e385ee3ae5f341ad125bc12f0960e6c9e3267fcc"
+      },
+      {
+        "path": "docs/public-release-baseline-bba26eca.md",
+        "blob": "318ed312aee80f2e443ee45d69eb844d8ff999f3"
+      },
+      {
+        "path": "docs/public-release-baseline-cd1d81be.json",
+        "blob": "7e61b7cdd06e1fa1e5792e65e207c7781bc27fdc"
+      },
+      {
+        "path": "docs/public-release-baseline-cd1d81be.md",
+        "blob": "9c7e7aefc053919fd37271d9a72f40653b9a8111"
+      },
+      {
+        "path": "docs/public-release-baseline-cf44c795.json",
+        "blob": "7a318f9b636ab2cfdd0e03f6436a8197c8e36d31"
+      },
+      {
+        "path": "docs/public-release-baseline-cf44c795.md",
+        "blob": "1f61fa53e2e4573abdc71126a33df29d908acec8"
+      },
+      {
+        "path": "docs/public-release-baseline-d4b614d4.json",
+        "blob": "f7c84db9b4080283fc5f5489a5cd25f8d961403e"
+      },
+      {
+        "path": "docs/public-release-baseline-e14d5e2c.json",
+        "blob": "223356f0cf42b09fe5cf6ef0c23f3af78bb555d6"
+      },
+      {
+        "path": "docs/public-release-baseline-e14d5e2c.md",
+        "blob": "c86e9bd11a5abdd1ba0823c4c009ca4f47883d27"
+      },
+      {
+        "path": "docs/public-release-baseline-ecee213b.json",
+        "blob": "e7ef4f2180cfbf63dd4b99c540e01ac9fb325a22"
+      },
+      {
+        "path": "docs/public-release-baseline-ecee213b.md",
+        "blob": "a20e2bd9d362bc2b775aced93965a7efe09203a4"
+      },
+      {
+        "path": "docs/public-release-baseline-edcbad46.json",
+        "blob": "44933ebb393a5fb3c0102eca53db74b62f902895"
+      },
+      {
+        "path": "docs/public-release-baseline-evidence.json",
+        "blob": "b86259fd375f23d03d4552c42b75619d404d3ee9"
+      },
+      {
+        "path": "docs/public-release-baseline-f5abb252.json",
+        "blob": "9137b124db136d69a3d1eb847136a6c43f85f885"
+      },
+      {
+        "path": "docs/public-release-baseline-f5abb252.md",
+        "blob": "a5695c16a149d8462b18aa891ebbe49bd17c3dad"
+      }
+    ]
+  },
+  "limitations": [
+    "The Worker version has no Git SHA annotation. Source SHA is correlated through official Actions checkout/approved SHA, successful guarded deployment UUID, Cloudflare metadata, Audit Logs and postflight receipts.",
+    "Asset paths match the release build log and the live Vite manifest (134/134); this is a path inventory comparison, not comparison with an original retained build artifact. The release artifact endpoint currently returns no artifacts.",
+    "Observed live SHA-256 values are hashes of files served during this investigation, not original release-artifact digests. The changed Worker ETag identifies Worker content only and does not establish frontend byte equivalence.",
+    "The frontend artifact comparison limitation is disclosed for owner review; this PR does not assert that the owner has already accepted it.",
+    "v476 was deployed from bdfb86567497948a371d4ac44cc9952068bc1431, not preparation main 6baed20ffc55f1e781629dc167b3606853613d46 or this PR. Merging this baseline does not deploy HK2 gate code or authorize a future release.",
+    "All historical evidence remains byte-identical. No production state, D1, traffic, binding, schema, flags, observability, workflow, owner approval, credentials, HK2 gate/catalogue/writer or Apify PR is changed."
+  ]
+}
