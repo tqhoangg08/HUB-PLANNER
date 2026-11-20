@@ -202,6 +202,12 @@ import {
 } from './event-candidates.ts';
 import { handleStaffSchedules, staffSchedulesErrorStatus, type StaffSchedulesEnv } from './staff-schedules.ts';
 import {
+  handleAdminFacebookEventCollector,
+  queueFacebookEventCollection,
+  FacebookEventCollectorError,
+  type FacebookEventCollectorEnv,
+} from './facebook-event-collector.ts';
+import {
   adminSupportErrorStatus,
   handleAdminSupport,
   handleAdminSupportAttachmentObject,
@@ -235,7 +241,7 @@ import {
   type PublicDirectoryEnv,
 } from './public-directory.ts';
 
-type WorkerEnv = ScholarshipEnv & Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
+type WorkerEnv = FacebookEventCollectorEnv & ScholarshipEnv & Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AdminStudentsEnv & AdminInternalAccountsEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   EVENT_CANDIDATE_EXTENSION_ORIGINS?: string;
@@ -1496,6 +1502,23 @@ const worker = {
       }
     }
 
+    if (requestUrl.pathname === '/api/admin/v1/facebook-event-collector') {
+      try {
+        return json(await handleAdminFacebookEventCollector(request, env, (task) => ctx.waitUntil(task)), 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = error instanceof BetterAuthIdentityError || error instanceof FacebookEventCollectorError
+          ? error.status : 500;
+        return json({
+          error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403 ? 'Không có quyền truy cập.'
+            : error instanceof FacebookEventCollectorError ? error.message
+            : 'Không thể xử lý bộ thu thập sự kiện.',
+        }, status, { ...cors, 'Cache-Control': 'private, no-store' });
+      }
+    }
+
     const candidateImageRoute = /^\/api\/event-candidates\/([1-9]\d*)\/image$/.exec(requestUrl.pathname);
     const candidateImageStatusRoute = /^\/api\/event-candidates\/([1-9]\d*)\/image-status$/.exec(requestUrl.pathname);
     if (
@@ -2615,8 +2638,9 @@ const worker = {
     const announcementCron = controller.cron === '*/15 * * * *';
     const pushQueueCron = controller.cron === '7 * * * *';
     const adminEventCron = controller.cron === '37 19 * * *';
+    const facebookCollectorCron = controller.cron === '11 */6 * * *';
     const runAll =
-      !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !adminEventCron;
+      !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !adminEventCron && !facebookCollectorCron;
     const reconcileCourseDeletes =
       (hourlyCron || runAll) &&
       new Date(controller.scheduledTime).getUTCHours() === 20;
@@ -2673,6 +2697,14 @@ const worker = {
       jobs.push({
         failureEvent: 'schedule_push_recovery_failed',
         promise: runCourseNotificationRecovery(env).then((push) => console.log('schedule_push_recovery_complete', push)),
+      });
+    }
+
+    if (facebookCollectorCron || runAll) {
+      jobs.push({
+        failureEvent: 'facebook_event_collector_failed',
+        promise: queueFacebookEventCollection(env, (task) => ctx.waitUntil(task))
+          .then((result) => console.log('facebook_event_collector_queued', result)),
       });
     }
 
