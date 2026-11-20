@@ -12,8 +12,8 @@ import { auditPackage, DATA_DIR, FIELDS, SEMESTER, SHIFT_TIMES, verifiedInputs, 
   parseWeeks, scheduleSegments, weekDates, isClosure, isOnline, validateSnapshot } from '../scripts/hk2-2026-2027/catalogue.mjs';
 import { getWeekDatesForSemester, getSemesterHolidayWeeks, getSemesterStartDate } from '../utils/academicCalendar.ts';
 import { buildCalendarExport, getCanonicalShiftTimeRange } from '../utils/calendarExport.ts';
-import { scheduleSessionsFromLegacyFields, serializeScheduleSessions, formatScheduleSession, getScheduleSessionTimeRange, scheduleSessionsOverlap } from '../utils/scheduleSessions.ts';
-import { getOwnerEstimatedShift, ownerEstimatedShiftCaption, isTemporaryCatalogueItem, temporaryCatalogueView, searchTemporaryCatalogue } from '../utils/provisionalCoursePolicy.js';
+import { scheduleSessionsFromLegacyFields, serializeScheduleSessions, formatScheduleSession, getScheduleSessionTimeRange, scheduleSessionsOverlap, scheduleTimeLabelsOverlap } from '../utils/scheduleSessions.ts';
+import { getOwnerEstimatedShift, ownerEstimatedShiftLabel, ownerEstimatedShiftCaption, isTemporaryCatalogueItem, temporaryCatalogueView, searchTemporaryCatalogue } from '../utils/provisionalCoursePolicy.js';
 import { parseStoredUserScheduleCourseSnapshot } from '../cloudflare/worker/src/user-schedules.ts';
 import { handleCourses } from '../cloudflare/worker/src/courses.ts';
 
@@ -300,16 +300,61 @@ const componentSlots = await Promise.all(['ScheduleBoard', 'MobileSchedule'].map
   const file = `components/${component}.tsx`;
   const source = await readFile(file, 'utf8');
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const names = ['getExactShiftRange', 'getMainShiftType', 'getShiftDisplay', 'getCourseTimeLabel', 'splitData', 'getCourseDetailsForSlot'];
+  const names = ['getExactShiftRange', 'getMainShiftType', 'getShiftDisplay', 'getCourseTimeLabel', 'splitData', 'splitShiftData', 'getCourseDetailsForSlot'];
   const statements = ast.statements.filter(node => ts.isVariableStatement(node)
     && node.declarationList.declarations.some(d => names.includes(d.name.getText(ast))));
   assert.equal(statements.length, names.length, `${component}: all actual helper definitions must be found`);
   const compiled = transformSync(statements.map(node => node.getText(ast)).join('\n'), { loader: 'ts' }).code;
-  const helpers = new Function('parseWeeks', 'getOwnerEstimatedShift', 'ownerEstimatedShiftCaption', 'isTemporaryCatalogueItem', `${compiled}; return { slot: getCourseDetailsForSlot, classify: getMainShiftType, display: getShiftDisplay, time: getCourseTimeLabel };`)(productionParseWeeks, getOwnerEstimatedShift, ownerEstimatedShiftCaption, isTemporaryCatalogueItem);
+  const helpers = new Function('parseWeeks', 'getOwnerEstimatedShift', 'ownerEstimatedShiftCaption', 'isTemporaryCatalogueItem', `${compiled}; return { slot: getCourseDetailsForSlot, shifts: splitShiftData, classify: getMainShiftType, display: getShiftDisplay, time: getCourseTimeLabel };`)(productionParseWeeks, getOwnerEstimatedShift, ownerEstimatedShiftCaption, isTemporaryCatalogueItem);
   return { component, ...helpers };
 }));
 
-for (const { component, slot, classify, display, time } of componentSlots) {
+for (const { component, slot, shifts, classify, display, time } of componentSlots) {
+  test(`${component} keeps a single owner-estimated shift atomic through slots, display and conservative same-ca conflicts`, () => {
+    const pe = audit.records.find(r => r.owner_derivation);
+    const sourceSegment = pe.segments.find(s => s.timing_precision);
+    const day = sourceSegment.day_of_week, week = sourceSegment.weeks[0];
+    const base = { ...pe.course, day_of_week: String(day), weeks: sourceSegment.weeks_raw };
+    const conflicts = (left, right) => ['S', 'C'].some(halfDay => {
+      const a = slot(left, day, week, halfDay), b = slot(right, day, week, halfDay);
+      return Boolean(a && b && scheduleTimeLabelsOverlap(
+        a.shift.split(';').map(time).join(';'), b.shift.split(';').map(time).join(';')));
+    });
+    for (const periods of ['1-2', '3-5']) {
+      const marker = ownerEstimatedShiftLabel(periods);
+      for (const rawShift of [marker, `  ${marker}  `, `${marker}\r\n`]) {
+        assert.deepEqual(shifts(rawShift), [marker], 'Detail-view shift parsing must preserve the marker too');
+        const course = { ...base, shift: rawShift };
+        const before = structuredClone(course);
+        const details = slot(course, day, week, 'S');
+        assert.equal(details?.shift, marker, `${component}: single-line marker must not become plain S`);
+        assert.equal(classify(details.shift), 'S');
+        assert.match(display(details.shift), /dự kiến theo owner/);
+        assert.ok(display(details.shift).includes(`tiết ${periods}`));
+        assert.match(time(details.shift), /giờ chưa công bố/);
+        assert.doesNotMatch(details.shift.split(';').map(time).join(';'), /\d{1,2}:\d{2}/);
+        assert.equal(slot(course, day, week, 'C'), null);
+        assert.equal(conflicts(course, { ...base, shift: '10:00-11:00' }), true);
+        assert.equal(conflicts(course, { ...base, shift: 'C' }), false);
+        assert.deepEqual(course, before);
+      }
+      const mixed = { ...base, weeks: '4\n5', day_of_week: '2\n3', shift: `${marker}\r\nC`, room: 'LỚP ẢO\r\nNhà thi đấu' };
+      assert.deepEqual(shifts(mixed.shift), [marker, 'C']);
+      assert.deepEqual(slot(mixed, 2, 4, 'S'), { day: 2, shift: marker, room: 'LỚP ẢO', weeks: '4' });
+      assert.deepEqual(slot(mixed, 3, 5, 'C'), { day: 3, shift: 'C', room: 'Nhà thi đấu', weeks: '5' });
+      assert.equal(slot(mixed, 2, 4, 'C'), null);
+      assert.equal(slot(mixed, 3, 5, 'S'), null);
+      const broadcast = { ...mixed, shift: marker };
+      assert.equal(slot(broadcast, 2, 4, 'S')?.shift, marker);
+      assert.equal(slot(broadcast, 3, 5, 'S')?.shift, marker);
+    }
+    assert.deepEqual(shifts('S C'), ['S', 'C']);
+    assert.deepEqual(shifts('1-3 4-5'), ['1-3', '4-5']);
+    assert.deepEqual(shifts('6-8\r\n9-10'), ['6-8', '9-10']);
+    assert.deepEqual(shifts(''), []);
+    assert.deepEqual(shifts(undefined), []);
+  });
+
   test(`${component} actual slot renderer preserves every HK2 meeting, room and shift without mutating courses`, () => {
     for (const record of eligible) {
       const before = JSON.stringify(record.course);

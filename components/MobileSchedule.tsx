@@ -396,12 +396,19 @@ const splitData = (str?: string) => {
   return s.split(/\s+/);
 };
 
+const splitShiftData = (str?: string) => {
+  const value = String(str || '').trim();
+  // A one-line precision marker is one shift, not whitespace-delimited S/C data.
+  if (!value.includes('\n') && getOwnerEstimatedShift(value)) return [value];
+  return splitData(str);
+};
+
 const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: number, targetShiftType: string) => {
   if (isTemporaryCatalogueItem(course)) return null;
   const weekArr = splitData(course.weeks);
   const dayArr = splitData(course.day_of_week);
   const roomArr = (course.room || '').split(/\r?\n/).map(room => room.trim());
-  const shiftArr = splitData(course.shift);
+  const shiftArr = splitShiftData(course.shift);
 
   if (weekArr.length === 0) return null;
   const maxLen = Math.max(weekArr.length, dayArr.length, shiftArr.length);
@@ -2574,7 +2581,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 }
             } else {
                 const dayArr = splitData(course.day_of_week);
-                const shiftArr = splitData(course.shift);
+                const shiftArr = splitShiftData(course.shift);
                 const combined = [];
                 const maxLen = Math.max(dayArr.length, shiftArr.length);
                 for(let i=0; i<maxLen; i++) {
@@ -2588,7 +2595,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             const modalRoom = details ? details.room : course.room?.replace(/\n/g, ' / ');
             const modalWeeks = details ? details.weeks : course.weeks?.replace(/\n/g, ' / ');
             const dayValues = details ? [`Thứ ${details.day}`] : splitData(course.day_of_week).map(day => `Thứ ${day}`);
-            const shiftValues = details ? [details.shift] : splitData(course.shift);
+            const shiftValues = details ? [details.shift] : splitShiftData(course.shift);
             const modalDayValue = dayValues.filter(Boolean).join(' / ');
             const modalShiftValue = shiftValues
                 .filter(Boolean)
