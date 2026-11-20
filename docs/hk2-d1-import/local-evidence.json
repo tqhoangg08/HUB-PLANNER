@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "local_only": true,
+  "plan": {
+    "plan_id": "61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd",
+    "semester": "HK2_2026_2027",
+    "manifest_sha256": "2fe8af0743805fcc64ba414e22817fb26f3b5ce2247b50677bc518122c36e212",
+    "payload_sha256": "2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797",
+    "snapshot_sha256": "140984736b905cc9b66303f7ec961a5bebc6e2c45973d0ff473a7419e1115ce3",
+    "snapshot_checked_at": "2026-11-20T06:05:49.782Z",
+    "counts": {
+      "additions": 2357,
+      "identical": 0,
+      "blocked": 0,
+      "conflicts": 0,
+      "temporary_items": 3
+    },
+    "batches": 95,
+    "batch_size": 25,
+    "can_apply": false,
+    "production_transport_available": false,
+    "requires_owner_approval": true
+  },
+  "imported": 2357,
+  "all_official_fields_match": true,
+  "temporary_imported": 0,
+  "apply_receipts": 95,
+  "rollback_receipts": 95,
+  "fault_batch_atomic": true,
+  "concurrent_natural_key_stopped": true,
+  "lost_ack_resumed": true,
+  "replay_additions": 0,
+  "rolled_back_rows": 2357,
+  "protected_before_sha256": "aee66608a6813e2b1ff5a2561ccfb784c3df974edd9485c908137e8db2099be2",
+  "protected_after_sha256": "aee66608a6813e2b1ff5a2561ccfb784c3df974edd9485c908137e8db2099be2",
+  "receipt_sha256": "0495e4c26e1242aadda15ae0ca449aec4d8a773eb267d8ac85adb2bb403186d6"
+}

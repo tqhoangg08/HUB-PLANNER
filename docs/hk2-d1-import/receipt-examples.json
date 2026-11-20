@@ -1,0 +1,43 @@
+{
+  "local_only": true,
+  "complete_ledger_sha256": "0495e4c26e1242aadda15ae0ca449aec4d8a773eb267d8ac85adb2bb403186d6",
+  "complete_ledger_rows": 190,
+  "samples": [
+    {
+      "actor_scope": "system",
+      "actor_id": "hk2-bulk-v1",
+      "idempotency_key": "61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd:apply:0",
+      "request_hash": "00cd9c2433bdc5ea6ea50cd8850b83d0ccd0902eb156214d14463bf558572aa1",
+      "operation": "hk2_bulk_apply",
+      "response_json": "{\"version\":1,\"plan_id\":\"61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd\",\"action\":\"apply\",\"batch_index\":0,\"payload_sha256\":\"2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797\",\"snapshot_sha256\":\"140984736b905cc9b66303f7ec961a5bebc6e2c45973d0ff473a7419e1115ce3\",\"batch_sha256\":\"c5fcd3afc40e77da08278e57838522eb17671c4102972d0efb343333fa16ba0b\",\"ids\":[\"dcb6b06f-bfaf-55d2-a746-003dd8769e00\",\"3a5ef3cd-4e78-54e1-af18-407b5357774f\",\"0dfd2b5f-89dc-51a5-a69e-fa17dbcb7235\",\"c8addc96-689a-57d6-a01c-abc98d7d9f1d\",\"a53a1420-8830-5b23-a207-e7dec5479050\",\"a7226f79-4be2-5bf7-a9f9-09f78731c34a\",\"a68528cc-c64b-54de-a526-e1ce42df41fe\",\"085938b8-c2d0-5d3b-aefa-f6f896736a02\",\"b65b471e-cdab-57e0-a677-eb8b80adbcd1\",\"cc8b359f-96ec-5ee6-ac85-53b074520fb4\",\"9edb3dc4-e52c-5472-a4cb-403e727e59d1\",\"c01c19db-160d-523a-ae5f-2c8bda9a832c\",\"2bcdf665-6374-58cb-aeef-3a05ab7bccaa\",\"10400349-3c80-51e0-a2cd-bbc1884ac849\",\"ef24519a-7215-5403-a1d0-50d02571a3a0\",\"d1abc84d-a3d5-55e2-a650-7630fb4d9755\",\"3f1ea28a-1296-51bf-a86c-2cb3eb103d99\",\"1e33d5b2-5abc-56d2-a2ff-4e6d99cbe2a3\",\"b5fd685f-9159-5d4c-ab9d-b8840ba63fff\",\"8523285a-a4e4-54a0-abed-7848e4061864\",\"019565d9-e5a7-503c-a7d7-c6488f5ebb3b\",\"7ca6b69a-7c0f-5dc3-abea-2e9124fdb71f\",\"7846aa1e-75a2-5bc9-a448-ae727030a264\",\"8b3219e9-69b4-54f0-a636-a6d73fd8b69d\",\"197c6713-70a4-5bad-a797-25873ed95dc6\"]}",
+      "created_at": "2026-11-20T06:05:52.099Z"
+    },
+    {
+      "actor_scope": "system",
+      "actor_id": "hk2-bulk-v1",
+      "idempotency_key": "61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd:apply:94",
+      "request_hash": "dbe58f897288f75dee65fbc71afa4659ebf94283e75a8812bf0e4a6ccd286828",
+      "operation": "hk2_bulk_apply",
+      "response_json": "{\"version\":1,\"plan_id\":\"61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd\",\"action\":\"apply\",\"batch_index\":94,\"payload_sha256\":\"2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797\",\"snapshot_sha256\":\"140984736b905cc9b66303f7ec961a5bebc6e2c45973d0ff473a7419e1115ce3\",\"batch_sha256\":\"0642e51b2197800df122710395be1834f25a96eacc636649db0992a365a3cb1f\",\"ids\":[\"b2459985-f4a6-5c8f-afd6-61e1c2f3487c\",\"8531223e-4459-570c-a1fd-50aeac1a8a2e\",\"988a0055-6357-594b-a2f5-5bbc1b8652d6\",\"e0b1442d-011c-5278-aea8-860079a65885\",\"43442241-c1d2-5df1-aa3c-1c3db0ba00ac\",\"42034bad-6ef9-5ab2-a70a-9ee0ccd4a71e\",\"020c91db-c083-558d-a0c1-89ae0892b53b\"]}",
+      "created_at": "2026-11-20T06:09:03.776Z"
+    },
+    {
+      "actor_scope": "system",
+      "actor_id": "hk2-bulk-v1",
+      "idempotency_key": "61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd:rollback:94",
+      "request_hash": "db2b2e8a5c0298f3dd36fe18be572a824fb468403bc7d3263cbec325dff7c3b4",
+      "operation": "hk2_bulk_rollback",
+      "response_json": "{\"version\":1,\"plan_id\":\"61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd\",\"action\":\"rollback\",\"batch_index\":94,\"payload_sha256\":\"2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797\",\"snapshot_sha256\":\"140984736b905cc9b66303f7ec961a5bebc6e2c45973d0ff473a7419e1115ce3\",\"batch_sha256\":\"0642e51b2197800df122710395be1834f25a96eacc636649db0992a365a3cb1f\",\"ids\":[\"b2459985-f4a6-5c8f-afd6-61e1c2f3487c\",\"8531223e-4459-570c-a1fd-50aeac1a8a2e\",\"988a0055-6357-594b-a2f5-5bbc1b8652d6\",\"e0b1442d-011c-5278-aea8-860079a65885\",\"43442241-c1d2-5df1-aa3c-1c3db0ba00ac\",\"42034bad-6ef9-5ab2-a70a-9ee0ccd4a71e\",\"020c91db-c083-558d-a0c1-89ae0892b53b\"]}",
+      "created_at": "2026-11-20T06:09:11.823Z"
+    },
+    {
+      "actor_scope": "system",
+      "actor_id": "hk2-bulk-v1",
+      "idempotency_key": "61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd:rollback:0",
+      "request_hash": "6df2a7fca0f5a64861aafd9dfb98a93ccdc7971fcc465736a2219121b2278822",
+      "operation": "hk2_bulk_rollback",
+      "response_json": "{\"version\":1,\"plan_id\":\"61dfdba348850c42f1bba78d5256767ce356078c15d6dd205f9119802605a5cd\",\"action\":\"rollback\",\"batch_index\":0,\"payload_sha256\":\"2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797\",\"snapshot_sha256\":\"140984736b905cc9b66303f7ec961a5bebc6e2c45973d0ff473a7419e1115ce3\",\"batch_sha256\":\"c5fcd3afc40e77da08278e57838522eb17671c4102972d0efb343333fa16ba0b\",\"ids\":[\"dcb6b06f-bfaf-55d2-a746-003dd8769e00\",\"3a5ef3cd-4e78-54e1-af18-407b5357774f\",\"0dfd2b5f-89dc-51a5-a69e-fa17dbcb7235\",\"c8addc96-689a-57d6-a01c-abc98d7d9f1d\",\"a53a1420-8830-5b23-a207-e7dec5479050\",\"a7226f79-4be2-5bf7-a9f9-09f78731c34a\",\"a68528cc-c64b-54de-a526-e1ce42df41fe\",\"085938b8-c2d0-5d3b-aefa-f6f896736a02\",\"b65b471e-cdab-57e0-a677-eb8b80adbcd1\",\"cc8b359f-96ec-5ee6-ac85-53b074520fb4\",\"9edb3dc4-e52c-5472-a4cb-403e727e59d1\",\"c01c19db-160d-523a-ae5f-2c8bda9a832c\",\"2bcdf665-6374-58cb-aeef-3a05ab7bccaa\",\"10400349-3c80-51e0-a2cd-bbc1884ac849\",\"ef24519a-7215-5403-a1d0-50d02571a3a0\",\"d1abc84d-a3d5-55e2-a650-7630fb4d9755\",\"3f1ea28a-1296-51bf-a86c-2cb3eb103d99\",\"1e33d5b2-5abc-56d2-a2ff-4e6d99cbe2a3\",\"b5fd685f-9159-5d4c-ab9d-b8840ba63fff\",\"8523285a-a4e4-54a0-abed-7848e4061864\",\"019565d9-e5a7-503c-a7d7-c6488f5ebb3b\",\"7ca6b69a-7c0f-5dc3-abea-2e9124fdb71f\",\"7846aa1e-75a2-5bc9-a448-ae727030a264\",\"8b3219e9-69b4-54f0-a636-a6d73fd8b69d\",\"197c6713-70a4-5bad-a797-25873ed95dc6\"]}",
+      "created_at": "2026-11-20T06:12:08.524Z"
+    }
+  ]
+}
