@@ -10,9 +10,9 @@ const canonicalObservability=o=>({enabled:o?.enabled??false,head_sampling_rate:o
   traces:{enabled:o?.traces?.enabled??false,head_sampling_rate:o?.traces?.head_sampling_rate??1,persist:o?.traces?.persist??true}});
 export const PUBLIC_RELEASE_ACCOUNT='6cd8bac6009a55f96bdf9df7c2057548';
 export const PUBLIC_RELEASE_DB='88d702e1-60d3-490a-8514-38ef881cf133';
-// Reviewed release baseline: run 41296397768, deployed SHA 27b55eba00d89c1de13388cf63b6501527df39ae; not newer main.
-// See docs/public-release-baseline-4a9e7d99.json for receipts and the owner-accepted frontend artifact comparison limitation.
-export const PUBLIC_RELEASE_PREDEPLOY_VERSION='4a9e7d99-c2cb-4206-8318-2b13b5fb249a';
+// Reviewed release baseline: run 44540683447, deployed SHA bdfb86567497948a371d4ac44cc9952068bc1431; not newer main.
+// See docs/public-release-baseline-78a4f08b.json for receipts and the frontend artifact comparison limitation pending owner review.
+export const PUBLIC_RELEASE_PREDEPLOY_VERSION='78a4f08b-ea3b-4fad-839e-baec2da98c56';
 // The already-serving limiter is required in BOTH phases of this code release.
 export const SCHOLARSHIP_LIMITER=Object.freeze({name:'SCHOLARSHIP_SEARCH_RATE_LIMIT',namespace_id:'45871912',simple:Object.freeze({limit:60,period:60})});
 // Text-first code release preserves the already deployed V2 100% baseline.
