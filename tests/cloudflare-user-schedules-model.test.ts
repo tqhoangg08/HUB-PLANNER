@@ -107,7 +107,7 @@ test('user schedule reads fall back when a linked course is not mirrored yet', a
           return { synced_at: '2026-07-31T12:00:00Z' };
         },
         async all() {
-          assert.match(sql, /LEFT JOIN course_schedules/);
+          assert.match(sql, /LEFT JOIN \(SELECT \* FROM course_schedules WHERE \(semester IS NOT 'HK2_2026_2027' OR is_user_added=1\)\) cs ON cs.id = us.course_id/);
           return {
             results: [
               {
