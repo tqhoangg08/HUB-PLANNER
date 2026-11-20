@@ -3,7 +3,7 @@
 ## Architecture
 A scheduled **Apify Task**, managed from Apify, collects posts from pages that can
 lawfully be accessed. The Worker polls only the **last succeeded run**, every
-six hours or via the admin-only **Duyệt sự kiện → Đồng bộ Apify** button.
+six hours using the existing `7 * * * *` cron (at UTC hours divisible by 6), or via the admin-only **Duyệt sự kiện → Đồng bộ Apify** button.
 
 Apify Task -> last successful dataset -> bounded adapter/keyword filter -> existing
 D1 event candidate ingest -> existing Groq AI extraction + DRL prediction ->
