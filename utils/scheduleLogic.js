@@ -1,6 +1,8 @@
 import { DEFAULT_SCHEDULE_SEMESTER, getSemesterHolidayWeeks, getSemesterStartDate } from './academicCalendar';
+import { getOwnerEstimatedShift, ownerEstimatedShiftCaption } from './provisionalCoursePolicy.js';
 
 export function getShiftTime(shiftCode) {
+  if (getOwnerEstimatedShift(shiftCode)) return { text: ownerEstimatedShiftCaption(shiftCode), time: '' };
   if (!shiftCode) return { text: 'Chua ro', time: '' };
 
   const code = shiftCode.toUpperCase().trim();

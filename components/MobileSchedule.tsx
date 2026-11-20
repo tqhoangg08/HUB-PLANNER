@@ -3,6 +3,7 @@ import { Overlay } from './Overlay';
 import { createPortal } from 'react-dom';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle, Tag, Bell, BarChart3 } from 'lucide-react';
 import { parseWeeks } from '../utils/scheduleLogic';
+import { getOwnerEstimatedShift, ownerEstimatedShiftCaption, isTemporaryCatalogueItem } from '../utils/provisionalCoursePolicy.js';
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
 import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
@@ -330,6 +331,8 @@ const getExactShiftRange = (shiftStr?: string) => {
 };
 
 const getMainShiftType = (shiftStr?: string) => {
+  const estimated = getOwnerEstimatedShift(shiftStr);
+  if (estimated) return estimated.shift;
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
   const exactRange = getExactShiftRange(s);
@@ -342,6 +345,7 @@ const getMainShiftType = (shiftStr?: string) => {
 };
 
 const getShiftDisplay = (shiftStr?: string) => {
+  if (getOwnerEstimatedShift(shiftStr)) return ownerEstimatedShiftCaption(shiftStr);
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
   const exactRange = getExactShiftRange(s);
@@ -352,6 +356,7 @@ const getShiftDisplay = (shiftStr?: string) => {
 };
 
 const getCourseTimeLabel = (shiftStr?: string) => {
+  if (getOwnerEstimatedShift(shiftStr)) return ownerEstimatedShiftCaption(shiftStr);
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
   const exactRange = getExactShiftRange(s);
@@ -391,11 +396,19 @@ const splitData = (str?: string) => {
   return s.split(/\s+/);
 };
 
+const splitShiftData = (str?: string) => {
+  const value = String(str || '').trim();
+  // A one-line precision marker is one shift, not whitespace-delimited S/C data.
+  if (!value.includes('\n') && getOwnerEstimatedShift(value)) return [value];
+  return splitData(str);
+};
+
 const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: number, targetShiftType: string) => {
+  if (isTemporaryCatalogueItem(course)) return null;
   const weekArr = splitData(course.weeks);
   const dayArr = splitData(course.day_of_week);
-  const roomArr = splitData(course.room);
-  const shiftArr = splitData(course.shift);
+  const roomArr = (course.room || '').split(/\r?\n/).map(room => room.trim());
+  const shiftArr = splitShiftData(course.shift);
 
   if (weekArr.length === 0) return null;
   const maxLen = Math.max(weekArr.length, dayArr.length, shiftArr.length);
@@ -2568,7 +2581,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 }
             } else {
                 const dayArr = splitData(course.day_of_week);
-                const shiftArr = splitData(course.shift);
+                const shiftArr = splitShiftData(course.shift);
                 const combined = [];
                 const maxLen = Math.max(dayArr.length, shiftArr.length);
                 for(let i=0; i<maxLen; i++) {
@@ -2582,7 +2595,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             const modalRoom = details ? details.room : course.room?.replace(/\n/g, ' / ');
             const modalWeeks = details ? details.weeks : course.weeks?.replace(/\n/g, ' / ');
             const dayValues = details ? [`Thứ ${details.day}`] : splitData(course.day_of_week).map(day => `Thứ ${day}`);
-            const shiftValues = details ? [details.shift] : splitData(course.shift);
+            const shiftValues = details ? [details.shift] : splitShiftData(course.shift);
             const modalDayValue = dayValues.filter(Boolean).join(' / ');
             const modalShiftValue = shiftValues
                 .filter(Boolean)

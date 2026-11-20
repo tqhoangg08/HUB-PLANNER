@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "semester": "HK2_2026_2027",
+  "source_files_unchanged": {
+    "20261119165803-1042cong-bo-lg-hk2_2026_2027_kiem-tra-trung-lich-ngay-16-11-26.xlsx": "300c9c86787253929e52b8b36f47ee28f3f782f419f802e4a5eea5388a5aef2e",
+    "Copy of Gửi SV Ke hoach HK2_2026_2027_V8 (gốc).xlsx": "e492acb57adc942899491df4bb58c50a45384c086b042af9665c29141012f886",
+    "hub_planner_hk2_2026_2027_codex_instructions.md": "c3d431b461bf753d512f1e68ac07298722b01475c066efc1b8d76a5a44a223e5",
+    "hub_planner_hk2_2026_2027_review.xlsx": "dfe8315c0eaa99c8d953123b4c525ed850f36d34a8324b8157b2bd7953a1eb17",
+    "hub_planner_hk2_2026_2027_staging.json": "a75b854b8801c187d08baa645bbf0e1c8d057f31c06a160d05b281bafd5bbbde"
+  },
+  "owner_decision_id": "HK2_OWNER_HALF_DAY_2026_11_20",
+  "builder_sha256": "53e4d173fc3d246ae81434f0d70467b1002a5a05e138d6f0c8a28006c0b5356b",
+  "runtime_policy_sha256": "5d9f0c62fef42d475407af08d7d4215d14e31af381ca5c6110b6be1707d87dd1",
+  "output_sha256": {
+    "catalogue.json": "b888e33d3e74460d5bd8dac2e0891ec368817e0e93fcea3c96cbf41be455e827",
+    "dry-run.json": "94fecf8dd046d3d5b7e2d91f9f435160b9cbac3ff017e8700be863c4759e1c17",
+    "exceptions.json": "0344442641c0e96c478814eb1541e4784101c6d7d446e1f28b2fceeb9b9b6a6f",
+    "temporary-items.json": "d201a0b9a040c27ba9d8a55fed99847f6b7feb5f72fc0aea5c1660a4bd32e305",
+    "owner-decisions.json": "b6ee1cb250c40872329d6c524a6d0be1ec3122847e9914e80cf1038c4a8dce17"
+  }
+}

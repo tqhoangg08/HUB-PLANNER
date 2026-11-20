@@ -1,0 +1,8 @@
+# Preserve the received HK2 inputs byte-for-byte for SHA-256 verification.
+data/hk2-2026-2027/source/* -text
+# Deterministic generated/snapshot artifacts across Windows and Linux checkouts.
+data/hk2-2026-2027/*.json text eol=lf
+data/hk2-2026-2027/generated/*.json text eol=lf
+# Derived manifest pins these two implementation files byte-for-byte.
+scripts/hk2-2026-2027/catalogue.mjs text eol=lf
+utils/provisionalCoursePolicy.js text eol=lf
