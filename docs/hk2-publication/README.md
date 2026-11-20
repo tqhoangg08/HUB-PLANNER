@@ -43,7 +43,7 @@ This wrapper is for reviewed application SQL, not arbitrary administrator SQL.
 | Personal schedule GET / conflict checks / ICS | No new hidden official class can be selected. Newly selected public HK2 classes receive an owner-scoped historical snapshot in the existing snapshot table, in the same transaction. Existing personal schedules and user custom data are retained. Conflict and ICS logic consumes the selected/private schedule, not a raw catalogue query. |
 | AI Advisor catalogue retrieval | Uses the same D1 boundary. |
 | AI Advisor personal schedule retrieval | Uses gated catalogue or the authenticated user's existing historical/private snapshot, preserving NULL values. |
-| D1 instructor scraper candidate/read/update | Gated selection plus an in-statement gated ID check before instructor UPDATE. Current automated scrape remains HK1-specific. |
+| D1 instructor scraper candidate/read/update | Gated selection plus an in-statement gated ID check before instructor UPDATE. The D1 scraper parses the original semester for eligible public classes; it cannot select CLOSED HK2. |
 | Legacy course sync / reconcile into D1 | Cannot insert/overwrite/reconcile official HK2 through the old mirror path. #160 remains the only planned HK2 writer. |
 | Legacy Node / Supabase course list, detail, matching, facets | Permanently CLOSED for official HK2: these stores have no trusted D1 publication signal. No legacy fallback publishes HK2 after opening D1. |
 | Legacy Supabase instructor scraper | Already explicitly HK1-only. No D1 import transport exists there. |
