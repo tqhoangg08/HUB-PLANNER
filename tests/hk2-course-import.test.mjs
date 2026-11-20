@@ -11,8 +11,10 @@ import { DatabaseSync } from 'node:sqlite';
 import { auditPackage, DATA_DIR, FIELDS, SEMESTER, SHIFT_TIMES, verifiedInputs, planImport, sha256, normalizeKey,
   parseWeeks, scheduleSegments, weekDates, isClosure, isOnline, validateSnapshot } from '../scripts/hk2-2026-2027/catalogue.mjs';
 import { getWeekDatesForSemester, getSemesterHolidayWeeks, getSemesterStartDate } from '../utils/academicCalendar.ts';
-import { getCanonicalShiftTimeRange } from '../utils/calendarExport.ts';
-import { scheduleSessionsFromLegacyFields } from '../utils/scheduleSessions.ts';
+import { buildCalendarExport, getCanonicalShiftTimeRange } from '../utils/calendarExport.ts';
+import { scheduleSessionsFromLegacyFields, serializeScheduleSessions, formatScheduleSession, getScheduleSessionTimeRange, scheduleSessionsOverlap } from '../utils/scheduleSessions.ts';
+import { getOwnerEstimatedShift, ownerEstimatedShiftCaption, isTemporaryCatalogueItem, temporaryCatalogueView, searchTemporaryCatalogue } from '../utils/provisionalCoursePolicy.js';
+import { parseStoredUserScheduleCourseSnapshot } from '../cloudflare/worker/src/user-schedules.ts';
 import { handleCourses } from '../cloudflare/worker/src/courses.ts';
 
 // Re-read and independently reconcile ALL source and review workbooks, not just generated data.
@@ -36,7 +38,8 @@ test('all source rows, sheets, flags, programs and immutable generated artifacts
   assert.equal(audit.summary.original_standard + audit.summary.original_advanced - audit.summary.placeholders, 2357);
   assert.equal(audit.records.length, 2357); assert.equal(audit.sheets.length, 9);
   assert.equal(audit.summary.candidate, 2322); assert.equal(audit.summary.review_required, 35);
-  assert.equal(audit.summary.eligible, 2349); assert.equal(audit.summary.blocked, 8);
+  assert.equal(audit.summary.eligible, 2357); assert.equal(audit.summary.blocked, 0);
+  assert.equal(audit.summary.prepared_rows, 2360); assert.equal(audit.summary.temporary_items, 3);
   assert.equal(audit.summary.exception_sheet_rows, 115); assert.equal(audit.summary.flagged_classes, 112);
   assert.equal(audit.summary.flag_occurrences, 113);
   assert.equal(new Set(audit.records.map(r => normalizeKey(r.course.course_code))).size, 2357);
@@ -81,7 +84,7 @@ test('source-verified shifts agree with existing export/parser code, preserve ev
   }
   for (const record of eligible) {
     const sessions = scheduleSessionsFromLegacyFields(record.course, SEMESTER);
-    const expected = record.segments.flatMap(s => s.weeks.map(w => ({ w, day: s.day_of_week, room: s.room || '', campus: s.campus || '', start: s.shift.split('-')[0], end: s.shift.split('-')[1] })));
+    const expected = record.segments.flatMap(s => s.weeks.map(w => ({ w, day: s.day_of_week, room: s.room || '', campus: s.campus || '', start: s.timing_precision ? undefined : s.shift.split('-')[0], end: s.timing_precision ? undefined : s.shift.split('-')[1] })));
     assert.deepEqual(sessions.map(s => ({ w: s.weeks[0], day: s.dayOfWeek, room: s.room, campus: s.campus, start: s.startTime, end: s.endTime })), expected, record.course.course_code);
     for (const f of FIELDS) {
       if (typeof record.course[f] === 'string') assert.ok(record.course[f].length <= (f === 'subject_name' ? 240 : 500), `Authority length: ${record.course.course_code} ${f}`);
@@ -101,8 +104,8 @@ test('instructors, merged codes, unknown hours, essays and adjustment markers ne
   assert.equal(audit.records.filter(r => r.course.course_code.endsWith('_GHÉP')).length, 8);
   assert.ok(audit.placeholders.every(r => r.course_code === '_262_'));
   assert.ok(!audit.records.some(r => r.course.course_code === '_262_'));
-  const blocked = audit.records.filter(r => r.publication === 'BLOCKED');
-  assert.equal(blocked.length, 8); assert.ok(blocked.every(r => r.course.shift === null && /1-2|3-5/.test(r.raw_schedule.shift)));
+  const ownerMapped = audit.records.filter(r => r.owner_derivation);
+  assert.equal(ownerMapped.length, 8); assert.ok(ownerMapped.every(r => r.publication === 'ELIGIBLE_PENDING_OWNER_APPROVAL' && getOwnerEstimatedShift(r.course.shift)?.shift === 'S'));
   assert.equal(audit.records.filter(r => r.assessment === 'essay').length, 124);
   assert.ok(audit.records.filter(r => r.assessment === 'essay').every(r => r.course.exam_date === null && r.course.exam_shift === null && /Tiểu luận/.test(r.course.general_note)));
   const markers = audit.records.filter(r => r.issues.includes('REVIEW_EXAM_ROOM_MARKER'));
@@ -114,9 +117,12 @@ test('instructors, merged codes, unknown hours, essays and adjustment markers ne
 });
 
 test('dry-run repeats exactly, detects duplicates/content conflicts/retired rows, and never offers a production write', () => {
-  const first = planImport(audit.records, []); assert.deepEqual(first, planImport(audit.records, []));
-  assert.deepEqual(first.counts, { additions: 2349, identical: 0, blocked: 8, conflicts: 0 });
+  const first = planImport(audit.records, [], audit.temporary_items); assert.deepEqual(first, planImport(audit.records, [], audit.temporary_items));
+  assert.deepEqual(first.counts, { additions: 2357, identical: 0, blocked: 0, conflicts: 0, temporary_items: 3 });
   assert.equal(first.can_apply, false);
+  const pe = audit.records.find(r => r.owner_derivation);
+  assert.throws(() => planImport([{ ...pe, course: { ...pe.course, shift: 'S' } }], []), /precision marker/);
+  assert.throws(() => planImport([{ ...pe, owner_derivation: undefined }], []), /owner decision/);
   const old = { ...eligible[0].course, catalogue_visibility: 'published' };
   assert.equal(planImport(audit.records, [old]).counts.identical, 1);
   assert.equal(planImport(audit.records, [{ ...old, instructor: 'HK1 MUST NOT BE COPIED' }]).status, 'CONFLICT_STOP');
@@ -129,6 +135,71 @@ test('dry-run repeats exactly, detects duplicates/content conflicts/retired rows
   assert.throws(() => planImport([{ ...eligible[0], course: { ...eligible[0].course, credits: null } }], []), /credits/);
   const cli = spawnSync(process.execPath, ['scripts/prepare-hk2-course-import.mjs', '--remote', '--apply'], { encoding: 'utf8', windowsHide: true });
   assert.notEqual(cli.status, 0); assert.match(cli.stderr, /no production writer/);
+});
+
+test('owner PE derivation preserves source fields, uses S without invented clocks, and survives personal snapshots/ICS', async () => {
+  const { staging } = await verifiedInputs();
+  const expectedCodes = ['GYM302_262_PI_D17', 'GYM302_262_PI_D18', 'GYM304_262_PI_D52', 'GYM304_262_PI_D53',
+    'GYM304_262_QV_D27', 'GYM304_262_QV_D28', 'GYM304_262_QV_D54', 'GYM304_262_QV_D55'];
+  assert.deepEqual(audit.records.filter(r => r.owner_derivation).map(r => r.course.course_code), expectedCodes);
+  for (const record of audit.records) {
+    const source = staging.classes.find(r => r.course.course_code === record.course.course_code);
+    assert.deepEqual(record.raw_schedule, source.raw_schedule);
+    assert.deepEqual(record.source_notes, source.source_notes);
+    for (const field of FIELDS) if (!record.owner_derivation || !['shift', 'general_note'].includes(field)) assert.deepEqual(record.course[field], source.course[field]);
+    if (!record.owner_derivation) continue;
+    assert.equal(record.owner_derivation.exact_clock_times_inferred, false);
+    assert.ok(record.issues.includes('UNMAPPED_SHIFT_TIME'), 'School-source warning must remain visible');
+    const snapshot = parseStoredUserScheduleCourseSnapshot(JSON.stringify(record.course));
+    assert.deepEqual(snapshot, record.course);
+    const sessions = scheduleSessionsFromLegacyFields(snapshot, SEMESTER);
+    const uncertain = sessions.filter(s => s.timePrecision === 'owner_half_day');
+    assert.ok(uncertain.length > 0);
+    for (const session of uncertain) {
+      assert.equal(session.shift, 'S'); assert.equal(session.startTime, undefined); assert.equal(session.endTime, undefined);
+      assert.equal(getScheduleSessionTimeRange(session), null);
+      assert.doesNotMatch(formatScheduleSession(session).join(' '), /\d{1,2}:\d{2}/);
+      const roundTrip = scheduleSessionsFromLegacyFields(serializeScheduleSessions([session]), SEMESTER)[0];
+      assert.equal(roundTrip.timePrecision, 'owner_half_day'); assert.equal(roundTrip.sourcePeriods, session.sourcePeriods);
+      assert.equal(scheduleSessionsOverlap(session, { ...session, timePrecision: undefined, sourcePeriods: undefined, shift: 'S', startTime: '10:00', endTime: '11:00' }), true);
+      assert.equal(scheduleSessionsOverlap(session, { ...session, timePrecision: undefined, sourcePeriods: undefined, shift: 'C', startTime: '13:00', endTime: '14:00' }), false);
+    }
+    const exported = buildCalendarExport({ semester: SEMESTER, courses: [record.course], reminderMinutes: 15 });
+    assert.ok(exported.issues.some(i => i.reason === 'unknown_shift'));
+    assert.ok(exported.events.every(e => !getOwnerEstimatedShift(e.shift)));
+    for (const segment of record.segments.filter(s => s.timing_precision)) {
+      const onlyUncertain = { ...record.course, shift: segment.serialized_shift, day_of_week: String(segment.day_of_week), weeks: segment.weeks_raw };
+      const skipped = buildCalendarExport({ semester: SEMESTER, courses: [onlyUncertain], reminderMinutes: 15 });
+      assert.equal(skipped.events.length, 0); assert.doesNotMatch(skipped.ics, /DTSTART|DTEND|VALARM/);
+    }
+  }
+});
+
+test('three temporary subjects retain stable distinct source keys, NULL credits and no operational weekly timetable', () => {
+  const items = audit.temporary_items;
+  assert.deepEqual(items.map(i => i.provenance.source_row), [1214, 1320, 1321]);
+  assert.deepEqual(items.map(i => i.credits), [1, null, null]);
+  assert.equal(new Set(items.map(i => i.technical_key)).size, 3);
+  for (const item of items) {
+    assert.equal(item.official_course_code, null); assert.equal(item.instructor, null);
+    assert.equal(item.provenance.source_course_code, '_262_'); assert.equal(item.provenance.source_fields.weeks, '1-22');
+    assert.deepEqual(item.segments, []); assert.equal(item.weeks, null);
+    const view = temporaryCatalogueView(item);
+    assert.equal(view.code_label, 'Mã lớp chưa công bố'); assert.equal(view.selectable, false);
+    assert.equal(view.can_add_to_personal_schedule, false); assert.equal(view.can_export_ics, false); assert.equal(view.can_check_conflicts, false);
+    const poisoned = { ...view, weeks: '1-22', day_of_week: '6', shift: 'S' };
+    assert.deepEqual(scheduleSessionsFromLegacyFields(poisoned, SEMESTER), []);
+    const exported = buildCalendarExport({ semester: SEMESTER, courses: [poisoned], reminderMinutes: 15 });
+    assert.equal(exported.events.length, 0); assert.doesNotMatch(exported.ics, /DTSTART|DTEND|VALARM/);
+    assert.equal(exported.issues[0].reason, 'temporary_subject');
+    assert.throws(() => planImport([item], []), /Temporary subjects/);
+  }
+  assert.equal(searchTemporaryCatalogue(items, 'Thuc tap giua khoa').length, 2);
+  assert.equal(searchTemporaryCatalogue(items, '1320')[0].technical_key, items[1].technical_key);
+  assert.equal(searchTemporaryCatalogue(items, '_262_').length, 0);
+  assert.throws(() => planImport(audit.records, [], [items[0], items[0]]), /Duplicate temporary/);
+  const manifestSource = audit.integrity.files[items[1].provenance.source_file];
+  for (const item of items) assert.equal(item.technical_key, `hk2tmp:${sha256(`${manifestSource}:LG HK2 du kien (2):${item.provenance.source_row}`)}`);
 });
 
 // Test-only statements: never exported by the preparation script and never receive remote bindings.
@@ -160,7 +231,7 @@ const sqliteFixture = () => {
   } };
 };
 
-test('local SQLite fixture with live D1 schema/API: atomic rollback, 2,349 additions, no-op, HK1/user tables unchanged', async t => {
+test('local SQLite fixture with live D1 schema/API: atomic rollback, 2,357 additions, no-op, HK1/user tables unchanged', async t => {
   const db = sqliteFixture(); t.after(() => db.close());
   const schema = production.response.result[4].results.map(r => r.sql);
   for (const type of ['CREATE TABLE', 'CREATE INDEX', 'CREATE UNIQUE INDEX', 'CREATE TRIGGER']) {
@@ -182,15 +253,15 @@ test('local SQLite fixture with live D1 schema/API: atomic rollback, 2,349 addit
   assert.deepEqual(await snapshot(hk1Sql), before); assert.deepEqual(await snapshot(facetSql), facetsBefore);
   await db.batch(localStatements(db, eligible));
   const hk2 = await snapshot(`SELECT * FROM course_schedules WHERE semester='${SEMESTER}' ORDER BY source_position`);
-  assert.equal(hk2.length, 2349);
+  assert.equal(hk2.length, 2357);
   assert.deepEqual(await snapshot(hk1Sql), before);
-  const repeat = planImport(audit.records, hk2);
-  assert.deepEqual(repeat.counts, { additions: 0, identical: 2349, blocked: 8, conflicts: 0 });
-  assert.equal((await snapshot(`SELECT SUM(course_count) AS n FROM course_filter_facets WHERE semester='${SEMESTER}'`))[0].n, 2349);
+  const repeat = planImport(audit.records, hk2, audit.temporary_items);
+  assert.deepEqual(repeat.counts, { additions: 0, identical: 2357, blocked: 0, conflicts: 0, temporary_items: 3 });
+  assert.equal((await snapshot(`SELECT SUM(course_count) AS n FROM course_filter_facets WHERE semester='${SEMESTER}'`))[0].n, 2357);
   assert.deepEqual(await snapshot("SELECT * FROM course_filter_facets WHERE semester='HK1_2026_2027' ORDER BY semester,phase,subject_name,major,cohort,academic_program,group_name"), facetsBefore);
   for (const table of ['user_schedules', 'user_course_requests', 'course_mutation_receipts', 'course_mutation_outbox']) assert.deepEqual(await snapshot(`SELECT * FROM ${table}`), []);
   const publicRead = await handleCourses(new URL(`https://example.test/courses?semester=${SEMESTER}&limit=100`), { DB: db });
-  assert.equal(publicRead.status, 200); assert.equal(publicRead.payload.total, 2349);
+  assert.equal(publicRead.status, 200); assert.equal(publicRead.payload.total, 2357);
   assert.ok(publicRead.payload.data.every(c => c.instructor === null && c.semester === SEMESTER && c.is_user_added === false));
   const filtered = await handleCourses(new URL(`https://example.test/courses?semester=${SEMESTER}&academicProgram=${encodeURIComponent('CT Elite')}`), { DB: db });
   assert.equal(filtered.payload.total, 29);
@@ -207,14 +278,17 @@ test('local D1 runtime accepts normalized courses and rolls back an entire faile
   }
   const sample = [eligible[0], eligible.find(r => r.course.course_code === 'MLM309_262_D07'),
     eligible.find(r => r.assessment === 'essay'), eligible.find(r => r.issues.includes('REVIEW_EXAM_ROOM_MARKER')),
-    eligible.find(r => r.issues.includes('REVIEW_EXAM_SUMMER_SOFTWARE')), eligible.find(r => r.course.course_code.endsWith('_GHÉP'))];
+    eligible.find(r => r.issues.includes('REVIEW_EXAM_SUMMER_SOFTWARE')), eligible.find(r => r.course.course_code.endsWith('_GHÉP')),
+    eligible.find(r => r.owner_derivation)];
   const statements = localStatements(db, sample, 0);
   await assert.rejects(db.batch([...statements, statements[0]]), /UNIQUE|constraint/i);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM course_schedules').first()).n, 0);
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM course_filter_facets').first()).n, 0);
   await db.batch(localStatements(db, sample, 0));
   const result = await handleCourses(new URL(`https://example.test/courses?semester=${SEMESTER}`), { DB: db });
-  assert.equal(result.payload.total, 6); assert.ok(result.payload.data.every(r => r.instructor === null));
+  assert.equal(result.payload.total, 7); assert.ok(result.payload.data.every(r => r.instructor === null));
+  const ownerRow = result.payload.data.find(r => r.course_code === sample[6].course.course_code);
+  assert.equal(getOwnerEstimatedShift(ownerRow.shift)?.shift, 'S');
 });
 
 // Execute each component's own slot/room/day/shift helpers, with the real production
@@ -226,34 +300,50 @@ const componentSlots = await Promise.all(['ScheduleBoard', 'MobileSchedule'].map
   const file = `components/${component}.tsx`;
   const source = await readFile(file, 'utf8');
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const names = ['getExactShiftRange', 'getMainShiftType', 'splitData', 'getCourseDetailsForSlot'];
+  const names = ['getExactShiftRange', 'getMainShiftType', 'getShiftDisplay', 'getCourseTimeLabel', 'splitData', 'getCourseDetailsForSlot'];
   const statements = ast.statements.filter(node => ts.isVariableStatement(node)
     && node.declarationList.declarations.some(d => names.includes(d.name.getText(ast))));
   assert.equal(statements.length, names.length, `${component}: all actual helper definitions must be found`);
   const compiled = transformSync(statements.map(node => node.getText(ast)).join('\n'), { loader: 'ts' }).code;
-  const slot = new Function('parseWeeks', `${compiled}; return getCourseDetailsForSlot;`)(productionParseWeeks);
-  return { component, slot };
+  const helpers = new Function('parseWeeks', 'getOwnerEstimatedShift', 'ownerEstimatedShiftCaption', 'isTemporaryCatalogueItem', `${compiled}; return { slot: getCourseDetailsForSlot, classify: getMainShiftType, display: getShiftDisplay, time: getCourseTimeLabel };`)(productionParseWeeks, getOwnerEstimatedShift, ownerEstimatedShiftCaption, isTemporaryCatalogueItem);
+  return { component, ...helpers };
 }));
 
-for (const { component, slot } of componentSlots) {
+for (const { component, slot, classify, display, time } of componentSlots) {
   test(`${component} actual slot renderer preserves every HK2 meeting, room and shift without mutating courses`, () => {
     for (const record of eligible) {
       const before = JSON.stringify(record.course);
       const queries = new Map();
       for (const segment of record.segments) for (const week of segment.weeks) {
-        const shift = Number(segment.shift.split(':')[0]) < 12 ? 'S' : 'C';
+        const shift = segment.shift === 'S' || Number(segment.shift.split(':')[0]) < 12 ? 'S' : 'C';
         queries.set(`${segment.day_of_week}:${week}:${shift}`, [segment.day_of_week, week, shift]);
       }
       for (const [day, week, shift] of queries.values()) {
         const matching = record.segments.filter(s => s.day_of_week === day && s.weeks.includes(week)
-          && (Number(s.shift.split(':')[0]) < 12 ? 'S' : 'C') === shift);
+          && (s.shift === 'S' || Number(s.shift.split(':')[0]) < 12 ? 'S' : 'C') === shift);
         assert.deepEqual(slot(record.course, day, week, shift), {
-          day, shift: [...new Set(matching.map(s => s.shift))].join(';'),
+          day, shift: [...new Set(matching.map(s => s.serialized_shift || s.shift))].join(';'),
           room: [...new Set(matching.map(s => s.room).filter(Boolean))].join(' / '),
           weeks: [...new Set(matching.map(s => s.weeks_raw))].join(' / '),
         }, `${component} ${record.course.course_code} day ${day} week ${week} ${shift}`);
       }
       assert.equal(JSON.stringify(record.course), before);
+    }
+  });
+
+  test(`${component} displays owner-estimated periods without clock times and gives temporary items no weekly slots`, () => {
+    for (const record of audit.records.filter(r => r.owner_derivation)) for (const segment of record.segments.filter(s => s.timing_precision)) {
+      assert.equal(classify(segment.serialized_shift), 'S');
+      assert.match(display(segment.serialized_shift), /dự kiến theo owner/);
+      assert.match(time(segment.serialized_shift), /giờ chưa công bố/);
+      assert.doesNotMatch(time(segment.serialized_shift), /\d{1,2}:\d{2}/);
+      assert.ok(slot(record.course, segment.day_of_week, segment.weeks[0], 'S'));
+    }
+    for (const item of audit.temporary_items) {
+      const view = temporaryCatalogueView(item);
+      assert.equal(view.code_label, 'Mã lớp chưa công bố');
+      for (const shift of ['S', 'C']) for (const week of [0, 1, 22]) assert.equal(slot(view, 6, week, shift), null);
+      assert.equal(slot({ ...view, weeks: '1-22', day_of_week: '6', shift: 'S' }, 6, 1, 'S'), null);
     }
   });
 

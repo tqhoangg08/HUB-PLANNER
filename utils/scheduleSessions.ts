@@ -3,6 +3,7 @@ import {
   getSemesterMaxWeek,
   getWeekDatesForSemester,
 } from './academicCalendar.ts';
+import { getOwnerEstimatedShift, ownerEstimatedShiftLabel, ownerEstimatedShiftCaption, isTemporaryCatalogueItem } from './provisionalCoursePolicy.js';
 
 export type ScheduleShiftCode = 'S' | 'C';
 
@@ -15,6 +16,9 @@ export interface StructuredScheduleSession {
   startTime?: string;
   endTime?: string;
   isEstimated?: boolean;
+  // Read-only provenance of a school timetable classified by owner, with no clock times.
+  timePrecision?: 'owner_half_day';
+  sourcePeriods?: string;
 }
 
 export const SCHEDULE_SHIFT_OPTIONS: ReadonlyArray<{ value: ScheduleShiftCode; label: string }> = [
@@ -68,6 +72,7 @@ export const parseScheduleTimeRange = (value: unknown) => {
 };
 
 export const getScheduleSessionTimeRange = (session: StructuredScheduleSession) => {
+  if (session.timePrecision === 'owner_half_day') return null;
   if (session.startTime !== undefined || session.endTime !== undefined) {
     const start = timeMinutes(session.startTime);
     const end = timeMinutes(session.endTime);
@@ -79,6 +84,7 @@ export const getScheduleSessionTimeRange = (session: StructuredScheduleSession) 
 
 export const scheduleSessionsOverlap = (left: StructuredScheduleSession, right: StructuredScheduleSession) => {
   if (left.dayOfWeek !== right.dayOfWeek || !left.weeks.some(week => right.weeks.includes(week))) return false;
+  if (left.timePrecision === 'owner_half_day' || right.timePrecision === 'owner_half_day') return !left.shift || !right.shift || left.shift === right.shift;
   const a = getScheduleSessionTimeRange(left);
   const b = getScheduleSessionTimeRange(right);
   return Boolean(a && b && a.start < b.end && b.start < a.end);
@@ -120,6 +126,7 @@ export const getScheduleSessionErrors = (
   hasOverlap = false,
 ) => {
   const errors: string[] = [];
+  if (session.timePrecision === 'owner_half_day') errors.push('Ca dự kiến theo owner chưa có giờ chính xác; không chuyển thành buổi học tự khai.');
   const maxWeek = getSemesterMaxWeek(semester);
   const validWeeks = session.weeks.length === 1
     && session.weeks.every((week) => Number.isInteger(week) && week >= 1 && week <= maxWeek);
@@ -165,9 +172,10 @@ export const scheduleSessionsAreValid = (
 const splitValues = (value: unknown) => String(value || '').split(/\r?\n/).map((item) => item.trim());
 
 export const scheduleSessionsFromLegacyFields = (
-  fields: { weeks?: unknown; day_of_week?: unknown; shift?: unknown; campus?: unknown; room?: unknown },
+  fields: { weeks?: unknown; day_of_week?: unknown; shift?: unknown; campus?: unknown; room?: unknown; record_kind?: string },
   semester: string,
 ): StructuredScheduleSession[] => {
+  if (isTemporaryCatalogueItem(fields)) return [];
   const weeks = splitValues(fields.weeks);
   const days = splitValues(fields.day_of_week);
   const shifts = splitValues(fields.shift);
@@ -190,13 +198,15 @@ export const scheduleSessionsFromLegacyFields = (
     const day = Number(days[index] || days[0] || '');
     const shift = String(shifts[index] || shifts[0] || '').toUpperCase();
     const timeRange = parseScheduleTimeRange(shift);
+    const estimated = getOwnerEstimatedShift(shift);
     return parsedWeeks.map((week): StructuredScheduleSession => ({
       weeks: [week],
       dayOfWeek: Number.isInteger(day) && day >= 2 && day <= 8 ? day : null,
-      shift: timeRange ? inferScheduleShift(timeRange.startTime, timeRange.endTime) : SCHEDULE_SHIFT_OPTIONS.some((option) => option.value === shift) ? shift as ScheduleShiftCode : '',
+      shift: estimated ? 'S' : timeRange ? inferScheduleShift(timeRange.startTime, timeRange.endTime) : SCHEDULE_SHIFT_OPTIONS.some((option) => option.value === shift) ? shift as ScheduleShiftCode : '',
       campus: campuses[index] || campuses[0] || '',
       room: rooms[index] || rooms[0] || '',
       ...(timeRange || {}),
+      ...(estimated ? { timePrecision: 'owner_half_day' as const, sourcePeriods: estimated.periods, isEstimated: true } : {}),
     }));
   }).flat();
 };
@@ -204,14 +214,16 @@ export const scheduleSessionsFromLegacyFields = (
 export const serializeScheduleSessions = (sessions: StructuredScheduleSession[]) => ({
   weeks: sessions.map((session) => [...new Set(session.weeks)].sort((a, b) => a - b).join(',')).join('\n'),
   day_of_week: sessions.map((session) => String(session.dayOfWeek || '')).join('\n'),
-  shift: sessions.map((session) => session.startTime && session.endTime ? `${session.startTime}-${session.endTime}` : session.shift).join('\n'),
+  shift: sessions.map((session) => session.timePrecision === 'owner_half_day' ? ownerEstimatedShiftLabel(session.sourcePeriods) : session.startTime && session.endTime ? `${session.startTime}-${session.endTime}` : session.shift).join('\n'),
   campus: sessions.map((session) => session.campus.trim()).join('\n'),
   room: sessions.map((session) => session.room.trim()).join('\n'),
 });
 
 export const formatScheduleSession = (session: StructuredScheduleSession) => {
   const day = SCHEDULE_DAY_OPTIONS.find((option) => option.value === session.dayOfWeek)?.label || 'Chưa xác định thứ';
-  const shift = SCHEDULE_SHIFT_OPTIONS.find((option) => option.value === session.shift)?.label || 'Chưa xác định ca';
+  const shift = session.timePrecision === 'owner_half_day'
+    ? ownerEstimatedShiftCaption(ownerEstimatedShiftLabel(session.sourcePeriods))
+    : SCHEDULE_SHIFT_OPTIONS.find((option) => option.value === session.shift)?.label || 'Chưa xác định ca';
   const weeks = session.weeks.length ? `Tuần ${[...new Set(session.weeks)].sort((a, b) => a - b).join(', ')}` : 'Chưa xác định tuần';
-  return [weeks, day, session.startTime && session.endTime ? `${shift} · ${session.startTime}–${session.endTime}` : shift, session.room ? `Phòng ${session.room}` : 'Chưa xác định phòng'];
+  return [weeks, day, session.timePrecision !== 'owner_half_day' && session.startTime && session.endTime ? `${shift} · ${session.startTime}–${session.endTime}` : shift, session.room ? `Phòng ${session.room}` : 'Chưa xác định phòng'];
 };

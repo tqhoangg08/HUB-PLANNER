@@ -177,6 +177,8 @@
     "GYM302_262_CL_D42",
     "GYM302_262_PI_D15",
     "GYM302_262_PI_D16",
+    "GYM302_262_PI_D17",
+    "GYM302_262_PI_D18",
     "GYM302_262_PI_D19",
     "GYM302_262_PI_D20",
     "GYM302_262_PI_D21",
@@ -248,6 +250,12 @@
     "GYM304_262_PI_D49",
     "GYM304_262_PI_D50",
     "GYM304_262_PI_D51",
+    "GYM304_262_PI_D52",
+    "GYM304_262_PI_D53",
+    "GYM304_262_QV_D27",
+    "GYM304_262_QV_D28",
+    "GYM304_262_QV_D54",
+    "GYM304_262_QV_D55",
     "AIN716_262_D01",
     "ACC702_262_D01",
     "ACC305_262_D01",
@@ -2355,24 +2363,39 @@
     "SKL312_262_L55"
   ],
   "identical": [],
-  "blocked": [
-    "GYM302_262_PI_D17",
-    "GYM302_262_PI_D18",
-    "GYM304_262_PI_D52",
-    "GYM304_262_PI_D53",
-    "GYM304_262_QV_D27",
-    "GYM304_262_QV_D28",
-    "GYM304_262_QV_D54",
-    "GYM304_262_QV_D55"
-  ],
+  "blocked": [],
   "conflicts": [],
   "status": "AWAITING_OWNER_APPROVAL",
-  "payload_sha256": "6f941e6d5504763facdd737863de0863374758039fa832d8ef8a2e74e6387415",
+  "payload_sha256": "2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797",
+  "temporary_items": [
+    {
+      "technical_key": "hk2tmp:6bd2347337d3ed2000a59da69b698bc88a46e6c02e42c4c2921de4027847b057",
+      "source_row": 1214,
+      "label": "Mã lớp chưa công bố",
+      "official_import": false,
+      "scheduling_status": "NOT_CONFIRMED_AS_WEEKLY"
+    },
+    {
+      "technical_key": "hk2tmp:c629a6614e31687d0fb7d5cb1c36db0c932b04abbcaf591129eef2f97932d136",
+      "source_row": 1320,
+      "label": "Mã lớp chưa công bố",
+      "official_import": false,
+      "scheduling_status": "NOT_CONFIRMED_AS_WEEKLY"
+    },
+    {
+      "technical_key": "hk2tmp:48139eb24cbefa74838928a39e41c6ebb125add5601fea0de218507e9d296da9",
+      "source_row": 1321,
+      "label": "Mã lớp chưa công bố",
+      "official_import": false,
+      "scheduling_status": "NOT_CONFIRMED_AS_WEEKLY"
+    }
+  ],
   "counts": {
-    "additions": 2349,
+    "additions": 2357,
     "identical": 0,
-    "blocked": 8,
-    "conflicts": 0
+    "blocked": 0,
+    "conflicts": 0,
+    "temporary_items": 3
   },
   "snapshot_checked_at": "2026-11-19T15:16:40.588Z",
   "snapshot_sha256": "df8e7ac5471843d8f607a895c577b52fd47446076f9c285307dafede5063d54d",

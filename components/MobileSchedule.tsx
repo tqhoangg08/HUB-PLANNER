@@ -3,6 +3,7 @@ import { Overlay } from './Overlay';
 import { createPortal } from 'react-dom';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle, Tag, Bell, BarChart3 } from 'lucide-react';
 import { parseWeeks } from '../utils/scheduleLogic';
+import { getOwnerEstimatedShift, ownerEstimatedShiftCaption, isTemporaryCatalogueItem } from '../utils/provisionalCoursePolicy.js';
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
 import { ScheduleSessionsEditor } from './ScheduleSessionsEditor';
@@ -330,6 +331,8 @@ const getExactShiftRange = (shiftStr?: string) => {
 };
 
 const getMainShiftType = (shiftStr?: string) => {
+  const estimated = getOwnerEstimatedShift(shiftStr);
+  if (estimated) return estimated.shift;
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
   const exactRange = getExactShiftRange(s);
@@ -342,6 +345,7 @@ const getMainShiftType = (shiftStr?: string) => {
 };
 
 const getShiftDisplay = (shiftStr?: string) => {
+  if (getOwnerEstimatedShift(shiftStr)) return ownerEstimatedShiftCaption(shiftStr);
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
   const exactRange = getExactShiftRange(s);
@@ -352,6 +356,7 @@ const getShiftDisplay = (shiftStr?: string) => {
 };
 
 const getCourseTimeLabel = (shiftStr?: string) => {
+  if (getOwnerEstimatedShift(shiftStr)) return ownerEstimatedShiftCaption(shiftStr);
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
   const exactRange = getExactShiftRange(s);
@@ -392,6 +397,7 @@ const splitData = (str?: string) => {
 };
 
 const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: number, targetShiftType: string) => {
+  if (isTemporaryCatalogueItem(course)) return null;
   const weekArr = splitData(course.weeks);
   const dayArr = splitData(course.day_of_week);
   const roomArr = (course.room || '').split(/\r?\n/).map(room => room.trim());

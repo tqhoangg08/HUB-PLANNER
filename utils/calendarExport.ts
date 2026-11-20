@@ -1,8 +1,10 @@
 import { getSemesterHolidayWeeks, getSemesterMaxWeek, getWeekDatesForSemester } from './academicCalendar.ts';
+import { getOwnerEstimatedShift, isTemporaryCatalogueItem } from './provisionalCoursePolicy.js';
 
 export type CalendarReminderMinutes = 0 | 5 | 10 | 15 | 30 | 60;
 
 export interface CalendarExportCourse {
+  record_kind?: string;
   id?: string;
   user_schedule_id?: string;
   course_code?: string;
@@ -44,7 +46,7 @@ export interface CalendarExportResult {
   issues: CalendarExportIssue[];
 }
 
-export type CalendarExportIssueReason = 'invalid_week' | 'invalid_day' | 'unknown_shift' | 'invalid_date';
+export type CalendarExportIssueReason = 'invalid_week' | 'invalid_day' | 'unknown_shift' | 'invalid_date' | 'temporary_subject';
 
 export interface CalendarExportIssue {
   courseIndex: number;
@@ -139,6 +141,7 @@ const parseExportWeeks = (value: string, semester: string) => {
 };
 
 export const getCanonicalShiftTimeRange = (shift: unknown) => {
+  if (getOwnerEstimatedShift(shift)) return null;
   const raw = String(shift || '').trim().toUpperCase()
     .replace(/\s*:\s*/g, ':').replace(/\s*[-–]\s*/g, '-');
   const parts = raw.split(/[;,]|\s+(?=(?:\d+-\d+|S|C)(?:\s|$))/).map(part => part.trim()).filter(Boolean);
@@ -200,6 +203,10 @@ export const buildCalendarExport = ({
 
   courses.forEach((course, courseIndex) => {
     if (course.semester !== semester) return;
+    if (isTemporaryCatalogueItem(course)) {
+      issues.push({ courseIndex, rowIndex: 0, reason: 'temporary_subject' });
+      return;
+    }
     const weekRows = splitScheduleRows(course.weeks);
     const dayRows = splitScheduleRows(course.day_of_week);
     const shiftRows = splitScheduleRows(course.shift);

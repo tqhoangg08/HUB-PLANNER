@@ -3,8 +3,19 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import ExcelJS from 'exceljs';
+import { OWNER_ESTIMATED_RULE, ownerEstimatedShiftLabel, getOwnerEstimatedShift, temporaryCatalogueView } from '../../utils/provisionalCoursePolicy.js';
 
 export const SEMESTER = 'HK2_2026_2027';
+export const OWNER_PE_CODES = Object.freeze([
+  'GYM302_262_PI_D17', 'GYM302_262_PI_D18', 'GYM304_262_PI_D52', 'GYM304_262_PI_D53',
+  'GYM304_262_QV_D27', 'GYM304_262_QV_D28', 'GYM304_262_QV_D54', 'GYM304_262_QV_D55',
+]);
+export const OWNER_DECISIONS = Object.freeze({
+  decision_id: OWNER_ESTIMATED_RULE, authorized_by: 'owner_explicit_request', date: '2026-11-20',
+  scope: { semester: SEMESTER, physical_education_codes: OWNER_PE_CODES, temporary_source_rows: [1214, 1320, 1321] },
+  period_to_half_day: { '1-2': 'S', '3-5': 'S' }, exact_times_published_by_school: false,
+  temporary_items_are_official_classes: false, production_publication_approved: false,
+});
 export const DATA_DIR = path.resolve(import.meta.dirname, '../../data/hk2-2026-2027');
 export const FIELDS = [
   'course_code', 'subject_name', 'prerequisite', 'credits', 'knowledge_block', 'shift', 'day_of_week',
@@ -174,6 +185,44 @@ export function normalizeSource(kind, row) {
     exam_date_raw: f.exam_date, exam_room_raw: f.exam_room || null };
 }
 
+/** Apply the owner's later decision only AFTER independently reconciling the immutable source. */
+const applyOwnerDecision = (item, normalized) => {
+  const base = { ...item, record_kind: 'official_class', publication: 'ELIGIBLE_PENDING_OWNER_APPROVAL',
+    assessment: normalized.assessment, exam_date_raw: normalized.exam_date_raw, exam_room_raw: normalized.exam_room_raw,
+    segments: normalized.segments };
+  if (!normalized.issues.includes('UNMAPPED_SHIFT_TIME')) return base;
+  assert(item.source_kind === 'standard' && OWNER_PE_CODES.includes(item.course.course_code), 'Unapproved approximate-period class');
+  const segments = normalized.segments.map(segment => {
+    if (segment.shift !== null) return segment;
+    assert(['1-2', '3-5'].includes(segment.shift_raw), 'Unapproved approximate period');
+    return { ...segment, shift: 'S', shift_code: 'S', serialized_shift: ownerEstimatedShiftLabel(segment.shift_raw),
+      timing_precision: 'owner_half_day', start_time: null, end_time: null, owner_decision_id: OWNER_ESTIMATED_RULE };
+  });
+  return { ...base, segments,
+    course: { ...item.course, shift: segments.map(s => s.serialized_shift || s.shift).join('\n'),
+      general_note: [item.course.general_note, 'Ca S dự kiến theo quyết định owner cho tiết 1-2/3-5; chưa có giờ chính xác do trường công bố.'].filter(Boolean).join(' | ') },
+    owner_derivation: { decision_id: OWNER_ESTIMATED_RULE, source_status: item.status,
+      source_shift: item.course.shift, source_periods: item.raw_schedule.shift, exact_clock_times_inferred: false,
+      resolved_publication_block: 'UNMAPPED_SHIFT_TIME', preserved_source_warning: 'UNMAPPED_SHIFT_TIME' } };
+};
+
+const temporaryItem = (ex, source, raw) => {
+  const technicalKey = `hk2tmp:${sha256(`${source.sha256}:LG HK2 du kien (2):${ex.source_row}`)}`;
+  const item = { record_kind: 'temporary_subject', technical_key: technicalKey, semester: SEMESTER,
+    official_course_code: null, subject_name: ex.subject_name,
+    credits: ex.source_fields.credits ? Number(ex.source_fields.credits) : null, instructor: null,
+    cohort: ex.cohort, major: ex.source_fields.major || null, group_name: ex.source_fields.group_name || null,
+    academic_program: PROGRAMS[raw.program] ?? null,
+    publication: 'TEMPORARY_PREVIEW_ONLY_REQUIRES_SEPARATE_SCHEMA', scheduling_status: 'NOT_CONFIRMED_AS_WEEKLY',
+    segments: [], day_of_week: null, shift: null, weeks: null, room: null, campus: null,
+    capabilities: { official_import: false, select_as_class: false, personal_schedule: false, ics: false, conflicts: false },
+    provenance: { source_file: source.name, source_sha256: source.sha256, sheet: 'LG HK2 du kien (2)',
+      source_row: ex.source_row, source_order: ex.source_order, source_course_code: ex.course_code,
+      source_program: raw.program, source_fields: ex.source_fields, owner_decision_id: OWNER_ESTIMATED_RULE },
+    warnings: ['OFFICIAL_CODE_NOT_PUBLISHED', 'WEEKLY_SCHEDULE_NOT_CONFIRMED', ...(ex.source_fields.credits ? [] : ['CREDITS_NOT_PUBLISHED'])] };
+  return { ...item, preview: temporaryCatalogueView(item) };
+};
+
 export async function auditPackage(dataDir = DATA_DIR) {
   const { inputs, integrity, staging } = await verifiedInputs(dataDir);
   const { books, sheets } = await readBooks(inputs);
@@ -212,7 +261,7 @@ export async function auditPackage(dataDir = DATA_DIR) {
   }
   same(originalCounts, { standard: 937, advanced: 1423 }, 'Original counts');
   same(staging.classes.length, 2357, 'Staging count'); same(staging.exceptions.length, 3, 'Placeholder count');
-  const codes = new Set(); const used = new Set(); const records = [];
+  const codes = new Set(); const used = new Set(); const records = []; const temporaryItems = [];
   const flags = {}; let holidayConflicts = 0; let examHolidayConflicts = 0;
   for (const item of staging.classes) {
     const { source_kind: kind, source_row: rowNumber } = item;
@@ -238,9 +287,7 @@ export async function auditPackage(dataDir = DATA_DIR) {
       if (isClosure(`${year}-${month}-${day}`, kind)) examHolidayConflicts++;
     }
     if (normalized.issues.includes('REVIEW_EXAM_SUMMER_SOFTWARE')) same(normalized.notes.note2_practical_exam, 'PM', `${key} summer software assessment`);
-    records.push({ ...item, publication: normalized.issues.includes('UNMAPPED_SHIFT_TIME') ? 'BLOCKED' : 'ELIGIBLE_PENDING_OWNER_APPROVAL',
-      assessment: normalized.assessment, exam_date_raw: normalized.exam_date_raw, exam_room_raw: normalized.exam_room_raw,
-      segments: normalized.segments });
+    records.push(applyOwnerDecision(item, normalized));
   }
   for (const ex of staging.exceptions) {
     const key = `${ex.kind}:${ex.source_row}`; assert(!used.has(key), `Repeated placeholder ${key}`); used.add(key);
@@ -248,6 +295,8 @@ export async function auditPackage(dataDir = DATA_DIR) {
     same(original.fields.course_code, '_262_', 'Placeholder source');
     const placeholderFields = { ...original.fields }; delete placeholderFields.orientation; delete placeholderFields.orientation_note_3;
     same(ex.source_fields, placeholderFields, `Placeholder ${key} fields`);
+    assert([1214, 1320, 1321].includes(ex.source_row), 'Unapproved temporary source row');
+    temporaryItems.push(temporaryItem(ex, staging.manifest.source_files.find(s => s.kind === ex.kind), original));
   }
   same(used.size, 2360, 'No lost original row'); same(holidayConflicts, 0, 'Holiday class conflicts');
   same(examHolidayConflicts, 0, 'Holiday exam conflicts');
@@ -274,22 +323,29 @@ export async function auditPackage(dataDir = DATA_DIR) {
   same(events, expectedEvents.map(e => [e.program, e.date, e.week, e.weekday, e.note, e.source_row]), 'Review events');
   const count = (predicate) => records.filter(predicate).length;
   const summary = { original_standard: 937, original_advanced: 1423, original_total: 2360, placeholders: 3, staged: 2357,
+    prepared_rows: records.length + temporaryItems.length, official_school_codes: records.length,
+    temporary_items: temporaryItems.length, owner_half_day_classes: count(r => Boolean(r.owner_derivation)),
     candidate: count(r => r.status === 'CANDIDATE'), review_required: count(r => r.status === 'REVIEW_REQUIRED'),
     eligible: count(r => r.publication !== 'BLOCKED'), blocked: count(r => r.publication === 'BLOCKED'),
     flagged_classes: count(r => r.issues.length), warning_classes: count(r => r.issues.length && r.publication !== 'BLOCKED'),
     exception_sheet_rows: exceptionRows.length, flag_occurrences: Object.values(flags).reduce((a, b) => a + b, 0),
     flags, essay: count(r => r.assessment === 'essay'), holiday_class_conflicts: holidayConflicts, holiday_exam_conflicts: examHolidayConflicts,
-    instructors_null: count(r => r.course.instructor === null), missing_room: count(r => !r.course.room),
+    instructors_null: count(r => r.course.instructor === null) + temporaryItems.filter(r => r.instructor === null).length, missing_room: count(r => !r.course.room),
     missing_exam_date: count(r => !r.course.exam_date), programs: Object.fromEntries(Object.entries(PROGRAMS).map(([p, name]) => [name || 'standard', count(r => r.source_program === p)])) };
   same(summary.candidate, 2322, 'Candidates'); same(summary.review_required, 35, 'Review required');
-  same(summary.blocked, 8, 'Blocked'); same(summary.flagged_classes, 112, 'Flagged classes'); same(summary.essay, 124, 'Essays');
-  return { schema_version: 1, semester: SEMESTER, integrity, summary, sheets, calendar_evidence: calendarEvidence,
-    records, placeholders: staging.exceptions, calendar_events: staging.calendar_events };
+  same(summary.blocked, 0, 'Blocked'); same(summary.flagged_classes, 112, 'Flagged classes'); same(summary.essay, 124, 'Essays');
+  same(summary.owner_half_day_classes, 8, 'Owner PE scope'); same(summary.prepared_rows, 2360, 'Prepared total');
+  same(new Set(temporaryItems.map(r => r.technical_key)).size, 3, 'Distinct temporary rows');
+  return { schema_version: 2, semester: SEMESTER, integrity, owner_decisions: OWNER_DECISIONS, summary, sheets, calendar_evidence: calendarEvidence,
+    records, temporary_items: temporaryItems, placeholders: staging.exceptions, calendar_events: staging.calendar_events };
 }
 
 /** Snapshot must cover every target-semester row, including retired rows. Never resolve a conflict by overwriting. */
-export function planImport(records, existingRows) {
+export function planImport(records, existingRows, temporaryItems = []) {
   assert(Array.isArray(existingRows), 'A complete existing-row snapshot is required');
+  assert(new Set(temporaryItems.map(r => r.technical_key)).size === temporaryItems.length, 'Duplicate temporary technical key');
+  assert(temporaryItems.every(r => r.record_kind === 'temporary_subject' && r.official_course_code === null
+    && r.capabilities.official_import === false && r.segments.length === 0), 'Unsafe temporary subject');
   const existing = new Map();
   for (const row of existingRows.filter(r => r.semester === SEMESTER)) {
     const key = normalizeKey(row.course_code);
@@ -297,10 +353,17 @@ export function planImport(records, existingRows) {
   }
   const additions = [], identical = [], blocked = [], conflicts = [], seen = new Set();
   for (const record of records) {
+    assert(record.record_kind !== 'temporary_subject', 'Temporary subjects cannot enter official course authority');
     const c = record.course;
     assert(c.semester === SEMESTER && c.instructor === null && c.is_user_added === false && c.course_code !== '_262_', 'Invalid HK2 import scope');
     for (const k of ['course_code', 'subject_name', 'semester', 'day_of_week', 'weeks']) assert(clean(c[k]), `Missing ${k}`);
     assert(Number.isInteger(c.credits) && c.credits >= 0, 'Missing/invalid credits');
+    if (record.issues?.includes('UNMAPPED_SHIFT_TIME')) {
+      assert(record.owner_derivation?.decision_id === OWNER_ESTIMATED_RULE && OWNER_PE_CODES.includes(c.course_code), 'Missing owner decision for approximate periods');
+      assert(c.shift === record.segments.map(s => s.serialized_shift || s.shift).join('\n'), 'Owner precision marker must survive official import');
+      assert(record.segments.filter(s => s.timing_precision).every(s => getOwnerEstimatedShift(s.serialized_shift)
+        && s.shift === 'S' && s.start_time === null && s.end_time === null), 'Owner half-day cannot contain exact clocks');
+    }
     const key = normalizeKey(c.course_code); assert(!seen.has(key), `Duplicate import ${key}`); seen.add(key);
     const old = existing.get(key);
     if (record.publication === 'BLOCKED') { blocked.push(c.course_code); if (old) conflicts.push({ code: c.course_code, reason: 'BLOCKED_CODE_ALREADY_EXISTS' }); continue; }
@@ -316,7 +379,10 @@ export function planImport(records, existingRows) {
     additions: additions.map(r => r.course.course_code), identical, blocked, conflicts,
     status: conflicts.length ? 'CONFLICT_STOP' : 'AWAITING_OWNER_APPROVAL',
     payload_sha256: sha256(JSON.stringify(additions.map(r => r.course))),
-    counts: { additions: additions.length, identical: identical.length, blocked: blocked.length, conflicts: conflicts.length } };
+    temporary_items: temporaryItems.map(r => ({ technical_key: r.technical_key, source_row: r.provenance.source_row,
+      label: r.preview.code_label, official_import: false, scheduling_status: r.scheduling_status })),
+    counts: { additions: additions.length, identical: identical.length, blocked: blocked.length, conflicts: conflicts.length,
+      temporary_items: temporaryItems.length } };
 }
 
 /** A partial or differently scoped SELECT must never be mistaken for an empty HK2 catalogue. */

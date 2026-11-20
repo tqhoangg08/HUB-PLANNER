@@ -1,0 +1,30 @@
+{
+  "decision_id": "HK2_OWNER_HALF_DAY_2026_11_20",
+  "authorized_by": "owner_explicit_request",
+  "date": "2026-11-20",
+  "scope": {
+    "semester": "HK2_2026_2027",
+    "physical_education_codes": [
+      "GYM302_262_PI_D17",
+      "GYM302_262_PI_D18",
+      "GYM304_262_PI_D52",
+      "GYM304_262_PI_D53",
+      "GYM304_262_QV_D27",
+      "GYM304_262_QV_D28",
+      "GYM304_262_QV_D54",
+      "GYM304_262_QV_D55"
+    ],
+    "temporary_source_rows": [
+      1214,
+      1320,
+      1321
+    ]
+  },
+  "period_to_half_day": {
+    "1-2": "S",
+    "3-5": "S"
+  },
+  "exact_times_published_by_school": false,
+  "temporary_items_are_official_classes": false,
+  "production_publication_approved": false
+}
