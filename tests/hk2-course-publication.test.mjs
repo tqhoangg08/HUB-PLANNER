@@ -100,6 +100,11 @@ test('95 batches stay CLOSED; verified owner-only atomic opening reveals the com
   const retryCapability=await authorizeHk2Publication(verification,{approval_comment_id:101,backup_comment_id:102,expires_at,github_read_token:'fixture-owner-read-token',cloudflare_read_token:'fixture-worker-read-token'});
   assert.equal((await openHk2Publication(db,verification,retryCapability)).changed,false,'Lost response retry reconciles the same publication receipt');
   globalThis.fetch=realFetch;
+  // An old OPEN receipt must never revive a rollback/reimport automatically.
+  await db.prepare('INSERT INTO course_mutation_receipts VALUES(?,?,?,?,?,?,?)')
+    .bind('system','hk2-bulk-v1',`${plan.plan_id}:rollback:94`,'f'.repeat(64),'hk2_bulk_rollback','{}',new Date().toISOString()).run();
+  assert.equal((await read(db,`semester=${HK2}`)).payload.total,0,'Ledger change closes effective publication even at 2,357 rows');
+  await db.prepare('DELETE FROM course_mutation_receipts WHERE idempotency_key=?').bind(`${plan.plan_id}:rollback:94`).run(); // fixture restores the verified state only
   const listed=await read(db,`semester=${HK2}&limit=100`); assert.equal(listed.payload.total,2357); assert.equal(listed.payload.data.length,100);
   assert.ok(listed.payload.data.every(r=>r.instructor===null));
   const detail=await read(db,`resource=course-detail&id=${plan.rows[0].id}`); assert.equal(detail.status,200);

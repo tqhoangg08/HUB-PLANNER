@@ -14,6 +14,8 @@ const verifiedOpenSql = `EXISTS (
     AND r.action='OPEN_HK2_2026_2027' AND r.owner_id=252552483 AND r.owner_comment_id>0
     AND length(r.backup_restore_sha256)=64 AND length(r.release_sha)=40
     AND p.opened_at=r.created_at
+    AND (SELECT json_group_array(json_array(actor_scope,actor_id,idempotency_key,request_hash,operation,response_json,created_at))
+      FROM (SELECT * FROM course_mutation_receipts WHERE actor_id='hk2-bulk-v1' ORDER BY actor_scope,idempotency_key)) IS r.import_ledger_json
     AND (SELECT COUNT(*) FROM course_schedules hc WHERE hc.semester='${GATED_SEMESTER}'
       AND hc.is_user_added IS NOT 1)=2357
     AND (SELECT COUNT(*) FROM course_schedules hc WHERE hc.semester='${GATED_SEMESTER}'
@@ -39,9 +41,11 @@ export const publicCatalogueDb = async (db: D1Database): Promise<D1Database> => 
   try {
     const row = await db.prepare(`SELECT p.semester,p.state,p.revision,p.manifest_sha256,p.payload_sha256,
       p.official_count,p.batch_count,p.verification_sha256,p.opened_at,r.action,r.owner_id,
-      r.owner_comment_id,r.verification_sha256,r.backup_restore_sha256,r.release_sha,r.created_at
+      r.owner_comment_id,r.verification_sha256,r.backup_restore_sha256,r.release_sha,r.import_ledger_json,r.created_at,
+      l.actor_scope,l.actor_id,l.idempotency_key,l.request_hash,l.operation,l.response_json,l.created_at
       FROM hk2_catalogue_publications p
       LEFT JOIN hk2_catalogue_publication_receipts r ON r.id=p.receipt_id
+      LEFT JOIN course_mutation_receipts l ON 0
       WHERE p.semester='${GATED_SEMESTER}'`).first<{ semester: string }>();
     available = row?.semester === GATED_SEMESTER;
   } catch { /* missing/unverified migration is CLOSED; HK1 remains queryable */ }

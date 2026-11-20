@@ -32,7 +32,10 @@ unchanged and are exercised by the original component regression tests.
 `publicCatalogueDb()` is a server-only D1 binding wrapper used at the following
 entry points. It applies the predicate to every static catalogue SELECT/JOIN,
 including facets and mutation assertions. Gate state is evaluated in the SQL
-statement, not cached as a JavaScript OPEN boolean. Missing schema is CLOSED.
+statement, not cached as a JavaScript OPEN boolean. Every read also compares the
+complete current import namespace ledger with the publication receipt. Any later
+rollback/new plan/missing or modified receipt closes effective visibility even if
+the row count returns to 2,357; an old OPEN receipt cannot republish a new import. Missing schema is CLOSED.
 This wrapper is for reviewed application SQL, not arbitrary administrator SQL.
 
 | Consumer | CLOSED behavior / authority |

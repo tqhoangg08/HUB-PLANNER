@@ -178,9 +178,9 @@ export async function openHk2Publication(db, verification, capability) {
   const rowJson = JSON.stringify(nested(rows, columns)), ledgerJson = JSON.stringify(ledger.map(r => receiptColumns.map(c => r[c])));
   assert(Buffer.byteLength(rowJson) < 1_900_000 && Buffer.byteLength(ledgerJson) < 1_900_000, 'Publication guard exceeds D1 limit');
   await db.batch([
-    db.prepare(`INSERT INTO hk2_catalogue_publication_receipts(id,action,verification_sha256,backup_restore_sha256,owner_id,owner_comment_id,release_sha,created_at)
-      SELECT ?,CASE WHEN ${guard} THEN 'OPEN_HK2_2026_2027' ELSE NULL END,?,?,?,?,?,?`)
-      .bind(id, rowJson, ledgerJson, state.digest, verification.backup_restore_sha256, auth.owner_id, auth.approval_comment_id, verification.release_sha, at),
+    db.prepare(`INSERT INTO hk2_catalogue_publication_receipts(id,action,verification_sha256,backup_restore_sha256,owner_id,owner_comment_id,release_sha,import_ledger_json,created_at)
+      SELECT ?,CASE WHEN ${guard} THEN 'OPEN_HK2_2026_2027' ELSE NULL END,?,?,?,?,?,?,?`)
+      .bind(id, rowJson, ledgerJson, state.digest, verification.backup_restore_sha256, auth.owner_id, auth.approval_comment_id, verification.release_sha, ledgerJson, at),
     db.prepare(`UPDATE hk2_catalogue_publications SET state='OPEN',revision=1,manifest_sha256=?,payload_sha256=?,official_count=2357,batch_count=95,
       verification_sha256=?,receipt_id=?,opened_at=? WHERE semester=? AND state='CLOSED' AND revision=0`)
       .bind(MANIFEST_SHA256, PAYLOAD_SHA256, state.digest, id, at, SEMESTER),

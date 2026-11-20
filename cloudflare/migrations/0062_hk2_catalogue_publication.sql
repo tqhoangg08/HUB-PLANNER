@@ -8,6 +8,7 @@ CREATE TABLE hk2_catalogue_publication_receipts (
   owner_id INTEGER NOT NULL CHECK (owner_id = 252552483),
   owner_comment_id INTEGER NOT NULL CHECK (owner_comment_id > 0),
   release_sha TEXT NOT NULL CHECK (length(release_sha) = 40),
+  import_ledger_json TEXT NOT NULL CHECK (json_valid(import_ledger_json)),
   created_at TEXT NOT NULL
 );
 CREATE TABLE hk2_catalogue_publications (
