@@ -625,6 +625,52 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
   const [savingAction, setSavingAction] = useState<'approve' | 'reject' | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const approvalRequestIds = useRef(new Map<string, string>());
+  const [collector, setCollector] = useState<{
+    enabled: boolean;
+    configured: boolean;
+    state: {
+      state: string; last_total: number; last_imported: number; last_duplicates: number;
+      last_skipped: number; last_failed: number; last_error: string | null;
+      finished_at: string | null;
+    } | null;
+  } | null>(null);
+  const [collectorLoading, setCollectorLoading] = useState(false);
+  const [collectorSyncing, setCollectorSyncing] = useState(false);
+
+  const loadCollector = async () => {
+    if (!isAdmin) return;
+    setCollectorLoading(true);
+    try {
+      const response = await privateApiRequest('/api/admin/v1/facebook-event-collector');
+      setCollector(await response.json());
+    } catch {
+      setCollector(null);
+    } finally {
+      setCollectorLoading(false);
+    }
+  };
+
+  const syncCollector = async () => {
+    if (!isAdmin || collectorSyncing) return;
+    setCollectorSyncing(true);
+    try {
+      const response = await privateApiRequest('/api/admin/v1/facebook-event-collector', {
+        method: 'POST', body: '{}',
+      });
+      const result = await response.json() as { accepted?: boolean; reason?: string };
+      if (!result.accepted) {
+        showToast(result.reason === 'already_running' ? 'Đang có lượt đồng bộ khác chạy.'
+          : 'Bộ thu thập chưa được kích hoạt hoặc chưa cấu hình.', 'error');
+      } else {
+        showToast('Đã nhận yêu cầu đồng bộ. Bấm Tải lại để xem kết quả.', 'success');
+      }
+      await loadCollector();
+    } catch (error: any) {
+      showToast(error?.message || 'Không chạy được bộ thu thập.', 'error');
+    } finally {
+      setCollectorSyncing(false);
+    }
+  };
 
   const selectedCandidate = useMemo(
     () => candidates.find((candidate) => String(candidate.id) === String(selectedId)) || null,
@@ -654,6 +700,10 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
       fetchCandidates();
     }
   }, [isAdmin, isAuditor]);
+
+  useEffect(() => {
+    if (isAdmin) void loadCollector();
+  }, [isAdmin]);
 
   useEffect(() => {
     const candidateId = searchParams.get('id');
@@ -872,6 +922,44 @@ export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAd
             </button>
           </div>
         </div>
+
+        {isAdmin && (
+          <section className="mb-4 rounded-xl border border-gray-300 bg-white p-4" aria-label="Facebook Event Collector">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-[#003375]">Facebook Event Collector</h2>
+                <p className="mt-1 text-xs text-gray-600">
+                  Lấy bài công khai từ tác vụ Apify đã cấu hình, trích xuất AI và đưa vào hàng chờ duyệt.
+                  Không tự động đăng sự kiện.
+                </p>
+                <p className="mt-1 text-xs text-gray-600" aria-live="polite">
+                  {collectorLoading ? 'Đang tải trạng thái...' : !collector ? 'Chưa đọc được trạng thái collector.'
+                    : !collector.enabled ? 'Đang tắt (an toàn).'
+                    : !collector.configured ? 'Chưa cấu hình Apify và secret.'
+                    : collector.state?.state === 'running' ? 'Đang đồng bộ...'
+                    : 'Sẵn sàng · Lượt trước: ' + (collector.state?.state || 'chưa có')}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button type="button" onClick={() => { void loadCollector(); void fetchCandidates(); }}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-bold text-[#003375]">Làm mới</button>
+                <button type="button" onClick={syncCollector}
+                  disabled={!collector?.enabled || !collector?.configured || collectorSyncing || collector.state?.state === 'running'}
+                  className="rounded-lg bg-[#003375] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                  {collectorSyncing ? 'Đang yêu cầu...' : 'Đồng bộ Apify'}
+                </button>
+              </div>
+            </div>
+            {collector?.state && (
+              <p className="mt-2 text-xs text-gray-600">
+                Lượt trước: {collector.state.last_total} bài · {collector.state.last_imported} mới ·
+                {' '}{collector.state.last_duplicates} trùng · {collector.state.last_skipped} bỏ qua ·
+                {' '}{collector.state.last_failed} lỗi
+                {collector.state.last_error ? ' · Lỗi: ' + collector.state.last_error : ''}
+              </p>
+            )}
+          </section>
+        )}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div className="bg-white rounded-lg border border-gray-300 p-3.5">
