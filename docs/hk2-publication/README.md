@@ -175,7 +175,7 @@ Commands: `npm run test:hk2-import`, `npm run test:hk2-publication:browser`,
 `git diff --check`. The browser test uses actual ScheduleBoard/MobileSchedule,
 client fetch/cache code, the real service worker and a local Miniflare transport;
 only external auth/provider boundaries are fixtures. CI runs browser acceptance
-before the full suite. No layout, typography or spacing changes are included.
+inside the full npm test suite; its workflow and release guards remain unchanged. No layout, typography or spacing changes are included.
 
 Local fixtures prove CLOSED under a partial 25-class import, OPEN only after all
 95 receipts, forged owner rejection, missing backup/receipt rejection, catalogue
