@@ -679,7 +679,7 @@ const retrieveStudentAcademic = async (db: D1Database, userId: string) => {
 const retrieveStudentSchedule = async (db: D1Database, userId: string) => {
   db = await publicCatalogueDb(db);
   const fields = ['course_code','subject_name','credits','instructor','shift','day_of_week','room','campus'];
-  const selected = fields.map(k => `CASE WHEN json_valid(owned.course_json) THEN json_extract(owned.course_json,'$.${k}') ELSE cs.${k} END AS ${k}`).join(',');
+  const selected = fields.map(k => `CASE WHEN us.semester='HK2_2026_2027' AND json_valid(owned.course_json) THEN json_extract(owned.course_json,'$.${k}') ELSE cs.${k} END AS ${k}`).join(',');
   const rows = await queryRows(db,
     `SELECT us.semester, ${selected}
      FROM user_schedules us
