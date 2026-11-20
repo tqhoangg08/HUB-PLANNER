@@ -354,7 +354,7 @@ export const probeD1ScraperUpstream = async (
   }
   const cookie = String(env.COURSE_SCRAPER_UPSTREAM_COOKIE || '').trim();
   if (cookie.length < 16) throw new CourseAuthorityError(503, 'Course scraper credential is unavailable.');
-  const candidate = await env.DB.prepare(
+  const candidate = await (await publicCatalogueDb(env.DB)).prepare(
     `SELECT course_code FROM course_schedules
      WHERE catalogue_visibility='published' AND trim(course_code)<>''
        AND (instructor IS NULL OR trim(instructor)='')
@@ -608,7 +608,7 @@ export const probeD1ScraperRequestContracts = async (
   }
   const cookie = String(env.COURSE_SCRAPER_UPSTREAM_COOKIE || '').trim();
   if (cookie.length < 16) throw new CourseAuthorityError(503, 'Course scraper credential is unavailable.');
-  const candidate = await env.DB.prepare(
+  const candidate = await (await publicCatalogueDb(env.DB)).prepare(
     `SELECT course_code FROM course_schedules
      WHERE catalogue_visibility='published' AND trim(course_code)<>''
        AND (instructor IS NULL OR trim(instructor)='')

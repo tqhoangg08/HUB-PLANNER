@@ -8,12 +8,51 @@ import { publicCatalogueDb, rewritePublicCatalogueSql, canCacheCourseRequest } f
 import { mutateD1UserScheduleCourse, parseD1ScheduleMutationRequest } from '../cloudflare/worker/src/d1-user-schedule-mutations.ts';
 import { listUserSchedules } from '../cloudflare/worker/src/user-schedules.ts';
 import { retrieveAdvisorContext } from '../cloudflare/worker/src/ai-advisor.ts';
-import { applyD1ScraperInstructorUpdates } from '../cloudflare/worker/src/course-scraper-authority.ts';
+import { applyD1ScraperInstructorUpdates, probeD1ScraperUpstream, probeD1ScraperRequestContracts,
+  inspectD1ScraperItemShapes, diagnoseD1ScraperItemEight, diagnoseD1ScraperItemEightV2,
+  diagnoseD1ScraperRequestMix, probeD1ScraperPrintTransport } from '../cloudflare/worker/src/course-scraper-authority.ts';
+import { handleCourseAuthorityInternal } from '../cloudflare/worker/src/course-authority-internal.ts';
 import { verifyHk2Publication, authorizeHk2Publication, publicationApprovalText, backupRestoreAttestationText, openHk2Publication } from '../scripts/hk2-2026-2027/publication.mjs';
 
 const HK2='HK2_2026_2027', read=(db,query='')=>handleCourses(new URL(`https://example.test/courses?${query}`),{DB:db});
 const sqlRows=async(db,sql)=>(await db.prepare(sql).all()).results;
 const addInput=(id,semester=HK2)=>parseD1ScheduleMutationRequest(new Request('https://example.test/api/user/v1/schedules/courses/'+id,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID(),'If-Match':'"0"'},body:JSON.stringify({semester})}),'add',id);
+const probeEnv=db=>({DB:db,COURSE_WRITE_AUTHORITY:'d1',COURSE_SCRAPER_INTERNAL_ENABLED:'true',COURSE_SCRAPER_UPSTREAM_COOKIE:'ASP.NET_SessionId=local-probe-fixture'});
+const diagnosticProbes=[probeD1ScraperUpstream,probeD1ScraperRequestContracts];
+
+test('scraper diagnostics make no upstream request for CLOSED HK2 without eligible HK1; permissions and HK1 remain intact', async t=>{
+  const f=await publicationFixture();t.after(()=>f.mf.dispose());const {db}=f;
+  await f.migrate();await f.insertTo(1);
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM course_schedules WHERE semester=? AND instructor IS NULL").bind(HK2).first()).n,25);
+  assert.equal((await db.prepare("SELECT COUNT(*) AS n FROM course_schedules WHERE semester='HK1_2026_2027' AND (instructor IS NULL OR trim(instructor)='')").first()).n,0);
+  const env=probeEnv(db),calls=[];
+  const fetcher=async url=>{calls.push(String(url));return new Response('<table><tr><td>Fixture</td></tr></table>',{headers:{'Content-Type':'text/html'}});};
+  const before=await sqlRows(db,'SELECT * FROM course_schedules ORDER BY id');
+  const receipts=await sqlRows(db,'SELECT * FROM course_mutation_receipts ORDER BY idempotency_key');
+  for(const probe of [...diagnosticProbes,diagnoseD1ScraperItemEight,diagnoseD1ScraperItemEightV2,diagnoseD1ScraperRequestMix,probeD1ScraperPrintTransport]) {
+    await assert.rejects(probe(env,fetcher),e=>e.status===503&&/unavailable/.test(e.message),probe.name);
+  }
+  assert.deepEqual((await inspectD1ScraperItemShapes(env)).items,[null,null,null]);
+  assert.deepEqual(calls,[],'No diagnostic may use hidden HK2 for an upstream target');
+  assert.deepEqual(await sqlRows(db,'SELECT * FROM course_schedules ORDER BY id'),before);
+  assert.deepEqual(await sqlRows(db,'SELECT * FROM course_mutation_receipts ORDER BY idempotency_key'),receipts);
+  // Authority checks stay ahead of database access, including when candidates exist.
+  const deniedDb={prepare(){assert.fail('Unauthorized probe reached D1');}};
+  for(const probe of diagnosticProbes) for(const overrides of [
+    {COURSE_SCRAPER_INTERNAL_ENABLED:'false'},{COURSE_WRITE_AUTHORITY:'supabase'},{COURSE_SCRAPER_UPSTREAM_COOKIE:''},
+  ]) await assert.rejects(probe({...probeEnv(deniedDb),...overrides},fetcher),e=>e.status===503);
+  for(const operation of ['probe_upstream','probe_request_contracts']) {
+    await assert.rejects(handleCourseAuthorityInternal(new Request('https://example.test/internal/courses/v1/authority',{
+      method:'POST',body:JSON.stringify({writer:'scraper',operation}),
+    }),{...probeEnv(deniedDb),COURSE_D1_INTERNAL_ENABLED:'true',COURSE_D1_INTERNAL_SECRET:'x'.repeat(40)}),e=>e.status===401);
+  }
+  assert.deepEqual(calls,[]);
+  // Keep hidden HK2 ahead of HK1 in source order to exercise the filtered choice.
+  await db.prepare('UPDATE course_schedules SET instructor=NULL,source_position=99999 WHERE id=?').bind(HK1_ID).run();
+  for(const probe of diagnosticProbes) assert.equal((await probe(env,fetcher)).success,true);
+  assert.equal(calls.length,3,'One upstream probe plus two request-contract reads');
+  assert.ok(calls.every(url=>new URL(url).searchParams.get('SchduleStudyUnitId')==='HK1_VISIBLE'));
+});
 
 test('SQL boundary preserves aliases, handles missing/invalid state CLOSED, and leaves HK1/user-created rows intact', async t=>{
   const f=await publicationFixture(); t.after(()=>f.mf.dispose()); const {db}=f;
@@ -106,6 +145,12 @@ test('95 batches stay CLOSED; verified owner-only atomic opening reveals the com
   assert.equal((await read(db,`semester=${HK2}`)).payload.total,0,'Ledger change closes effective publication even at 2,357 rows');
   await db.prepare('DELETE FROM course_mutation_receipts WHERE idempotency_key=?').bind(`${plan.plan_id}:rollback:94`).run(); // fixture restores the verified state only
   const listed=await read(db,`semester=${HK2}&limit=100`); assert.equal(listed.payload.total,2357); assert.equal(listed.payload.data.length,100);
+  const probeCalls=[];
+  for(const probe of diagnosticProbes) assert.equal((await probe(probeEnv(db),async url=>{
+    probeCalls.push(String(url));return new Response('<table><tr><td>Fixture</td></tr></table>',{headers:{'Content-Type':'text/html'}});
+  })).success,true);
+  assert.equal(probeCalls.length,3);
+  assert.ok(probeCalls.every(url=>new URL(url).searchParams.get('SchduleStudyUnitId')==='AIN712_262_1_D01'),'Valid OPEN permits the original HK2 candidate');
   assert.ok(listed.payload.data.every(r=>r.instructor===null));
   const detail=await read(db,`resource=course-detail&id=${plan.rows[0].id}`); assert.equal(detail.status,200);
   const elite=await read(db,`semester=${HK2}&academicProgram=${encodeURIComponent('CT Elite')}`); assert.equal(elite.payload.total,29);
