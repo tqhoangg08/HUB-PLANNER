@@ -1,0 +1,724 @@
+{
+  "version": 1,
+  "checked_at": "2026-11-20T06:01:24.825Z",
+  "database_id": "88d702e1-60d3-490a-8514-38ef881cf133",
+  "queries": [
+    "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL AND (tbl_name IN ('course_schedules','course_filter_facets','course_mutation_receipts','user_schedules','user_schedule_course_snapshots','user_course_requests') OR sql LIKE '%course_schedules%') ORDER BY type,name",
+    "PRAGMA table_info(course_schedules)",
+    "SELECT * FROM course_schedules WHERE semester='HK2_2026_2027' ORDER BY id",
+    "SELECT semester,catalogue_visibility,COUNT(*) AS count FROM course_schedules GROUP BY semester,catalogue_visibility ORDER BY semester,catalogue_visibility",
+    "SELECT semester,course_code_search,COUNT(*) AS count FROM course_schedules GROUP BY semester,course_code_search HAVING COUNT(*)>1 ORDER BY semester,course_code_search",
+    "SELECT COUNT(*) AS count,COALESCE(MAX(source_position),0) AS max_source_position FROM course_schedules"
+  ],
+  "info": {
+    "result": {
+      "uuid": "88d702e1-60d3-490a-8514-38ef881cf133",
+      "name": "hub-planner-public-dev",
+      "created_at": "2026-07-30T08:38:36.790Z",
+      "version": "production",
+      "num_tables": 84,
+      "file_size": 172986368,
+      "running_in_region": "APAC",
+      "read_replication": {
+        "mode": "disabled"
+      },
+      "jurisdiction": null
+    },
+    "errors": [],
+    "messages": [],
+    "success": true
+  },
+  "bookmark": {
+    "result": {
+      "bookmark": "0000738c-0000004a-00005129-f8e6ef6a114ab41c9b5d3a18408967b1"
+    },
+    "success": true,
+    "errors": [],
+    "messages": []
+  },
+  "response": {
+    "result": [
+      {
+        "results": [
+          {
+            "type": "index",
+            "name": "course_filter_facets_base_idx",
+            "tbl_name": "course_filter_facets",
+            "sql": "CREATE INDEX course_filter_facets_base_idx\n  ON course_filter_facets (semester, phase, is_user_added)"
+          },
+          {
+            "type": "index",
+            "name": "course_filter_facets_cohort_idx",
+            "tbl_name": "course_filter_facets",
+            "sql": "CREATE INDEX course_filter_facets_cohort_idx\n  ON course_filter_facets (\n    semester,\n    phase,\n    is_user_added,\n    major,\n    academic_program,\n    cohort\n  )"
+          },
+          {
+            "type": "index",
+            "name": "course_filter_facets_major_idx",
+            "tbl_name": "course_filter_facets",
+            "sql": "CREATE INDEX course_filter_facets_major_idx\n  ON course_filter_facets (\n    semester,\n    phase,\n    is_user_added,\n    cohort,\n    academic_program,\n    major\n  )"
+          },
+          {
+            "type": "index",
+            "name": "course_filter_facets_program_idx",
+            "tbl_name": "course_filter_facets",
+            "sql": "CREATE INDEX course_filter_facets_program_idx\n  ON course_filter_facets (\n    semester,\n    phase,\n    is_user_added,\n    major,\n    cohort,\n    academic_program\n  )"
+          },
+          {
+            "type": "index",
+            "name": "course_mutation_receipts_created_idx",
+            "tbl_name": "course_mutation_receipts",
+            "sql": "CREATE INDEX course_mutation_receipts_created_idx\n  ON course_mutation_receipts (created_at)"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_natural_key_idx",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE INDEX course_schedules_natural_key_idx\n  ON course_schedules (semester, course_code_search)"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_semester_phase_idx",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE INDEX course_schedules_semester_phase_idx\n  ON course_schedules (semester, phase, source_position)"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_semester_phase_user_position_idx",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE INDEX course_schedules_semester_phase_user_position_idx\n  ON course_schedules (semester, phase, is_user_added, source_position)"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_semester_user_added_idx",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE INDEX course_schedules_semester_user_added_idx\n  ON course_schedules (semester, is_user_added, source_position)"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_source_key_unique",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE UNIQUE INDEX course_schedules_source_key_unique\n  ON course_schedules (source_kind, source_key)\n  WHERE source_key IS NOT NULL"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_source_position_idx",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE INDEX course_schedules_source_position_idx\n  ON course_schedules (source_position)"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_updated_at_idx",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE INDEX course_schedules_updated_at_idx\n  ON course_schedules (updated_at, id)"
+          },
+          {
+            "type": "index",
+            "name": "course_schedules_visibility_position_idx",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE INDEX course_schedules_visibility_position_idx\n  ON course_schedules (catalogue_visibility, source_position)"
+          },
+          {
+            "type": "index",
+            "name": "user_course_requests_owner_idx",
+            "tbl_name": "user_course_requests",
+            "sql": "CREATE INDEX user_course_requests_owner_idx\n  ON user_course_requests (user_id, created_at DESC)"
+          },
+          {
+            "type": "index",
+            "name": "user_course_requests_review_idx",
+            "tbl_name": "user_course_requests",
+            "sql": "CREATE INDEX user_course_requests_review_idx\n  ON user_course_requests (status, created_at DESC)"
+          },
+          {
+            "type": "index",
+            "name": "user_schedule_course_snapshots_owner_course_idx",
+            "tbl_name": "user_schedule_course_snapshots",
+            "sql": "CREATE INDEX user_schedule_course_snapshots_owner_course_idx\n  ON user_schedule_course_snapshots (user_id, course_id)"
+          },
+          {
+            "type": "index",
+            "name": "user_schedule_course_snapshots_owner_idx",
+            "tbl_name": "user_schedule_course_snapshots",
+            "sql": "CREATE INDEX user_schedule_course_snapshots_owner_idx\n  ON user_schedule_course_snapshots (user_id, schedule_id)"
+          },
+          {
+            "type": "index",
+            "name": "user_schedules_course_idx",
+            "tbl_name": "user_schedules",
+            "sql": "CREATE INDEX user_schedules_course_idx\n  ON user_schedules (course_id)"
+          },
+          {
+            "type": "index",
+            "name": "user_schedules_user_semester_idx",
+            "tbl_name": "user_schedules",
+            "sql": "CREATE INDEX user_schedules_user_semester_idx\n  ON user_schedules (user_id, semester)"
+          },
+          {
+            "type": "table",
+            "name": "course_filter_facets",
+            "tbl_name": "course_filter_facets",
+            "sql": "CREATE TABLE course_filter_facets (\n  semester TEXT NOT NULL,\n  phase TEXT NOT NULL,\n  is_user_added INTEGER NOT NULL,\n  subject_name TEXT NOT NULL,\n  major TEXT NOT NULL,\n  cohort TEXT NOT NULL,\n  academic_program TEXT NOT NULL,\n  group_name TEXT NOT NULL,\n  course_count INTEGER NOT NULL CHECK (course_count > 0),\n  first_source_position INTEGER NOT NULL,\n  PRIMARY KEY (\n    semester,\n    phase,\n    is_user_added,\n    subject_name,\n    major,\n    cohort,\n    academic_program,\n    group_name\n  )\n) WITHOUT ROWID"
+          },
+          {
+            "type": "table",
+            "name": "course_mutation_receipts",
+            "tbl_name": "course_mutation_receipts",
+            "sql": "CREATE TABLE course_mutation_receipts (\n  actor_scope TEXT NOT NULL CHECK (actor_scope IN ('user', 'staff', 'system')),\n  actor_id TEXT NOT NULL,\n  idempotency_key TEXT NOT NULL,\n  request_hash TEXT NOT NULL CHECK (length(request_hash) = 64),\n  operation TEXT NOT NULL,\n  response_json TEXT NOT NULL,\n  created_at TEXT NOT NULL,\n  PRIMARY KEY (actor_scope, actor_id, idempotency_key)\n)"
+          },
+          {
+            "type": "table",
+            "name": "course_schedules",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE TABLE course_schedules (\n  id TEXT PRIMARY KEY,\n  course_code TEXT NOT NULL,\n  subject_name TEXT NOT NULL,\n  prerequisite TEXT,\n  credits INTEGER,\n  knowledge_block TEXT,\n  shift TEXT,\n  day_of_week TEXT,\n  weeks TEXT,\n  room TEXT,\n  campus TEXT,\n  managing_faculty TEXT,\n  exam_date TEXT,\n  exam_shift TEXT,\n  exam_campus TEXT,\n  exam_room TEXT,\n  cohort TEXT,\n  major TEXT,\n  group_name TEXT,\n  orientation TEXT,\n  orientation_note_3 TEXT,\n  registration_type TEXT,\n  general_note TEXT,\n  academic_program TEXT,\n  student_count INTEGER,\n  phase TEXT,\n  semester TEXT,\n  instructor TEXT,\n  is_user_added INTEGER CHECK (is_user_added IN (0, 1)),\n  created_at TEXT,\n  updated_at TEXT NOT NULL,\n  course_code_search TEXT NOT NULL,\n  subject_name_search TEXT NOT NULL,\n  instructor_search TEXT NOT NULL,\n  source_position INTEGER NOT NULL\n, catalogue_visibility TEXT NOT NULL DEFAULT 'published'\n  CHECK (catalogue_visibility IN ('published', 'retired')), revision INTEGER NOT NULL DEFAULT 0\n  CHECK (revision >= 0), source_kind TEXT NOT NULL DEFAULT 'legacy_sync'\n  CHECK (source_kind IN ('legacy_sync', 'admin', 'scraper', 'request_approval')), source_key TEXT, writer_provenance TEXT NOT NULL DEFAULT 'legacy_sync', content_hash TEXT, instructor_provenance TEXT NOT NULL DEFAULT 'legacy_sync', retired_at TEXT)"
+          },
+          {
+            "type": "table",
+            "name": "user_course_requests",
+            "tbl_name": "user_course_requests",
+            "sql": "CREATE TABLE user_course_requests (\n  id TEXT PRIMARY KEY,\n  user_id TEXT NOT NULL,\n  course_code TEXT NOT NULL,\n  subject_name TEXT NOT NULL,\n  semester TEXT,\n  instructor TEXT,\n  request_note TEXT,\n  status TEXT NOT NULL DEFAULT 'pending'\n    CHECK (status IN ('pending', 'approved', 'rejected')),\n  request_hash TEXT NOT NULL CHECK (length(request_hash) = 64),\n  revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),\n  reviewer_id TEXT,\n  reviewed_at TEXT,\n  approved_course_id TEXT,\n  created_at TEXT NOT NULL,\n  updated_at TEXT NOT NULL, schedule_details_json TEXT NOT NULL DEFAULT '[]'\n  CHECK (json_valid(schedule_details_json) AND json_type(schedule_details_json) = 'array'),\n  FOREIGN KEY (approved_course_id) REFERENCES course_schedules(id) ON DELETE SET NULL\n)"
+          },
+          {
+            "type": "table",
+            "name": "user_schedule_course_snapshots",
+            "tbl_name": "user_schedule_course_snapshots",
+            "sql": "CREATE TABLE user_schedule_course_snapshots (\n  schedule_id TEXT PRIMARY KEY,\n  user_id TEXT NOT NULL,\n  course_id TEXT NOT NULL,\n  source_kind TEXT NOT NULL CHECK (\n    source_kind IN ('HISTORICAL_PUBLIC', 'PRIVATE_IMPORTED')\n  ),\n  course_json TEXT NOT NULL,\n  source_updated_at TEXT,\n  created_at TEXT NOT NULL,\n  updated_at TEXT NOT NULL,\n  FOREIGN KEY (schedule_id) REFERENCES user_schedules(id) ON DELETE CASCADE\n)"
+          },
+          {
+            "type": "table",
+            "name": "user_schedules",
+            "tbl_name": "user_schedules",
+            "sql": "CREATE TABLE user_schedules (\n  id TEXT PRIMARY KEY,\n  user_id TEXT NOT NULL,\n  course_id TEXT NOT NULL,\n  semester TEXT NOT NULL DEFAULT '',\n  custom_data TEXT,\n  created_at TEXT NOT NULL, updated_at TEXT,\n  UNIQUE (user_id, course_id)\n)"
+          },
+          {
+            "type": "trigger",
+            "name": "course_filter_facets_after_delete",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE TRIGGER course_filter_facets_after_delete\nAFTER DELETE ON course_schedules\nBEGIN\n  DELETE FROM course_filter_facets\n   WHERE course_count = 1\n     AND semester = COALESCE(OLD.semester, '')\n     AND phase = COALESCE(OLD.phase, '')\n     AND is_user_added = COALESCE(OLD.is_user_added, -1)\n     AND subject_name = COALESCE(OLD.subject_name, '')\n     AND major = COALESCE(OLD.major, '')\n     AND cohort = COALESCE(OLD.cohort, '')\n     AND academic_program = COALESCE(OLD.academic_program, '')\n     AND group_name = COALESCE(OLD.group_name, '');\n\n  UPDATE course_filter_facets\n     SET course_count = course_count - 1,\n         first_source_position = (\n           SELECT MIN(course_schedules.source_position)\n             FROM course_schedules\n            WHERE COALESCE(course_schedules.semester, '') =\n                  COALESCE(OLD.semester, '')\n              AND COALESCE(course_schedules.phase, '') = COALESCE(OLD.phase, '')\n              AND COALESCE(course_schedules.is_user_added, -1) =\n                  COALESCE(OLD.is_user_added, -1)\n              AND COALESCE(course_schedules.subject_name, '') =\n                  COALESCE(OLD.subject_name, '')\n              AND COALESCE(course_schedules.major, '') = COALESCE(OLD.major, '')\n              AND COALESCE(course_schedules.cohort, '') = COALESCE(OLD.cohort, '')\n              AND COALESCE(course_schedules.academic_program, '') =\n                  COALESCE(OLD.academic_program, '')\n              AND COALESCE(course_schedules.group_name, '') =\n                  COALESCE(OLD.group_name, '')\n         )\n   WHERE course_count > 1\n     AND semester = COALESCE(OLD.semester, '')\n     AND phase = COALESCE(OLD.phase, '')\n     AND is_user_added = COALESCE(OLD.is_user_added, -1)\n     AND subject_name = COALESCE(OLD.subject_name, '')\n     AND major = COALESCE(OLD.major, '')\n     AND cohort = COALESCE(OLD.cohort, '')\n     AND academic_program = COALESCE(OLD.academic_program, '')\n     AND group_name = COALESCE(OLD.group_name, '');\nEND"
+          },
+          {
+            "type": "trigger",
+            "name": "course_filter_facets_after_insert",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE TRIGGER course_filter_facets_after_insert\nAFTER INSERT ON course_schedules\nBEGIN\n  INSERT INTO course_filter_facets (\n    semester,\n    phase,\n    is_user_added,\n    subject_name,\n    major,\n    cohort,\n    academic_program,\n    group_name,\n    course_count,\n    first_source_position\n  ) VALUES (\n    COALESCE(NEW.semester, ''),\n    COALESCE(NEW.phase, ''),\n    COALESCE(NEW.is_user_added, -1),\n    COALESCE(NEW.subject_name, ''),\n    COALESCE(NEW.major, ''),\n    COALESCE(NEW.cohort, ''),\n    COALESCE(NEW.academic_program, ''),\n    COALESCE(NEW.group_name, ''),\n    1,\n    NEW.source_position\n  )\n  ON CONFLICT (\n    semester,\n    phase,\n    is_user_added,\n    subject_name,\n    major,\n    cohort,\n    academic_program,\n    group_name\n  ) DO UPDATE SET\n    course_count = course_count + 1,\n    first_source_position = MIN(first_source_position, excluded.first_source_position);\nEND"
+          },
+          {
+            "type": "trigger",
+            "name": "course_filter_facets_after_update",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE TRIGGER course_filter_facets_after_update\nAFTER UPDATE OF\n  semester,\n  phase,\n  is_user_added,\n  subject_name,\n  major,\n  cohort,\n  academic_program,\n  group_name\nON course_schedules\nWHEN\n  OLD.semester IS NOT NEW.semester OR\n  OLD.phase IS NOT NEW.phase OR\n  OLD.is_user_added IS NOT NEW.is_user_added OR\n  OLD.subject_name IS NOT NEW.subject_name OR\n  OLD.major IS NOT NEW.major OR\n  OLD.cohort IS NOT NEW.cohort OR\n  OLD.academic_program IS NOT NEW.academic_program OR\n  OLD.group_name IS NOT NEW.group_name\nBEGIN\n  DELETE FROM course_filter_facets\n   WHERE course_count = 1\n     AND semester = COALESCE(OLD.semester, '')\n     AND phase = COALESCE(OLD.phase, '')\n     AND is_user_added = COALESCE(OLD.is_user_added, -1)\n     AND subject_name = COALESCE(OLD.subject_name, '')\n     AND major = COALESCE(OLD.major, '')\n     AND cohort = COALESCE(OLD.cohort, '')\n     AND academic_program = COALESCE(OLD.academic_program, '')\n     AND group_name = COALESCE(OLD.group_name, '');\n\n  UPDATE course_filter_facets\n     SET course_count = course_count - 1,\n         first_source_position = (\n           SELECT MIN(course_schedules.source_position)\n             FROM course_schedules\n            WHERE COALESCE(course_schedules.semester, '') =\n                  COALESCE(OLD.semester, '')\n              AND COALESCE(course_schedules.phase, '') = COALESCE(OLD.phase, '')\n              AND COALESCE(course_schedules.is_user_added, -1) =\n                  COALESCE(OLD.is_user_added, -1)\n              AND COALESCE(course_schedules.subject_name, '') =\n                  COALESCE(OLD.subject_name, '')\n              AND COALESCE(course_schedules.major, '') = COALESCE(OLD.major, '')\n              AND COALESCE(course_schedules.cohort, '') = COALESCE(OLD.cohort, '')\n              AND COALESCE(course_schedules.academic_program, '') =\n                  COALESCE(OLD.academic_program, '')\n              AND COALESCE(course_schedules.group_name, '') =\n                  COALESCE(OLD.group_name, '')\n         )\n   WHERE course_count > 1\n     AND semester = COALESCE(OLD.semester, '')\n     AND phase = COALESCE(OLD.phase, '')\n     AND is_user_added = COALESCE(OLD.is_user_added, -1)\n     AND subject_name = COALESCE(OLD.subject_name, '')\n     AND major = COALESCE(OLD.major, '')\n     AND cohort = COALESCE(OLD.cohort, '')\n     AND academic_program = COALESCE(OLD.academic_program, '')\n     AND group_name = COALESCE(OLD.group_name, '');\n\n  INSERT INTO course_filter_facets (\n    semester,\n    phase,\n    is_user_added,\n    subject_name,\n    major,\n    cohort,\n    academic_program,\n    group_name,\n    course_count,\n    first_source_position\n  ) VALUES (\n    COALESCE(NEW.semester, ''),\n    COALESCE(NEW.phase, ''),\n    COALESCE(NEW.is_user_added, -1),\n    COALESCE(NEW.subject_name, ''),\n    COALESCE(NEW.major, ''),\n    COALESCE(NEW.cohort, ''),\n    COALESCE(NEW.academic_program, ''),\n    COALESCE(NEW.group_name, ''),\n    1,\n    NEW.source_position\n  )\n  ON CONFLICT (\n    semester,\n    phase,\n    is_user_added,\n    subject_name,\n    major,\n    cohort,\n    academic_program,\n    group_name\n  ) DO UPDATE SET\n    course_count = course_count + 1,\n    first_source_position = MIN(first_source_position, excluded.first_source_position);\nEND"
+          },
+          {
+            "type": "trigger",
+            "name": "course_filter_facets_after_visibility_update",
+            "tbl_name": "course_schedules",
+            "sql": "CREATE TRIGGER course_filter_facets_after_visibility_update\nAFTER UPDATE OF catalogue_visibility ON course_schedules\nWHEN OLD.catalogue_visibility IS NOT NEW.catalogue_visibility\nBEGIN\n  DELETE FROM course_filter_facets\n   WHERE OLD.catalogue_visibility = 'published'\n     AND NEW.catalogue_visibility = 'retired'\n     AND course_count = 1\n     AND semester = COALESCE(OLD.semester, '')\n     AND phase = COALESCE(OLD.phase, '')\n     AND is_user_added = COALESCE(OLD.is_user_added, -1)\n     AND subject_name = COALESCE(OLD.subject_name, '')\n     AND major = COALESCE(OLD.major, '')\n     AND cohort = COALESCE(OLD.cohort, '')\n     AND academic_program = COALESCE(OLD.academic_program, '')\n     AND group_name = COALESCE(OLD.group_name, '');\n\n  UPDATE course_filter_facets\n     SET course_count = course_count - 1\n   WHERE OLD.catalogue_visibility = 'published'\n     AND NEW.catalogue_visibility = 'retired'\n     AND course_count > 1\n     AND semester = COALESCE(OLD.semester, '')\n     AND phase = COALESCE(OLD.phase, '')\n     AND is_user_added = COALESCE(OLD.is_user_added, -1)\n     AND subject_name = COALESCE(OLD.subject_name, '')\n     AND major = COALESCE(OLD.major, '')\n     AND cohort = COALESCE(OLD.cohort, '')\n     AND academic_program = COALESCE(OLD.academic_program, '')\n     AND group_name = COALESCE(OLD.group_name, '');\n\n  INSERT INTO course_filter_facets (\n    semester, phase, is_user_added, subject_name, major, cohort,\n    academic_program, group_name, course_count, first_source_position\n  )\n  SELECT\n    COALESCE(NEW.semester, ''), COALESCE(NEW.phase, ''),\n    COALESCE(NEW.is_user_added, -1), COALESCE(NEW.subject_name, ''),\n    COALESCE(NEW.major, ''), COALESCE(NEW.cohort, ''),\n    COALESCE(NEW.academic_program, ''), COALESCE(NEW.group_name, ''),\n    1, NEW.source_position\n  WHERE OLD.catalogue_visibility = 'retired'\n    AND NEW.catalogue_visibility = 'published'\n  ON CONFLICT (semester, phase, is_user_added, subject_name, major, cohort,\n               academic_program, group_name)\n  DO UPDATE SET course_count = course_count + 1,\n                first_source_position = MIN(first_source_position, excluded.first_source_position);\nEND"
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.8112
+          },
+          "duration": 0.8112,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 172982272,
+          "rows_read": 369,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [
+          {
+            "cid": 0,
+            "name": "id",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 1
+          },
+          {
+            "cid": 1,
+            "name": "course_code",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 2,
+            "name": "subject_name",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 3,
+            "name": "prerequisite",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 4,
+            "name": "credits",
+            "type": "INTEGER",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 5,
+            "name": "knowledge_block",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 6,
+            "name": "shift",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 7,
+            "name": "day_of_week",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 8,
+            "name": "weeks",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 9,
+            "name": "room",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 10,
+            "name": "campus",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 11,
+            "name": "managing_faculty",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 12,
+            "name": "exam_date",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 13,
+            "name": "exam_shift",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 14,
+            "name": "exam_campus",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 15,
+            "name": "exam_room",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 16,
+            "name": "cohort",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 17,
+            "name": "major",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 18,
+            "name": "group_name",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 19,
+            "name": "orientation",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 20,
+            "name": "orientation_note_3",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 21,
+            "name": "registration_type",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 22,
+            "name": "general_note",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 23,
+            "name": "academic_program",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 24,
+            "name": "student_count",
+            "type": "INTEGER",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 25,
+            "name": "phase",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 26,
+            "name": "semester",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 27,
+            "name": "instructor",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 28,
+            "name": "is_user_added",
+            "type": "INTEGER",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 29,
+            "name": "created_at",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 30,
+            "name": "updated_at",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 31,
+            "name": "course_code_search",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 32,
+            "name": "subject_name_search",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 33,
+            "name": "instructor_search",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 34,
+            "name": "source_position",
+            "type": "INTEGER",
+            "notnull": 1,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 35,
+            "name": "catalogue_visibility",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": "'published'",
+            "pk": 0
+          },
+          {
+            "cid": 36,
+            "name": "revision",
+            "type": "INTEGER",
+            "notnull": 1,
+            "dflt_value": "0",
+            "pk": 0
+          },
+          {
+            "cid": 37,
+            "name": "source_kind",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": "'legacy_sync'",
+            "pk": 0
+          },
+          {
+            "cid": 38,
+            "name": "source_key",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 39,
+            "name": "writer_provenance",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": "'legacy_sync'",
+            "pk": 0
+          },
+          {
+            "cid": 40,
+            "name": "content_hash",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          },
+          {
+            "cid": 41,
+            "name": "instructor_provenance",
+            "type": "TEXT",
+            "notnull": 1,
+            "dflt_value": "'legacy_sync'",
+            "pk": 0
+          },
+          {
+            "cid": 42,
+            "name": "retired_at",
+            "type": "TEXT",
+            "notnull": 0,
+            "dflt_value": null,
+            "pk": 0
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.2928
+          },
+          "duration": 0.2928,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 172982272,
+          "rows_read": 0,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.1577
+          },
+          "duration": 0.1577,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 172982272,
+          "rows_read": 1,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [
+          {
+            "semester": "HK1_2026_2027",
+            "catalogue_visibility": "published",
+            "count": 2103
+          },
+          {
+            "semester": "HKHE_2025_2026",
+            "catalogue_visibility": "published",
+            "count": 2
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 2.2276
+          },
+          "duration": 2.2276,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 172982272,
+          "rows_read": 4210,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [
+          {
+            "semester": "HK1_2026_2027",
+            "course_code_search": "law798_261_1_d01",
+            "count": 3
+          },
+          {
+            "semester": "HK1_2026_2027",
+            "course_code_search": "mae701_261_1_d01",
+            "count": 3
+          },
+          {
+            "semester": "HK1_2026_2027",
+            "course_code_search": "mes303_2614_1_d01",
+            "count": 2
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.7113
+          },
+          "duration": 0.7113,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 172982272,
+          "rows_read": 2105,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [
+          {
+            "count": 2105,
+            "max_source_position": 4639
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.166
+          },
+          "duration": 0.166,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 172982272,
+          "rows_read": 2105,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      }
+    ],
+    "errors": [],
+    "messages": [],
+    "success": true
+  }
+}

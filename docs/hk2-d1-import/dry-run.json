@@ -1,0 +1,22 @@
+{
+  "plan_id": "0d540308ca7135880a087fee9315bc6755ff07b674a7dcd2b6e7aa1fd0160215",
+  "semester": "HK2_2026_2027",
+  "manifest_sha256": "2fe8af0743805fcc64ba414e22817fb26f3b5ce2247b50677bc518122c36e212",
+  "payload_sha256": "2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797",
+  "snapshot_sha256": "c9170e18f27a1f94d80addf819d6f07b3af8fc8ddb090556d40991dc8fe0df7b",
+  "snapshot_checked_at": "2026-11-20T06:01:24.825Z",
+  "counts": {
+    "additions": 2357,
+    "identical": 0,
+    "blocked": 0,
+    "conflicts": 0,
+    "temporary_items": 3
+  },
+  "batches": 95,
+  "batch_size": 25,
+  "can_apply": false,
+  "production_transport_available": false,
+  "requires_owner_approval": true,
+  "historical_review_only": true,
+  "note": "Actual SELECT snapshot; refresh before approval/write. No production execution supported."
+}
