@@ -48,6 +48,7 @@
     "COURSE_SCRAPER_MANUAL_ENABLED": "true",
     "COURSE_SCRAPER_CRON_ENABLED": "false",
     "NOTIFICATION_JOBS_ENABLED": "true",
+    "FACEBOOK_EVENT_COLLECTOR_ENABLED": "false",
     "NOTIFICATION_JOBS_MODE": "enabled",
     "NOTIFICATION_REENABLE_CUTOFF": "2026-08-31T11:23:39Z",
     "EVENT_PUSH_CUTOFF": "2026-09-09T14:30:00Z",
@@ -73,7 +74,7 @@
     "traces": { "enabled": false }
   },
   "triggers": {
-    "crons": ["*/15 * * * *", "7 * * * *", "37 19 * * *"]
+    "crons": ["*/15 * * * *", "7 * * * *", "37 19 * * *", "11 */6 * * *"]
   },
   "queues": {
     "producers": [
