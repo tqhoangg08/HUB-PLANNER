@@ -261,10 +261,10 @@ test('local SQLite fixture with live D1 schema/API: atomic rollback, 2,357 addit
   assert.deepEqual(await snapshot("SELECT * FROM course_filter_facets WHERE semester='HK1_2026_2027' ORDER BY semester,phase,subject_name,major,cohort,academic_program,group_name"), facetsBefore);
   for (const table of ['user_schedules', 'user_course_requests', 'course_mutation_receipts', 'course_mutation_outbox']) assert.deepEqual(await snapshot(`SELECT * FROM ${table}`), []);
   const publicRead = await handleCourses(new URL(`https://example.test/courses?semester=${SEMESTER}&limit=100`), { DB: db });
-  assert.equal(publicRead.status, 200); assert.equal(publicRead.payload.total, 2357);
+  assert.equal(publicRead.status, 200); assert.equal(publicRead.payload.total, 0, 'Missing publication migration is CLOSED');
   assert.ok(publicRead.payload.data.every(c => c.instructor === null && c.semester === SEMESTER && c.is_user_added === false));
   const filtered = await handleCourses(new URL(`https://example.test/courses?semester=${SEMESTER}&academicProgram=${encodeURIComponent('CT Elite')}`), { DB: db });
-  assert.equal(filtered.payload.total, 29);
+  assert.equal(filtered.payload.total, 0);
 });
 
 test('local D1 runtime accepts normalized courses and rolls back an entire failed batch', { timeout: 60000 }, async t => {
@@ -286,8 +286,8 @@ test('local D1 runtime accepts normalized courses and rolls back an entire faile
   assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM course_filter_facets').first()).n, 0);
   await db.batch(localStatements(db, sample, 0));
   const result = await handleCourses(new URL(`https://example.test/courses?semester=${SEMESTER}`), { DB: db });
-  assert.equal(result.payload.total, 7); assert.ok(result.payload.data.every(r => r.instructor === null));
-  const ownerRow = result.payload.data.find(r => r.course_code === sample[6].course.course_code);
+  assert.equal(result.payload.total, 0, 'Importing never publishes');
+  const ownerRow = await db.prepare('SELECT shift FROM course_schedules WHERE course_code=?').bind(sample[6].course.course_code).first();
   assert.equal(getOwnerEstimatedShift(ownerRow.shift)?.shift, 'S');
 });
 

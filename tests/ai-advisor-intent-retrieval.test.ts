@@ -95,11 +95,12 @@ const makeDatabase = () => {
       total_credits_required INTEGER, has_onboarded INTEGER, semesters_json TEXT
     );
     CREATE TABLE user_schedules (id TEXT PRIMARY KEY, user_id TEXT, course_id TEXT, semester TEXT, created_at TEXT);
+    CREATE TABLE user_schedule_course_snapshots (schedule_id TEXT PRIMARY KEY,user_id TEXT,course_id TEXT,course_json TEXT);
     CREATE TABLE course_schedules (
       id TEXT PRIMARY KEY, course_code TEXT, subject_name TEXT, credits INTEGER,
       prerequisite TEXT, instructor TEXT, semester TEXT, managing_faculty TEXT,
       shift TEXT, day_of_week TEXT, room TEXT, campus TEXT, catalogue_visibility TEXT,
-      retired_at TEXT, course_code_search TEXT, subject_name_search TEXT, source_position INTEGER
+      retired_at TEXT, course_code_search TEXT, subject_name_search TEXT, source_position INTEGER, is_user_added INTEGER DEFAULT 0
     );
     CREATE TABLE public_events (
       id INTEGER PRIMARY KEY, title TEXT, organizer TEXT, deadline TEXT, event_date TEXT,
@@ -1293,7 +1294,7 @@ test('a focused valid narrow result returns immediately without optional fallbac
 test('course retrieval is targeted and does not query unrelated event or lost-found tables', async () => {
   const fixture = makeDatabase();
   try {
-    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    fixture.sql.prepare(`INSERT INTO course_schedules (id,course_code,subject_name,credits,prerequisite,instructor,semester,managing_faculty,shift,day_of_week,room,campus,catalogue_visibility,retired_at,course_code_search,subject_name_search,source_position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       'course-1', 'IT101', 'Lập trình căn bản', 3, null, 'Cô A', 'HK1', 'CNTT', null, null, null, null,
       'published', null, 'it101', 'lap trinh can ban', 1,
     );
@@ -1308,7 +1309,7 @@ test('course retrieval is targeted and does not query unrelated event or lost-fo
 test('course, event and announcement retrieval use meaningful phrases rather than domain labels', async () => {
   const fixture = makeDatabase();
   try {
-    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    fixture.sql.prepare(`INSERT INTO course_schedules (id,course_code,subject_name,credits,prerequisite,instructor,semester,managing_faculty,shift,day_of_week,room,campus,catalogue_visibility,retired_at,course_code_search,subject_name_search,source_position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       'course-advanced', 'EN101', 'Học phần Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', null, null, null, null,
       'published', null, 'en101', 'học phần advanced writing', 2,
     );
@@ -1536,7 +1537,7 @@ test('Stage 2 zero-AI router returns only exact authoritative structured answers
     },
   };
   try {
-    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    fixture.sql.prepare(`INSERT INTO course_schedules (id,course_code,subject_name,credits,prerequisite,instructor,semester,managing_faculty,shift,day_of_week,room,campus,catalogue_visibility,retired_at,course_code_search,subject_name_search,source_position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', 'Sáng', 'Thứ 2', 'A101', 'Cơ sở A',
       'published', null, 'en101', 'advanced writing', 1,
     );
@@ -1568,7 +1569,7 @@ test('Stage 2 answer cache is injectable, public-only in runtime, and a cache hi
   const telemetry: string[] = [];
   let providerCalls = 0;
   try {
-    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    fixture.sql.prepare(`INSERT INTO course_schedules (id,course_code,subject_name,credits,prerequisite,instructor,semester,managing_faculty,shift,day_of_week,room,campus,catalogue_visibility,retired_at,course_code_search,subject_name_search,source_position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', null, null, null, null,
       'published', null, 'en101', 'advanced writing', 1,
     );
@@ -2095,7 +2096,7 @@ test('Stage 7B2A2 shadow emits safe skip events for zero-AI and non-document req
         if (String(parsed.event).startsWith('ai_advisor_v2_shadow')) logs.push(parsed);
       } catch { /* unrelated console message */ }
     };
-    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    fixture.sql.prepare(`INSERT INTO course_schedules (id,course_code,subject_name,credits,prerequisite,instructor,semester,managing_faculty,shift,day_of_week,room,campus,catalogue_visibility,retired_at,course_code_search,subject_name_search,source_position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', null, null, null, null,
       'published', null, 'en101', 'advanced writing', 1,
     );
@@ -2327,7 +2328,7 @@ test('Stage 6 keeps deterministic zero-AI answers ahead of V2 in every feature m
   let searchCalls = 0;
   let generationCalls = 0;
   try {
-    fixture.sql.prepare(`INSERT INTO course_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    fixture.sql.prepare(`INSERT INTO course_schedules (id,course_code,subject_name,credits,prerequisite,instructor,semester,managing_faculty,shift,day_of_week,room,campus,catalogue_visibility,retired_at,course_code_search,subject_name_search,source_position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       'course-en101', 'EN101', 'Advanced Writing', 3, null, null, 'HK1', 'Ngoại ngữ', null, null, null, null,
       'published', null, 'en101', 'advanced writing', 1,
     );

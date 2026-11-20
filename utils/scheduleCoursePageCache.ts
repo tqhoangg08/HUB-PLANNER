@@ -1,4 +1,12 @@
-const CACHE_PREFIX = 'hub_schedule_course_page_v1';
+const CACHE_PREFIX = 'hub_schedule_course_page_v2_publication';
+export const isPublicationSensitiveCourseScope = (scope: string) => {
+  if (scope.includes('HK2_2026_2027')) return true;
+  try {
+    const parsed = JSON.parse(scope);
+    const semesters = Array.isArray(parsed.semesters) ? parsed.semesters : [parsed.semester];
+    return !semesters.length || semesters.some(s=>typeof s!=='string'||!s.trim()||s.trim()==='all'||s.trim()==='HK2_2026_2027');
+  } catch { return true; }
+};
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 80;
 
@@ -26,6 +34,7 @@ export const readScheduleCoursePageCache = <T,>(
   scope: string,
   page: number,
 ): ScheduleCoursePageCachePayload<T> | null => {
+  if (isPublicationSensitiveCourseScope(scope)) return null;
   try {
     const raw = localStorage.getItem(getScheduleCoursePageCacheKey(scope, page));
     if (!raw) return null;
@@ -70,6 +79,7 @@ export const writeScheduleCoursePageCache = <T,>(
   page: number,
   payload: Omit<ScheduleCoursePageCachePayload<T>, 'cachedAt'>,
 ) => {
+  if (isPublicationSensitiveCourseScope(scope)) return;
   try {
     localStorage.setItem(
       getScheduleCoursePageCacheKey(scope, page),

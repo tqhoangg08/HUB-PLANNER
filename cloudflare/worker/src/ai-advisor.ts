@@ -1,4 +1,5 @@
 import {isUnpaginatedNativePipeline} from '../../../shared/ai-document-text.ts';
+import { publicCatalogueDb } from './course-publication.ts';
 import {formatOfficialDocumentReply} from './ai-advisor-document-style.ts';
 import {
   BetterAuthIdentityError,
@@ -676,11 +677,14 @@ const retrieveStudentAcademic = async (db: D1Database, userId: string) => {
 };
 
 const retrieveStudentSchedule = async (db: D1Database, userId: string) => {
+  db = await publicCatalogueDb(db);
+  const fields = ['course_code','subject_name','credits','instructor','shift','day_of_week','room','campus'];
+  const selected = fields.map(k => `CASE WHEN us.semester='HK2_2026_2027' AND json_valid(owned.course_json) THEN json_extract(owned.course_json,'$.${k}') ELSE cs.${k} END AS ${k}`).join(',');
   const rows = await queryRows(db,
-    `SELECT us.semester, cs.course_code, cs.subject_name, cs.credits, cs.instructor,
-      cs.shift, cs.day_of_week, cs.room, cs.campus
+    `SELECT us.semester, ${selected}
      FROM user_schedules us
      LEFT JOIN course_schedules cs ON cs.id = us.course_id
+     LEFT JOIN user_schedule_course_snapshots owned ON owned.schedule_id=us.id AND owned.user_id=us.user_id AND owned.course_id=us.course_id
      WHERE us.user_id = ?1
      ORDER BY us.semester DESC, us.created_at DESC, us.id DESC
      LIMIT 24`, [userId]);
@@ -698,6 +702,7 @@ const retrieveStudentSchedule = async (db: D1Database, userId: string) => {
 };
 
 const retrieveCourseCatalog = async (db: D1Database, question: string) => {
+  db = await publicCatalogueDb(db);
   const code = extractCourseCode(question);
   const terms = extractSearchTerms(question);
   const phrase = terms.join(' ');

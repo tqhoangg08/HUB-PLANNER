@@ -50,6 +50,7 @@ import {
 import { fetchStaffSchedules } from '../utils/staffSchedulesApi';
 import {
   readScheduleCoursePageCache,
+  isPublicationSensitiveCourseScope,
   removeScheduleCoursePageCache,
   writeScheduleCoursePageCache,
 } from '../utils/scheduleCoursePageCache';
@@ -1024,7 +1025,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             coursePageCacheRef.current.delete(pageCacheKey);
             removeScheduleCoursePageCache(filterKey, requestPage);
         }
-        const cachedPage = options.force
+        const cachedPage = options.force || isPublicationSensitiveCourseScope(filterKey)
             ? null
             : coursePageCacheRef.current.get(pageCacheKey)
                 || readScheduleCoursePageCache<Course>(filterKey, requestPage);
@@ -1073,7 +1074,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             total: isSuggestionMode ? rows.length : Number(payload.total || rows.length),
             hasMore: isSuggestionMode ? false : Boolean(payload.hasMore),
         };
-        coursePageCacheRef.current.set(pageCacheKey, pagePayload);
+        if (!isPublicationSensitiveCourseScope(filterKey)) coursePageCacheRef.current.set(pageCacheKey, pagePayload);
         writeScheduleCoursePageCache(filterKey, requestPage, pagePayload);
         setAvailableCourses(pagePayload.data);
         setCourseTotal(pagePayload.total);
@@ -1111,7 +1112,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             cohorts: selectedFilterCohorts,
             academicPrograms: selectedFilterPrograms,
         });
-        const cachedOptions = courseFilterOptionsCacheRef.current.get(optionsCacheKey);
+        const cachedOptions = isPublicationSensitiveCourseScope(optionsCacheKey) ? undefined : courseFilterOptionsCacheRef.current.get(optionsCacheKey);
         if (cachedOptions) {
             setSubjectNameOptions(cachedOptions.subjectNameOptions);
             setMajorOptions(cachedOptions.majorOptions);
@@ -1138,7 +1139,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             groupNameOptions: Array.isArray(payload.groupNameOptions) ? payload.groupNameOptions : [],
             academicProgramOptions: normalizeAcademicProgramOptions(Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : []),
         };
-        courseFilterOptionsCacheRef.current.set(optionsCacheKey, nextOptions);
+        if (!isPublicationSensitiveCourseScope(optionsCacheKey)) courseFilterOptionsCacheRef.current.set(optionsCacheKey, nextOptions);
         setSubjectNameOptions(nextOptions.subjectNameOptions);
         setMajorOptions(nextOptions.majorOptions);
         setCohortOptions(nextOptions.cohortOptions);
@@ -1191,7 +1192,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         return;
     }
 
-    const cachedDetail = courseDetailCacheRef.current.get(courseId);
+    const cachedDetail = selectedCourseInfo.course.semester === 'HK2_2026_2027' ? undefined : courseDetailCacheRef.current.get(courseId);
     if (cachedDetail) {
         setSelectedCourseInfo(prev => prev?.course.id === courseId
             ? { ...prev, course: { ...prev.course, ...cachedDetail, __detailLoaded: true } as Course }
@@ -1210,7 +1211,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             const payload = await response.json();
             if (!response.ok) throw new Error(payload?.error || 'Không tải được chi tiết môn.');
             if (cancelled || !payload?.data) return;
-            courseDetailCacheRef.current.set(courseId, payload.data);
+            if (payload.data.semester !== 'HK2_2026_2027') courseDetailCacheRef.current.set(courseId, payload.data);
             setSelectedCourseInfo(prev => prev?.course.id === courseId
                 ? { ...prev, course: { ...prev.course, ...payload.data, __detailLoaded: true } as Course }
                 : prev

@@ -1,4 +1,5 @@
 import { CourseAuthorityError, readCourseWriteAuthority, type CourseAuthorityEnv } from './course-authority.ts';
+import { publicCatalogueDb } from './course-publication.ts';
 
 export interface CourseScraperAuthorityEnv extends CourseAuthorityEnv {
   COURSE_SCRAPER_INTERNAL_ENABLED?: string;
@@ -294,7 +295,7 @@ type ScraperItemShape = {
   targetHash: string;
 };
 
-const scraperCandidates = (env: CourseScraperAuthorityEnv) => env.DB.prepare(
+const scraperCandidates = async (env: CourseScraperAuthorityEnv) => (await publicCatalogueDb(env.DB)).prepare(
   `SELECT id,course_code,semester FROM course_schedules
    WHERE catalogue_visibility='published' AND (instructor IS NULL OR trim(instructor)='')
    ORDER BY source_position ASC LIMIT 10`,
@@ -353,7 +354,7 @@ export const probeD1ScraperUpstream = async (
   }
   const cookie = String(env.COURSE_SCRAPER_UPSTREAM_COOKIE || '').trim();
   if (cookie.length < 16) throw new CourseAuthorityError(503, 'Course scraper credential is unavailable.');
-  const candidate = await env.DB.prepare(
+  const candidate = await (await publicCatalogueDb(env.DB)).prepare(
     `SELECT course_code FROM course_schedules
      WHERE catalogue_visibility='published' AND trim(course_code)<>''
        AND (instructor IS NULL OR trim(instructor)='')
@@ -607,7 +608,7 @@ export const probeD1ScraperRequestContracts = async (
   }
   const cookie = String(env.COURSE_SCRAPER_UPSTREAM_COOKIE || '').trim();
   if (cookie.length < 16) throw new CourseAuthorityError(503, 'Course scraper credential is unavailable.');
-  const candidate = await env.DB.prepare(
+  const candidate = await (await publicCatalogueDb(env.DB)).prepare(
     `SELECT course_code FROM course_schedules
      WHERE catalogue_visibility='published' AND trim(course_code)<>''
        AND (instructor IS NULL OR trim(instructor)='')
@@ -706,6 +707,7 @@ export const runD1InstructorScraper = async (
   runId: string,
   fetcher: typeof fetch = fetch,
 ) => {
+  env = { ...env, DB: await publicCatalogueDb(env.DB) };
   if (env.COURSE_SCRAPER_INTERNAL_ENABLED !== 'true' || readCourseWriteAuthority(env) !== 'd1') {
     throw new CourseAuthorityError(503, 'Course scraper authority is not enabled.');
   }
@@ -794,13 +796,14 @@ export const applyD1ScraperInstructorUpdates = async (
   }
   const at = new Date().toISOString();
   await env.DB.prepare('INSERT INTO course_scraper_runs (run_id,payload_hash,status,attempted_count,created_at) VALUES (?,?,?,?,?)').bind(runId, payloadHash, 'running', updates.length, at).run();
+  env = { ...env, DB: await publicCatalogueDb(env.DB) };
   let updated = 0; let skippedAdmin = 0; let conflicts = 0;
   try {
     for (const item of updates) {
       const row = await env.DB.prepare('SELECT revision,instructor_provenance FROM course_schedules WHERE id=?').bind(item.courseId).first<{ revision: number; instructor_provenance: string }>();
       if (!row) { conflicts += 1; continue; }
       if (row.instructor_provenance === 'admin') { skippedAdmin += 1; continue; }
-      const result = await env.DB.prepare('UPDATE course_schedules SET instructor=?,instructor_search=?,instructor_provenance=?,writer_provenance=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND instructor_provenance IS NOT ?').bind(item.instructor, item.instructor.toLocaleLowerCase('vi-VN'), 'scraper', 'scraper', at, item.courseId, row.revision, 'admin').run();
+      const result = await env.DB.prepare('UPDATE course_schedules SET instructor=?,instructor_search=?,instructor_provenance=?,writer_provenance=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND instructor_provenance IS NOT ? AND id IN (SELECT id FROM course_schedules)').bind(item.instructor, item.instructor.toLocaleLowerCase('vi-VN'), 'scraper', 'scraper', at, item.courseId, row.revision, 'admin').run();
       if (Number(result.meta.changes || 0) === 1) updated += 1; else conflicts += 1;
     }
     await env.DB.prepare('UPDATE course_scraper_runs SET status=?,updated_count=?,skipped_admin_count=?,conflict_count=?,completed_at=? WHERE run_id=?').bind('completed', updated, skippedAdmin, conflicts, new Date().toISOString(), runId).run();

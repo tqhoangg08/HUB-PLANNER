@@ -1,4 +1,5 @@
 import { handleCourses, syncCourseSchedules } from './courses.ts';
+import { canCacheCourseRequest } from './course-publication.ts';
 import { handlePublicScholarships, handleMyScholarships, scholarshipErrorStatus, type ScholarshipEnv } from './scholarships.ts';
 import { handleAdminScholarships } from './scholarship-admin.ts';
 export { AnnouncementCrawlerWorkflow, HK1CourseScraperProbeWorkflow, HK1CourseScraperWorkflow } from './workflow-binding-parity.ts';
@@ -2475,7 +2476,8 @@ const worker = {
     const bypassCache =
       requestUrl.searchParams.has('refresh') ||
       String(request.headers.get('Cache-Control') || '').includes('no-cache');
-    const cached = bypassCache ? null : await readCachedResponse(request);
+    const courseCacheAllowed = !isCoursesPath || canCacheCourseRequest(requestUrl);
+    const cached = bypassCache || !courseCacheAllowed ? null : await readCachedResponse(request);
     if (cached) return cached;
 
     if (isCoursesPath) {
@@ -2484,11 +2486,11 @@ const worker = {
         const response = json(result.payload, result.status, {
           ...cors,
           'Cache-Control':
-            result.status === 200
+            result.status === 200 && courseCacheAllowed
               ? `public, max-age=300, s-maxage=${COURSE_EDGE_TTL_SECONDS}, stale-while-revalidate=3600`
               : 'no-store',
         });
-        if (result.status === 200 && !bypassCache) {
+        if (result.status === 200 && !bypassCache && courseCacheAllowed) {
           storeCachedResponse(request, response, ctx);
         }
         return response;

@@ -28,6 +28,8 @@ if (hasPushConfig) {
 }
 
 const normalizeSemester = (value = '') => String(value).replace(/\s+/g, '_').replace(/[()]/g, '');
+// Legacy Supabase cannot authenticate D1 publication. HK2 official reads stay closed here.
+const LEGACY_PUBLICATION_FILTER = 'semester.neq.HK2_2026_2027,semester.is.null,is_user_added.eq.true';
 const normalizeCourseCode = (value = '') => {
   const tokens = String(value || '')
     .trim()
@@ -90,6 +92,7 @@ const fetchMatchingSystemCourses = async (courseCodes = [], columns = COURSE_SCH
     .from('course_schedules')
     .select(columns)
     .or(filters)
+    .or(LEGACY_PUBLICATION_FILTER)
     .limit(1000);
 
   if (error) throw error;
@@ -251,6 +254,7 @@ const fetchCourseFilterOptionRows = async ({ semester, phase, isUserAdded }) => 
     let query = supabase
       .from('course_schedules')
       .select('subject_name, major, cohort, group_name, academic_program')
+      .or(LEGACY_PUBLICATION_FILTER)
       .range(offset, offset + batchSize - 1);
 
     if (semester) query = query.eq('semester', semester);
@@ -961,7 +965,7 @@ const handleCourseFilterOptions = async (request, response) => {
 };
 
 const applyCourseListFilters = (query, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search }) => {
-  let nextQuery = query;
+  let nextQuery = query.or(LEGACY_PUBLICATION_FILTER);
   if (semester) nextQuery = nextQuery.eq('semester', semester);
   if (phase && phase !== 'all') nextQuery = nextQuery.eq('phase', phase);
   if (major) nextQuery = nextQuery.eq('major', major);
@@ -1085,6 +1089,7 @@ async function handler(request, response) {
         .from('course_schedules')
         .select(COURSE_SCHEDULE_COLUMNS)
         .eq('id', id)
+        .or(LEGACY_PUBLICATION_FILTER)
         .maybeSingle();
       if (error) throw error;
       if (!data) return response.status(404).json({ error: 'Course not found' });

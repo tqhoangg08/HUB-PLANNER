@@ -248,8 +248,8 @@ test('full local D1: 2,357 INSERTs, mid-batch failure, lost acknowledgment, resu
   }
   for (const [program, expected] of [['Tiếng Anh bán phần', null], ['Chương trình đặc biệt', null], ['CT Elite', 29]]) {
     const response = await handleCourses(new URL(`https://local.test/courses?semester=${SEMESTER}&academicProgram=${encodeURIComponent(program)}`), { DB: db });
-    assert.equal(response.payload.total, expected ?? imported.filter(r => r.academic_program === program).length);
-    assert.ok(response.payload.data.every(r => r.academic_program === program));
+    assert.equal(response.payload.total, 0, 'All imported programmes remain CLOSED until separate publication');
+    assert.deepEqual(response.payload.data, []);
   }
   await assert.rejects(createBulkPlan(pkg, await captureSnapshot(db)), /active.*plan|plan.*active/i);
   assert.deepEqual(await applyNextBatch(db, pkg, plan, auth), { done: true, committed_batches: 95 });
