@@ -1,3 +1,5 @@
+import { publicCatalogueDb } from './course-publication.ts';
+
 interface UserSchedulesEnv {
   DB: D1Database;
   SUPABASE_URL?: string;
@@ -721,6 +723,7 @@ export const listUserSchedules = async (
   env: UserSchedulesEnv,
   userIdValue: unknown
 ) => {
+  env = { ...env, DB: await publicCatalogueDb(env.DB) };
   const userId = parseUserScheduleId(userIdValue, 'Mã người dùng');
   const metadata = await env.DB.prepare(
     'SELECT synced_at FROM sync_metadata WHERE resource = ?'

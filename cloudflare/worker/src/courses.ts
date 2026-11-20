@@ -1,3 +1,5 @@
+import { publicCatalogueDb } from './course-publication.ts';
+
 interface CourseEnv {
   DB: D1Database;
   SUPABASE_URL?: string;
@@ -438,6 +440,7 @@ const courseDetail = async (url: URL, env: CourseEnv) => {
 };
 
 export const handleCourses = async (url: URL, env: CourseEnv) => {
+  env = { ...env, DB: await publicCatalogueDb(env.DB) };
   const resource = clean(url.searchParams.get('resource'));
   if (resource === 'filter-options') return filterOptions(url, env);
   if (resource === 'course-detail') return courseDetail(url, env);
@@ -513,6 +516,7 @@ const WRITE_SQL = `
     subject_name_search=excluded.subject_name_search,
     instructor_search=excluded.instructor_search
   WHERE course_schedules.updated_at IS NOT excluded.updated_at
+    AND (course_schedules.semester IS NOT 'HK2_2026_2027' OR course_schedules.is_user_added=1)
 `;
 
 const bindings = (row: CourseRow) => [
@@ -531,6 +535,7 @@ const bindings = (row: CourseRow) => [
 ];
 
 const writeRows = async (env: CourseEnv, rows: CourseRow[]) => {
+  rows = rows.filter(row => row.semester !== 'HK2_2026_2027' || row.is_user_added === true || row.is_user_added === 1);
   for (let index = 0; index < rows.length; index += 50) {
     await env.DB.batch(rows.slice(index, index + 50).map((row) =>
       env.DB.prepare(WRITE_SQL).bind(...bindings(row))
@@ -568,11 +573,11 @@ export const syncCourseSchedules = async (env: CourseEnv, reconcileDeletes = fal
       page.forEach((row) => sourceIds.add(row.id));
       if (page.length < RECONCILE_PAGE_SIZE) break;
     }
-    const local = await env.DB.prepare('SELECT id FROM course_schedules').all<{ id: string }>();
+    const local = await env.DB.prepare("SELECT id FROM course_schedules WHERE semester IS NOT 'HK2_2026_2027' OR is_user_added=1").all<{ id: string }>();
     const missing = (local.results || []).map((row) => row.id).filter((id) => !sourceIds.has(id));
     for (let index = 0; index < missing.length; index += 100) {
       await env.DB.batch(missing.slice(index, index + 100).map((id) =>
-        env.DB.prepare('DELETE FROM course_schedules WHERE id = ?').bind(id)
+        env.DB.prepare("DELETE FROM course_schedules WHERE id = ? AND (semester IS NOT 'HK2_2026_2027' OR is_user_added=1)").bind(id)
       ));
     }
     deletedRows = missing.length;

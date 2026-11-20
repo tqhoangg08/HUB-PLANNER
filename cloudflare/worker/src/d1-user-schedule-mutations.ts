@@ -13,6 +13,7 @@ import {
 } from './course-schedule-sessions.ts';
 import type { StructuredScheduleSession } from '../../../utils/scheduleSessions.ts';
 import { getImportedTargetSessionCount } from '../../../utils/scheduleImportSessions.ts';
+import { publicCatalogueDb } from './course-publication.ts';
 
 interface D1UserScheduleMutationEnv { DB: D1Database; }
 type D1ScheduleAction = 'add' | 'delete' | 'update_custom_data' | 'replace_all' | 'pdf_import';
@@ -261,6 +262,19 @@ const responseJson = (value: D1ScheduleMutationResponse) => {
   return json;
 };
 
+// Keep an owner-scoped copy when a newly selected official HK2 class is public.
+// Later fail-closed reads must not remove that student's already-owned timetable.
+const snapshotPublishedHk2 = (env: D1UserScheduleMutationEnv, scheduleId: string, userId: string, courseId: string, now: string) => {
+  const fields = ['id','course_code','subject_name','prerequisite','credits','knowledge_block','shift','day_of_week','weeks','room','campus','managing_faculty',
+    'exam_date','exam_shift','exam_campus','exam_room','cohort','major','group_name','orientation','orientation_note_3','registration_type','general_note',
+    'academic_program','student_count','phase','semester','instructor','is_user_added'];
+  let json = `json_object(${fields.slice(0,14).flatMap(k=>[`'${k}'`,k]).join(',')})`;
+  for (let i=14;i<fields.length;i+=14) json = `json_set(${json},${fields.slice(i,i+14).flatMap(k=>[`'$.${k}'`,k]).join(',')})`;
+  return env.DB.prepare(`INSERT INTO user_schedule_course_snapshots(schedule_id,user_id,course_id,source_kind,course_json,source_updated_at,created_at,updated_at)
+    SELECT ?,?,id,'HISTORICAL_PUBLIC',${json},updated_at,?,? FROM course_schedules
+    WHERE id=? AND semester='HK2_2026_2027' AND is_user_added IS NOT 1 AND catalogue_visibility='published'`).bind(scheduleId,userId,now,now,courseId);
+};
+
 const assertionStatement = (env: D1UserScheduleMutationEnv, userId: string, semester: string, resultingRevision: number, operationId: string, postcondition: string, bindings: unknown[], now: string) => env.DB.prepare(`
   INSERT INTO user_schedule_transaction_assertions (operation_id, passed, created_at)
   VALUES (?, CASE WHEN EXISTS (SELECT 1 FROM user_schedule_revisions WHERE user_id = ? AND semester = ? AND revision = ? AND last_operation_id = ?) AND (${postcondition}) THEN 1 ELSE 0 END, ?)
@@ -300,6 +314,7 @@ const classifyFailedMutation = async (env: D1UserScheduleMutationEnv, input: Par
 };
 
 export const mutateD1UserScheduleCourse = async (env: D1UserScheduleMutationEnv, userIdValue: unknown, input: ParsedMutationRequest): Promise<D1ScheduleMutationResponse> => {
+  if (input.action === 'add') env = { ...env, DB: await publicCatalogueDb(env.DB) };
   const userId = parseUserScheduleId(userIdValue, 'Mã người dùng');
   if ((input.action !== 'add' && input.action !== 'delete') || !input.courseId) throw new UserScheduleError(400, 'Thao tác lịch không hợp lệ.');
   const receipt = await readReceipt(env, userId, input.idempotencyKey);
@@ -314,10 +329,11 @@ export const mutateD1UserScheduleCourse = async (env: D1UserScheduleMutationEnv,
   const statements: D1PreparedStatement[] = changed ? input.action === 'add'
     ? [env.DB.prepare('INSERT INTO user_schedules (id, user_id, course_id, semester, custom_data, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, ?, ?)').bind(scheduleId, userId, input.courseId, input.semester, now, now)]
     : [env.DB.prepare('DELETE FROM user_schedule_course_snapshots WHERE schedule_id = ? AND user_id = ?').bind(scheduleId, userId), env.DB.prepare('DELETE FROM user_schedules WHERE id = ? AND user_id = ? AND semester = ?').bind(scheduleId, userId, input.semester)] : [];
+  if (changed && input.action === 'add' && input.semester === 'HK2_2026_2027') statements.push(snapshotPublishedHk2(env,scheduleId,userId,input.courseId,now));
   const postcondition = input.action === 'add'
-    ? 'EXISTS (SELECT 1 FROM user_schedules WHERE id = ? AND user_id = ? AND course_id = ? AND semester = ?)'
+    ? "EXISTS (SELECT 1 FROM user_schedules WHERE id = ? AND user_id = ? AND course_id = ? AND semester = ?) AND EXISTS (SELECT 1 FROM course_schedules WHERE id=? AND semester=? AND catalogue_visibility='published')"
     : 'NOT EXISTS (SELECT 1 FROM user_schedules WHERE user_id = ? AND course_id = ? AND semester = ?)';
-  const bindings = input.action === 'add' ? [scheduleId, userId, input.courseId, input.semester] : [userId, input.courseId, input.semester];
+  const bindings = input.action === 'add' ? [scheduleId, userId, input.courseId, input.semester, input.courseId, input.semester] : [userId, input.courseId, input.semester];
   try { await runBatch(env, input, userId, changed, statements, postcondition, bindings, response); return response; }
   catch { return classifyFailedMutation(env, input, userId); }
 };
@@ -389,6 +405,7 @@ export const updateD1UserScheduleCustomDataFromInternal = async (
 };
 
 export const replaceD1UserScheduleSemester = async (env: D1UserScheduleMutationEnv, userIdValue: unknown, input: ParsedMutationRequest): Promise<D1ScheduleMutationResponse> => {
+  env = { ...env, DB: await publicCatalogueDb(env.DB) };
   const userId = parseUserScheduleId(userIdValue, 'Mã người dùng');
   if ((input.action !== 'replace_all' && input.action !== 'pdf_import') || !input.replacementItems) throw new UserScheduleError(400, 'Dữ liệu thay lịch không hợp lệ.');
   const receipt = await readReceipt(env, userId, input.idempotencyKey);
@@ -407,10 +424,12 @@ export const replaceD1UserScheduleSemester = async (env: D1UserScheduleMutationE
       const scheduleId = crypto.randomUUID();
       statements.push(env.DB.prepare('INSERT INTO user_schedules (id, user_id, course_id, semester, custom_data, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, ?, ?)').bind(scheduleId, userId, item.courseId, input.semester, now, now));
       if (item.snapshotKind && item.snapshotCourse) statements.push(env.DB.prepare('INSERT INTO user_schedule_course_snapshots (schedule_id, user_id, course_id, source_kind, course_json, source_updated_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)').bind(scheduleId, userId, item.courseId, item.snapshotKind, serializeCanonicalUserScheduleJson(item.snapshotCourse), now, now));
+      else if (input.semester === 'HK2_2026_2027') statements.push(snapshotPublishedHk2(env,scheduleId,userId,item.courseId,now));
     }
   }
-  const postcondition = '((SELECT COUNT(*) FROM user_schedules WHERE user_id = ? AND semester = ?) = ?) AND NOT EXISTS (SELECT 1 FROM user_schedule_course_snapshots snapshots LEFT JOIN user_schedules schedules ON schedules.id = snapshots.schedule_id WHERE snapshots.user_id = ? AND schedules.id IS NULL)';
-  try { await runBatch(env, input, userId, changed, statements, postcondition, [userId, input.semester, input.replacementItems.length, userId], response); return response; }
+  const officialIds = input.replacementItems.filter(item => !item.snapshotKind).map(item => item.courseId);
+  const postcondition = "((SELECT COUNT(*) FROM user_schedules WHERE user_id = ? AND semester = ?) = ?) AND NOT EXISTS (SELECT 1 FROM user_schedule_course_snapshots snapshots LEFT JOIN user_schedules schedules ON schedules.id = snapshots.schedule_id WHERE snapshots.user_id = ? AND schedules.id IS NULL) AND NOT EXISTS (SELECT selected.value FROM json_each(?) selected LEFT JOIN course_schedules c ON c.id=selected.value AND c.semester=? AND c.catalogue_visibility='published' WHERE c.id IS NULL)";
+  try { await runBatch(env, input, userId, changed, statements, postcondition, [userId, input.semester, input.replacementItems.length, userId, JSON.stringify(officialIds), input.semester], response); return response; }
   catch { return classifyFailedMutation(env, input, userId); }
 };
 

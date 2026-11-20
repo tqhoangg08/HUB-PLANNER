@@ -16,6 +16,8 @@ const json = (data: unknown, status = 200) =>
   })
 
 const normalizeSemester = (value = '') => String(value).replace(/\s+/g, '_').replace(/[()]/g, '')
+// Legacy Supabase has no trusted D1 gate; it never publishes official HK2.
+const LEGACY_PUBLICATION_FILTER = 'semester.neq.HK2_2026_2027,semester.is.null,is_user_added.eq.true'
 const SYNCABLE_COURSE_FIELDS = [
   'course_code',
   'subject_name',
@@ -161,6 +163,7 @@ const fetchMatchingSystemCourses = async (
     .from('course_schedules')
     .select(columns)
     .or(filters)
+    .or(LEGACY_PUBLICATION_FILTER)
     .limit(1000)
 
   if (error) throw error
@@ -236,6 +239,7 @@ const fetchCourseFilterOptionRows = async ({
     let query = supabase
       .from('course_schedules')
       .select('subject_name, major, cohort, group_name, academic_program')
+      .or(LEGACY_PUBLICATION_FILTER)
       .range(offset, offset + batchSize - 1)
 
     if (semester) query = query.eq('semester', semester)
@@ -889,7 +893,7 @@ const handleCourseFilterOptions = async (params: URLSearchParams) => {
 }
 
 const applyCourseListFilters = (query: any, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search }: any) => {
-  let nextQuery = query
+  let nextQuery = query.or(LEGACY_PUBLICATION_FILTER)
   if (semester) nextQuery = nextQuery.eq('semester', semester)
   if (phase && phase !== 'all') nextQuery = nextQuery.eq('phase', phase)
   if (major) nextQuery = nextQuery.eq('major', major)
@@ -961,6 +965,7 @@ Deno.serve(async (req) => {
         .from('course_schedules')
         .select(COURSE_SCHEDULE_COLUMNS)
         .eq('id', id)
+        .or(LEGACY_PUBLICATION_FILTER)
         .maybeSingle()
       if (error) throw error
       if (!data) return json({ error: 'Course not found' }, 404)

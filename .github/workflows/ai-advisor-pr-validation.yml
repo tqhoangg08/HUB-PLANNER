@@ -53,6 +53,8 @@ jobs:
         run: node --test --experimental-strip-types tests/admin-announcements.browser.test.ts
       - name: Build isolated OCR review UI without deploying
         run: npx vite build --config staging/advisor/vite.config.mjs
+      - name: HK2 publication gate desktop and mobile browser acceptance (local D1 only)
+        run: npm run test:hk2-publication:browser
       - name: Full offline/local suite
         run: |
           npm test
