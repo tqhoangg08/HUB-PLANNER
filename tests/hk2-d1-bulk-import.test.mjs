@@ -16,7 +16,7 @@ const approval = (plan, action = 'apply') => ({ plan_id: plan.plan_id, action, t
 const rows = async (db, sql) => (await db.prepare(sql).all()).results;
 const hk2 = db => rows(db, `SELECT * FROM course_schedules WHERE semester='${SEMESTER}' ORDER BY id`);
 
-async function fixture(t) {
+async function fixture(t, hk1Count = 2103) {
   const mf = new Miniflare({ modules: true, script: 'export default {fetch(){return new Response("local fixture")}}',
     compatibilityDate: '2026-07-29', d1Databases: ['DB'] });
   t.after(() => mf.dispose());
@@ -24,7 +24,7 @@ async function fixture(t) {
   const objects = baseline.response.result[0].results;
   for (const type of ['table', 'index', 'trigger']) for (const r of objects.filter(r => r.type === type)) await db.prepare(r.sql).run();
   // Full synthetic prior-semester catalogue, including duplicate legacy natural keys.
-  const seed = Array.from({ length: 2103 }, (_, i) => db.prepare(`INSERT INTO course_schedules
+  const seed = Array.from({ length: hk1Count }, (_, i) => db.prepare(`INSERT INTO course_schedules
     (id,course_code,subject_name,semester,instructor,is_user_added,updated_at,course_code_search,subject_name_search,instructor_search,source_position)
     VALUES (?,?,?,?,?,0,?,?,?,?,?)`).bind(`fixture-hk1-${i}`, `HK1_${i < 3 ? 0 : i}`, 'Fixture HK1', 'HK1_2026_2027', `Fixture lecturer ${i}`,
       '2026-01-01', `hk1_${i < 3 ? 0 : i}`, 'fixture hk1', `fixture lecturer ${i}`, i + 1));
@@ -32,6 +32,118 @@ async function fixture(t) {
   await db.prepare("INSERT INTO user_schedules(id,user_id,course_id,semester,created_at,updated_at) VALUES('fixture-schedule','fixture-user','fixture-hk1-0','HK1_2026_2027','old','old')").run();
   return db;
 }
+
+test('namespace ledger blocks plan B after A commits 25 classes, preserves A resume, and releases only after complete rollback', { timeout: 120000 }, async t => {
+  const db = await fixture(t, 2);
+  const initial = await captureSnapshot(db), a = await createBulkPlan(pkg, initial);
+  const b = await createBulkPlan(pkg, { ...initial, checked_at: new Date(Date.parse(initial.checked_at) + 1).toISOString() });
+  const hk1Before = await rows(db, "SELECT * FROM course_schedules WHERE semester='HK1_2026_2027' ORDER BY id");
+  await applyNextBatch(db, pkg, a, approval(a));
+  const afterA = await captureSnapshot(db);
+  await assert.rejects(createBulkPlan(pkg, afterA), /active.*plan|plan.*active/i);
+  await assert.rejects(applyNextBatch(db, pkg, b, approval(b)), /active.*plan|plan.*active/i);
+  await assert.rejects(rollbackNextBatch(db, pkg, b, approval(b, 'rollback')), /active.*plan|plan.*active/i);
+  assert.equal((await hk2(db)).length, 25);
+  assert.equal((await exportReceipts(db, b)).length, 0);
+  let lose = true;
+  const lostAck = { prepare: sql => db.prepare(sql), batch: async statements => {
+    const result = await db.batch(statements);
+    if (lose && statements.length === BATCH_SIZE + 1) { lose = false; throw new Error('lost acknowledgment A'); }
+    return result;
+  } };
+  await assert.rejects(applyNextBatch(lostAck, pkg, a, approval(a)), /lost acknowledgment A/);
+  assert.equal((await hk2(db)).length, 50);
+  assert.equal((await applyNextBatch(db, pkg, a, approval(a))).committed_batches, 3);
+  for (let i = 0; i < 3; i++) await rollbackNextBatch(db, pkg, a, approval(a, 'rollback'));
+  assert.equal((await hk2(db)).length, 0);
+  await assert.rejects(applyNextBatch(db, pkg, b, approval(b)), /fresh snapshot\/plan approval/);
+  const fresh = await captureSnapshot(db), c = await createBulkPlan(pkg, fresh);
+  assert.notEqual(c.plan_id, a.plan_id);
+  await assert.rejects(applyNextBatch(db, pkg, c, approval(a)), /approval/);
+  await applyNextBatch(db, pkg, c, approval(c));
+  assert.equal((await hk2(db)).length, 25);
+  const history = await exportReceipts(db, a);
+  await db.prepare('DELETE FROM course_mutation_receipts WHERE idempotency_key>=? AND idempotency_key<?')
+    .bind(`${a.plan_id}:`, `${a.plan_id};`).run(); // simulate lost terminal history, fixture only
+  await assert.rejects(applyNextBatch(db, pkg, c, approval(c)), /fresh snapshot\/plan approval/);
+  await assert.rejects(rollbackNextBatch(db, pkg, c, approval(c, 'rollback')), /fresh snapshot\/plan approval/);
+  for (const r of history) await db.prepare(`INSERT INTO course_mutation_receipts (${Object.keys(r).join(',')}) VALUES (${Object.keys(r).map(() => '?').join(',')})`).bind(...Object.values(r)).run();
+  await rollbackNextBatch(db, pkg, c, approval(c, 'rollback'));
+  assert.equal((await exportReceipts(db, a)).length, 6, 'Fully rolled-back receipts are retained');
+  assert.equal((await exportReceipts(db, c)).length, 2);
+  assert.deepEqual(await rows(db, "SELECT * FROM course_schedules WHERE semester='HK1_2026_2027' ORDER BY id"), hk1Before);
+});
+
+test('namespace corruption, missing receipts and ledger-only races block INSERT and DELETE atomically', { timeout: 120000 }, async t => {
+  const db = await fixture(t, 2), plan = await createBulkPlan(pkg, await captureSnapshot(db));
+  await applyNextBatch(db, pkg, plan, approval(plan));
+  const snapshot = await captureSnapshot(db), saved = snapshot.response.result[6].results[0];
+  const rewrite = (r, change) => {
+    const body = JSON.parse(r.response_json); change(body);
+    r.response_json = JSON.stringify(body); r.request_hash = sha256(r.response_json);
+    r.idempotency_key = `${body.plan_id}:${body.action}:${body.batch_index}`;
+    r.operation = `hk2_bulk_${body.action}`;
+  };
+  for (const mutate of [
+    list => { list[0].response_json = '{'; },
+    list => { list[0].actor_scope = 'staff'; },
+    list => { list[0].idempotency_key = 'unrecognized'; },
+    list => { list[0].request_hash = 'f'.repeat(64); },
+    list => { list.length = 0; },
+    list => rewrite(list[0], b => { b.batch_index = 1; }),
+    list => rewrite(list[0], b => { b.previous_receipt_hash = 'f'.repeat(64); }),
+    list => rewrite(list[0], b => { b.ids = [b.ids[0], b.ids[0]]; }),
+    list => { const r = structuredClone(list[0]); rewrite(r, b => { b.action = 'rollback'; b.batch_sha256 = 'f'.repeat(64); }); list.push(r); },
+    list => { const r = structuredClone(list[0]); rewrite(r, b => { b.action = 'rollback'; b.batch_index = 1; }); list.push(r); },
+  ]) {
+    const bad = structuredClone(snapshot); mutate(bad.response.result[6].results);
+    await assert.rejects(createBulkPlan(pkg, bad), /receipt|namespace/i);
+  }
+  const put = r => db.prepare(`INSERT INTO course_mutation_receipts (${Object.keys(r).join(',')}) VALUES (${Object.keys(r).map(() => '?').join(',')})`).bind(...Object.values(r)).run();
+  const poison = { ...saved, idempotency_key: 'foreign-malformed', response_json: '{' };
+  await put(poison);
+  await assert.rejects(applyNextBatch(db, pkg, plan, approval(plan)), /Malformed namespace receipt/);
+  await assert.rejects(rollbackNextBatch(db, pkg, plan, approval(plan, 'rollback')), /Malformed namespace receipt/);
+  await db.prepare("DELETE FROM course_mutation_receipts WHERE idempotency_key='foreign-malformed'").run(); // fixture only
+  await db.prepare('DELETE FROM course_mutation_receipts WHERE idempotency_key=?').bind(saved.idempotency_key).run(); // fixture only
+  await assert.rejects(applyNextBatch(db, pkg, plan, approval(plan)), /Missing namespace receipt/);
+  await assert.rejects(rollbackNextBatch(db, pkg, plan, approval(plan, 'rollback')), /Missing namespace receipt/);
+  await put(saved);
+  for (const action of ['apply', 'rollback']) {
+    let injected = false;
+    const race = { prepare: sql => db.prepare(sql), batch: async statements => {
+      if (statements.length === BATCH_SIZE + 1) { injected = true; await put(poison); }
+      return db.batch(statements);
+    } };
+    await assert.rejects((action === 'apply' ? applyNextBatch : rollbackNextBatch)(race, pkg, plan, approval(plan, action)), /constraint|NOT NULL/i);
+    assert.equal(injected, true); assert.equal((await hk2(db)).length, 25);
+    assert.equal((await exportReceipts(db, plan)).length, 1);
+    await db.prepare("DELETE FROM course_mutation_receipts WHERE idempotency_key='foreign-malformed'").run(); // fixture only
+  }
+  await rollbackNextBatch(db, pkg, plan, approval(plan, 'rollback'));
+  assert.equal((await hk2(db)).length, 0);
+  await createBulkPlan(pkg, await captureSnapshot(db));
+});
+
+test('saved six-query plans and v1 receipts resume safely through the global ledger check', { timeout: 120000 }, async t => {
+  const db = await fixture(t, 2), plan = await createBulkPlan(pkg, await captureSnapshot(db));
+  plan.snapshot.queries.pop(); plan.snapshot.response.result.pop();
+  plan.snapshot_sha256 = sha256(JSON.stringify(plan.snapshot));
+  const { plan_id: _, ...unsigned } = plan; plan.plan_id = sha256(JSON.stringify(unsigned));
+  await assert.rejects(createBulkPlan(pkg, plan.snapshot), /scope mismatch/);
+  await applyNextBatch(db, pkg, plan, approval(plan));
+  const receipt = (await exportReceipts(db, plan))[0], body = JSON.parse(receipt.response_json);
+  delete body.semester; delete body.sequence; delete body.previous_receipt_hash; body.version = 1;
+  const json = JSON.stringify(body);
+  await db.prepare('UPDATE course_mutation_receipts SET response_json=?,request_hash=? WHERE idempotency_key=?')
+    .bind(json, sha256(json), receipt.idempotency_key).run(); // synthesize pre-fix receipt, fixture only
+  assert.equal((await applyNextBatch(db, pkg, plan, approval(plan))).committed_batches, 2);
+  await assert.rejects(createBulkPlan(pkg, await captureSnapshot(db)), /active.*plan|plan.*active/i);
+  await rollbackNextBatch(db, pkg, plan, approval(plan, 'rollback'));
+  await rollbackNextBatch(db, pkg, plan, approval(plan, 'rollback'));
+  assert.equal((await hk2(db)).length, 0);
+  await createBulkPlan(pkg, await captureSnapshot(db));
+});
 
 test('bulk preflight reuses the exact merged payload and fails closed on stale/scope/schema/duplicate/conflict snapshots', async () => {
   assert.equal(pkg.catalogue.records.length, 2357); assert.equal(pkg.catalogue.temporary_items.length, 3);
@@ -54,7 +166,7 @@ test('bulk preflight reuses the exact merged payload and fails closed on stale/s
     await assert.rejects(createBulkPlan(pkg, snapshot, { historical: true }));
   }
   const conflict = structuredClone(baseline), row = historical.rows[0];
-  conflict.response.result[2].results = [{ ...row, instructor: 'must never overwrite' }];
+  conflict.response.result[2].results = [{ ...row, instructor: 'must never overwrite', writer_provenance: 'admin', source_key: null }];
   conflict.response.result[3].results.push({ semester: SEMESTER, count: 1 });
   conflict.response.result[5].results[0].count++;
   await assert.rejects(createBulkPlan(pkg, conflict, { historical: true }), /conflict/);
@@ -139,8 +251,8 @@ test('full local D1: 2,357 INSERTs, mid-batch failure, lost acknowledgment, resu
     assert.equal(response.payload.total, expected ?? imported.filter(r => r.academic_program === program).length);
     assert.ok(response.payload.data.every(r => r.academic_program === program));
   }
-  const replay = await createBulkPlan(pkg, await captureSnapshot(db));
-  assert.deepEqual(replay.dry_run.counts, { additions: 0, identical: 2357, blocked: 0, conflicts: 0, temporary_items: 3 });
+  await assert.rejects(createBulkPlan(pkg, await captureSnapshot(db)), /active.*plan|plan.*active/i);
+  assert.deepEqual(await applyNextBatch(db, pkg, plan, auth), { done: true, committed_batches: 95 });
   assert.equal((await exportReceipts(db, plan)).length, 95);
   assert.deepEqual(await Promise.all(protectedQueries.map(q => rows(db, q))), protectedBefore);
   assert.equal((await rows(db, `SELECT SUM(course_count) AS n FROM course_filter_facets WHERE semester='${SEMESTER}'`))[0].n, 2357);
@@ -165,7 +277,8 @@ test('full local D1: 2,357 INSERTs, mid-batch failure, lost acknowledgment, resu
   const receipt = await exportReceipts(db, plan);
   const evidence = { version: 1, local_only: true, plan: summarizePlan(plan), imported: 2357,
     all_official_fields_match: true, temporary_imported: 0, apply_receipts: 95, rollback_receipts: 95,
-    fault_batch_atomic: true, concurrent_natural_key_stopped: true, lost_ack_resumed: true, replay_additions: 0, rolled_back_rows: 2357,
+    fault_batch_atomic: true, concurrent_natural_key_stopped: true, lost_ack_resumed: true,
+    new_plan_blocked_while_owned: true, replay_additions: 0, rolled_back_rows: 2357,
     protected_before_sha256: sha256(JSON.stringify(protectedBefore)), protected_after_sha256: sha256(JSON.stringify(await Promise.all(protectedQueries.map(q => rows(db, q))))),
     receipt_sha256: sha256(JSON.stringify(receipt)) };
   await mkdir('.cache/hk2-bulk', { recursive: true });

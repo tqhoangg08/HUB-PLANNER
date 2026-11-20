@@ -31,10 +31,12 @@ the original full payload hash never changes.
 
 `production-readonly.json` is an actual SELECT-only observation at its
 `checked_at`, not an approval or a future fresh snapshot: HK1 2,103 published,
-HK2 0, previous summer 2; max source position 4,639. All six query results have
+HK2 0, previous summer 2; max source position 4,639. All seven query results have
 zero writes/changes and are served by the primary. Three existing duplicate HK1
 code groups are reported and left intact. No unique natural-key index is added.
 The database reports `version=production`; a Time Travel bookmark was read.
+The updated snapshot includes a seventh SELECT covering the **entire**
+`hk2-bulk-v1` receipt namespace (all actor scopes); it was empty at capture time.
 **No export backup or real restore rehearsal has been verified in this PR.**
 
 ```powershell
@@ -61,24 +63,33 @@ There is no assumption that multiple D1 calls share a transaction.
 1. Validate the frozen package and recompute the complete plan/hash. Verify a
    fresh SELECT snapshot, exact schema/columns/indexes/triggers/dependent tables,
    all target-semester rows (including retired), counts and duplicate codes.
-2. Reconcile the append-only `course_mutation_receipts` namespace `hk2-bulk-v1`.
+2. Reconcile **every plan** in the append-only `course_mutation_receipts`
+   namespace `hk2-bulk-v1`, during planning and before both INSERT and DELETE.
    Apply receipts must form a contiguous prefix; rollback receipts a reverse
-   suffix. Keys bind the full plan SHA, action and batch number. Each receipt has
-   the original payload/snapshot hashes, batch hash and inserted IDs. Full
-   provenance remains in the manifest-pinned catalogue, linked by `source_key`.
+   suffix with matching IDs/batch hashes. Validate identity, format, key, payload,
+   snapshot/hash consistency, known unique official IDs and exact live batch
+   contents. Imported rows without receipts also block. No foreign receipt is
+   ignored because it has another plan ID or an invalid actor scope.
+   Any unrolled batch reserves the semester for its original plan; a new plan
+   cannot adopt these classes as identical. Even a fully applied plan retains
+   ownership until rollback; a repeat uses the original plan's no-op/resume path.
+   New v2 receipts include semester, contiguous event sequence and previous
+   receipt hash, so gaps/reordering/deletion or a downgrade to v1 blocks.
+   Full provenance remains in the manifest-pinned catalogue, linked by source_key.
 3. Before each batch, compare **every column of every current HK2 row** with the
    snapshot plus exactly the receipt-owned rows. A changed lecturer, room,
    revision, retired row, extra code or missing record stops the run.
 4. The first statement in the mutation batch inserts its receipt using a guarded
    `CASE WHEN ... ELSE NULL` into the existing NOT NULL `operation` column. Its
-   SQL checks the entire HK2 state, schema and maximum source position again
+   SQL checks the entire HK2 state, schema, maximum source position and **all
+   seven columns of the complete namespace ledger** again
    **inside the same transaction** as the INSERTs. Thus changes after the SELECT
    cannot slip between a JavaScript check and the actual write. Constraint/trigger
    errors roll back the receipt and all INSERTs in that batch.
 5. Remaining statements are plain `INSERT INTO course_schedules`, one row each.
    There is no UPDATE, REPLACE, IGNORE or DELETE in the forward writer. Unrelated
-   ID/source-key collisions fail the batch. Existing identical official rows are
-   omitted from the plan; conflicts are never overwritten. The existing facet
+   ID/source-key collisions fail the batch. Existing identical official rows
+   outside active bulk ownership are omitted; conflicts are never overwritten. The existing facet
    INSERT trigger maintains HK2 facets without touching HK1 facets.
 6. Each row gets a stable UUID accepted by existing APIs, deterministic
    manifest/source-row key, `source_kind=admin` (already allowed), revision 0,
@@ -91,8 +102,9 @@ There is no assumption that multiple D1 calls share a transaction.
    ambiguous/malformed/gapped ledger or changed row stops for investigation.
    Do not create a replacement plan to conceal partial progress.
 
-Receipt enumeration uses indexed lexical ranges, not a 64-byte SHA in LIKE:
-D1's LIKE/GLOB pattern limit is 50 bytes. SQL JSON arrays are nested in groups
+Per-plan receipt export uses indexed lexical ranges, not a 64-byte SHA in LIKE;
+validation instead reads the whole namespace. D1's LIKE/GLOB pattern limit is
+50 bytes. SQL JSON arrays are nested in groups
 of 20 to stay below the 32-function-argument limit. Each INSERT has 43 parameters
 (below 100), SQL is below 100 KB, and the whole-state guard refuses a bound value
 >=1.9 MB (D1 row/string limit 2 MB). The batch is 26 statements including receipt.
@@ -119,6 +131,21 @@ objects also blocks the run. If references/edits exist, stop and propose a new
 owner-reviewed recovery; never delete user rows, force a cascade or change HK1.
 Already rolled batches are recognized; forward execution of a rolled-back plan
 is terminal. Reimport needs a new snapshot, plan and approval.
+
+A completely rolled-back plan has no active ownership and no longer blocks a
+new plan. Its apply/rollback receipts are **retained and still validated**;
+historical IDs may be reused only by a new valid owner. A new plan's approved
+snapshot must contain that terminal history. Before every write the foreign
+ledger must match the snapshot exactly: missing/rewritten terminal receipts or
+an old pre-rollback plan/approval are rejected. The SQL ledger guard closes the
+race after this read, even when the competing receipt changes no course row.
+Namespace size limits fail closed; the writer never discards old receipts to
+fit a batch.
+
+Saved six-query plans and v1 receipts from the earlier local implementation can
+resume their original run after the fresh seven-query global check. New plans
+cannot use six-query snapshots. A v1-to-v2 transition chains to the existing
+receipt hash; a foreign active v1 plan still blocks, rather than being adopted.
 
 Full-database Time Travel restore is **not** the normal rollback: it rewinds
 unrelated user activity. It is an emergency operation needing separate owner

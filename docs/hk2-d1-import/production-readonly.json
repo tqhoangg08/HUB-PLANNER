@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checked_at": "2026-11-20T06:01:24.825Z",
+  "checked_at": "2026-11-20T07:34:10.363Z",
   "database_id": "88d702e1-60d3-490a-8514-38ef881cf133",
   "queries": [
     "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL AND (tbl_name IN ('course_schedules','course_filter_facets','course_mutation_receipts','user_schedules','user_schedule_course_snapshots','user_course_requests') OR sql LIKE '%course_schedules%') ORDER BY type,name",
@@ -8,7 +8,8 @@
     "SELECT * FROM course_schedules WHERE semester='HK2_2026_2027' ORDER BY id",
     "SELECT semester,catalogue_visibility,COUNT(*) AS count FROM course_schedules GROUP BY semester,catalogue_visibility ORDER BY semester,catalogue_visibility",
     "SELECT semester,course_code_search,COUNT(*) AS count FROM course_schedules GROUP BY semester,course_code_search HAVING COUNT(*)>1 ORDER BY semester,course_code_search",
-    "SELECT COUNT(*) AS count,COALESCE(MAX(source_position),0) AS max_source_position FROM course_schedules"
+    "SELECT COUNT(*) AS count,COALESCE(MAX(source_position),0) AS max_source_position FROM course_schedules",
+    "SELECT * FROM course_mutation_receipts WHERE actor_id='hk2-bulk-v1' ORDER BY actor_scope,idempotency_key"
   ],
   "info": {
     "result": {
@@ -17,7 +18,7 @@
       "created_at": "2026-07-30T08:38:36.790Z",
       "version": "production",
       "num_tables": 84,
-      "file_size": 172986368,
+      "file_size": 173363200,
       "running_in_region": "APAC",
       "read_replication": {
         "mode": "disabled"
@@ -30,7 +31,7 @@
   },
   "bookmark": {
     "result": {
-      "bookmark": "0000738c-0000004a-00005129-f8e6ef6a114ab41c9b5d3a18408967b1"
+      "bookmark": "00007398-00000024-00005129-e2a852eb747ccfe95cf8e83bad1fe527"
     },
     "success": true,
     "errors": [],
@@ -222,13 +223,13 @@
           "served_by_colo": "HKG",
           "served_by_primary": true,
           "timings": {
-            "sql_duration_ms": 0.8112
+            "sql_duration_ms": 0.4858
           },
-          "duration": 0.8112,
+          "duration": 0.4858,
           "changes": 0,
           "last_row_id": 0,
           "changed_db": false,
-          "size_after": 172982272,
+          "size_after": 173363200,
           "rows_read": 369,
           "rows_written": 0,
           "total_attempts": 1
@@ -588,13 +589,13 @@
           "served_by_colo": "HKG",
           "served_by_primary": true,
           "timings": {
-            "sql_duration_ms": 0.2928
+            "sql_duration_ms": 0.1666
           },
-          "duration": 0.2928,
+          "duration": 0.1666,
           "changes": 0,
           "last_row_id": 0,
           "changed_db": false,
-          "size_after": 172982272,
+          "size_after": 173363200,
           "rows_read": 0,
           "rows_written": 0,
           "total_attempts": 1
@@ -609,13 +610,13 @@
           "served_by_colo": "HKG",
           "served_by_primary": true,
           "timings": {
-            "sql_duration_ms": 0.1577
+            "sql_duration_ms": 0.0699
           },
-          "duration": 0.1577,
+          "duration": 0.0699,
           "changes": 0,
           "last_row_id": 0,
           "changed_db": false,
-          "size_after": 172982272,
+          "size_after": 173363200,
           "rows_read": 1,
           "rows_written": 0,
           "total_attempts": 1
@@ -641,13 +642,13 @@
           "served_by_colo": "HKG",
           "served_by_primary": true,
           "timings": {
-            "sql_duration_ms": 2.2276
+            "sql_duration_ms": 11.1057
           },
-          "duration": 2.2276,
+          "duration": 11.1057,
           "changes": 0,
           "last_row_id": 0,
           "changed_db": false,
-          "size_after": 172982272,
+          "size_after": 173363200,
           "rows_read": 4210,
           "rows_written": 0,
           "total_attempts": 1
@@ -678,13 +679,13 @@
           "served_by_colo": "HKG",
           "served_by_primary": true,
           "timings": {
-            "sql_duration_ms": 0.7113
+            "sql_duration_ms": 1.2519
           },
-          "duration": 0.7113,
+          "duration": 1.2519,
           "changes": 0,
           "last_row_id": 0,
           "changed_db": false,
-          "size_after": 172982272,
+          "size_after": 173363200,
           "rows_read": 2105,
           "rows_written": 0,
           "total_attempts": 1
@@ -704,14 +705,35 @@
           "served_by_colo": "HKG",
           "served_by_primary": true,
           "timings": {
-            "sql_duration_ms": 0.166
+            "sql_duration_ms": 0.8139
           },
-          "duration": 0.166,
+          "duration": 0.8139,
           "changes": 0,
           "last_row_id": 0,
           "changed_db": false,
-          "size_after": 172982272,
+          "size_after": 173363200,
           "rows_read": 2105,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.4151
+          },
+          "duration": 0.4151,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 173363200,
+          "rows_read": 48,
           "rows_written": 0,
           "total_attempts": 1
         }
