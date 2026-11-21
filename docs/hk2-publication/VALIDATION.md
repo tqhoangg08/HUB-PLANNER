@@ -9,6 +9,8 @@ The historical gate validation below remains unchanged.
   95-receipt isolated D1 fixture, exact-main CI/live protection failures, the two
   authentic owner comments, an atomic constraint failure, lost-response recovery,
   gated API visibility, backup-file hashing and unchanged HK1/personal rows.
+  The additional focused schema regression is **1/1 PASS**: missing migration
+  tracking and an unreviewed publication trigger both block the transport.
 - Golden comparison proves `openHk2Publication()`'s SQL, atomic assertions,
   capability consumption and state machine unchanged. Importer, catalogue/source
   hashes, Worker/UI, migrations and release guards/workflows have no diff.

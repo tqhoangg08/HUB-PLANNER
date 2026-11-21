@@ -4,7 +4,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { publicationFixture, HK1_ID } from './hk2-publication-fixture.mjs';
-import { prepareProductionPublication, publishProductionCatalogue, inspectPublication, publicationBinding,
+import { prepareProductionPublication, publishProductionCatalogue, inspectPublication, publicationBinding, assertPublicationSchema,
   publicationBackupEvidence, verifyBackupFile } from '../scripts/hk2-2026-2027/publication-transport.mjs';
 import { backupRestoreAttestationText, publicationApprovalText, openHk2Publication } from '../scripts/hk2-2026-2027/publication.mjs';
 import { verifyPublicationOperator, V477_ASSET_MANIFEST_SHA256 } from '../scripts/hk2-2026-2027/publication-operator.mjs';
@@ -66,6 +66,17 @@ test('operator evidence preserves exact-main CI, owner, protection, release, ser
   }
   const e=await evidence();assert.equal((await verifyPublicationOperator(release,{...credentials,fetchImpl:e.fetcher})).ci_run,'800');
   await assert.rejects(verifyPublicationOperator({...release,sha:operatorSha},{...credentials,fetchImpl:e.fetcher}),/Reviewed/);
+});
+
+test('schema verification rejects missing tracking and unreviewed publication triggers',async t=>{
+  const f=await publicationFixture();t.after(()=>f.mf.dispose());await f.migrate();
+  await assert.rejects(assertPublicationSchema(f.db),/d1_migrations/);
+  await f.db.prepare('CREATE TABLE d1_migrations(name TEXT)').run();
+  await assert.rejects(assertPublicationSchema(f.db),/tracking/);
+  await f.db.prepare("INSERT INTO d1_migrations VALUES('0062_hk2_catalogue_publication.sql')").run();
+  await assertPublicationSchema(f.db);
+  await f.db.prepare("CREATE TRIGGER unexpected_publication_side_effect AFTER UPDATE ON hk2_catalogue_publications BEGIN SELECT 1; END").run();
+  await assert.rejects(assertPublicationSchema(f.db),/schema/);
 });
 
 test('native publication transport: 2357 rows/95 receipts, two real owner comments, atomic failure/lost ACK and protected data', {timeout:480000},async t=>{

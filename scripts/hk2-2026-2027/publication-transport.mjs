@@ -54,7 +54,7 @@ export async function verifyBackupFile(report) {
 
 export async function assertPublicationSchema(db) {
   const source = (await readFile(new URL('../../cloudflare/migrations/0062_hk2_catalogue_publication.sql', import.meta.url), 'utf8')).replace(/--[^\n]*/g, '');
-  const objects = (await db.prepare("SELECT name,sql FROM sqlite_master WHERE name IN ('hk2_catalogue_publications','hk2_catalogue_publication_receipts') ORDER BY name").all()).results;
+  const objects = (await db.prepare("SELECT name,sql FROM sqlite_master WHERE tbl_name IN ('hk2_catalogue_publications','hk2_catalogue_publication_receipts') AND sql IS NOT NULL ORDER BY name").all()).results;
   const canonical = sql => sql.replace(/\s/g, '').replace(/;$/, '');
   assert(objects.length === 2 && objects.every(o => {
     const expected = source.match(new RegExp(`CREATE TABLE ${o.name} \\([\\s\\S]*?\\n\\);`))?.[0];
