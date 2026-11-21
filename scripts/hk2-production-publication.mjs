@@ -40,8 +40,10 @@ try {
     await writeFile(path.join(out,`owner-${name}-comment-lf.json`),JSON.stringify({body}),{flag:'wx'});
   }
   await writeFile(path.join(out,'verification.json'),JSON.stringify({verification,verification_sha256:digest(verification),provider:prepared.provider,backup:prepared.backup,release:prepared.release,expires_at:expiresAt},null,2));
-  const commands = Object.keys(bodies).map(name => `& "C:\\Program Files\\GitHub CLI\\gh.exe" api --method POST repos/tqhoangg08/HUB-PLANNER/issues/${args.issue}/comments --input "${path.join(out,`owner-${name}-comment-lf.json`)}" --jq ".id"`);
+  const psQuote = value => `'${value.replaceAll("'", "''")}'`;
+  const commands = Object.keys(bodies).map(name => `& ${psQuote('C:\\Program Files\\GitHub CLI\\gh.exe')} api --method POST repos/tqhoangg08/HUB-PLANNER/issues/${args.issue}/comments --input ${psQuote(path.join(out,`owner-${name}-comment-lf.json`))} --jq '.id'`);
   console.log(JSON.stringify({stage:'AWAITING_TWO_SEPARATE_OWNER_COMMENTS',expires_at:expiresAt,verification_sha256:digest(verification),commands}));
+  console.log(commands.join('\n'));
   let comments;
   while (Date.now() < Date.parse(expiresAt)) {
     const list = await api(`/issues/${args.issue}/comments?per_page=100&since=${encodeURIComponent(verification.checked_at)}`);
