@@ -1,0 +1,11 @@
+{
+  "name": "hub-planner-hk2-operator",
+  "account_id": "6cd8bac6009a55f96bdf9df7c2057548",
+  "compatibility_date": "2026-07-29",
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "hub-planner-public-dev",
+    "database_id": "88d702e1-60d3-490a-8514-38ef881cf133",
+    "remote": true
+  }]
+}

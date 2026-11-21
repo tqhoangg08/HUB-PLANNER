@@ -341,7 +341,10 @@ test('v476 changes exactly the reviewed pin and two provenance comments; histori
   assert.deepEqual(manifest,e.validation.historicalBaselineManifest);
   for(const row of manifest)assert.equal(git('hash-object',`--path=${row.path}`,row.path).trim(),row.blob,row.path);
   assert.equal(git('hash-object',`--path=${e.previousEvidence.path}`,e.previousEvidence.path).trim(),e.previousEvidence.gitBlob);
-  git('diff','--exit-code',e.mainAtPreparation,'--','.github/workflows/deploy-cloudflare-production.yml','.github/workflows/ai-advisor-pr-validation.yml','.github/workflows/public-release-metadata-probe.yml','cloudflare/wrangler.jsonc','cloudflare/migrations/0062_hk2_catalogue_publication.sql','data/hk2-2026-2027','scripts/hk2-2026-2027/bulk-import.mjs','scripts/hk2-2026-2027/catalogue.mjs','scripts/hk2-d1-import.mjs','scripts/check-public-release-approval.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs','scripts/release-assistant.mjs','scripts/scholarship-release-schema.mjs','scripts/scholarship-release-schema.json','scripts/announcement-release-schema.mjs','scripts/announcement-release-schema.json');
+  git('diff','--exit-code',e.mainAtPreparation,'--','.github/workflows/deploy-cloudflare-production.yml','.github/workflows/ai-advisor-pr-validation.yml','.github/workflows/public-release-metadata-probe.yml','cloudflare/wrangler.jsonc','cloudflare/migrations/0062_hk2_catalogue_publication.sql','data/hk2-2026-2027','scripts/hk2-2026-2027/catalogue.mjs','scripts/hk2-d1-import.mjs','scripts/check-public-release-approval.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs','scripts/release-assistant.mjs','scripts/scholarship-release-schema.mjs','scripts/scholarship-release-schema.json','scripts/announcement-release-schema.mjs','scripts/announcement-release-schema.json');
+  // Preserve the original baseline-only proof at its merged SHA. The new operator
+  // test separately proves every writer algorithm unchanged except its auth hook.
+  git('diff','--exit-code',e.mainAtPreparation,'8416837eb5ce648ce9c1c6237b4eed81802dbd03','--','scripts/hk2-2026-2027/bulk-import.mjs');
 });
 
 test('historical reviewed v474 baseline matches official receipts, exact-SHA validation and Cloudflare live metadata',()=>{

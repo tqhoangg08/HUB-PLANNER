@@ -2,6 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR, FIELDS, SEMESTER, normalizeKey, planImport, sha256 } from './catalogue.mjs';
+import { assertProductionAuthorization } from './operator-authorization.mjs';
 
 export const MANIFEST_SHA256 = '2fe8af0743805fcc64ba414e22817fb26f3b5ce2247b50677bc518122c36e212';
 export const PAYLOAD_SHA256 = '2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797';
@@ -156,9 +157,9 @@ function authorize(plan, authorization, action) {
     assert(authorization.target === 'local', 'Local authorization required');
     return;
   }
-  // No production adapter is shipped. A future owner-approved integration must authenticate the
-  // operator, resolve these receipts from trusted systems, and supply the primary D1 binding.
-  throw new Error('Production execution is disabled in this PR; owner-approved transport and verified release/backup receipts required');
+  // The separate operator integration authenticates the owner and trusted receipts;
+  // a caller's JSON approval never enables production execution.
+  assertProductionAuthorization(plan, authorization, action);
 }
 
 const jsonArrays = columns => {
