@@ -1,5 +1,10 @@
 # Atomic HK2 catalogue publication — review package
 
+The original gate design below is historical. The separately reviewed operator
+integration and current ordered procedure are in [PRODUCTION-TRANSPORT.md](PRODUCTION-TRANSPORT.md).
+Import completion never authorizes publication. Do not generate the two short-lived
+owner comments until that transport is merged and exact-main independent CI passes.
+
 This PR prepares a server publication boundary. It performs **no production
 migration, import, deployment or publication**. The production counts (2,103 HK1,
 zero HK2) and Worker v476 are owner-supplied context, not a fresh production audit.

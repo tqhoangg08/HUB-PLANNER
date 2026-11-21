@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { loadBulkPackage, createBulkPlan, captureSnapshot, validateBulkSnapshot, MANIFEST_SHA256, PAYLOAD_SHA256 } from './bulk-import.mjs';
 import { FIELDS, SEMESTER, sha256, planImport } from './catalogue.mjs';
+import { verifyPublicationOperator } from './publication-operator.mjs';
 
 const REPO = 'tqhoangg08/HUB-PLANNER', REPO_ID = 1126820605, OWNER_ID = 252552483;
 const WORKER_API = 'https://api.cloudflare.com/client/v4/accounts/6cd8bac6009a55f96bdf9df7c2057548/workers/scripts/hub-planner-public-dev-api';
@@ -35,6 +36,7 @@ export async function verifyHk2Publication(db, { plan, backup, release }) {
   assert(COMMIT.test(release?.sha) && Number.isSafeInteger(release.run_id) && release.run_id > 0
     && typeof release.worker_version === 'string' && release.worker_version.length > 0
     && SHA.test(release.asset_manifest_sha256), 'Compatible release evidence missing');
+  if (release.operator_sha !== undefined) assert(COMMIT.test(release.operator_sha), 'Exact operator SHA required');
   const snapshot = await captureSnapshot(db, plan.snapshot.database_id);
   await validateBulkSnapshot(snapshot);
   const rows = snapshot.response.result[2].results, columns = snapshot.response.result[1].results.map(r => r.name);
@@ -66,7 +68,8 @@ export async function verifyHk2Publication(db, { plan, backup, release }) {
     checked_at: snapshot.checked_at, plan_id: plan.plan_id, manifest_sha256: MANIFEST_SHA256, payload_sha256: PAYLOAD_SHA256,
     official_count: 2357, batch_count: 95, courses_sha256: sha256(JSON.stringify(matrix(rows, columns))),
     ledger_sha256: sha256(JSON.stringify(ledger)), backup_restore_sha256: sha256(JSON.stringify(backup)),
-    release_sha256: sha256(JSON.stringify(release)), release_sha: release.sha });
+    release_sha256: sha256(JSON.stringify(release)), release_sha: release.sha,
+    ...(release.operator_sha ? { operator_sha: release.operator_sha } : {}) });
   const digest = sha256(JSON.stringify(verification));
   verifiedStates.set(verification, { snapshot, digest, backup: structuredClone(backup), release: structuredClone(release) });
   return verification;
@@ -74,7 +77,7 @@ export async function verifyHk2Publication(db, { plan, backup, release }) {
 
 export function publicationApprovalText(verification, expiresAt) {
   const state = verifiedStates.get(verification); assert(state, 'Fresh in-process verification required');
-  return `HUB-HK2-PUBLICATION-APPROVAL v1\naction=OPEN_HK2_2026_2027\ndatabase=${verification.database_id}\nverification_sha256=${state.digest}\nbackup_restore_sha256=${verification.backup_restore_sha256}\nrelease_sha=${verification.release_sha}\nexpires_at=${expiresAt}`;
+  return `HUB-HK2-PUBLICATION-APPROVAL ${verification.operator_sha ? 'v2' : 'v1'}\naction=OPEN_HK2_2026_2027\ndatabase=${verification.database_id}\nverification_sha256=${state.digest}\nbackup_restore_sha256=${verification.backup_restore_sha256}\nrelease_sha=${verification.release_sha}${verification.operator_sha ? `\noperator_sha=${verification.operator_sha}` : ''}\nexpires_at=${expiresAt}`;
 }
 
 export function backupRestoreAttestationText(verification) {
@@ -110,7 +113,8 @@ export async function authorizeHk2Publication(verification, { approval_comment_i
   ]);
   assert(identity.id === OWNER_ID && identity.type === 'User', 'Authenticated owner identity required');
   assert(repo.id === REPO_ID && repo.full_name === REPO && repo.owner?.id === OWNER_ID && repo.owner.type === 'User', 'Repository owner mismatch');
-  assert(branch.name === 'main' && branch.commit?.sha === verification.release_sha, 'Exact current main release required');
+  const operator = verification.operator_sha ? await verifyPublicationOperator(state.release, { github_read_token, cloudflare_read_token }) : null;
+  assert(branch.name === 'main' && branch.commit?.sha === (operator?.operator_sha || verification.release_sha), 'Exact current main release/operator required');
   for (const [comment, id] of [[approval, approval_comment_id], [backup, backup_comment_id]]) {
     assert(comment.id === id && comment.user?.id === OWNER_ID && comment.user.type === 'User'
       && comment.issue_url?.startsWith(`https://api.github.com/repos/${REPO}/issues/`)
@@ -147,8 +151,9 @@ export async function authorizeHk2Publication(verification, { approval_comment_i
   assert(version.id === state.release.worker_version && Date.parse(version.metadata?.created_on) >= Date.parse(releaseJob.started_at)
     && Date.parse(version.metadata?.created_on) <= Date.parse(releaseJob.completed_at), 'Serving Worker not from guarded release');
   // Re-read live main and approval immediately before granting a short-lived capability.
-  same((await github(`${base}/branches/main`, github_read_token)).commit?.sha, verification.release_sha, 'Main changed during approval');
+  same((await github(`${base}/branches/main`, github_read_token)).commit?.sha, operator?.operator_sha || verification.release_sha, 'Main changed during approval');
   same(await github(`${base}/issues/comments/${approval_comment_id}`, github_read_token), approval, 'Approval changed during authorization');
+  same(await github(`${base}/issues/comments/${backup_comment_id}`, github_read_token), backup, 'Backup attestation changed during authorization');
   const capability = Object.freeze({ action: verification.action });
   authorized.set(capability, { verification, approval_comment_id, owner_id: OWNER_ID, expires_at: Math.min(Date.parse(expires_at), Date.now() + 60_000) });
   return capability;

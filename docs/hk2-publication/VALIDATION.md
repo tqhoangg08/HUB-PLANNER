@@ -1,5 +1,40 @@
 # Publication gate validation evidence
 
+## Production transport review (2026-11-21)
+
+Operator base: `7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab` (#164).
+The historical gate validation below remains unchanged.
+
+- New targeted transport regressions: **3/3 PASS**, including the full 2,357-row /
+  95-receipt isolated D1 fixture, exact-main CI/live protection failures, the two
+  authentic owner comments, an atomic constraint failure, lost-response recovery,
+  gated API visibility, backup-file hashing and unchanged HK1/personal rows.
+- Golden comparison proves `openHk2Publication()`'s SQL, atomic assertions,
+  capability consumption and state machine unchanged. Importer, catalogue/source
+  hashes, Worker/UI, migrations and release guards/workflows have no diff.
+- Frontend and Worker typechecks and frontend/PWA build: **PASS** locally.
+  Existing non-fatal bundle size warnings remain.
+- Production **read-only** preflight at `2026-11-21T06:46:15.058Z`: **PASS**, all
+  2,357 full records / 95 receipts and provenance, primary snapshot, migration 0062
+  schema/tracking, CLOSED/revision 0, v477 100%, deployed gate Git blob, actual
+  frontend manifest, existing exact-main CI #44851130629 and live protections.
+  The 162,020,527-byte private SQL export was streamed and its SHA-256 rechecked;
+  the original isolated restore report/protected source/restored hashes match.
+  [Sanitized evidence](transport-readiness.json) explicitly identifies the unmerged
+  code and is **not** authority or a still-valid publication verification.
+- `npm test` includes the new regressions and the existing desktop/mobile/PWA
+  browser acceptance plus release-assistant regressions. See the PR head-SHA
+  Checks and description for the final full-suite/CI result; neither substitutes
+  for the separate exact-main validation required after owner merge.
+
+No production OPEN, migration, deployment, class/user mutation or owner comment
+has been performed by this transport change. Do not create expiring OPEN comments
+before review/merge/exact-main CI. The reviewed session later generates exactly
+two LF JSON bodies from one fresh in-memory verification and waits for the owner.
+See [PRODUCTION-TRANSPORT.md](PRODUCTION-TRANSPORT.md).
+
+## Historical gate implementation validation
+
 Base: `7521f3a3e10448dc04e3b5838880e18553bbd694` (merged #160).
 All D1 writes in these checks target ephemeral local Miniflare/SQLite fixtures.
 No production D1, migration, deploy, publication, GitHub owner attestation or merge
