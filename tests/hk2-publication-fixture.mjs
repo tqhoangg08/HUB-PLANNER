@@ -7,7 +7,7 @@ import { sha256 } from '../scripts/hk2-2026-2027/catalogue.mjs';
 export const USER = '11111111-1111-4111-8111-111111111111';
 export const HK1_ID = '22222222-2222-4222-8222-222222222222';
 export const RELEASE_SHA = 'a'.repeat(40);
-export async function publicationFixture({ workerScript } = {}) {
+export async function publicationFixture({ workerScript, databaseId = 'local' } = {}) {
   const mf = new Miniflare({ modules: true, script: workerScript || 'export default {fetch(){return new Response("fixture")}}',
     compatibilityDate: '2026-07-29', d1Databases: ['DB'] });
   const db = await mf.getD1Database('DB');
@@ -22,7 +22,8 @@ export async function publicationFixture({ workerScript } = {}) {
   await db.prepare("CREATE TABLE course_scraper_runs(run_id TEXT PRIMARY KEY,payload_hash TEXT,status TEXT,attempted_count INTEGER,updated_count INTEGER DEFAULT 0,skipped_admin_count INTEGER DEFAULT 0,conflict_count INTEGER DEFAULT 0,error_code TEXT,created_at TEXT,completed_at TEXT)").run();
   await db.prepare(`INSERT INTO course_schedules(id,course_code,subject_name,semester,instructor,is_user_added,updated_at,course_code_search,subject_name_search,instructor_search,source_position)
     VALUES(?,'HK1_VISIBLE','HK1 unchanged','HK1_2026_2027','Existing lecturer',0,'2026-01-01','hk1_visible','hk1 unchanged','existing lecturer',1)`).bind(HK1_ID).run();
-  const pkg = await loadBulkPackage(), plan = await createBulkPlan(pkg, await captureSnapshot(db));
+  const primary = { prepare: sql => db.prepare(sql), batch: async statements => (await db.batch(statements)).map(r => ({ ...r, meta: { ...r.meta, served_by_primary: true } })) };
+  const pkg = await loadBulkPackage(), plan = await createBulkPlan(pkg, await captureSnapshot(databaseId === 'local' ? db : primary, databaseId));
   const backup = { database_id: 'local', export_sha256: 'b'.repeat(64), export_reference: 'fixture-only-backup.sql', export_bytes: 100,
     protected_source_sha256: 'c'.repeat(64), protected_restored_sha256: 'c'.repeat(64), restore_environment: 'isolated', production_restored: false,
     exported_at: new Date(Date.parse(plan.snapshot.checked_at)-60_000).toISOString(), restore_verified_at: new Date(Date.parse(plan.snapshot.checked_at)-30_000).toISOString() };

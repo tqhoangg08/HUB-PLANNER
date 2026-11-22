@@ -6,3 +6,5 @@ data/hk2-2026-2027/generated/*.json text eol=lf
 # Derived manifest pins these two implementation files byte-for-byte.
 scripts/hk2-2026-2027/catalogue.mjs text eol=lf
 utils/provisionalCoursePolicy.js text eol=lf
+# Preserve the reviewed public v477 frontend manifest's original SHA-256 bytes.
+docs/hk2-publication/v477-asset-manifest.json -text

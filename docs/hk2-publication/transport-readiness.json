@@ -1,0 +1,52 @@
+{
+  "at": "2026-11-21T06:45:53.405Z",
+  "code_status": "Unmerged operator transport; read-only validation only, not authorization to publish",
+  "mutations": 0,
+  "dir": ".cache/hk2-publication-readonly-20261121064553403",
+  "status": "PASS",
+  "verification": {
+    "version": 1,
+    "action": "OPEN_HK2_2026_2027",
+    "database_id": "88d702e1-60d3-490a-8514-38ef881cf133",
+    "checked_at": "2026-11-21T06:46:15.058Z",
+    "plan_id": "b256c155b9f25050dcc2e641651d642c33c78424c04fcb520b28230d793d1000",
+    "manifest_sha256": "2fe8af0743805fcc64ba414e22817fb26f3b5ce2247b50677bc518122c36e212",
+    "payload_sha256": "2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797",
+    "official_count": 2357,
+    "batch_count": 95,
+    "courses_sha256": "9052984b24cbeecef5cd2e928126cb3e762f6c6380a3e191cb7c8b648c215a55",
+    "ledger_sha256": "0bc649a20f6fc4bef975a77e1914952d10df4aff3ad9799074f9dd37dc443741",
+    "backup_restore_sha256": "604a25fa059cf31c5ac47ee5385caca8f5bb551264a20e89202eb58fe459b48b",
+    "release_sha256": "fe737f2267e313d5d06cbf2f1f9680716f255fb017a3d3d9edb17fc12949014d",
+    "release_sha": "8416837eb5ce648ce9c1c6237b4eed81802dbd03",
+    "operator_sha": "7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab"
+  },
+  "provider": {
+    "operator_sha": "7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab",
+    "release_sha": "8416837eb5ce648ce9c1c6237b4eed81802dbd03",
+    "ci_run": "44851130629",
+    "policy_sha256": "65387e88bccf8382b9511de061ea9392809ddce0acd2f82caa3fb0fe6db4d484",
+    "worker_version": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+    "asset_manifest_sha256": "5a5cddda178f1817aba68e54f356ea16393dd3b4692b5f18b26b8f6fd215cdd0"
+  },
+  "backup": {
+    "database_id": "88d702e1-60d3-490a-8514-38ef881cf133",
+    "export_sha256": "b9a8124a2ee873e2bac2802c9a002879c772baf726de9c72c68a81f52afdbdfc",
+    "export_bytes": 162020527,
+    "export_reference": "sha256:b9a8124a2ee873e2bac2802c9a002879c772baf726de9c72c68a81f52afdbdfc;bookmark:000073c6-000000f0-00005129-279a0d2706b793135244e2e08f9a9fb3",
+    "protected_source_sha256": "9ba270e6d7079fb7e78e9dc5ae7ab22f49b5dc6d5fe9cdfef6d558f9b95b1771",
+    "protected_restored_sha256": "9ba270e6d7079fb7e78e9dc5ae7ab22f49b5dc6d5fe9cdfef6d558f9b95b1771",
+    "restore_environment": "isolated",
+    "production_restored": false,
+    "exported_at": "2026-11-20T17:05:31.207Z",
+    "restore_verified_at": "2026-11-20T17:16:12.554487+00:00",
+    "source_report_sha256": "78690bac3836c2ce685e28664182ad1e32fb46097694f0cd6ebea4293682d314"
+  },
+  "release": {
+    "sha": "8416837eb5ce648ce9c1c6237b4eed81802dbd03",
+    "run_id": 44764100186,
+    "worker_version": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+    "asset_manifest_sha256": "5a5cddda178f1817aba68e54f356ea16393dd3b4692b5f18b26b8f6fd215cdd0",
+    "operator_sha": "7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab"
+  }
+}
