@@ -1,0 +1,358 @@
+{
+  "baseline": "eaa2a55",
+  "runtime": "local Miniflare D1; meta.rows_read including indexes",
+  "cases": [
+    {
+      "name": "CLOSED:resource=filter-options",
+      "before": {
+        "rows_read": 50548,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 4079,
+        "queries": 2
+      }
+    },
+    {
+      "name": "CLOSED:resource=filter-options&semester=HK2_2026_2027",
+      "before": {
+        "rows_read": 36802,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 2399,
+        "queries": 2
+      }
+    },
+    {
+      "name": "CLOSED:resource=filter-options&semester=HK1_2026_2027",
+      "before": {
+        "rows_read": 14900,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 1682,
+        "queries": 2
+      }
+    },
+    {
+      "name": "CLOSED:resource=filter-options&semester=HK2_2026_2027&major=M1",
+      "before": {
+        "rows_read": 36666,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 4797,
+        "queries": 3
+      }
+    },
+    {
+      "name": "CLOSED:resource=filter-options&semester=HK1_2026_2027&major=M1&cohort=K1",
+      "before": {
+        "rows_read": 8674,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 5044,
+        "queries": 4
+      }
+    },
+    {
+      "name": "CLOSED:resource=filter-options&major=M1&major=M2&cohort=K1&academicProgram=P1&phase=1&isUserAdded=false",
+      "before": {
+        "rows_read": 43396,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 16313,
+        "queries": 5
+      }
+    },
+    {
+      "name": "CLOSED:resource=filter-options&semester=HK2_2026_2027&isUserAdded=true",
+      "before": {
+        "rows_read": 10898,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 2398,
+        "queries": 2
+      }
+    },
+    {
+      "name": "CLOSED:semester=HK2_2026_2027",
+      "before": {
+        "rows_read": 20563,
+        "queries": 3
+      },
+      "after": {
+        "rows_read": 6518,
+        "queries": 3
+      }
+    },
+    {
+      "name": "CLOSED:semester=HK1_2026_2027&limit=10&offset=10",
+      "before": {
+        "rows_read": 5175,
+        "queries": 3
+      },
+      "after": {
+        "rows_read": 4080,
+        "queries": 3
+      }
+    },
+    {
+      "name": "CLOSED:semester=HK2_2026_2027&search=toán",
+      "before": {
+        "rows_read": 22244,
+        "queries": 3
+      },
+      "after": {
+        "rows_read": 8199,
+        "queries": 3
+      }
+    },
+    {
+      "name": "CLOSED:semester=HK2_2026_2027&suggestions=true",
+      "before": {
+        "rows_read": 11630,
+        "queries": 2
+      },
+      "after": {
+        "rows_read": 4060,
+        "queries": 2
+      }
+    },
+    {
+      "name": "CLOSED:semester=HK1_2026_2027&groupName=G_N2",
+      "before": {
+        "rows_read": 6854,
+        "queries": 2
+      },
+      "after": {
+        "rows_read": 5759,
+        "queries": 2
+      }
+    },
+    {
+      "name": "CLOSED:semester=HK1_2026_2027&sort=name-asc&limit=10",
+      "before": {
+        "rows_read": 14313,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 13218,
+        "queries": 5
+      }
+    },
+    {
+      "name": "CLOSED:resource=course-detail&id=c00001",
+      "before": {
+        "rows_read": 7573,
+        "queries": 2
+      },
+      "after": {
+        "rows_read": 3,
+        "queries": 2
+      }
+    },
+    {
+      "name": "schema probe with 1095 receipts",
+      "before": {
+        "rows_read": 1096,
+        "queries": 1
+      },
+      "after": {
+        "rows_read": 1,
+        "queries": 1
+      }
+    },
+    {
+      "name": "OPEN:resource=filter-options",
+      "before": {
+        "rows_read": 64741,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 11747,
+        "queries": 2
+      }
+    },
+    {
+      "name": "OPEN:resource=filter-options&semester=HK2_2026_2027",
+      "before": {
+        "rows_read": 51301,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 10067,
+        "queries": 2
+      }
+    },
+    {
+      "name": "OPEN:resource=filter-options&semester=HK1_2026_2027",
+      "before": {
+        "rows_read": 14901,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 1683,
+        "queries": 2
+      }
+    },
+    {
+      "name": "OPEN:resource=filter-options&semester=HK2_2026_2027&major=M1",
+      "before": {
+        "rows_read": 45130,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 20132,
+        "queries": 3
+      }
+    },
+    {
+      "name": "OPEN:resource=filter-options&semester=HK1_2026_2027&major=M1&cohort=K1",
+      "before": {
+        "rows_read": 8675,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 5045,
+        "queries": 4
+      }
+    },
+    {
+      "name": "OPEN:resource=filter-options&major=M1&major=M2&cohort=K1&academicProgram=P1&phase=1&isUserAdded=false",
+      "before": {
+        "rows_read": 48273,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 46982,
+        "queries": 5
+      }
+    },
+    {
+      "name": "OPEN:resource=filter-options&semester=HK2_2026_2027&isUserAdded=true",
+      "before": {
+        "rows_read": 10899,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 2399,
+        "queries": 2
+      }
+    },
+    {
+      "name": "OPEN:semester=HK2_2026_2027",
+      "before": {
+        "rows_read": 18929,
+        "queries": 3
+      },
+      "after": {
+        "rows_read": 17836,
+        "queries": 3
+      }
+    },
+    {
+      "name": "OPEN:semester=HK1_2026_2027&limit=10&offset=10",
+      "before": {
+        "rows_read": 5176,
+        "queries": 3
+      },
+      "after": {
+        "rows_read": 4081,
+        "queries": 3
+      }
+    },
+    {
+      "name": "OPEN:semester=HK2_2026_2027&search=toán",
+      "before": {
+        "rows_read": 20610,
+        "queries": 3
+      },
+      "after": {
+        "rows_read": 19517,
+        "queries": 3
+      }
+    },
+    {
+      "name": "OPEN:semester=HK2_2026_2027&suggestions=true",
+      "before": {
+        "rows_read": 8785,
+        "queries": 2
+      },
+      "after": {
+        "rows_read": 7691,
+        "queries": 2
+      }
+    },
+    {
+      "name": "OPEN:semester=HK1_2026_2027&groupName=G_N2",
+      "before": {
+        "rows_read": 6855,
+        "queries": 2
+      },
+      "after": {
+        "rows_read": 5760,
+        "queries": 2
+      }
+    },
+    {
+      "name": "OPEN:semester=HK1_2026_2027&sort=name-asc&limit=10",
+      "before": {
+        "rows_read": 14314,
+        "queries": 5
+      },
+      "after": {
+        "rows_read": 13219,
+        "queries": 5
+      }
+    },
+    {
+      "name": "OPEN:resource=course-detail&id=c00001",
+      "before": {
+        "rows_read": 8765,
+        "queries": 2
+      },
+      "after": {
+        "rows_read": 7671,
+        "queries": 2
+      }
+    },
+    {
+      "name": "directory 20000 students / 814 labels",
+      "before": {
+        "rows_read": 20814,
+        "queries": 1
+      },
+      "after": {
+        "rows_read": 2445,
+        "queries": 1
+      }
+    },
+    {
+      "name": "unreviewed banner miss / 10000 candidates",
+      "before": {
+        "rows_read": 10000,
+        "queries": 1
+      },
+      "after": {
+        "rows_read": 0,
+        "queries": 1
+      }
+    },
+    {
+      "name": "live conversation owner / 10000 chat rows",
+      "before": {
+        "rows_read": 9999,
+        "queries": 1
+      },
+      "after": {
+        "rows_read": 1,
+        "queries": 1
+      }
+    }
+  ]
+}

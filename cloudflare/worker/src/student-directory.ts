@@ -111,9 +111,26 @@ export const handleStudentDirectoryClasses = async (request: Request, env: Stude
   const identity = await requireBetterAuthSession(request, env);
   if (!await readVerifiedStudentCode(request, env, identity)) return { classes: [] };
   if (!env.DB) throw new StudentDirectoryError(503, 'Dữ liệu sinh viên tạm thời chưa sẵn sàng.');
-  const result = await env.DB.prepare(`SELECT DISTINCT TRIM(general_class) AS class_name
-    FROM student_directory WHERE general_class IS NOT NULL AND TRIM(general_class) <> ''
-    ORDER BY class_name COLLATE NOCASE`).all<{ class_name: string }>();
+  // Seek to the next distinct normalized label instead of visiting every
+  // student's entry. BINARY preserves DISTINCT's case-sensitive identity;
+  // NOCASE remains only the presentation order. See migration 0063.
+  const result = await env.DB.prepare(`WITH RECURSIVE labels(class_name) AS (
+    SELECT MIN(TRIM(general_class)) FROM student_directory INDEXED BY student_directory_class_label_idx
+      WHERE general_class IS NOT NULL AND TRIM(general_class) <> ''
+    UNION ALL
+    SELECT (SELECT MIN(TRIM(general_class)) FROM student_directory INDEXED BY student_directory_class_label_idx
+      WHERE general_class IS NOT NULL AND TRIM(general_class) <> ''
+        AND TRIM(general_class) > labels.class_name COLLATE BINARY)
+      FROM labels WHERE class_name IS NOT NULL
+  ) SELECT class_name FROM labels WHERE class_name IS NOT NULL
+    ORDER BY class_name COLLATE NOCASE`).all<{ class_name: string }>().catch((error: unknown) => {
+      // Rolling code out ahead of migration 0063 must retain the old bounded
+      // full scan, never run a recursive sequence of unindexed scans.
+      if (!(error instanceof Error) || !/no such index: student_directory_class_label_idx/i.test(error.message)) throw error;
+      return env.DB!.prepare(`SELECT DISTINCT TRIM(general_class) AS class_name
+        FROM student_directory WHERE general_class IS NOT NULL AND TRIM(general_class) <> ''
+        ORDER BY class_name COLLATE NOCASE`).all<{ class_name: string }>();
+    });
   return { classes: result.results.map((row) => row.class_name)
     .filter((name) => name.length <= 80) };
 };

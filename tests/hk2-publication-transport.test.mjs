@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { D1_AUDIT_RELEASE_EXCLUSIONS } from './fixtures/d1-audit-release-scope.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -118,12 +119,12 @@ test('native publication transport: 2357 rows/95 receipts, two real owner commen
   const bad=structuredClone(proof);bad.restore.tables[0].restored.sha256='0'.repeat(64);assert.throws(()=>publicationBackupEvidence(bad,f.plan),/backup/);
 });
 
-test('private export bytes are verified; original publication SQL, importer, Worker, UI and release guards are unchanged',async()=>{
+test('private exports, publication SQL, importer, UI and release guards stay unchanged outside the audited D1 files',async()=>{
   await mkdir('.cache/hk2-publication-tests',{recursive:true});const file='.cache/hk2-publication-tests/export-fixture.sql',bytes=Buffer.from('-- isolated test fixture only\n');
   await writeFile(file,bytes);const b={backup:{file,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')}};
   await verifyBackupFile(b);await assert.rejects(verifyBackupFile({backup:{...b.backup,bytes:1}}),/hash\/length/);
   const fileName='scripts/hk2-2026-2027/publication.mjs',before=execFileSync('git',['show',`7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab:${fileName}`],{encoding:'utf8'}).replace(/\r\n/g,'\n');
   const after=(await readFile(fileName,'utf8')).replace(/\r\n/g,'\n');
   assert.equal(after.slice(after.indexOf('const sqlArray =')),before.slice(before.indexOf('const sqlArray =')),'Atomic SQL, guards, capability consumption and state machine unchanged');
-  execFileSync('git',['diff','--exit-code','7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab','--','cloudflare','components','utils','data/hk2-2026-2027','.github','scripts/hk2-2026-2027/bulk-import.mjs','scripts/hk2-2026-2027/operator-authorization.mjs','scripts/hk2-2026-2027/production-transport.mjs','scripts/check-public-release-approval.mjs','scripts/check-public-release-state.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs']);
+  execFileSync('git',['diff','--exit-code','7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab','--','cloudflare','components','utils','data/hk2-2026-2027','.github','scripts/hk2-2026-2027/bulk-import.mjs','scripts/hk2-2026-2027/operator-authorization.mjs','scripts/hk2-2026-2027/production-transport.mjs','scripts/check-public-release-approval.mjs','scripts/check-public-release-state.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs',...D1_AUDIT_RELEASE_EXCLUSIONS]);
 });

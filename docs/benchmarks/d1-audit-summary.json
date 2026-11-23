@@ -1,0 +1,140 @@
+{
+  "source": "Cloudflare GraphQL d1AnalyticsAdaptiveGroups and d1QueriesAdaptiveGroups, retrieved 2026-11-23; no application workload replay on production",
+  "days": [
+    {
+      "date": "2026-11-20",
+      "timezone": "UTC (Cloudflare daily quota day; local midnight is not the quota reset)",
+      "mainRowsRead": 6740470,
+      "authRowsRead": 107036,
+      "accountRowsRead": 6847506,
+      "insightsCovered": 5734326,
+      "unattributed": 1006144,
+      "groups": {
+        "Course facets (including count)": 2236938,
+        "Other course queries": 1521534,
+        "Student directory class list": 678130,
+        "Other": 411480,
+        "Scholarships": 210950,
+        "Imported exact ranking forecast": 209560,
+        "Push subscriptions and attempts": 170520,
+        "Operator-shaped snapshots/import guards (attribution inferred)": 101044,
+        "Candidate banner authorization lookup": 99050,
+        "Conversation owner lookup": 90800,
+        "Catalogue schema probe": 4320
+      },
+      "sensitivity": [
+        {
+          "facetRemainingRatio": 0.15,
+          "projectedAccountRows": 4347638
+        },
+        {
+          "facetRemainingRatio": 0.25,
+          "projectedAccountRows": 4571332
+        },
+        {
+          "facetRemainingRatio": 0.35,
+          "projectedAccountRows": 4795026
+        },
+        {
+          "facetRemainingRatio": 0.6,
+          "projectedAccountRows": 5354260
+        },
+        {
+          "facetRemainingRatio": 0.98,
+          "projectedAccountRows": 6204297
+        }
+      ],
+      "notes": "Sensitivity only, not measured production savings. Keeps all non-facet/non-directory reads unchanged. Bound filter values and gate state are unavailable in Insights; no assumption about exact request mix."
+    },
+    {
+      "date": "2026-11-21",
+      "timezone": "UTC (Cloudflare daily quota day; local midnight is not the quota reset)",
+      "mainRowsRead": 7885259,
+      "authRowsRead": 45140,
+      "accountRowsRead": 7930399,
+      "insightsCovered": 7620023,
+      "unattributed": 265236,
+      "groups": {
+        "Course facets (including count)": 4176221,
+        "Operator-shaped snapshots/import guards (attribution inferred)": 2218355,
+        "Other course queries": 588743,
+        "Other": 211257,
+        "Imported exact ranking forecast": 125736,
+        "Scholarships": 103580,
+        "Student directory class list": 99725,
+        "Candidate banner authorization lookup": 48133,
+        "Catalogue schema probe": 47327,
+        "Push subscriptions and attempts": 906,
+        "Conversation owner lookup": 40
+      },
+      "sensitivity": [
+        {
+          "facetRemainingRatio": 0.15,
+          "projectedAccountRows": 4292601
+        },
+        {
+          "facetRemainingRatio": 0.25,
+          "projectedAccountRows": 4710223
+        },
+        {
+          "facetRemainingRatio": 0.35,
+          "projectedAccountRows": 5127845
+        },
+        {
+          "facetRemainingRatio": 0.6,
+          "projectedAccountRows": 6171900
+        },
+        {
+          "facetRemainingRatio": 0.98,
+          "projectedAccountRows": 7758864
+        }
+      ],
+      "notes": "Sensitivity only, not measured production savings. Keeps all non-facet/non-directory reads unchanged. Bound filter values and gate state are unavailable in Insights; no assumption about exact request mix."
+    },
+    {
+      "date": "2026-11-22",
+      "timezone": "UTC (Cloudflare daily quota day; local midnight is not the quota reset)",
+      "mainRowsRead": 6638920,
+      "authRowsRead": 35706,
+      "accountRowsRead": 6674626,
+      "insightsCovered": 6482296,
+      "unattributed": 156624,
+      "groups": {
+        "Course facets (including count)": 5059604,
+        "Other course queries": 833659,
+        "Student directory class list": 199450,
+        "Other": 100201,
+        "Imported exact ranking forecast": 94302,
+        "Catalogue schema probe": 70776,
+        "Operator-shaped snapshots/import guards (attribution inferred)": 65787,
+        "Candidate banner authorization lookup": 53594,
+        "Conversation owner lookup": 4566,
+        "Push subscriptions and attempts": 353,
+        "Scholarships": 4
+      },
+      "sensitivity": [
+        {
+          "facetRemainingRatio": 0.15,
+          "projectedAccountRows": 2197942
+        },
+        {
+          "facetRemainingRatio": 0.25,
+          "projectedAccountRows": 2703902
+        },
+        {
+          "facetRemainingRatio": 0.35,
+          "projectedAccountRows": 3209863
+        },
+        {
+          "facetRemainingRatio": 0.6,
+          "projectedAccountRows": 4474764
+        },
+        {
+          "facetRemainingRatio": 0.98,
+          "projectedAccountRows": 6397413
+        }
+      ],
+      "notes": "Sensitivity only, not measured production savings. Keeps all non-facet/non-directory reads unchanged. Bound filter values and gate state are unavailable in Insights; no assumption about exact request mix."
+    }
+  ]
+}

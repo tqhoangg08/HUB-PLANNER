@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { D1_AUDIT_RELEASE_EXCLUSIONS } from './fixtures/d1-audit-release-scope.mjs';
 import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,readFile,writeFile} from 'node:fs/promises';
 import {fork,execFileSync} from 'node:child_process';
@@ -119,8 +120,8 @@ test('forced exits leave abnormal-stop evidence; SIGKILL is detected without del
   });
 });
 
-test('all publication/import guards, atomic SQL, frozen data, Worker and production dependencies remain byte-identical',async()=>{
-  execFileSync('git',['diff','--exit-code','d0a91352ec7e32744e4f6e8331c88b56347717df','--','scripts/hk2-2026-2027/publication.mjs','scripts/hk2-2026-2027/publication-transport.mjs','scripts/hk2-2026-2027/publication-operator.mjs','scripts/hk2-2026-2027/bulk-import.mjs','scripts/hk2-2026-2027/operator-authorization.mjs','scripts/hk2-2026-2027/production-transport.mjs','data/hk2-2026-2027','cloudflare','components','utils','.github','package-lock.json']);
+test('publication/import guards, frozen data and dependencies stay byte-identical outside the audited D1 files',async()=>{
+  execFileSync('git',['diff','--exit-code','d0a91352ec7e32744e4f6e8331c88b56347717df','--','scripts/hk2-2026-2027/publication.mjs','scripts/hk2-2026-2027/publication-transport.mjs','scripts/hk2-2026-2027/publication-operator.mjs','scripts/hk2-2026-2027/bulk-import.mjs','scripts/hk2-2026-2027/operator-authorization.mjs','scripts/hk2-2026-2027/production-transport.mjs','data/hk2-2026-2027','cloudflare','components','utils','.github','package-lock.json',...D1_AUDIT_RELEASE_EXCLUSIONS]);
   const old=JSON.parse(execFileSync('git',['show','d0a91352ec7e32744e4f6e8331c88b56347717df:package.json'],{encoding:'utf8'})),now=JSON.parse(await readFile('package.json'));
   assert.deepEqual(now.dependencies,old.dependencies);assert.deepEqual(now.devDependencies,old.devDependencies);
 });

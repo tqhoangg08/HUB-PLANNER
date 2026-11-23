@@ -379,38 +379,20 @@ const filterOptions = async (url: URL, env: CourseEnv) => {
   );
   const programFilter = buildFacetWhere(url.searchParams, ['major', 'cohort']);
 
-  const results = await env.DB.batch<CourseFacetRow>([
-    env.DB.prepare(
-      `SELECT major, MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${majorFilter.whereSql}
-        GROUP BY major
-        ORDER BY first_source_position`
-    ).bind(...majorFilter.bindings),
-    env.DB.prepare(
-      `SELECT cohort, MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${cohortFilter.whereSql}
-        GROUP BY cohort
-        ORDER BY first_source_position`
-    ).bind(...cohortFilter.bindings),
-    env.DB.prepare(
-      `SELECT subject_name, group_name,
-              MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${optionFilter.whereSql}
-        GROUP BY subject_name, group_name
-        ORDER BY first_source_position`
-    ).bind(...optionFilter.bindings),
-    env.DB.prepare(
-      `SELECT academic_program, MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${programFilter.whereSql}
-        GROUP BY academic_program
-        ORDER BY first_source_position`
-    ).bind(...programFilter.bindings),
-  ]);
-
-  const majorRows = results[0]?.results || [];
-  const cohortRows = results[1]?.results || [];
-  const optionRows = results[2]?.results || [];
-  const programRows = results[3]?.results || [];
+  // Each option excludes its own filter. Identical scopes can share one scan
+  // within this request; the final options are sets sorted below, so the old
+  // GROUP BY/MIN/order intermediates carry no information into the response.
+  // No result or publication decision is cached across requests.
+  const scopes = [majorFilter, cohortFilter, optionFilter, programFilter];
+  const keys = scopes.map(scope => JSON.stringify([scope.whereSql, scope.bindings]));
+  const uniqueKeys = [...new Set(keys)];
+  const results = await env.DB.batch<CourseFacetRow>(uniqueKeys.map(key => {
+    const scope = scopes[keys.indexOf(key)];
+    return env.DB.prepare(`SELECT major, cohort, subject_name, group_name, academic_program
+      FROM course_filter_facets ${scope.whereSql}`).bind(...scope.bindings);
+  }));
+  const [majorRows, cohortRows, optionRows, programRows] = keys.map(key =>
+    results[uniqueKeys.indexOf(key)]?.results || []);
 
   return {
     status: 200,
