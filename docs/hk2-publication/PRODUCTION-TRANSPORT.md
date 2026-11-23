@@ -1,5 +1,11 @@
 # Owner-operated atomic HK2 publication
 
+Windows lifecycle containment and status/abnormal-exit handling are documented in
+[WINDOWS-REMOTE-BINDING.md](WINDOWS-REMOTE-BINDING.md). Native connections are now
+short-lived SDK children, closed during the owner wait and freshly health-checked
+before authorization. All existing approval/data/atomic publication guards below
+remain unchanged. Do not use an expired or untracked legacy session.
+
 This operator-only change prepares publication; it does **not** open production.
 No HTTP write endpoint, deployment, migration, permission, course writer or UI
 change is added. Keep `HK2_2026_2027` CLOSED until the two separate owner comments
