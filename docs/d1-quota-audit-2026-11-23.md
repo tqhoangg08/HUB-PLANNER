@@ -24,17 +24,17 @@ Query Insights được lấy riêng từng ngày, tối đa 1.000 nhóm/ngày; 
 | Nhóm SQL | 20/11 | 21/11 | 22/11 | Nhận định |
 |---|---:|---:|---:|---|
 | Facet môn học, gồm count | 2.236.938 | 4.176.221 | 5.059.604 | Lớn nhất; bốn aggregate quét lặp, mỗi statement mang gate HK2 |
-| Snapshot/import guards có hình dạng operator¹ | 101.044 | 2.218.355 | 65.787 | Đột biến ngày 21; không được thay bằng kiểm tra lỏng hơn |
 | Các query course khác | 1.521.534 | 588.743 | 833.659 | List/search/sort/detail; một phần cũng chịu gate và count |
+| Snapshot/import guards có hình dạng operator¹ | 101.044 | 2.218.355 | 65.787 | Đột biến ngày 21; không được thay bằng kiểm tra lỏng hơn |
 | Danh sách lớp sinh viên | 678.130 | 99.725 | 199.450 | DISTINCT(TRIM) quét ~19.945 rows/lần, chỉ trả ~814 nhãn |
 | Dự báo exact ranking | 209.560 | 125.736 | 94.302 | Khoảng 10.478 rows/lần cho ba scope |
 | Học bổng | 210.950 | 103.580 | 4 | Đã có snapshot/index và cache aggregate có publication fence |
-| Push subscriptions/attempts | 170.520 | 906 | 353 | Fanout có read amplification, nhưng không giải thích đột biến hiện tại |
 | Lookup quyền xem candidate banner | 99.050 | 48.133 | 53.594 | Lookup image_url miss quét bảng khi thiếu index |
-| Lookup conversation owner | 90.800 | 40 | 4.566 | Chưa có index bắt đầu bằng conversation_id cho query này |
+| Push subscriptions/attempts | 170.520 | 906 | 353 | Fanout có read amplification, nhưng không giải thích đột biến hiện tại |
 | Probe schema công bố | 4.320 | 47.327 | 70.776 | LEFT JOIN receipts ON 0 vẫn tạo SCAN l |
+| Lookup conversation owner | 90.800 | 40 | 4.566 | Chưa có index bắt đầu bằng conversation_id cho query này |
 
-¹ Phân loại suy luận theo SQL, không xác nhận caller: snapshot HK2, group/count catalogue, đọc toàn bộ schedules/snapshots và atomic import guards. Các guard này cần dữ liệu mới nhất. Không cache hay bớt checks để giảm quota. Các nhóm còn lại và phần chưa phân bổ được giữ trong JSON, không cộng lẫn vào bảng trên.
+Các nhóm được xếp theo tổng rows trong ba ngày. ¹ Phân loại suy luận theo SQL, không xác nhận caller: snapshot HK2, group/count catalogue, đọc toàn bộ schedules/snapshots và atomic import guards. Các guard này cần dữ liệu mới nhất. Không cache hay bớt checks để giảm quota. Các nhóm còn lại và phần chưa phân bổ được giữ trong JSON, không cộng lẫn vào bảng trên.
 
 ### 1. Gate HK2 và facets
 
@@ -122,8 +122,9 @@ Sau khi có phê duyệt triển khai riêng, tiêu chí nghiệm thu nên là b
 
 ## Validation
 
-- Benchmark/quota regressions mới: 3 tests pass; counters trong artifact.
+- Ba runtime benchmark/quota regressions mới: pass; counters trong artifact. Thêm một test so sánh nguyên văn toàn bộ verifiedOpenSql, manifest/payload constants và cache boundary với main: pass.
 - Các regressions course authority, directory, push/retry/cron, exact rankings và scholarship facets: 51 tests pass.
 - Bộ công bố HK2 trực tiếp: 4 tests pass, gồm full opening/rollback/tampering và warm-cache leak checks.
 - Frontend typecheck và Worker typecheck: pass.
-- Toàn bộ `test:hk2-import` và CI GitHub: đang ghi nhận ở Draft PR; xem checks theo commit hiện tại. Workflow D1 mới chỉ dùng local Miniflare, không có credential/deploy step.
+- Ba tests lịch sử ban đầu fail vì freeze toàn bộ cloudflare/.github. Chúng vẫn freeze mọi file cũ, chỉ trừ danh sách cố định năm file được audit trong PR này (ba module D1, migration 0063 và workflow local). Không loại trừ importer, publication SQL, approval, release, cấu hình, UI hay lockfile. Runtime gate tests và test nguyên văn predicate chạy bổ sung; không skip assertions xác minh HK2. Các assertions đã điều chỉnh cùng test predicate đều pass cục bộ.
+- Toàn bộ `test:hk2-import` và CI GitHub: xem kết quả theo commit hiện tại tại Draft PR #167. Workflow D1 mới chỉ dùng local Miniflare, không có credential/deploy step.

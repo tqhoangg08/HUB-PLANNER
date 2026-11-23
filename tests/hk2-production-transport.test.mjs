@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { D1_AUDIT_RELEASE_EXCLUSIONS } from './fixtures/d1-audit-release-scope.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -148,7 +149,7 @@ test('installed Wrangler local proxy preserves prepared NULL/newlines and atomic
   assert.equal((await proxy.env.DB.prepare('SELECT COUNT(*) AS n FROM fixture').first()).n,2);
 });
 
-test('original writer SQL/ledger/local approval algorithm is unchanged; operator is absent from application imports',async()=>{
+test('original writer SQL/ledger/local approval stays unchanged outside the audited D1 files; no application operator imports',async()=>{
   const file='scripts/hk2-2026-2027/bulk-import.mjs';
   const original=execFileSync('git',['show',`${RELEASE.sha}:${file}`],{encoding:'utf8'}).replace(/\r\n/g,'\n');
   const actual=(await readFile(file,'utf8')).replace(/\r\n/g,'\n');
@@ -157,7 +158,7 @@ test('original writer SQL/ledger/local approval algorithm is unchanged; operator
     .replace('  // No production adapter is shipped. A future owner-approved integration must authenticate the\n  // operator, resolve these receipts from trusted systems, and supply the primary D1 binding.\n  throw new Error(\'Production execution is disabled in this PR; owner-approved transport and verified release/backup receipts required\');',
       "  // The separate operator integration authenticates the owner and trusted receipts;\n  // a caller's JSON approval never enables production execution.\n  assertProductionAuthorization(plan, authorization, action);");
   assert.equal(actual,expected);
-  execFileSync('git',['diff','--exit-code',RELEASE.sha,'--','data/hk2-2026-2027','cloudflare','components','utils','.github','scripts/hk2-d1-import.mjs','scripts/hk2-2026-2027/catalogue.mjs']);
+  execFileSync('git',['diff','--exit-code',RELEASE.sha,'--','data/hk2-2026-2027','cloudflare','components','utils','.github','scripts/hk2-d1-import.mjs','scripts/hk2-2026-2027/catalogue.mjs',...D1_AUDIT_RELEASE_EXCLUSIONS]);
   for(const name of ['index.ts','courses.ts','course-publication.ts'])assert.doesNotMatch(await readFile('cloudflare/worker/src/'+name,'utf8'),/production-transport|operator-authorization/);
   assert.match(CLOSED_GATE_ASSERTION,/revision=0/);
 });

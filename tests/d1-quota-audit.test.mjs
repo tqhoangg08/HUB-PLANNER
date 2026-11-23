@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { handleCourses } from '../cloudflare/worker/src/courses.ts';
 import { publicCatalogueDb, HK2_MANIFEST, HK2_PAYLOAD } from '../cloudflare/worker/src/course-publication.ts';
@@ -12,6 +13,17 @@ const record = (name, before, after) => {
     after: { rows_read: after.rows_read, queries: after.queries } });
   console.log('D1_ROWS_READ ' + JSON.stringify(report.cases.at(-1)));
 };
+
+test('complete verification predicate, pinned hashes and cache boundary remain byte-identical to main', async () => {
+  const file='cloudflare/worker/src/course-publication.ts';
+  const before=execFileSync('git',['show',`${BASELINE}:${file}`],{encoding:'utf8'}).replace(/\r\n/g,'\n');
+  const after=(await readFile(file,'utf8')).replace(/\r\n/g,'\n');
+  const predicate=source=>source.match(/const verifiedOpenSql = `[\s\S]*?`;/)[0];
+  assert.equal(predicate(after),predicate(before));
+  assert.equal(after.slice(0,after.indexOf('// Evaluated')),before.slice(0,before.indexOf('// Evaluated')));
+  const cache=source=>source.slice(source.indexOf('export const canCacheCourseRequest'));
+  assert.equal(cache(after),cache(before));
+});
 
 test('actual catalogue APIs preserve payloads, avoid CLOSED count scans and coalesce only identical facet scopes', { timeout: 120000 }, async t => {
   const { mf, db } = await auditFixture(); t.after(() => mf.dispose());
