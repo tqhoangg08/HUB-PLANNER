@@ -150,8 +150,11 @@ personal rows, dead-parent detection, PID reuse, incomplete journal and lock
 ownership. Golden checks pin all publication/import guards, 15-minute limit,
 atomic SQL, catalogue, migrations, Worker/UI and production dependencies.
 
-Local validation: lifecycle/fault regressions **13/13 PASS**, an additional
-publication-sized UTF-8 IPC regression **1/1 PASS**, and existing publication
-regressions **8/8 PASS**. Syntax and diff checks pass. The PR head CI additionally
+Local validation: combined lifecycle/fault and publication-sized UTF-8 IPC
+regressions **14/14 PASS**, and existing publication regressions **8/8 PASS**.
+The exit/hang fixture has no Miniflare startup dependency: the combined Windows
+run exposed a fixture startup timeout that masked the intended exit fault; the
+minimal IPC fixture now tests that fault deterministically. No production timeout
+or guard was relaxed. Syntax and diff checks pass. The PR head CI additionally
 runs the unchanged full suite, browser acceptance, typechecks and build; inspect
 its exact-head result before review/merge. No production write is a test.

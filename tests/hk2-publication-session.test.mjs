@@ -8,6 +8,7 @@ import {PublicationNativeLease} from '../scripts/hk2-2026-2027/publication-nativ
 import {PublicationSessionState,inspectSession,releaseOwnedOperatorLock} from '../scripts/hk2-2026-2027/publication-session-state.mjs';
 import {publishProductionCatalogue} from '../scripts/hk2-2026-2027/publication-transport.mjs';
 const worker=new URL('./fixtures/hk2-native-child.mjs',import.meta.url);
+const faultWorker=new URL('./fixtures/hk2-native-fault-child.mjs',import.meta.url);
 const expiry=()=>new Date(Date.now()+60000).toISOString();
 const folder=async()=>{await mkdir('.cache/hk2-session-tests',{recursive:true});return mkdtemp('.cache/hk2-session-tests/run-');};
 const close=async lease=>{try{await lease.close();}catch{}};
@@ -59,7 +60,7 @@ test('operator cancellation before the native write blocks OPEN and never sends 
 test('SDK process exit/timeout reject requests, never restart or auto-publish, and leave parent alive',async t=>{
   for(const fault of ['exit','hang'])await t.test(fault,async tt=>{
     scopedEnv(tt,'HK2_NATIVE_TEST_STATE',await folder());scopedEnv(tt,'HK2_NATIVE_TEST_FAULT',fault);
-    const lease=new PublicationNativeLease({worker,requestMs:fault==='hang'?1000:10000});tt.after(()=>close(lease));
+    const lease=new PublicationNativeLease({worker:faultWorker,requestMs:fault==='hang'?1000:10000});tt.after(()=>close(lease));
     await assert.rejects(lease.health(),fault==='hang'?/TIMEOUT/:/CHILD_EXIT/);
     const pid=lease.pid;await assert.rejects(lease.health());assert.equal(lease.pid,pid,'Failed lease never restarts itself');assert.equal(lease.mutationAttempted,false);
   });
