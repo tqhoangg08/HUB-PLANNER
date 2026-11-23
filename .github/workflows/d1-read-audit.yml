@@ -1,0 +1,40 @@
+name: D1 quota audit (local only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cloudflare/worker/src/**'
+      - 'cloudflare/migrations/**'
+      - 'tests/d1-quota-audit.test.mjs'
+      - 'tests/fixtures/d1-audit.mjs'
+      - '.github/workflows/d1-read-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  d1-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Reproducible D1 row counters and payload equivalence
+        env:
+          D1_AUDIT_REPORT: d1-audit-ci.json
+        run: node --test --experimental-strip-types tests/d1-quota-audit.test.mjs
+      - name: HK2 complete import, publication, transport and session safety
+        run: npm run test:hk2-import
+      - name: Directory, push delivery, retry and continuation regressions
+        run: node --test --test-concurrency=1 --experimental-strip-types tests/student-directory.test.mjs tests/push-delivery-write-optimization.test.ts tests/push-fanout-continuation.test.ts tests/notification-cron-parity.test.ts
+      - run: npm run cf:typecheck
+      - run: git diff --check

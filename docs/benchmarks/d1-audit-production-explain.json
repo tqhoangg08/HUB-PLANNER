@@ -1,0 +1,314 @@
+{
+  "note": "EXPLAIN only; placeholders replaced by NULL for planning, no application query executed",
+  "queries": [
+    "SELECT major, MIN(first_source_position) AS first_source_position\n         FROM (SELECT * FROM course_filter_facets WHERE (semester IS NOT 'HK2_2026_2027' OR is_user_added=1 OR EXISTS (\n  SELECT 1 FROM hk2_catalogue_publications p\n  JOIN hk2_catalogue_publication_receipts r ON r.id=p.receipt_id\n  WHERE p.semester='HK2_2026_2027' AND p.state='OPEN' AND p.revision=1\n    AND p.manifest_sha256='2fe8af0743805fcc64ba414e22817fb26f3b5ce2247b50677bc518122c36e212' AND p.payload_sha256='2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797'\n    AND p.official_count=2357 AND p.batch_count=95\n    AND length(p.verification_sha256)=64 AND p.verification_sha256=r.verification_sha256\n    AND r.action='OPEN_HK2_2026_2027' AND r.owner_id=252552483 AND r.owner_comment_id>0\n    AND length(r.backup_restore_sha256)=64 AND length(r.release_sha)=40\n    AND p.opened_at=r.created_at\n    AND (SELECT json_group_array(json_array(actor_scope,actor_id,idempotency_key,request_hash,operation,response_json,created_at))\n      FROM (SELECT * FROM course_mutation_receipts WHERE actor_id='hk2-bulk-v1' ORDER BY actor_scope,idempotency_key)) IS r.import_ledger_json\n    AND (SELECT COUNT(*) FROM course_schedules hc WHERE hc.semester='HK2_2026_2027'\n      AND hc.is_user_added IS NOT 1)=2357\n    AND (SELECT COUNT(*) FROM course_schedules hc WHERE hc.semester='HK2_2026_2027'\n      AND hc.is_user_added IS NOT 1 AND hc.catalogue_visibility='published')=2357\n))) AS course_filter_facets WHERE semester IN (?)\n        GROUP BY major\n        ORDER BY first_source_position",
+    "SELECT id, semester, course_code, subject_name, credits, phase, day_of_week, shift, weeks, room, campus, instructor, group_name, cohort, major, academic_program, is_user_added, source_position\n         FROM (SELECT * FROM course_schedules WHERE (semester IS NOT 'HK2_2026_2027' OR is_user_added=1 OR EXISTS (\n  SELECT 1 FROM hk2_catalogue_publications p\n  JOIN hk2_catalogue_publication_receipts r ON r.id=p.receipt_id\n  WHERE p.semester='HK2_2026_2027' AND p.state='OPEN' AND p.revision=1\n    AND p.manifest_sha256='2fe8af0743805fcc64ba414e22817fb26f3b5ce2247b50677bc518122c36e212' AND p.payload_sha256='2d328a92c048d2869e49cf7abd078f1b9ee44afb4005e00cbdbf78d6a24f1797'\n    AND p.official_count=2357 AND p.batch_count=95\n    AND length(p.verification_sha256)=64 AND p.verification_sha256=r.verification_sha256\n    AND r.action='OPEN_HK2_2026_2027' AND r.owner_id=252552483 AND r.owner_comment_id>0\n    AND length(r.backup_restore_sha256)=64 AND length(r.release_sha)=40\n    AND p.opened_at=r.created_at\n    AND (SELECT json_group_array(json_array(actor_scope,actor_id,idempotency_key,request_hash,operation,response_json,created_at))\n      FROM (SELECT * FROM course_mutation_receipts WHERE actor_id='hk2-bulk-v1' ORDER BY actor_scope,idempotency_key)) IS r.import_ledger_json\n    AND (SELECT COUNT(*) FROM course_schedules hc WHERE hc.semester='HK2_2026_2027'\n      AND hc.is_user_added IS NOT 1)=2357\n    AND (SELECT COUNT(*) FROM course_schedules hc WHERE hc.semester='HK2_2026_2027'\n      AND hc.is_user_added IS NOT 1 AND hc.catalogue_visibility='published')=2357\n))) AS course_schedules WHERE catalogue_visibility = 'published' AND semester IN (?)\n         ORDER BY source_position ASC, id ASC LIMIT ? OFFSET ?",
+    "SELECT p.semester,p.state,p.revision,p.manifest_sha256,p.payload_sha256,\n      p.official_count,p.batch_count,p.verification_sha256,p.opened_at,r.action,r.owner_id,\n      r.owner_comment_id,r.verification_sha256,r.backup_restore_sha256,r.release_sha,r.import_ledger_json,r.created_at,\n      l.actor_scope,l.actor_id,l.idempotency_key,l.request_hash,l.operation,l.response_json,l.created_at\n      FROM hk2_catalogue_publications p\n      LEFT JOIN hk2_catalogue_publication_receipts r ON r.id=p.receipt_id\n      LEFT JOIN course_mutation_receipts l ON 0\n      WHERE p.semester='HK2_2026_2027'",
+    "SELECT DISTINCT TRIM(general_class) AS class_name\n    FROM student_directory WHERE general_class IS NOT NULL AND TRIM(general_class) <> ''\n    ORDER BY class_name COLLATE NOCASE"
+  ],
+  "response": {
+    "result": [
+      {
+        "results": [
+          {
+            "id": 7,
+            "parent": 0,
+            "notused": 56,
+            "detail": "SEARCH course_filter_facets USING PRIMARY KEY (semester=?)"
+          },
+          {
+            "id": 20,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 27,
+            "parent": 20,
+            "notused": 46,
+            "detail": "SEARCH p USING INDEX sqlite_autoindex_hk2_catalogue_publications_1 (semester=?)"
+          },
+          {
+            "id": 34,
+            "parent": 20,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 39,
+            "parent": 34,
+            "notused": 52,
+            "detail": "SEARCH hc USING COVERING INDEX course_schedules_semester_user_added_idx (semester=?)"
+          },
+          {
+            "id": 54,
+            "parent": 20,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 4"
+          },
+          {
+            "id": 60,
+            "parent": 54,
+            "notused": 61,
+            "detail": "SEARCH hc USING INDEX course_schedules_natural_key_idx (semester=?)"
+          },
+          {
+            "id": 91,
+            "parent": 20,
+            "notused": 46,
+            "detail": "SEARCH r USING INDEX sqlite_autoindex_hk2_catalogue_publication_receipts_1 (id=?)"
+          },
+          {
+            "id": 118,
+            "parent": 20,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 2"
+          },
+          {
+            "id": 121,
+            "parent": 118,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-1)"
+          },
+          {
+            "id": 125,
+            "parent": 121,
+            "notused": 217,
+            "detail": "SCAN course_mutation_receipts USING INDEX sqlite_autoindex_course_mutation_receipts_1"
+          },
+          {
+            "id": 147,
+            "parent": 121,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          },
+          {
+            "id": 167,
+            "parent": 118,
+            "notused": 244,
+            "detail": "SCAN (subquery-1)"
+          },
+          {
+            "id": 189,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR GROUP BY"
+          },
+          {
+            "id": 227,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.4823
+          },
+          "duration": 0.4823,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 180105216,
+          "rows_read": 0,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [
+          {
+            "id": 10,
+            "parent": 0,
+            "notused": 61,
+            "detail": "SEARCH course_schedules USING INDEX course_schedules_visibility_position_idx (catalogue_visibility=?)"
+          },
+          {
+            "id": 22,
+            "parent": 0,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 5"
+          },
+          {
+            "id": 29,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH p USING INDEX sqlite_autoindex_hk2_catalogue_publications_1 (semester=?)"
+          },
+          {
+            "id": 36,
+            "parent": 22,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 3"
+          },
+          {
+            "id": 41,
+            "parent": 36,
+            "notused": 52,
+            "detail": "SEARCH hc USING COVERING INDEX course_schedules_semester_user_added_idx (semester=?)"
+          },
+          {
+            "id": 56,
+            "parent": 22,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 4"
+          },
+          {
+            "id": 62,
+            "parent": 56,
+            "notused": 61,
+            "detail": "SEARCH hc USING INDEX course_schedules_natural_key_idx (semester=?)"
+          },
+          {
+            "id": 93,
+            "parent": 22,
+            "notused": 46,
+            "detail": "SEARCH r USING INDEX sqlite_autoindex_hk2_catalogue_publication_receipts_1 (id=?)"
+          },
+          {
+            "id": 120,
+            "parent": 22,
+            "notused": 0,
+            "detail": "SCALAR SUBQUERY 2"
+          },
+          {
+            "id": 123,
+            "parent": 120,
+            "notused": 0,
+            "detail": "CO-ROUTINE (subquery-1)"
+          },
+          {
+            "id": 127,
+            "parent": 123,
+            "notused": 217,
+            "detail": "SCAN course_mutation_receipts USING INDEX sqlite_autoindex_course_mutation_receipts_1"
+          },
+          {
+            "id": 149,
+            "parent": 123,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          },
+          {
+            "id": 169,
+            "parent": 120,
+            "notused": 243,
+            "detail": "SCAN (subquery-1)"
+          },
+          {
+            "id": 227,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.3786
+          },
+          "duration": 0.3786,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 180105216,
+          "rows_read": 0,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [
+          {
+            "id": 6,
+            "parent": 0,
+            "notused": 46,
+            "detail": "SEARCH p USING INDEX sqlite_autoindex_hk2_catalogue_publications_1 (semester=?)"
+          },
+          {
+            "id": 11,
+            "parent": 0,
+            "notused": 46,
+            "detail": "SEARCH r USING INDEX sqlite_autoindex_hk2_catalogue_publication_receipts_1 (id=?) LEFT-JOIN"
+          },
+          {
+            "id": 19,
+            "parent": 0,
+            "notused": 216,
+            "detail": "SCAN l LEFT-JOIN"
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.1106
+          },
+          "duration": 0.1106,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 180105216,
+          "rows_read": 0,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      },
+      {
+        "results": [
+          {
+            "id": 4,
+            "parent": 0,
+            "notused": 216,
+            "detail": "SCAN student_directory"
+          },
+          {
+            "id": 20,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR DISTINCT"
+          },
+          {
+            "id": 21,
+            "parent": 0,
+            "notused": 0,
+            "detail": "USE TEMP B-TREE FOR ORDER BY"
+          }
+        ],
+        "success": true,
+        "meta": {
+          "served_by": "v3-prod",
+          "served_by_region": "APAC",
+          "served_by_colo": "HKG",
+          "served_by_primary": true,
+          "timings": {
+            "sql_duration_ms": 0.0757
+          },
+          "duration": 0.0757,
+          "changes": 0,
+          "last_row_id": 0,
+          "changed_db": false,
+          "size_after": 180105216,
+          "rows_read": 0,
+          "rows_written": 0,
+          "total_attempts": 1
+        }
+      }
+    ],
+    "errors": [],
+    "messages": [],
+    "success": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "operation": "SELECT type,name,tbl_name,sql FROM sqlite_master with a bounded table-name filter",
+  "outcome": "quota_exceeded; schema SELECT not retried; EXPLAIN still succeeded with 0 rows read",
+  "response": {
+    "messages": [],
+    "result": [],
+    "success": false,
+    "errors": [
+      {
+        "code": 7500,
+        "message": "Your account has exceeded D1's free tier daily row read limit. Upgrade to a paid plan or wait until tomorrow (midnight UTC) to continue. See https://developers.cloudflare.com/d1/platform/limits/ for more details."
+      }
+    ]
+  }
+}

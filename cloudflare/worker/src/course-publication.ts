@@ -22,6 +22,14 @@ const verifiedOpenSql = `EXISTS (
       AND hc.is_user_added IS NOT 1 AND hc.catalogue_visibility='published')=2357
 )`;
 
+// SQLite may evaluate the scalar COUNT subqueries before testing p.state.
+// CASE is lazy: CLOSED costs one PK lookup, while OPEN still executes every
+// byte of the verification predicate above in the SAME catalogue statement.
+const publicationGateSql = `CASE WHEN EXISTS (
+  SELECT 1 FROM hk2_catalogue_publications
+  WHERE semester='${GATED_SEMESTER}' AND state='OPEN'
+) THEN ${verifiedOpenSql} ELSE 0 END`;
+
 const SQL_KEYWORDS = new Set(['WHERE','ON','LEFT','RIGHT','INNER','OUTER','CROSS','JOIN','GROUP','ORDER','LIMIT','OFFSET','UNION','HAVING','USING','RETURNING','SET']);
 const wrappedBindings = new WeakSet<D1Database>();
 
@@ -30,7 +38,7 @@ export const rewritePublicCatalogueSql = (sql: string, gateSchemaAvailable: bool
   (match, keyword: string, table: string, offset: number) => {
     const next = sql.slice(offset + match.length).match(/^\s+(?:AS\s+)?([A-Za-z_]\w*)/i);
     const alias = next && !SQL_KEYWORDS.has(next[1].toUpperCase()) ? '' : ` AS ${table}`;
-    const predicate = `(semester IS NOT '${GATED_SEMESTER}' OR is_user_added=1${gateSchemaAvailable ? ` OR ${verifiedOpenSql}` : ''})`;
+    const predicate = `(semester IS NOT '${GATED_SEMESTER}' OR is_user_added=1${gateSchemaAvailable ? ` OR ${publicationGateSql}` : ''})`;
     return `${keyword} (SELECT * FROM ${table} WHERE ${predicate})${alias}`;
   },
 );
@@ -39,13 +47,15 @@ export const publicCatalogueDb = async (db: D1Database): Promise<D1Database> => 
   if (wrappedBindings.has(db)) return db;
   let available = false;
   try {
+    // NULL equality never matches. Unlike ON 0, it supplies a PK search key
+    // so schema/column validation does not scan the receipt ledger.
     const row = await db.prepare(`SELECT p.semester,p.state,p.revision,p.manifest_sha256,p.payload_sha256,
       p.official_count,p.batch_count,p.verification_sha256,p.opened_at,r.action,r.owner_id,
       r.owner_comment_id,r.verification_sha256,r.backup_restore_sha256,r.release_sha,r.import_ledger_json,r.created_at,
       l.actor_scope,l.actor_id,l.idempotency_key,l.request_hash,l.operation,l.response_json,l.created_at
       FROM hk2_catalogue_publications p
       LEFT JOIN hk2_catalogue_publication_receipts r ON r.id=p.receipt_id
-      LEFT JOIN course_mutation_receipts l ON 0
+      LEFT JOIN course_mutation_receipts l ON l.actor_scope = NULL
       WHERE p.semester='${GATED_SEMESTER}'`).first<{ semester: string }>();
     available = row?.semester === GATED_SEMESTER;
   } catch { /* missing/unverified migration is CLOSED; HK1 remains queryable */ }
