@@ -676,7 +676,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [planSchedules, setPlanSchedules] = useState<PlanSchedules>(() => createEmptyPlanSchedules());
   const [loadedPlanStorageKey, setLoadedPlanStorageKey] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(0); 
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => getInitialSemesterMonthIndex(selectedSemester)); 
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => getInitialSemesterMonthIndex(selectedSemester));
   
   const [isWeekDropdownOpen, setIsWeekDropdownOpen] = useState(false);
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false); 
