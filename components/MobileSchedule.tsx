@@ -68,6 +68,7 @@ import {
   getWeekNumberForDate,
   isSemesterHolidayWeek,
 } from '../utils/academicCalendar';
+import { getScheduleTodayPosition } from '../features/schedule/scheduleBoardModel';
 
 // --- Types ---
 interface UserProfile {
@@ -585,10 +586,15 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const [newCourseData, setNewCourseData] = useState<{ subject_name: string; course_code: string; instructor: string; scheduleSessions: StructuredScheduleSession[] }>({ subject_name: '', course_code: '', instructor: '', scheduleSessions: [createEmptyScheduleSession()] });
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
 
+  const timelineSemesterRef = useRef(selectedSemester);
   useEffect(() => {
-    const maxWeek = getSemesterMaxWeek(selectedSemester);
-    setSelectedWeek(prev => Math.min(prev, maxWeek));
-    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester));
+    if (timelineSemesterRef.current === selectedSemester) return;
+    timelineSemesterRef.current = selectedSemester;
+    setSelectedWeek(1);
+    setSelectedMonthIndex(0);
+    setSelectedDayIndex(0);
+    setIsWeekDropdownOpen(false);
+    setIsMonthDropdownOpen(false);
   }, [selectedSemester]);
 
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
@@ -1509,13 +1515,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const goToToday = () => {
     playClick();
     const now = new Date();
-    let weekNum = getWeekNumberForDate(now, selectedSemester);
-
-    if (weekNum < 1) weekNum = 1;
-    if (weekNum > selectedSemesterMaxWeek) weekNum = selectedSemesterMaxWeek;
-
-    setSelectedWeek(weekNum);
-    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester, now));
+    const position = getScheduleTodayPosition(selectedSemester, now);
+    setSelectedWeek(position.week);
+    setSelectedMonthIndex(position.monthIndex);
+    setIsWeekDropdownOpen(false);
+    setIsMonthDropdownOpen(false);
     setSelectedDayIndex(Math.max(0, Math.min(6, now.getDay() === 0 ? 6 : now.getDay() - 1)));
   };
 

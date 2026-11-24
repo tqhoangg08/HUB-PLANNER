@@ -13,10 +13,13 @@ import {
     parseAdminSchedulePage,
     parseAdminSchedulePageSize,
     resolveAdminScheduleSemester,
+    getScheduleTimelineSemester,
+    getScheduleTodayPosition,
     sortManagementRequests,
     sortManagementStudents,
     type CourseRequest,
 } from '../features/schedule/scheduleBoardModel.ts';
+import { getWeekDatesForSemester, getSemesterMaxWeek } from '../utils/academicCalendar.ts';
 
 const createCourseRequest = (
     overrides: Partial<CourseRequest> = {},
@@ -125,4 +128,35 @@ test('plan schedules start independent', () => {
     assert.notEqual(plans.A, plans.B);
     assert.notEqual(plans.B, plans.C);
     assert.deepEqual(plans, { A: [], B: [], C: [] });
+});
+
+test('one semester filter controls the timeline; multiple/empty filters retain a single stable anchor', () => {
+    const hk1 = 'HK1_2026_2027', hk2 = 'HK2_2026_2027', summer = 'HKHE_2026_2027';
+    assert.equal(getScheduleTimelineSemester([hk2], hk1), hk2);
+    assert.equal(getScheduleTimelineSemester([summer], hk2), summer);
+    assert.equal(getScheduleTimelineSemester([hk1], summer), hk1);
+    assert.equal(getScheduleTimelineSemester([hk1, hk2], hk2), hk2);
+    assert.equal(getScheduleTimelineSemester([hk2, summer], hk1), hk2);
+    assert.equal(getScheduleTimelineSemester([], hk2), hk2);
+    assert.equal(getScheduleTimelineSemester(['unknown'], hk2), hk2);
+});
+
+test('HK1, HK2 and summer use the official week ranges and clamp Today to that same term', () => {
+    const day = (date: Date) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    for (const [semester, first, last, max] of [
+        ['HK1_2026_2027', '2026-08-31', '2027-01-31', 22],
+        ['HK2_2026_2027', '2027-02-15', '2027-07-18', 22],
+        ['HKHE_2026_2027', '2027-07-19', '2027-09-05', 7],
+    ] as const) {
+        assert.equal(day(getWeekDatesForSemester(1, semester)[0]), first);
+        assert.equal(day(getWeekDatesForSemester(max, semester)[6]), last);
+        assert.equal(getSemesterMaxWeek(semester), max);
+        assert.deepEqual(getScheduleTodayPosition(semester, new Date(2025, 0, 1)), {week:1, monthIndex:0});
+        assert.equal(getScheduleTodayPosition(semester, new Date(2028, 0, 1)).week, max);
+    }
+    assert.deepEqual(getScheduleTodayPosition('HK2_2026_2027', new Date(2027, 2, 16)), {week:5, monthIndex:1});
+    assert.deepEqual(getScheduleTodayPosition('HK1_2026_2027', new Date(2027, 1, 20)), {week:22, monthIndex:5});
+    assert.deepEqual(getScheduleTodayPosition('HK2_2026_2027', new Date(2026, 10, 24)), {week:1, monthIndex:0});
+    assert.deepEqual(getScheduleTodayPosition('HK2_2026_2027', new Date(2027, 6, 19)), {week:22, monthIndex:5});
+    assert.deepEqual(getScheduleTodayPosition('HKHE_2026_2027', new Date(2027, 6, 20)), {week:1, monthIndex:0});
 });

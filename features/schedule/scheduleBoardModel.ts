@@ -2,6 +2,8 @@ import {
   DEFAULT_SCHEDULE_SEMESTER,
   SEMESTER_OPTIONS,
   getSemesterMaxWeek,
+  getInitialSemesterMonthIndex,
+  getWeekDatesForSemester,
   getWeekNumberForDate,
 } from '../../utils/academicCalendar.ts';
 import type { StructuredScheduleSession } from '../../utils/scheduleSessions.ts';
@@ -236,4 +238,22 @@ export const getSemesterContainingDate = (date: Date, fallbackSemester: string) 
         return weekNumber >= 1 && weekNumber <= getSemesterMaxWeek(option.value);
     });
     return matchedSemester?.value || fallbackSemester;
+};
+
+// Filters may span terms; a week/month grid always belongs to exactly one term.
+export const getScheduleTimelineSemester = (filters: string[], current: string) => {
+    const semesters = filters.filter(value => SEMESTER_OPTIONS.some(option => option.value === value));
+    return semesters.includes(current) || !semesters.length ? current : semesters[0];
+};
+
+// "Today" stays in the active term, including when today is outside its dates.
+export const getScheduleTodayPosition = (semester: string, date = new Date()) => {
+    const maxWeek = getSemesterMaxWeek(semester);
+    const first = getWeekDatesForSemester(1, semester)[0];
+    const last = getWeekDatesForSemester(maxWeek, semester)[6];
+    const target = new Date(Math.min(Math.max(date.getTime(), first.getTime()), last.getTime()));
+    return {
+        week: Math.min(maxWeek, Math.max(1, getWeekNumberForDate(target, semester))),
+        monthIndex: getInitialSemesterMonthIndex(semester, target),
+    };
 };
