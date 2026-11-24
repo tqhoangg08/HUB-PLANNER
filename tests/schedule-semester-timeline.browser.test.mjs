@@ -192,6 +192,24 @@ test('week/month boundaries, advanced semester selector, multi-filter Today and 
   assert.deepEqual(f.writes,[]);assert.deepEqual(f.errors,[]);
 });
 
+test('restored semester state is reconciled as well as direct filter events',{timeout:120000},async t=>{
+  const f=await fixture(1440);t.after(()=>f.context.close());const p=f.page;
+  await p.evaluate(()=>window.acceptanceState('components/ScheduleBoard.tsx',{
+    selectedFilterSemesters:['HK2_2026_2027'],selectedWeek:22,isWeekDropdownOpen:true,
+  }));
+  await p.getByRole('region',{name:`Lịch ${labels[1]}`,exact:true}).waitFor();await frame(p);
+  await assertWeek(p,1,'15/02','21/02');
+  assert.equal(await p.getByRole('button',{name:'Hiển thị Tổng quát',exact:true}).count(),0);
+  await mode(p,1440,'month');
+  await p.evaluate(()=>window.acceptanceState('components/ScheduleBoard.tsx',{
+    selectedFilterSemesters:['HKHE_2026_2027'],selectedMonthIndex:6,isMonthDropdownOpen:true,
+  }));
+  await p.getByRole('region',{name:`Lịch ${labels[2]}`,exact:true}).waitFor();await frame(p);
+  assert.equal((await period(p).innerText()).trim(),'Tháng 7/2027');
+  assert.equal(await p.getByRole('button',{name:'Tháng 9/2027',exact:true}).count(),0);
+  assert.deepEqual(f.writes,[]);assert.deepEqual(f.errors,[]);
+});
+
 test('legacy MobileSchedule also resets a 22-week term to summer week 1 and closes its old dropdown',{timeout:120000},async t=>{
   const f=await fixture(390,true);t.after(()=>f.context.close());const p=f.page;
   await p.waitForFunction(()=>document.getElementById('mode')?.textContent==='standalone');

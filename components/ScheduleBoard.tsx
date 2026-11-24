@@ -676,7 +676,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [planSchedules, setPlanSchedules] = useState<PlanSchedules>(() => createEmptyPlanSchedules());
   const [loadedPlanStorageKey, setLoadedPlanStorageKey] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(0); 
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => getInitialSemesterMonthIndex(DEFAULT_SCHEDULE_SEMESTER)); 
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => getInitialSemesterMonthIndex(selectedSemester)); 
   
   const [isWeekDropdownOpen, setIsWeekDropdownOpen] = useState(false);
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false); 
@@ -818,6 +818,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         console.error('Không thể lưu lịch học kế hoạch:', error);
     }
   }, [isAuthenticated, loadedPlanStorageKey, planStorageKey, planSchedules]);
+
+  useEffect(() => {
+    if (isAdminView) return;
+    const semester = getScheduleTimelineSemester(selectedFilterSemesters, selectedSemester);
+    if (semester !== selectedSemester) setSelectedSemester(semester);
+  }, [isAdminView, selectedFilterSemesters, selectedSemester]);
 
   const timelineSemesterRef = useRef(selectedSemester);
   useEffect(() => {
