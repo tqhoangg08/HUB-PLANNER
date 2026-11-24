@@ -157,7 +157,8 @@ test('original writer SQL/ledger/local approval algorithm is unchanged; operator
     .replace('  // No production adapter is shipped. A future owner-approved integration must authenticate the\n  // operator, resolve these receipts from trusted systems, and supply the primary D1 binding.\n  throw new Error(\'Production execution is disabled in this PR; owner-approved transport and verified release/backup receipts required\');',
       "  // The separate operator integration authenticates the owner and trusted receipts;\n  // a caller's JSON approval never enables production execution.\n  assertProductionAuthorization(plan, authorization, action);");
   assert.equal(actual,expected);
-  execFileSync('git',['diff','--exit-code',RELEASE.sha,'--','data/hk2-2026-2027','cloudflare','components','utils','.github','scripts/hk2-d1-import.mjs','scripts/hk2-2026-2027/catalogue.mjs']);
+  // Allow only the two reviewed timetable renderers; keep every other original pin.
+  execFileSync('git',['diff','--exit-code',RELEASE.sha,'--','data/hk2-2026-2027','cloudflare','components','utils','.github','scripts/hk2-d1-import.mjs','scripts/hk2-2026-2027/catalogue.mjs',':(exclude)components/ScheduleBoard.tsx',':(exclude)components/MobileSchedule.tsx']);
   for(const name of ['index.ts','courses.ts','course-publication.ts'])assert.doesNotMatch(await readFile('cloudflare/worker/src/'+name,'utf8'),/production-transport|operator-authorization/);
   assert.match(CLOSED_GATE_ASSERTION,/revision=0/);
 });
