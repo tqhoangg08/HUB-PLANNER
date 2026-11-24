@@ -94,7 +94,8 @@ import {
   sortManagementCourses,
   sortManagementStudents,
   getPaginationPages,
-  getSemesterContainingDate,
+  getScheduleTimelineSemester,
+  getScheduleTodayPosition,
   isPdfScheduleFile,
   normalizeAcademicProgramOptions,
   sortCourseRequestsNewestFirst,
@@ -657,7 +658,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [selectedCohort, setSelectedCohort] = useState<string>('all');
   const [selectedGroupName, setSelectedGroupName] = useState<string>('all');
   const [selectedAcademicProgram, setSelectedAcademicProgram] = useState<string>('all');
-  const [selectedFilterSemesters, setSelectedFilterSemesters] = useState<string[]>([DEFAULT_SCHEDULE_SEMESTER]);
+  const [selectedFilterSemesters, setSelectedFilterSemesters] = useState<string[]>(() => [resolveAdminScheduleSemester(adminQuery)]);
   const [selectedFilterPhases, setSelectedFilterPhases] = useState<string[]>([]);
   const [selectedFilterMajors, setSelectedFilterMajors] = useState<string[]>([]);
   const [selectedFilterCohorts, setSelectedFilterCohorts] = useState<string[]>([]);
@@ -673,7 +674,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [scheduleViewMode, setScheduleViewMode] = useState<ScheduleViewMode>('official');
   const [activePlanKey, setActivePlanKey] = useState<PlanScheduleKey>('A');
   const [planSchedules, setPlanSchedules] = useState<PlanSchedules>(() => createEmptyPlanSchedules());
-  const [hasLoadedPlanSchedules, setHasLoadedPlanSchedules] = useState(false);
+  const [loadedPlanStorageKey, setLoadedPlanStorageKey] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<number>(0); 
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => getInitialSemesterMonthIndex(DEFAULT_SCHEDULE_SEMESTER)); 
   
@@ -731,6 +732,23 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     );
     setCoursePage(0);
   };
+  const changeSemesterFilters = (semesters: string[]) => {
+    const semester = getScheduleTimelineSemester(semesters, selectedSemester);
+    setSelectedFilterSemesters(semesters);
+    if (semester !== selectedSemester) {
+      setSelectedSemester(semester);
+      setSelectedWeek(1);
+      setSelectedMonthIndex(0);
+    }
+    setIsWeekDropdownOpen(false);
+    setIsMonthDropdownOpen(false);
+    setCoursePage(0);
+  };
+  const toggleSemesterFilter = (value: string) => changeSemesterFilters(
+    selectedFilterSemesters.includes(value)
+      ? selectedFilterSemesters.filter(item => item !== value)
+      : [...selectedFilterSemesters, value]
+  );
   const clearCourseFilters = () => {
     setSearchTerm('');
     setSelectedPhase('all');
@@ -739,7 +757,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setSelectedCohort('all');
     setSelectedGroupName('all');
     setSelectedAcademicProgram('all');
-    setSelectedFilterSemesters([]);
+    changeSemesterFilters([]);
     setSelectedFilterPhases([]);
     setSelectedFilterMajors([]);
     setSelectedFilterCohorts([]);
@@ -762,10 +780,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const courseFilterKeyRef = useRef('');
 
   useEffect(() => {
-    setHasLoadedPlanSchedules(false);
+    setLoadedPlanStorageKey(null);
     if (!isAuthenticated) {
         setPlanSchedules(createEmptyPlanSchedules());
-        setHasLoadedPlanSchedules(true);
+        setLoadedPlanStorageKey(planStorageKey);
         return;
     }
 
@@ -773,7 +791,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         const raw = localStorage.getItem(planStorageKey);
         if (!raw) {
             setPlanSchedules(createEmptyPlanSchedules());
-            setHasLoadedPlanSchedules(true);
+            setLoadedPlanStorageKey(planStorageKey);
             return;
         }
 
@@ -783,27 +801,32 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             B: Array.isArray(parsed?.B) ? parsed.B : [],
             C: Array.isArray(parsed?.C) ? parsed.C : [],
         });
-        setHasLoadedPlanSchedules(true);
+        setLoadedPlanStorageKey(planStorageKey);
     } catch (error) {
         console.error('Không thể đọc lịch học kế hoạch:', error);
         setPlanSchedules(createEmptyPlanSchedules());
-        setHasLoadedPlanSchedules(true);
+        setLoadedPlanStorageKey(planStorageKey);
     }
   }, [isAuthenticated, planStorageKey]);
 
   useEffect(() => {
-    if (!isAuthenticated || !hasLoadedPlanSchedules) return;
+    // Only persist state hydrated for this account, never the previous guest/account render.
+    if (!isAuthenticated || loadedPlanStorageKey !== planStorageKey) return;
     try {
         localStorage.setItem(planStorageKey, JSON.stringify(planSchedules));
     } catch (error) {
         console.error('Không thể lưu lịch học kế hoạch:', error);
     }
-  }, [isAuthenticated, hasLoadedPlanSchedules, planStorageKey, planSchedules]);
+  }, [isAuthenticated, loadedPlanStorageKey, planStorageKey, planSchedules]);
 
+  const timelineSemesterRef = useRef(selectedSemester);
   useEffect(() => {
-    const maxWeek = getSemesterMaxWeek(selectedSemester);
-    setSelectedWeek(prev => Math.min(prev, maxWeek));
-    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester));
+    if (timelineSemesterRef.current === selectedSemester) return;
+    timelineSemesterRef.current = selectedSemester;
+    setSelectedWeek(1);
+    setSelectedMonthIndex(0);
+    setIsWeekDropdownOpen(false);
+    setIsMonthDropdownOpen(false);
   }, [selectedSemester]);
 
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
@@ -2258,7 +2281,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       );
       const importedSemester = pendingScheduleImport.semester;
       setPendingScheduleImport(null);
-      setSelectedSemester(importedSemester);
+      changeSemesterFilters([importedSemester]);
       await fetchMySchedule();
       await showAlert(
         `Đã nhập ${importedCount} môn và thay thế thời khóa biểu cũ của ${importedSemester.replaceAll('_', ' ')}.`,
@@ -2431,17 +2454,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const nextMonth = () => setSelectedMonthIndex(prev => prev < selectedSemesterMonths.length - 1 ? prev + 1 : selectedSemesterMonths.length - 1);
   const goToToday = () => {
     playClick();
-    const now = new Date();
-    const targetSemester = getSemesterContainingDate(now, selectedSemester);
-    const targetSemesterMaxWeek = getSemesterMaxWeek(targetSemester);
-    let weekNum = getWeekNumberForDate(now, targetSemester);
-    
-    if (weekNum < 1) weekNum = 1;
-    if (weekNum > targetSemesterMaxWeek) weekNum = targetSemesterMaxWeek;
-    
-    setSelectedSemester(targetSemester);
-    setSelectedWeek(weekNum);
-    setSelectedMonthIndex(getInitialSemesterMonthIndex(targetSemester, now));
+    const position = getScheduleTodayPosition(selectedSemester);
+    setSelectedWeek(position.week);
+    setSelectedMonthIndex(position.monthIndex);
+    setIsWeekDropdownOpen(false);
+    setIsMonthDropdownOpen(false);
   };
   
   const refreshAdminScheduleData = () => {
@@ -2569,7 +2586,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             {key === 'semester' && <div className="space-y-2.5">
                                                 {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => (
                                                     <label key={option.value} className="ui-secondary flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]">
-                                                        <input type="checkbox" checked={selectedFilterSemesters.includes(option.value)} onChange={() => toggleMultiFilterValue(setSelectedFilterSemesters, option.value)} className="h-4 w-4 accent-[#0D4E9B]"/>
+                                                        <input type="checkbox" checked={selectedFilterSemesters.includes(option.value)} onChange={() => toggleSemesterFilter(option.value)} className="h-4 w-4 accent-[#0D4E9B]"/>
                                                         <span className="flex-1">{option.label}</span>
                                                     </label>
                                                 ))}
@@ -3057,18 +3074,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 </div>
 <div className="timetable-view-buttons rounded-lg border border-gray-300 bg-gray-50"><button aria-pressed={viewMode === 'week'} onClick={()=>setViewMode('week')} className={`ui-action rounded-md px-2 text-xs font-bold ${viewMode==='week'?'bg-white text-[#003375]':'text-gray-500'}`}>Tuần</button><button aria-pressed={viewMode === 'month'} onClick={()=>setViewMode('month')} className={`ui-action rounded-md px-2 text-xs font-bold ${viewMode==='month'?'bg-white text-[#003375]':'text-gray-500'}`}>Tháng</button></div><label className="timetable-view-select"><span className="sr-only">Chế độ xem lịch</span><select className="ui-input" value={viewMode} onChange={e => setViewMode(e.target.value as 'week' | 'month')}><option value="week">Tuần</option><option value="month">Tháng</option></select></label>
                                 {viewMode === 'week' ? (
-                                    <button ref={weekDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="ui-action timetable-period-trigger">
+                                    <button ref={weekDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} title={SEMESTER_OPTIONS.find(option => option.value === selectedSemester)?.label} className="ui-action timetable-period-trigger">
                                         {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={12} aria-hidden="true"/>
                                     </button>
                                 ) : (
-                                    <button ref={monthDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="ui-action timetable-period-trigger">
+                                    <button ref={monthDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} title={SEMESTER_OPTIONS.find(option => option.value === selectedSemester)?.label} className="ui-action timetable-period-trigger">
                                         {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)} <ChevronDown size={12} aria-hidden="true"/>
                                     </button>
                                 )}
                             </div>
   <div className="timetable-filter-bar" aria-label="Điều khiển bộ lọc thời khóa biểu">                            <div className="timetable-filter-chips no-scrollbar" aria-label="Bộ lọc đang áp dụng">
                             {!hasActiveCourseFilters && <span className="ui-muted ui-meta text-[11px] font-medium text-gray-400">Chưa chọn tiêu chí nào</span>}
-                            {selectedFilterSemesters.map(value => { const label = SEMESTER_OPTIONS.find(option => option.value === value)?.label || value; return <button key={`semester-${value}`} type="button" onClick={() => toggleMultiFilterValue(setSelectedFilterSemesters, value)} aria-label="Bỏ lọc học kỳ" title={label} className="ui-action timetable-semester-chip"><span className="timetable-semester-label-full">{label}</span><span className="timetable-semester-label-short" aria-hidden="true">{label.replace(/20(\d{2})-20(\d{2})/, '$1-$2')}</span><X size={12} aria-hidden="true"/></button>; })}
+                            {selectedFilterSemesters.map(value => { const label = SEMESTER_OPTIONS.find(option => option.value === value)?.label || value; return <button key={`semester-${value}`} type="button" onClick={() => toggleSemesterFilter(value)} aria-label="Bỏ lọc học kỳ" title={label} className="ui-action timetable-semester-chip"><span className="timetable-semester-label-full">{label}</span><span className="timetable-semester-label-short" aria-hidden="true">{label.replace(/20(\d{2})-20(\d{2})/, '$1-$2')}</span><X size={12} aria-hidden="true"/></button>; })}
                             {selectedFilterPhases.map(value => <span key={`phase-${value}`} className="ui-meta flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} aria-label="Bỏ lọc đợt"><X size={12}/></button></span>)}
                             {selectedSubjectName !== 'all' && <span className="ui-meta flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{selectedSubjectName}</span><button onClick={() => setSelectedSubjectName('all')} aria-label="Bỏ lọc môn"><X size={12}/></button></span>}
                             {selectedFilterPrograms.map(value => <span key={`program-${value}`} className="ui-meta flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterPrograms, value)} aria-label="Bỏ lọc chương trình"><X size={12}/></button></span>)}
@@ -3089,7 +3106,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
  <div className="timetable-sidebar-scroll custom-scrollbar">{renderTimetableFilterFields()}</div>
 </aside>}
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-                <div data-schedule-calendar className="timetable-calendar-pane relative flex min-w-0 w-full flex-1 flex-col bg-[#F8FAFC]">
+                <div data-schedule-calendar role="region" aria-label={`Lịch ${SEMESTER_OPTIONS.find(option => option.value === selectedSemester)?.label || selectedSemester}`} className="timetable-calendar-pane relative flex min-w-0 w-full flex-1 flex-col bg-[#F8FAFC]">
                         {isWeekDropdownOpen && createPortal(
                             <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(weekDropdownButtonRef, 192)} className="z-[100000] rounded-xl border border-gray-300 bg-white py-1 max-h-[320px] overflow-y-auto custom-scrollbar">
                                 <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="ui-action w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
@@ -3475,7 +3492,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <div className="rounded-2xl border border-gray-300 bg-white p-4">
                                     <h3 className="ui-card-title mb-4 font-extrabold text-[#082B68]">Học kỳ & chương trình</h3>
                                     <label className="ui-secondary mb-2 block text-sm font-medium text-gray-600">Học kỳ</label>
-                                    <select value={selectedFilterSemesters[0] || ''} onChange={(event) => setSelectedFilterSemesters(event.target.value ? [event.target.value] : [])} className="ui-input mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                    <select value={selectedFilterSemesters[0] || ''} onChange={(event) => changeSemesterFilters(event.target.value ? [event.target.value] : [])} className="ui-input mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
                                         <option value="">Không lọc học kỳ</option>
                                         {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                                     </select>
