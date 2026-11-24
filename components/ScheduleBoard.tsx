@@ -819,12 +819,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     }
   }, [isAuthenticated, loadedPlanStorageKey, planStorageKey, planSchedules]);
 
-  useEffect(() => {
-    if (isAdminView) return;
-    const semester = getScheduleTimelineSemester(selectedFilterSemesters, selectedSemester);
-    if (semester !== selectedSemester) setSelectedSemester(semester);
-  }, [isAdminView, selectedFilterSemesters, selectedSemester]);
-
   const timelineSemesterRef = useRef(selectedSemester);
   useEffect(() => {
     if (timelineSemesterRef.current === selectedSemester) return;
@@ -846,6 +840,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isAdminView, setIsAdminView] = useState(isAdmin);
+  useEffect(() => {
+    if (isAdminView) return;
+    const semester = getScheduleTimelineSemester(selectedFilterSemesters, selectedSemester);
+    if (semester !== selectedSemester) setSelectedSemester(semester);
+  }, [isAdminView, selectedFilterSemesters, selectedSemester]);
   const [managementPageSize, setManagementPageSize] = useState(() => parseAdminSchedulePageSize(adminQuery.get('pageSize')));
   const isSystemCourseCatalog = !isAdminView || adminTab === 'system';
   const hasCatalogPaginationFilters = isAdminView
