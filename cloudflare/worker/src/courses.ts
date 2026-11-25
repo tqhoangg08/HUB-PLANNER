@@ -1,4 +1,4 @@
-import { publicCatalogueDb } from './course-publication.ts';
+import { publicCatalogueDb, publicCatalogueFacetSql } from './course-publication.ts';
 
 interface CourseEnv {
   DB: D1Database;
@@ -370,47 +370,188 @@ const courseList = async (url: URL, env: CourseEnv) => {
   };
 };
 
+
+const FACET_COLUMNS = [
+  ['major'], ['cohort'], ['subject_name', 'group_name'], ['academic_program'],
+] as const;
+const FACET_DIMENSIONS: CourseFacetDimension[][] = [
+  ['cohort', 'academicProgram'],
+  ['major', 'academicProgram'],
+  ['major', 'cohort', 'academicProgram'],
+  ['major', 'cohort'],
+];
+
+const D1_BIND_LIMIT = 100;
+const D1_SQL_BYTES = 100_000;
+const D1_VALUE_BYTES = 2_000_000;
+const facetEncoder = new TextEncoder();
+type FacetWhere = ReturnType<typeof buildFacetWhere>;
+type FacetQuery = { sql: string; bindings: FacetWhere['bindings'] };
+type FacetShape = 'packed' | 'rows';
+type FacetEncoding = 'numbered' | 'json';
+type PackedFacets = Record<string, string>;
+type OrderedFacet = { f: number; k1: string; k2: string | null };
+
+const facetQueryFits = ({ sql, bindings }: FacetQuery) =>
+  bindings.length <= D1_BIND_LIMIT && facetEncoder.encode(sql).length <= D1_SQL_BYTES &&
+  bindings.every(value => typeof value !== 'string' || facetEncoder.encode(value).length <= D1_VALUE_BYTES);
+
+function facetLimitError(error: unknown) {
+  if (!(error instanceof Error)) return;
+  const cause = error.cause;
+  const messages = [error.message, ...(cause instanceof Error ? [cause.message] : [])]
+    .map(message => message.replace(/^D1_ERROR:\s*/i, ''));
+  if (messages.some(message => /^(?:string or blob too big|(?:result )?row is too (?:large|big))(?:: SQLITE_TOOBIG)?$/i.test(message))) {
+    return 'result-size';
+  }
+  if (messages.some(message => /^(?:too many SQL variables|variable number must be between \?1 and \?100)(?: at offset \d+)?(?:: SQLITE_ERROR)?$/i.test(message) ||
+    /^statement too long(?:: SQLITE_TOOBIG)?$/i.test(message) ||
+    /^too many terms in compound SELECT(?:: SQLITE_ERROR)?$/i.test(message))) {
+    return 'statement-limit';
+  }
+}
+
+function facetAggregate(columns: readonly string[], from: string) {
+  const keys = columns.join(', ');
+  return `SELECT ${keys}, MIN(first_source_position) AS first_source_position
+    FROM ${from} GROUP BY ${keys} ORDER BY first_source_position`;
+}
+
+function combinedFacetQuery(scopes: FacetWhere[], catalogue: ReturnType<typeof publicCatalogueFacetSql>,
+  encoding: FacetEncoding, shape: FacetShape): FacetQuery {
+  const bindings: FacetQuery['bindings'] = [];
+  const parameters = new Map<string | number, number>();
+  const parameter = (value: string | number) => {
+    let position = parameters.get(value);
+    if (position === undefined) {
+      position = bindings.push(value);
+      parameters.set(value, position);
+    }
+    return `?${position}`;
+  };
+  const filteredSource = ({ whereSql, bindings: scopeBindings }: FacetWhere) => {
+    let offset = 0;
+    // Only the IN lists emitted by buildFacetWhere have parameter slots.
+    const where = whereSql.replace(/\((\?(?:, \?)*)\)/g, (_list, slots: string) => {
+      const count = slots.split(', ').length;
+      const values = scopeBindings.slice(offset, offset + count);
+      offset += count;
+      // Unary + removes affinity, as for the original bound IN-list elements.
+      return encoding === 'json' && count > 1
+        ? `(SELECT +value FROM json_each(${parameter(JSON.stringify(values))}))`
+        : `(${values.map(parameter).join(', ')})`;
+    });
+    if (offset !== scopeBindings.length) throw new Error('Invalid course facet bindings');
+    return `${catalogue.source} ${where}`;
+  };
+
+  const byScope = new Map<string, { id: number; count: number; filter: FacetWhere }>();
+  const branches = scopes.map(filter => {
+    const key = JSON.stringify([filter.whereSql, filter.bindings]);
+    let scope = byScope.get(key);
+    if (!scope) {
+      scope = { id: byScope.size, count: 0, filter };
+      byScope.set(key, scope);
+    }
+    scope.count++;
+    return scope;
+  });
+  const ctes = catalogue.gate ? [catalogue.gate] : [];
+  const materialized = new Set<number>();
+  // E-S keeps four separate aggregates for one common scope. E-M shares only duplicate scopes.
+  if (byScope.size > 1) {
+    for (const scope of byScope.values()) {
+      if (scope.count < 2) continue;
+      ctes.push(`scope_${scope.id} AS MATERIALIZED (
+        SELECT major, cohort, subject_name, group_name, academic_program, first_source_position
+        FROM ${filteredSource(scope.filter)}
+      )`);
+      materialized.add(scope.id);
+    }
+  }
+  const selects = branches.map((scope, i) => {
+    const columns = FACET_COLUMNS[i];
+    const from = materialized.has(scope.id) ? `scope_${scope.id}` : filteredSource(scope.filter);
+    const aggregate = facetAggregate(columns, from);
+    if (shape === 'packed') {
+      return `(SELECT json_group_array(json_array(${columns.join(', ')}, first_source_position))
+        FROM (${aggregate})) AS facet_${i}`;
+    }
+    return `SELECT ${i} AS f, ${columns[0]} AS k1, ${columns[1] ?? 'NULL'} AS k2,
+      first_source_position AS p, ROW_NUMBER() OVER () AS n FROM (${aggregate})`;
+  });
+  // Packed is one SELECT. The ordered form has four terms, below D1's limit of five.
+  const query = shape === 'packed' ? `SELECT ${selects.join(', ')}` : `${selects.join(' UNION ALL ')} ORDER BY f, n`;
+  return { sql: (ctes.length ? `WITH ${ctes.join(', ')} ` : '') + query, bindings };
+}
+
+function unpackFacets(rows: (PackedFacets | OrderedFacet)[], shape: FacetShape): CourseFacetRow[][] {
+  const facets: CourseFacetRow[][] = FACET_COLUMNS.map(() => []);
+  if (shape === 'packed') {
+    const row = rows[0] as PackedFacets | undefined;
+    if (!row) throw new Error('Missing course facet aggregate');
+    FACET_COLUMNS.forEach((columns, i) => {
+      const values: string[][] = JSON.parse(row[`facet_${i}`]);
+      facets[i] = values.map(tuple => columns.length === 2
+        ? { subject_name: tuple[0], group_name: tuple[1] }
+        : { [columns[0]]: tuple[0] });
+    });
+  } else {
+    for (const row of rows as OrderedFacet[]) {
+      const columns = FACET_COLUMNS[row.f];
+      if (!columns) throw new Error('Unknown course facet');
+      facets[row.f].push(columns.length === 2
+        ? { subject_name: row.k1, group_name: row.k2 ?? undefined }
+        : { [columns[0]]: row.k1 });
+    }
+  }
+  return facets;
+}
+
+async function readCourseFacets(db: D1Database, scopes: FacetWhere[]) {
+  const catalogue = publicCatalogueFacetSql(db);
+  let lastError: unknown;
+  const failed = new Set<string>();
+  const attempt = async (query: FacetQuery, shape: FacetShape) => {
+    if (!facetQueryFits(query)) return {};
+    const key = JSON.stringify([query.sql, query.bindings]);
+    if (failed.has(key)) return {};
+    let result: D1Result<PackedFacets | OrderedFacet>;
+    try {
+      result = await catalogue.db.prepare(query.sql).bind(...query.bindings).all<PackedFacets | OrderedFacet>();
+    } catch (error) {
+      const limit = facetLimitError(error);
+      if (!limit) throw error;
+      failed.add(key);
+      lastError = error;
+      return { limit };
+    }
+    return { rows: unpackFacets(result.results, shape) };
+  };
+
+  for (const encoding of ['numbered', 'json'] as const) {
+    const packed = await attempt(combinedFacetQuery(scopes, catalogue, encoding, 'packed'), 'packed');
+    if (packed.rows) return packed.rows;
+    if (packed.limit === 'result-size') {
+      const rows = await attempt(combinedFacetQuery(scopes, catalogue, encoding, 'rows'), 'rows');
+      if (rows.rows) return rows.rows;
+      if (rows.limit === 'result-size') throw lastError;
+    }
+  }
+
+  const legacy = scopes.map(({ whereSql, bindings }, i) => ({
+    sql: catalogue.legacy(facetAggregate(FACET_COLUMNS[i], `course_filter_facets ${whereSql}`)),
+    bindings,
+  }));
+  if (!legacy.every(facetQueryFits)) throw lastError ?? new Error('Course facets exceed D1 statement limits');
+  const results = await catalogue.db.batch<CourseFacetRow>(legacy.map(({ sql, bindings }) =>
+    catalogue.db.prepare(sql).bind(...bindings)));
+  return results.map(result => result.results || []);
+}
+
 const filterOptions = async (url: URL, env: CourseEnv) => {
-  const majorFilter = buildFacetWhere(url.searchParams, ['cohort', 'academicProgram']);
-  const cohortFilter = buildFacetWhere(url.searchParams, ['major', 'academicProgram']);
-  const optionFilter = buildFacetWhere(
-    url.searchParams,
-    ['major', 'cohort', 'academicProgram']
-  );
-  const programFilter = buildFacetWhere(url.searchParams, ['major', 'cohort']);
-
-  const results = await env.DB.batch<CourseFacetRow>([
-    env.DB.prepare(
-      `SELECT major, MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${majorFilter.whereSql}
-        GROUP BY major
-        ORDER BY first_source_position`
-    ).bind(...majorFilter.bindings),
-    env.DB.prepare(
-      `SELECT cohort, MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${cohortFilter.whereSql}
-        GROUP BY cohort
-        ORDER BY first_source_position`
-    ).bind(...cohortFilter.bindings),
-    env.DB.prepare(
-      `SELECT subject_name, group_name,
-              MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${optionFilter.whereSql}
-        GROUP BY subject_name, group_name
-        ORDER BY first_source_position`
-    ).bind(...optionFilter.bindings),
-    env.DB.prepare(
-      `SELECT academic_program, MIN(first_source_position) AS first_source_position
-         FROM course_filter_facets ${programFilter.whereSql}
-        GROUP BY academic_program
-        ORDER BY first_source_position`
-    ).bind(...programFilter.bindings),
-  ]);
-
-  const majorRows = results[0]?.results || [];
-  const cohortRows = results[1]?.results || [];
-  const optionRows = results[2]?.results || [];
-  const programRows = results[3]?.results || [];
+  const scopes = FACET_DIMENSIONS.map(dimensions => buildFacetWhere(url.searchParams, dimensions));
+  const [majorRows, cohortRows, optionRows, programRows] = await readCourseFacets(env.DB, scopes);
 
   return {
     status: 200,
@@ -440,8 +581,8 @@ const courseDetail = async (url: URL, env: CourseEnv) => {
 };
 
 export const handleCourses = async (url: URL, env: CourseEnv) => {
-  env = { ...env, DB: await publicCatalogueDb(env.DB) };
   const resource = clean(url.searchParams.get('resource'));
+  env = { ...env, DB: await publicCatalogueDb(env.DB, resource === 'filter-options') };
   if (resource === 'filter-options') return filterOptions(url, env);
   if (resource === 'course-detail') return courseDetail(url, env);
   if (resource) {

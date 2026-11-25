@@ -1,0 +1,32 @@
+{
+  "candidate": "course-facets-e",
+  "base": "a7531e447a0242a30e8610d539a7531f0b700699",
+  "previousBaseline": {
+    "version": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+    "receipt": "docs/public-release-baseline-04e1f162.json",
+    "transitionPr": 169
+  },
+  "runtimeBlobs": {
+    "cloudflare/worker/src/courses.ts": {
+      "before": "02679e602232e997fe0670d7e46554c98f7f0123",
+      "after": "bacd56c7acff20b7d86dbff41b66828dbbcdf2f3"
+    },
+    "cloudflare/worker/src/course-publication.ts": {
+      "before": "b99f1eec38e862f319e0bf485e26f1b8d5cefcd5",
+      "after": "fe115af4e2e38537806071f33986f930c43dc31b"
+    }
+  },
+  "authorizesDeployment": false,
+  "procedure": {
+    "describe": "node scripts/verify-public-baseline-transition.mjs describe-e <full-head-sha>",
+    "verify": "node scripts/verify-public-baseline-transition.mjs verify-e <full-head-sha> <pr-number> <owner-comment-id>",
+    "ownerApproval": [
+      "HUB Public course facets E transition (v477 remains pinned)",
+      "pr=<pr-number>",
+      "base=<full-base-sha>",
+      "head=<full-head-sha>",
+      "diff_sha256=<full-diff-sha256>"
+    ],
+    "note": "No owner approval is stored in this record. The owner must post the exact five LF lines after reviewing the final Git diff. Verification reads the authenticated owner comment on GitHub. Keep the existing v477 predeploy pin and operator fail-closed checks."
+  }
+}

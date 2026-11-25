@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
+import { COURSE_FACETS_TRANSITION } from '../../scripts/verify-public-baseline-transition.mjs';
 
 const guardPath = 'scripts/check-public-release-state.mjs';
 const v477Guard = {
@@ -9,19 +10,27 @@ const v477Guard = {
 };
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });
 
-/** Preserve every path in the historical freeze. The v477 exception is one exact blob transition. */
-export function assertHk2ReleaseFreeze(anchor, paths, { v477PinTransition = false } = {}) {
-  if (!v477PinTransition) {
+/** Compare the entire historical scope, with only exact transition blobs permitted. */
+export function assertHk2ReleaseFreeze(anchor, paths, { v477PinTransition = false, courseFacetsTransition = false } = {}) {
+  const expected = {
+    ...(v477PinTransition ? { [guardPath]: v477Guard } : {}),
+    ...(courseFacetsTransition ? COURSE_FACETS_TRANSITION.runtimeBlobs : {}),
+  };
+  const targets = Object.keys(expected).sort();
+  if (!targets.length) {
     git('diff', '--exit-code', anchor, '--', ...paths);
     return;
   }
-  assert.ok(paths.includes(guardPath));
+  if (v477PinTransition) assert.ok(paths.includes(guardPath));
+  if (courseFacetsTransition) assert.ok(paths.includes('cloudflare'));
   const actual = git('diff', '--name-status', '-z', '--no-renames', anchor, '--', ...paths);
-  assert.equal(actual, `M\0${guardPath}\0`, 'Unexpected change in the publication release freeze');
-  assert.equal(git('ls-tree', anchor, '--', guardPath).trim(),
-    `100644 blob ${v477Guard.before}\t${guardPath}`);
-  assert.match(git('ls-files', '--stage', '--', guardPath), /^100644 [0-9a-f]{40} 0\t[^\n]+\n$/);
-  assert.ok(lstatSync(guardPath).isFile(), 'The reviewed guard must remain a regular file');
-  assert.equal(git('hash-object', `--path=${guardPath}`, guardPath).trim(),
-    v477Guard.after, 'Predeploy guard differs from the exact v477 pin transition');
+  assert.equal(actual, targets.map(path => `M\0${path}\0`).join(''), 'Unexpected change in the historical release freeze');
+  for (const path of targets) {
+    assert.equal(git('ls-tree', anchor, '--', path).trim(),
+      `100644 blob ${expected[path].before}\t${path}`);
+    assert.match(git('ls-files', '--stage', '--', path), /^100644 [0-9a-f]{40} 0\t[^\n]+\n$/);
+    assert.ok(lstatSync(path).isFile(), 'The reviewed file must remain a regular file');
+    assert.equal(git('hash-object', `--path=${path}`, path).trim(),
+      expected[path].after, `File differs from the exact transition: ${path}`);
+  }
 }
