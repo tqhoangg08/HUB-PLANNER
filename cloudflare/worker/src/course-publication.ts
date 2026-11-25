@@ -23,7 +23,25 @@ const verifiedOpenSql = `EXISTS (
 )`;
 
 const SQL_KEYWORDS = new Set(['WHERE','ON','LEFT','RIGHT','INNER','OUTER','CROSS','JOIN','GROUP','ORDER','LIMIT','OFFSET','UNION','HAVING','USING','RETURNING','SET']);
-const wrappedBindings = new WeakSet<D1Database>();
+const wrappedBindings = new WeakMap<D1Database, { raw: D1Database; available: boolean }>();
+
+/** Facet statements may share the verified gate inside one SQL statement. */
+export const publicCatalogueFacetSql = (db: D1Database) => {
+  const binding = wrappedBindings.get(db);
+  if (!binding) throw new Error('Course facets require a public catalogue binding');
+  const { raw, available } = binding;
+  const gate = available ? `gate AS MATERIALIZED (SELECT CASE WHEN EXISTS (
+    SELECT 1 FROM hk2_catalogue_publications
+    WHERE semester='${GATED_SEMESTER}' AND state='OPEN'
+  ) THEN ${verifiedOpenSql} ELSE 0 END AS is_open)` : '';
+  return {
+    db: raw,
+    gate,
+    source: `(SELECT * FROM course_filter_facets
+      WHERE (semester IS NOT '${GATED_SEMESTER}' OR is_user_added=1${available ? ' OR (SELECT is_open FROM gate)' : ''})) AS course_filter_facets`,
+    legacy: (sql: string) => rewritePublicCatalogueSql(sql, available),
+  };
+};
 
 export const rewritePublicCatalogueSql = (sql: string, gateSchemaAvailable: boolean) => sql.replace(
   /\b(FROM|JOIN)\s+(course_schedules|course_filter_facets)\b/gi,
@@ -35,7 +53,7 @@ export const rewritePublicCatalogueSql = (sql: string, gateSchemaAvailable: bool
   },
 );
 
-export const publicCatalogueDb = async (db: D1Database): Promise<D1Database> => {
+export const publicCatalogueDb = async (db: D1Database, facetRead = false): Promise<D1Database> => {
   if (wrappedBindings.has(db)) return db;
   let available = false;
   try {
@@ -45,7 +63,7 @@ export const publicCatalogueDb = async (db: D1Database): Promise<D1Database> => 
       l.actor_scope,l.actor_id,l.idempotency_key,l.request_hash,l.operation,l.response_json,l.created_at
       FROM hk2_catalogue_publications p
       LEFT JOIN hk2_catalogue_publication_receipts r ON r.id=p.receipt_id
-      LEFT JOIN course_mutation_receipts l ON 0
+      LEFT JOIN course_mutation_receipts l ON ${facetRead ? 'l.actor_scope = NULL' : '0'}
       WHERE p.semester='${GATED_SEMESTER}'`).first<{ semester: string }>();
     available = row?.semester === GATED_SEMESTER;
   } catch { /* missing/unverified migration is CLOSED; HK1 remains queryable */ }
@@ -54,7 +72,7 @@ export const publicCatalogueDb = async (db: D1Database): Promise<D1Database> => 
     const value = Reflect.get(target, property);
     return typeof value === 'function' ? value.bind(target) : value;
   } });
-  wrappedBindings.add(wrapped);
+  wrappedBindings.set(wrapped, { raw: db, available });
   return wrapped;
 };
 

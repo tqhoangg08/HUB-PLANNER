@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 export const TRANSITION_BASE = 'eaa2a55860f07265d8d4fbe42157d0008a24707b';
@@ -7,7 +8,7 @@ const SHA = /^[a-f0-9]{40}$/;
 const API = 'https://api.github.com/repos/tqhoangg08/HUB-PLANNER';
 const REPO = 1126820605;
 const OWNER = 252552483;
-const scope = new Map([
+const v477Scope = new Map([
   ['scripts/check-public-release-state.mjs', 'M'],
   ['scripts/verify-public-baseline-transition.mjs', 'A'],
   ['tests/fixtures/hk2-release-freeze.mjs', 'A'],
@@ -20,16 +21,43 @@ const scope = new Map([
   ['docs/github-environment-release-approval.md', 'M'],
 ]);
 
+export const COURSE_FACETS_TRANSITION = JSON.parse(readFileSync(
+  new URL('../docs/public-release-transition-course-facets-e.json', import.meta.url), 'utf8'));
+const eScope = new Map([
+  ...Object.keys(COURSE_FACETS_TRANSITION.runtimeBlobs).map(path => [path, 'M']),
+  ['docs/public-release-transition-course-facets-e.json', 'A'],
+  ['scripts/verify-public-baseline-transition.mjs', 'M'],
+  ['tests/course-facets-e.test.mjs', 'A'],
+  ['tests/fixtures/hk2-release-freeze.mjs', 'M'],
+  ['tests/hk2-course-publication.test.mjs', 'M'],
+  ['tests/hk2-production-transport.test.mjs', 'M'],
+  ['tests/hk2-publication-session.test.mjs', 'M'],
+  ['tests/hk2-publication-transport.test.mjs', 'M'],
+  ['tests/release-baseline-transition.test.mjs', 'M'],
+]);
+const transitions = new Map([
+  ['v477', { base: TRANSITION_BASE, scope: v477Scope, title: 'HUB Public baseline transition v476 -> v477', blobs: {} }],
+  ['e', { base: COURSE_FACETS_TRANSITION.base, scope: eScope,
+    title: 'HUB Public course facets E transition (v477 remains pinned)', blobs: COURSE_FACETS_TRANSITION.runtimeBlobs }],
+]);
+
+function transitionSpec(name) {
+  const spec = transitions.get(name);
+  requireEvidence(spec, 'UNKNOWN_BASELINE_TRANSITION');
+  return spec;
+}
+
 function requireEvidence(ok, code) {
   if (!ok) throw Error(code);
 }
 
-export function describeTransition(head, { git = (...args) => execFileSync('git', args) } = {}) {
-  requireEvidence(SHA.test(head || '') && head !== TRANSITION_BASE, 'EXACT_CANDIDATE_SHA_REQUIRED');
+export function describeTransition(head, { transition = 'v477', git = (...args) => execFileSync('git', args) } = {}) {
+  const { base, scope, blobs } = transitionSpec(transition);
+  requireEvidence(SHA.test(head || '') && head !== base, 'EXACT_CANDIDATE_SHA_REQUIRED');
   requireEvidence(git('cat-file', '-t', head).toString().trim() === 'commit', 'CANDIDATE_COMMIT_REQUIRED');
-  git('merge-base', '--is-ancestor', TRANSITION_BASE, head);
+  git('merge-base', '--is-ancestor', base, head);
   const raw = git('diff-tree', '--no-commit-id', '-r', '--raw', '-z', '--no-abbrev',
-    '--no-renames', TRANSITION_BASE, head, '--');
+    '--no-renames', base, head, '--');
   const entries = raw.toString('utf8').split('\0');
   requireEvidence(entries.pop() === '' && entries.length === scope.size * 2, 'TRANSITION_SCOPE_MISMATCH');
   const remaining = new Map(scope);
@@ -41,21 +69,25 @@ export function describeTransition(head, { git = (...args) => execFileSync('git'
       (status === 'A' ? match[1] === '000000' && /^0{40}$/.test(match[2]) :
         match[1] === '100644' && !/^0{40}$/.test(match[2])) && !/^0{40}$/.test(match[3]) &&
       match[2] !== match[3], 'TRANSITION_SCOPE_MISMATCH');
+    if (Object.hasOwn(blobs, path)) {
+      const expected = blobs[path];
+      requireEvidence(match[2] === expected.before && match[3] === expected.after, 'TRANSITION_RUNTIME_BLOB_MISMATCH');
+    }
     remaining.delete(path);
   }
-  return { base: TRANSITION_BASE, head, diff_sha256: createHash('sha256').update(raw).digest('hex') };
+  return { base, head, diff_sha256: createHash('sha256').update(raw).digest('hex') };
 }
 
-export function approvalText(pr, candidate) {
-  return `HUB Public baseline transition v476 -> v477\npr=${pr}\nbase=${candidate.base}\nhead=${candidate.head}\ndiff_sha256=${candidate.diff_sha256}`;
+export function approvalText(pr, candidate, transition = 'v477') {
+  return `${transitionSpec(transition).title}\npr=${pr}\nbase=${candidate.base}\nhead=${candidate.head}\ndiff_sha256=${candidate.diff_sha256}`;
 }
 
 /** Call explicitly during review. Draft validation has no owner credential or authority to post approval. */
-export async function verifyTransition({ head, pr, comment, token, git, fetchImpl = fetch }) {
+export async function verifyTransition({ head, pr, comment, token, git, transition = 'v477', fetchImpl = fetch }) {
   requireEvidence(Number.isSafeInteger(pr) && pr > 0 && Number.isSafeInteger(comment) && comment > 0,
     'PR_AND_OWNER_COMMENT_REQUIRED');
   requireEvidence(typeof token === 'string' && token.trim() && !/[\r\n]/.test(token), 'GITHUB_READ_CREDENTIAL_REQUIRED');
-  const candidate = describeTransition(head, { git });
+  const candidate = describeTransition(head, { git, transition });
   const get = async path => {
     const response = await fetchImpl(API + path, {
       method: 'GET', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000),
@@ -71,7 +103,7 @@ export async function verifyTransition({ head, pr, comment, token, git, fetchImp
   const review = await get(`/issues/comments/${comment}`);
   requireEvidence(review.id === comment && review.issue_url === `${API}/issues/${pr}` &&
     review.user?.id === OWNER && review.user?.type === 'User' && review.created_at === review.updated_at &&
-    Number.isFinite(Date.parse(review.created_at)) && review.body === approvalText(pr, candidate),
+    Number.isFinite(Date.parse(review.created_at)) && review.body === approvalText(pr, candidate, transition),
   'AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED');
   checkPull(await get(`/pulls/${pr}`));
   return candidate;
@@ -80,9 +112,12 @@ export async function verifyTransition({ head, pr, comment, token, git, fetchImp
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const [command, head, pr, comment, ...extra] = process.argv.slice(2);
-    if (command === 'describe' && pr === undefined) console.log(JSON.stringify(describeTransition(head)));
-    else if (command === 'verify' && !extra.length) {
-      const candidate = await verifyTransition({ head, pr: Number(pr), comment: Number(comment), token: process.env.GH_TOKEN });
+    const transition = command?.endsWith('-e') ? 'e' : 'v477';
+    if (['describe', 'describe-e'].includes(command) && pr === undefined) {
+      console.log(JSON.stringify(describeTransition(head, { transition })));
+    }
+    else if (['verify', 'verify-e'].includes(command) && !extra.length) {
+      const candidate = await verifyTransition({ head, pr: Number(pr), comment: Number(comment), token: process.env.GH_TOKEN, transition });
       console.log(JSON.stringify({ ...candidate, owner_transition_approval: 'verified' }));
     } else throw Error('EXPECTED_DESCRIBE_OR_VERIFY');
   } catch (error) {
