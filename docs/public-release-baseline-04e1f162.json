@@ -1,0 +1,71 @@
+{
+  "worker": "hub-planner-public-dev-api",
+  "version": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+  "versionNumber": 477,
+  "previousVersion": "78a4f08b-ea3b-4fad-839e-baec2da98c56",
+  "sha": "8416837eb5ce648ce9c1c6237b4eed81802dbd03",
+  "runId": "44764100186",
+  "mainAtPreparation": "eaa2a55860f07265d8d4fbe42157d0008a24707b",
+  "publicationGateGitBlob": "b99f1eec38e862f319e0bf485e26f1b8d5cefcd5",
+  "authorizesDeployment": false,
+  "release": {
+    "workflow": "Approved Public-only production release",
+    "source": "Existing release job metadata and log receipts",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/44764100186",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "attempt": 1,
+    "validateJobId": 136384012084,
+    "releasePublicJobId": 136387619881,
+    "conclusion": "success",
+    "stepConclusions": {
+      "validate": "success",
+      "predeploy": "success",
+      "ownerApproval": "success",
+      "deploy": "success",
+      "postdeploy": "success"
+    },
+    "receipts": [
+      "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=78a4f08b-ea3b-4fad-839e-baec2da98c56",
+      "APPROVED_SHA: 8416837eb5ce648ce9c1c6237b4eed81802dbd03",
+      "PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "Current Version ID: 04e1f162-6ca5-4ef1-8161-aa74deefef68",
+      "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=04e1f162-6ca5-4ef1-8161-aa74deefef68"
+    ]
+  },
+  "deployment": {
+    "id": "b9c2b81c-547a-4ab4-9e8c-2c70befb3bda",
+    "createdOn": "2026-11-20T15:43:10.00941Z",
+    "archivedObservationAt": "2026-11-20T16:27:04.316Z",
+    "traffic": [
+      {
+        "versionId": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+        "percentage": 100
+      }
+    ]
+  },
+  "independentOwnerProvidedMetadata": {
+    "mainProtected": true,
+    "d1Binding": "88d702e1-60d3-490a-8514-38ef881cf133",
+    "courseReadAuthority": "d1",
+    "courseWriteAuthority": "d1",
+    "advisorV2TrafficPercent": 100,
+    "documentFeatureFlags": "OFF",
+    "scholarshipLimiter": {
+      "limit": 60,
+      "periodSeconds": 60
+    }
+  },
+  "evidenceLimits": {
+    "schemaReverified": false,
+    "servingFrontendManifestReverified": false,
+    "originalBuildArtifactAvailable": false,
+    "frontendByteParityVerified": false
+  },
+  "notes": [
+    "This record preserves the v477 deployment provenance and records independently verified metadata supplied by the owner for this transition.",
+    "The historical postflight is not a new D1 schema or active frontend manifest verification. No artifact byte parity is asserted.",
+    "The preparation SHA is an operator/main source reference. It is not the v477 deployed release SHA.",
+    "No owner approval of a candidate commit is recorded in this file."
+  ]
+}
