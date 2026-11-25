@@ -1,4 +1,5 @@
 import test from 'node:test';
+import './release-baseline-transition.test.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
@@ -19,6 +20,8 @@ const historicalV472='2a898cfc-0e65-4e33-bd07-49901f0ec06b';
 const historicalV473='655fda62-1767-4fb9-992e-780de214d2ec';
 const historicalV474='782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6';
 const historicalV475='4a9e7d99-c2cb-4206-8318-2b13b5fb249a';
+const historicalV476='78a4f08b-ea3b-4fad-839e-baec2da98c56';
+const v476BaselineCommit='8416837eb5ce648ce9c1c6237b4eed81802dbd03';
 const {objects:announcementObjects,ledger:announcementLedger}=announcementReleaseFixture();
 const scratch=new DatabaseSync(':memory:');
 for(const migration of ['0032_ai_documents_chat_d1_r2_authority','0044_ai_document_ocr_ingestion','0045_ai_document_public_view_policy','0049_ai_document_derived_index_identity','0054_ai_document_search_ingestion_state','0055_ai_document_index_segment_count','0056_ai_text_document_revisions'])scratch.exec(readFileSync(`cloudflare/migrations/${migration}.sql`,'utf8'));
@@ -259,7 +262,7 @@ test('historical v475 receipts remain intact without claiming deployment of prep
   assert.ok(e.limitations.some(text=>text.includes('PR #157')));
   // An old version remains historical evidence, never an alternative accepted pin.
   const api=fakeApi('predeploy');assert.equal((await checkPublicReleaseState(config,opts(api))).versionId,PUBLIC_RELEASE_PREDEPLOY_VERSION);
-  for(const versionId of [before,historicalV474,after]){
+  for(const versionId of [before,historicalV474,historicalV476,after]){
     const api=fakeApi('predeploy',url=>url.endsWith('/deployments')?{ok:true,json:async()=>({success:true,result:{deployments:[{created_on:'2026-11-01T10:21:54Z',versions:[{version_id:versionId,percentage:100}]}]}})}:undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(api)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!api.calls.some(call=>call.url.includes('/versions/')));
@@ -267,6 +270,7 @@ test('historical v475 receipts remain intact without claiming deployment of prep
 });
 
 test('v476 evidence binds fresh live metadata, guarded release, audit receipts and truthful frontend limitations',async()=>{
+  const before=historicalV476;
   const e=JSON.parse(readFileSync('docs/public-release-baseline-78a4f08b.json','utf8'));
   assert.equal(e.version,before);assert.equal(e.version,'78a4f08b-ea3b-4fad-839e-baec2da98c56');
   assert.equal(e.previousVersion,historicalV475);
@@ -320,14 +324,14 @@ test('v476 evidence binds fresh live metadata, guarded release, audit receipts a
   assert.equal(e.assets.frontendByteForByteVerified,false);assert.equal(e.assets.originalArtifactAvailable,false);assert.equal(e.assets.originalArtifactDigest,null);
   assert.equal(e.ownerAcceptance.scope,'baseline PR preparation only');assert.equal(e.ownerAcceptance.authorizesRelease,false);
   assert.equal(e.ownerAcceptance.frontendArtifactByteComparisonLimitationAccepted,false);assert.equal(e.ownerAcceptance.requiresOwnerReview,true);
-  const api=fakeApi('predeploy');assert.equal((await checkPublicReleaseState(config,opts(api))).versionId,e.version);
-  await assert.rejects(()=>checkPublicReleaseState(config,{...opts(fakeApi('postdeploy'),'postdeploy'),beforeVersion:historicalV475}),/PREDEPLOY_VERSION_REQUIRED/);
+  for(const historical of [historicalV475,historicalV476])
+    await assert.rejects(()=>checkPublicReleaseState(config,{...opts(fakeApi('postdeploy'),'postdeploy'),beforeVersion:historical}),/PREDEPLOY_VERSION_REQUIRED/);
 });
 
 test('v476 changes exactly the reviewed pin and two provenance comments; historical evidence and protected surfaces are unchanged',()=>{
   const e=JSON.parse(readFileSync('docs/public-release-baseline-78a4f08b.json','utf8'));
   const git=(...args)=>{const r=spawnSync('git',args,{encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout;};
-  const path='scripts/check-public-release-state.mjs',old=git('show',`${e.mainAtPreparation}:${path}`).replace(/\r\n/g,'\n'),now=readFileSync(path,'utf8').replace(/\r\n/g,'\n');
+  const path='scripts/check-public-release-state.mjs',old=git('show',`${e.mainAtPreparation}:${path}`).replace(/\r\n/g,'\n'),now=git('show',`${v476BaselineCommit}:${path}`).replace(/\r\n/g,'\n');
   const normalize=s=>s.replace(/^\/\/ Reviewed release baseline:.*$/m,'<BASELINE_COMMENT>')
     .replace(/^\/\/ See docs\/public-release-baseline-.*$/m,'<BASELINE_RECEIPT>')
     .replace(/export const PUBLIC_RELEASE_PREDEPLOY_VERSION='[^']+';/,'<BASELINE_PIN>');
@@ -537,8 +541,8 @@ test('historical reviewed v470 baseline is backed by successful owner-approved r
   assert.ok(Date.parse(evidence.liveMetadata.deployment.createdOn)<=Date.parse(evidence.release.releasePublicCompletedAt));
 });
 
-test('predeploy accepts reviewed v476 and retains historical v469 provenance assertions',async()=>{
-  assert.equal(before,'78a4f08b-ea3b-4fad-839e-baec2da98c56');
+test('predeploy accepts reviewed v477 and retains historical v469 provenance assertions',async()=>{
+  assert.equal(before,'04e1f162-6ca5-4ef1-8161-aa74deefef68');
   const evidence=JSON.parse(readFileSync('docs/public-release-baseline-e14d5e2c.json','utf8'));
   assert.equal(evidence.version,historicalBefore);assert.equal(evidence.runId,'39923225777');
   assert.equal(evidence.sha,'d92dc81c658891cbb0a60a93393dcc7ff41adae5');

@@ -36,3 +36,27 @@ After CI passes, the owner should perform a settings-only read-back, a non-produ
 ## 2026-10-28 release incident and correction
 
 Release #121 failed at the Owner approval guard, not at Cloudflare. GitHub's read-only approvals endpoint recorded the Owner approval and the 5-minute bot timer. The guard erroneously looked for `environment.prevent_self_review`, whereas GitHub's [Get an environment response](https://docs.github.com/en/rest/deployments/environments#get-an-environment) places it on the `protection_rules[]` entry with `type: required_reviewers`. The correction requires the **rule-level** value to equal `false` and rejects missing/true rule values, preserving all other security gates. This is a code fix, not a reason to relax Environment settings or reuse failed workflow attempts.
+
+## Reviewed transition to Public v477
+
+The v477 evidence is stored separately in [public-release-baseline-04e1f162.json](public-release-baseline-04e1f162.json). Preserve prior baseline files and all HK2 import, publication and backup receipts. The v477 record contains an archived version and deployment confirmation, and owner-provided independently verified metadata. A fresh D1 schema or serving frontend manifest check and build artifact byte parity were not established for this transition.
+
+The v477 maintenance candidate covers the exact diff from the pinned preparation main commit. CI exercises the Git and GitHub validation with fixtures. For independent owner review, run `node scripts/verify-public-baseline-transition.mjs describe <full-candidate-sha>`. Review the complete diff, including old/new blob IDs and file modes. To approve the exact candidate, the owner posts an unedited PR comment containing the following five lines with the actual values.
+
+```text
+HUB Public baseline transition v476 -> v477
+pr=<pr-number>
+base=<full-base-sha>
+head=<full-candidate-sha>
+diff_sha256=<complete-diff-digest>
+```
+
+With a read-only GitHub credential in `GH_TOKEN`, verify the approval separately using `node scripts/verify-public-baseline-transition.mjs verify <full-candidate-sha> <pr-number> <owner-comment-id>`. The verifier reads the comment and PR from GitHub and checks the exact base, head, complete diff digest, author and comment target. Draft CI, text in a commit and the v477 release receipt do not attest approval of a candidate commit. If main or the candidate changes, stop and review the new transition. Baseline approval does not grant deployment approval.
+
+The publication freeze accepts one exact state-guard blob transition for v477. Future changes need their own reviewed baseline and diff. The existing Release Assistant baseline command does not implement this approval or the versioned evidence policy. Do not use it to prepare this transition.
+
+## Rollback decision
+
+A release uses the pinned predeploy UUID and the existing separate owner approval. Record a deployed baseline only when the exact approved SHA, deploy output UUID, successful postflight, single serving version at 100%, and deployment receipt agree. Preserve the rollback target and its provenance before release. Maintain the current Public-only target, approvals, schema and binding checks.
+
+If check results are missing or traffic is unexpected, stop and reconcile deployment receipts. A Worker rollback requires separate owner approval and a known compatible version with the correct bindings and verified HK2 gate behavior. The v476 source lacks the v477 publication gate and must not be chosen merely because it was a previous predeploy pin. For any authorized rollback, recheck the effective version and catalogue behavior, preserve the rollback receipt, and review any resulting pin transition separately. A Worker rollback does not authorize a database restore, migration, import rollback or modification of the HK2 publication state.
