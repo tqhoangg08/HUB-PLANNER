@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { approvalText, describeTransition, TRANSITION_BASE, COURSE_FACETS_TRANSITION, verifyTransition } from '../scripts/verify-public-baseline-transition.mjs';
-import { assertHk2ReleaseFreeze } from './fixtures/hk2-release-freeze.mjs';
+import { approvalText, describeTransition, TRANSITION_BASE, COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION, verifyTransition } from '../scripts/verify-public-baseline-transition.mjs';
+import { assertHk2ReleaseFreeze, readPreHostnameTransitionFile } from './fixtures/hk2-release-freeze.mjs';
 
 const candidate = 'c'.repeat(40);
 const repo = { id: 1126820605 };
@@ -95,7 +95,7 @@ test('transition rejects an implicit HEAD, different scope or file mode before a
 test('only the three exact provenance/pin lines change in the Public state guard; v477 evidence records its limitations', () => {
   const sourcePath = 'scripts/check-public-release-state.mjs';
   const old = execFileSync('git', ['show', `${TRANSITION_BASE}:${sourcePath}`], { encoding: 'utf8' }).split('\n');
-  const current = readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n').split('\n');
+  const current = readPreHostnameTransitionFile(sourcePath).replace(/\r\n/g, '\n').split('\n');
   assert.equal(current.length, old.length);
   assert.deepEqual(current.flatMap((line, i) => line === old[i] ? [] : [i + 1]), [13, 14, 15]);
   assertHk2ReleaseFreeze('7b951b27c416d7b3d767a1dbebbb7332d5c8a7ab', [sourcePath], { v477PinTransition: true });
@@ -179,7 +179,8 @@ test('E transition binds both runtime blobs and rejects scope, mode, SHA, owner 
 test('the E candidate keeps the v477 pin, release evidence, and original predicate bytes', () => {
   const { base, previousBaseline } = COURSE_FACETS_TRANSITION;
   for (const path of [previousBaseline.receipt, 'scripts/check-public-release-state.mjs', '.github/workflows/deploy-cloudflare-production.yml']) {
-    execFileSync('git', ['diff', '--exit-code', base, '--', path]);
+    execFileSync('git', ['diff', '--exit-code', base, HOSTNAME_TRANSITION.base, '--', path]);
+    assertHk2ReleaseFreeze(HOSTNAME_TRANSITION.base, [path]);
   }
   const path = 'cloudflare/worker/src/course-publication.ts';
   const previous = execFileSync('git', ['show', `${base}:${path}`], { encoding: 'utf8' });
@@ -191,4 +192,87 @@ test('the E candidate keeps the v477 pin, release evidence, and original predica
   assert.equal(current.match(cache)?.[0], previous.match(cache)?.[0]);
   assertHk2ReleaseFreeze('d0a91352ec7e32744e4f6e8331c88b56347717df', ['cloudflare'],
     { courseFacetsTransition: true });
+});
+
+test('hostname freeze transition is pinned to the merged Facets E tree and keeps both receipts', () => {
+  const { base, previousBaseline, protectedBlobs, authorizesDeployment } = HOSTNAME_TRANSITION;
+  assert.equal(base, '3141b8cd67a22a6c24661381350695083bb5f443');
+  assert.equal(previousBaseline.version, '04e1f162-6ca5-4ef1-8161-aa74deefef68');
+  assert.equal(authorizesDeployment, false);
+  const configPath = 'cloudflare/wrangler.jsonc';
+  const guardPath = 'scripts/check-public-release-state.mjs';
+  assert.deepEqual(Object.keys(protectedBlobs).sort(), [configPath, guardPath]);
+  assertHk2ReleaseFreeze(base, [configPath, guardPath, previousBaseline.receipt, previousBaseline.courseFacetsTransition]);
+  const original = readPreHostnameTransitionFile(configPath);
+  const current = readFileSync(configPath, 'utf8').replace(/\r\n/g, '\n');
+  assert.match(original, /^  "workers_dev": true,$/m);
+  assert.equal(current, original.replace('  "workers_dev": true,\n', '  "workers_dev": false,\n  "preview_urls": false,\n'));
+});
+
+test('hostname owner verifier checks exact files, modes, blobs, base, head and approval digest', async () => {
+  const { base, protectedBlobs } = HOSTNAME_TRANSITION;
+  const paths = [
+    ['M', 'cloudflare/wrangler.jsonc'],
+    ['A', 'docs/public-release-transition-disable-hostnames.json'],
+    ['M', 'scripts/check-public-release-state.mjs'],
+    ['M', 'scripts/verify-public-baseline-transition.mjs'],
+    ['M', 'tests/fixtures/hk2-release-freeze.mjs'],
+    ['M', 'tests/public-release-v2-rollout.test.mjs'],
+    ['M', 'tests/release-baseline-transition.test.mjs'],
+  ];
+  const raw = paths.map(([status, path]) => {
+    const added = status === 'A';
+    const before = protectedBlobs[path]?.before ?? (added ? '0' : '1').repeat(40);
+    const after = protectedBlobs[path]?.after ?? '2'.repeat(40);
+    return `:${added ? '000000' : '100644'} 100644 ${before} ${after} ${status}\0${path}\0`;
+  }).join('');
+  const git = (diff = raw) => (command, ...args) => {
+    if (command === 'cat-file') {
+      assert.deepEqual(args, ['-t', candidate]);
+      return Buffer.from('commit\n');
+    }
+    if (command === 'merge-base') {
+      assert.deepEqual(args, ['--is-ancestor', base, candidate]);
+      return Buffer.alloc(0);
+    }
+    assert.equal(command, 'diff-tree');
+    assert.deepEqual(args.slice(-3), [base, candidate, '--']);
+    return Buffer.from(diff);
+  };
+  const describe = diff => describeTransition(candidate, { transition: 'hostnames', git: git(diff) });
+  const reviewed = describe();
+  assert.equal(reviewed.base, base);
+  assert.equal(reviewed.head, candidate);
+  for (const { before, after } of Object.values(protectedBlobs)) {
+    for (const blob of [before, after]) assert.throws(() => describe(raw.replace(blob, 'f'.repeat(40))), /TRANSITION_RUNTIME_BLOB_MISMATCH/);
+  }
+  assert.throws(() => describe(raw.replace('100644 100644', '100644 100755')), /TRANSITION_SCOPE_MISMATCH/);
+  assert.throws(() => describe(raw + `:100644 100644 ${'1'.repeat(40)} ${'2'.repeat(40)} M\0README.md\0`),
+    /TRANSITION_SCOPE_MISMATCH/);
+
+  const pr = 51, comment = 61;
+  const pull = { state: 'open', number: pr, base: { ref: 'main', sha: base, repo }, head: { sha: candidate, repo } };
+  const owner = {
+    id: comment, issue_url: prefix + '/issues/51', body: approvalText(pr, reviewed, 'hostnames'),
+    user: { id: 252552483, type: 'User' }, created_at: '2026-11-27T02:00:00Z', updated_at: '2026-11-27T02:00:00Z',
+  };
+  const verify = (livePull = pull, liveComment = owner, diff = raw) => verifyTransition({
+    head: candidate, pr, comment, token: 'mock-only', transition: 'hostnames', git: git(diff),
+    fetchImpl: async (url, options) => {
+      assert.equal(options.method, 'GET');
+      return Response.json(url.includes('/issues/comments/') ? liveComment : livePull);
+    },
+  });
+  assert.deepEqual(await verify(), reviewed);
+  await assert.rejects(verify({ ...pull, base: { ...pull.base, sha: 'e'.repeat(40) } }), /PR_SHA_OR_REPOSITORY_CHANGED/);
+  await assert.rejects(verify({ ...pull, head: { ...pull.head, sha: 'e'.repeat(40) } }), /PR_SHA_OR_REPOSITORY_CHANGED/);
+  await assert.rejects(verify(pull, { ...owner, user: { ...owner.user, id: 7 } }), /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, body: owner.body.replace(reviewed.diff_sha256, '0'.repeat(64)) }),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, body: owner.body.replaceAll('\n', '\r\n') }),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, updated_at: '2026-11-27T02:01:00Z' }),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, owner, raw.replace('2'.repeat(40), '3'.repeat(40))),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
 });
