@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
-import { COURSE_FACETS_TRANSITION } from '../../scripts/verify-public-baseline-transition.mjs';
+import { COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION } from '../../scripts/verify-public-baseline-transition.mjs';
 
 const guardPath = 'scripts/check-public-release-state.mjs';
 const v477Guard = {
@@ -10,27 +10,46 @@ const v477Guard = {
 };
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });
 
-/** Compare the entire historical scope, with only exact transition blobs permitted. */
-export function assertHk2ReleaseFreeze(anchor, paths, { v477PinTransition = false, courseFacetsTransition = false } = {}) {
-  const expected = {
-    ...(v477PinTransition ? { [guardPath]: v477Guard } : {}),
-    ...(courseFacetsTransition ? COURSE_FACETS_TRANSITION.runtimeBlobs : {}),
-  };
+export function readPreHostnameTransitionFile(path) {
+  return git('show', `${HOSTNAME_TRANSITION.base}:${path}`);
+}
+
+function assertExactScope(anchor, paths, expected, end) {
   const targets = Object.keys(expected).sort();
-  if (!targets.length) {
-    git('diff', '--exit-code', anchor, '--', ...paths);
-    return;
-  }
-  if (v477PinTransition) assert.ok(paths.includes(guardPath));
-  if (courseFacetsTransition) assert.ok(paths.includes('cloudflare'));
-  const actual = git('diff', '--name-status', '-z', '--no-renames', anchor, '--', ...paths);
+  const revisions = end ? [anchor, end] : [anchor];
+  const actual = git('diff', '--name-status', '-z', '--no-renames', ...revisions, '--', ...paths);
   assert.equal(actual, targets.map(path => `M\0${path}\0`).join(''), 'Unexpected change in the historical release freeze');
+  if (!end) assert.equal(git('ls-files', '--others', '--exclude-standard', '-z', '--', ...paths), '',
+    'Untracked file in the historical release freeze');
   for (const path of targets) {
     assert.equal(git('ls-tree', anchor, '--', path).trim(),
       `100644 blob ${expected[path].before}\t${path}`);
+    if (end) {
+      assert.equal(git('ls-tree', end, '--', path).trim(),
+        `100644 blob ${expected[path].after}\t${path}`);
+      continue;
+    }
     assert.match(git('ls-files', '--stage', '--', path), /^100644 [0-9a-f]{40} 0\t[^\n]+\n$/);
     assert.ok(lstatSync(path).isFile(), 'The reviewed file must remain a regular file');
     assert.equal(git('hash-object', `--path=${path}`, path).trim(),
       expected[path].after, `File differs from the exact transition: ${path}`);
   }
+}
+
+/** Verify the historical scope through pinned Facets E and then the exact hostname transition. */
+export function assertHk2ReleaseFreeze(anchor, paths, { v477PinTransition = false, courseFacetsTransition = false } = {}) {
+  const expected = {
+    ...(v477PinTransition ? { [guardPath]: v477Guard } : {}),
+    ...(courseFacetsTransition ? COURSE_FACETS_TRANSITION.runtimeBlobs : {}),
+  };
+  if (v477PinTransition) assert.ok(paths.includes(guardPath));
+  if (courseFacetsTransition) assert.ok(paths.includes('cloudflare'));
+  const next = Object.fromEntries(Object.entries(HOSTNAME_TRANSITION.protectedBlobs)
+    .filter(([path]) => paths.some(scope => path === scope || path.startsWith(scope + '/'))));
+  if (!Object.keys(next).length) {
+    assertExactScope(anchor, paths, expected);
+    return;
+  }
+  assertExactScope(anchor, paths, expected, HOSTNAME_TRANSITION.base);
+  assertExactScope(HOSTNAME_TRANSITION.base, paths, next);
 }

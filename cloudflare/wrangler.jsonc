@@ -1,7 +1,8 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "hub-planner-public-dev-api",
-  "workers_dev": true,
+  "workers_dev": false,
+  "preview_urls": false,
   "placement": {
     "region": "gcp:asia-southeast1"
   },

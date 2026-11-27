@@ -88,6 +88,7 @@ export async function checkPublicReleaseState(config,{account,token,phase='prede
   if(config.name!=='hub-planner-public-dev-api'||config.main!=='worker/src/index.ts'||account!==PUBLIC_RELEASE_ACCOUNT
     ||config.d1_databases?.length!==1||config.d1_databases[0].binding!=='DB'||config.d1_databases[0].database_id!==PUBLIC_RELEASE_DB
     ||config.d1_databases[0].database_name!=='hub-planner-public-dev')throw Error('PUBLIC_ONLY_TARGET_REQUIRED');
+  if(config.workers_dev!==false||config.preview_urls!==false)throw Error('PUBLIC_HOSTNAME_CONFIG_MUST_BE_DISABLED');
   if(typeof token!=='string'||!token.trim()||/[\r\n]/.test(token))throw Error('PUBLIC_SCOPED_CREDENTIAL_REQUIRED');
   const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
   if(phase==='postdeploy'&&beforeVersion!==PUBLIC_RELEASE_PREDEPLOY_VERSION)throw Error('PREDEPLOY_VERSION_REQUIRED');
@@ -103,6 +104,8 @@ export async function checkPublicReleaseState(config,{account,token,phase='prede
     return j.result;
   };
   const worker=`workers/scripts/${config.name}`;
+  const subdomain=await cf(`${worker}/subdomain`);
+  if(subdomain.enabled!==false||subdomain.previews_enabled!==false)throw Error('PUBLIC_LIVE_HOSTNAMES_NOT_DISABLED');
   const settings=await cf(`${worker}/settings`);
   const [schema]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:'PRAGMA table_info(ai_documents)'});
   if(!Array.isArray(schema?.results)||schema.meta?.rows_written>0||schema.meta?.changed_db===true)throw Error('READ_ONLY_SCHEMA_UNVERIFIED');

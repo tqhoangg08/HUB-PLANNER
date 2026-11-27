@@ -1,0 +1,32 @@
+{
+  "candidate": "disable-public-auxiliary-hostnames",
+  "base": "3141b8cd67a22a6c24661381350695083bb5f443",
+  "previousBaseline": {
+    "version": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+    "receipt": "docs/public-release-baseline-04e1f162.json",
+    "courseFacetsTransition": "docs/public-release-transition-course-facets-e.json"
+  },
+  "protectedBlobs": {
+    "cloudflare/wrangler.jsonc": {
+      "before": "230353b9032c4f58558cf3b3db791a2d06e58f58",
+      "after": "09acf5307b8ae1912f0fd4264af68df9ef2314ae"
+    },
+    "scripts/check-public-release-state.mjs": {
+      "before": "956d1cf1268cbaf461978e0cab21941c30c84824",
+      "after": "96d99450bf4d0fe0b0ba9d7a29a9cca5635e4c51"
+    }
+  },
+  "authorizesDeployment": false,
+  "procedure": {
+    "describe": "node scripts/verify-public-baseline-transition.mjs describe-hostnames <full-head-sha>",
+    "verify": "node scripts/verify-public-baseline-transition.mjs verify-hostnames <full-head-sha> <pr-number> <owner-comment-id>",
+    "ownerApproval": [
+      "HUB Public auxiliary hostname transition (v477 remains pinned)",
+      "pr=<pr-number>",
+      "base=<full-base-sha>",
+      "head=<full-head-sha>",
+      "diff_sha256=<full-diff-sha256>"
+    ],
+    "note": "Verify the independent owner comment on the final candidate. This record preserves the v477 predeploy pin and does not record a deployment or authorize a release."
+  }
+}

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import './release-baseline-transition.test.mjs';
+import {assertHk2ReleaseFreeze,readPreHostnameTransitionFile} from './fixtures/hk2-release-freeze.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
@@ -130,7 +131,7 @@ function fakeApi(phase='predeploy',override=()=>undefined){
     calls.push({url,options});
     const forced=override(url,options,s,versionId);if(forced)return forced;
     const sql=options.body?JSON.parse(options.body).sql:null;
-    const result=url.endsWith('/settings')?s:url.endsWith('/query')?[{results:sql===ANNOUNCEMENT_SCHEMA_QUERY?announcementObjects:sql===ANNOUNCEMENT_LEDGER_QUERY?announcementLedger:sql===SCHOLARSHIP_SCHEMA_QUERY?scholarshipObjects:sql.includes("'0055_scholarships.sql'")?scholarshipLedger:sql.startsWith('PRAGMA')?schema:sql.includes('sqlite_schema')?objects:ledger,meta:{rows_written:0,changed_db:false}}]
+    const result=url.endsWith('/subdomain')?{enabled:false,previews_enabled:false}:url.endsWith('/settings')?s:url.endsWith('/query')?[{results:sql===ANNOUNCEMENT_SCHEMA_QUERY?announcementObjects:sql===ANNOUNCEMENT_LEDGER_QUERY?announcementLedger:sql===SCHOLARSHIP_SCHEMA_QUERY?scholarshipObjects:sql.includes("'0055_scholarships.sql'")?scholarshipLedger:sql.startsWith('PRAGMA')?schema:sql.includes('sqlite_schema')?objects:ledger,meta:{rows_written:0,changed_db:false}}]
       :url.endsWith('/deployments')?{deployments:[{created_on:'2026-10-12T00:00:00Z',versions:[{version_id:versionId,percentage:100}]}]}
       :url.endsWith(`/versions/${versionId}`)?{id:versionId,resources:{bindings:s.bindings}}:undefined;
     assert.ok(result,'No unexpected endpoint');
@@ -140,10 +141,11 @@ function fakeApi(phase='predeploy',override=()=>undefined){
 }
 const opts=(api,phase='predeploy')=>({phase,account:PUBLIC_RELEASE_ACCOUNT,token:'offline-fixture',beforeVersion:before,fetchImpl:api.fn});
 
-test('state reader uses only Public metadata GETs and the fixed read-only schema query',async()=>{
+test('state reader uses only Public metadata GETs and the fixed read-only schema queries',async()=>{
   for(const phase of ['predeploy','postdeploy']){
     const api=fakeApi(phase),r=await checkPublicReleaseState(config,opts(api,phase));
-    assert.equal(r.versionId,phase==='predeploy'?before:after);assert.equal(api.calls.length,10);
+    assert.equal(r.versionId,phase==='predeploy'?before:after);assert.equal(api.calls.length,11);
+    assert.ok(api.calls[0].url.endsWith('/workers/scripts/hub-planner-public-dev-api/subdomain'));
     for(const {url,options}of api.calls){
       assert.ok(url.startsWith(`https://api.cloudflare.com/client/v4/accounts/${PUBLIC_RELEASE_ACCOUNT}/`));
       assert.equal(options.redirect,'error');
@@ -153,6 +155,28 @@ test('state reader uses only Public metadata GETs and the fixed read-only schema
         assert.ok(sql==='PRAGMA table_info(ai_documents)'||sql===ANNOUNCEMENT_SCHEMA_QUERY||sql===ANNOUNCEMENT_LEDGER_QUERY||sql===SCHOLARSHIP_SCHEMA_QUERY||sql===`SELECT name FROM d1_migrations WHERE name IN (${SCHOLARSHIP_MIGRATIONS.map(n=>`'${n}'`).join(',')})`||sql==="SELECT type,name,sql FROM sqlite_schema WHERE name IN ('ai_documents','ai_text_documents','ai_text_revisions','ai_text_revisions_document','ai_text_publication_source_guard')"||sql==="SELECT name FROM d1_migrations WHERE name IN ('0055_ai_document_index_segment_count.sql','0056_ai_text_document_revisions.sql')");
         assert.doesNotMatch(sql,/ALTER|INSERT|UPDATE|DELETE|DROP/i);
       }else{assert.equal(options.method,'GET');assert.equal(options.body,undefined);assert.ok(url.includes('/workers/scripts/hub-planner-public-dev-api/'));}
+    }
+  }
+});
+
+test('both hostname flags must be explicitly disabled in config and live before any schema query',async()=>{
+  const disabled={enabled:false,previews_enabled:false};
+  for(const phase of ['predeploy','postdeploy']){
+    for(const field of ['workers_dev','preview_urls'])for(const value of [undefined,true,'false',null,0]){
+      const api=fakeApi(phase);
+      await assert.rejects(checkPublicReleaseState({...config,[field]:value},opts(api,phase)),/PUBLIC_HOSTNAME_CONFIG_MUST_BE_DISABLED/);
+      assert.equal(api.calls.length,0);
+    }
+    for(const field of Object.keys(disabled))for(const value of [undefined,true,'false',null,0]){
+      const api=fakeApi(phase,url=>url.endsWith('/subdomain')?Response.json({success:true,result:{...disabled,[field]:value}}):undefined);
+      await assert.rejects(checkPublicReleaseState(config,opts(api,phase)),/PUBLIC_LIVE_HOSTNAMES_NOT_DISABLED/);
+      assert.equal(api.calls.length,1);
+    }
+    for(const response of [Response.json({success:false,result:disabled}),Response.json({success:true,result:null}),
+      Response.json({success:false},{status:403}),new Response('invalid JSON')]){
+      const api=fakeApi(phase,url=>url.endsWith('/subdomain')?response:undefined);
+      await assert.rejects(checkPublicReleaseState(config,opts(api,phase)),/READ_ONLY_STATE_/);
+      assert.equal(api.calls.length,1);
     }
   }
 });
@@ -345,7 +369,7 @@ test('v476 changes exactly the reviewed pin and two provenance comments; histori
   assert.deepEqual(manifest,e.validation.historicalBaselineManifest);
   for(const row of manifest)assert.equal(git('hash-object',`--path=${row.path}`,row.path).trim(),row.blob,row.path);
   assert.equal(git('hash-object',`--path=${e.previousEvidence.path}`,e.previousEvidence.path).trim(),e.previousEvidence.gitBlob);
-  git('diff','--exit-code',e.mainAtPreparation,'--','.github/workflows/deploy-cloudflare-production.yml','.github/workflows/ai-advisor-pr-validation.yml','.github/workflows/public-release-metadata-probe.yml','cloudflare/wrangler.jsonc','cloudflare/migrations/0062_hk2_catalogue_publication.sql','data/hk2-2026-2027','scripts/hk2-2026-2027/catalogue.mjs','scripts/hk2-d1-import.mjs','scripts/check-public-release-approval.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs','scripts/release-assistant.mjs','scripts/scholarship-release-schema.mjs','scripts/scholarship-release-schema.json','scripts/announcement-release-schema.mjs','scripts/announcement-release-schema.json');
+  assertHk2ReleaseFreeze(e.mainAtPreparation,['.github/workflows/deploy-cloudflare-production.yml','.github/workflows/ai-advisor-pr-validation.yml','.github/workflows/public-release-metadata-probe.yml','cloudflare/wrangler.jsonc','cloudflare/migrations/0062_hk2_catalogue_publication.sql','data/hk2-2026-2027','scripts/hk2-2026-2027/catalogue.mjs','scripts/hk2-d1-import.mjs','scripts/check-public-release-approval.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs','scripts/release-assistant.mjs','scripts/scholarship-release-schema.mjs','scripts/scholarship-release-schema.json','scripts/announcement-release-schema.mjs','scripts/announcement-release-schema.json']);
   // Preserve the original baseline-only proof at its merged SHA. The new operator
   // test separately proves every writer algorithm unchanged except its auth hook.
   git('diff','--exit-code',e.mainAtPreparation,'8416837eb5ce648ce9c1c6237b4eed81802dbd03','--','scripts/hk2-2026-2027/bulk-import.mjs');
@@ -706,7 +730,7 @@ test('historical v475 security surfaces remain byte-equivalent under the current
     assert.equal(r.status,0,r.stderr);return r.stdout.replace(/\r\n/g,'\n');
   };
   const path='scripts/check-public-release-state.mjs';
-  const previous=original(path),current=readFileSync(path,'utf8').replace(/\r\n/g,'\n');
+  const previous=original(path),current=readPreHostnameTransitionFile(path).replace(/\r\n/g,'\n');
   const normalize=s=>s.replace(/^\/\/ Reviewed release baseline:.*$/m,'<BASELINE_COMMENT>')
     .replace(/^\/\/ See docs\/public-release-baseline-.*$/m,'<BASELINE_RECEIPT>')
     .replace(/export const PUBLIC_RELEASE_PREDEPLOY_VERSION='[^']+';/,'<BASELINE_PIN>');
@@ -716,7 +740,8 @@ test('historical v475 security surfaces remain byte-equivalent under the current
   for(const path of ['scripts/check-public-release-approval.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs',
     '.github/workflows/deploy-cloudflare-production.yml','.github/workflows/ai-advisor-pr-validation.yml','cloudflare/wrangler.jsonc',
     'scripts/scholarship-release-schema.mjs','scripts/announcement-release-schema.mjs','scripts/announcement-release-schema.json']){
-    assert.equal(readFileSync(path,'utf8').replace(/\r\n/g,'\n'),original(path),path);
+    const current=path==='cloudflare/wrangler.jsonc'?readPreHostnameTransitionFile(path):readFileSync(path,'utf8');
+    assert.equal(current.replace(/\r\n/g,'\n'),original(path),path);
   }
 });
 
@@ -727,7 +752,7 @@ test('v474 baseline changes only the reviewed pin and comments; release workflow
     .replace(/^\/\/ See docs\/public-release-baseline-.*$/m,'<BASELINE_EVIDENCE>')
     .replace(/export const PUBLIC_RELEASE_PREDEPLOY_VERSION='[^']+';/,'<BASELINE_PIN>');
   const path='scripts/check-public-release-state.mjs';
-  assert.equal(normalize(readFileSync(path,'utf8').replace(/\r\n/g,'\n')),normalize(git(path)));
+  assert.equal(normalize(readPreHostnameTransitionFile(path).replace(/\r\n/g,'\n')),normalize(git(path)));
   for(const path of ['scripts/check-public-release-approval.mjs','.github/workflows/deploy-cloudflare-production.yml'])
     assert.equal(readFileSync(path,'utf8').replace(/\r\n/g,'\n'),git(path));
 });
@@ -740,7 +765,7 @@ test('0060 extends the gate without changing historical checks or baseline Git e
     .replace(/^\/\/ See docs\/public-release-baseline-.*$/m,'// See <REVIEWED_EVIDENCE>.')
     .replace(/export const PUBLIC_RELEASE_PREDEPLOY_VERSION='[^']+';/,"export const PUBLIC_RELEASE_PREDEPLOY_VERSION='<REVIEWED_VERSION>';");
   const old=git('show',`${evidence.mainAtPreparation}:scripts/check-public-release-state.mjs`).replace(/\r\n/g,'\n');
-  const extended=readFileSync('scripts/check-public-release-state.mjs','utf8').replace(/\r\n/g,'\n');
+  const extended=readPreHostnameTransitionFile('scripts/check-public-release-state.mjs').replace(/\r\n/g,'\n');
   const additionImport="import {validateAnnouncementReleaseSchema,ANNOUNCEMENT_SCHEMA_QUERY,ANNOUNCEMENT_LEDGER_QUERY} from './announcement-release-schema.mjs';\n";
   const additionBody="  const [announcementObjects]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:ANNOUNCEMENT_SCHEMA_QUERY});\n  const [announcementLedger]=await cf(`d1/database/${PUBLIC_RELEASE_DB}/query`,{sql:ANNOUNCEMENT_LEDGER_QUERY});\n  for(const result of [announcementObjects,announcementLedger])if(!Array.isArray(result?.results)||result.meta?.rows_written!==0||result.meta?.changed_db!==false)throw Error('READ_ONLY_ANNOUNCEMENT_SCHEMA_UNVERIFIED');\n  validateAnnouncementReleaseSchema(announcementObjects.results,announcementLedger.results);\n";
   assert.equal(extended.split(additionImport).length,2);assert.equal(extended.split(additionBody).length,2);
