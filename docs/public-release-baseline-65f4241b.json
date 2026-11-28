@@ -1,0 +1,104 @@
+{
+  "worker": "hub-planner-public-dev-api",
+  "version": "65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+  "versionNumber": 478,
+  "previousVersion": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+  "previousReceipt": "docs/public-release-baseline-04e1f162.json",
+  "sha": "530eb18adc333b995747640e608e64c2728397e9",
+  "tree": "24bf3b430c23a3867ef86247bff26cefed48f612",
+  "runId": 46105590774,
+  "exactMainCi": {
+    "runId": 46104090498,
+    "attempt": 1,
+    "conclusion": "success",
+    "checkoutSha": "530eb18adc333b995747640e608e64c2728397e9"
+  },
+  "release": {
+    "workflow": ".github/workflows/deploy-cloudflare-production.yml",
+    "url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/46105590774",
+    "event": "workflow_dispatch",
+    "branch": "main",
+    "attempt": 1,
+    "actorId": 252552483,
+    "conclusion": "success",
+    "validateJobId": 140857491581,
+    "releasePublicJobId": 140859414757,
+    "ownerEnvironmentReview": {
+      "environment": "public-production",
+      "reviewerId": 252552483,
+      "state": "approved"
+    },
+    "stepConclusions": {
+      "validate": "success",
+      "predeploy": "success",
+      "ownerApproval": "success",
+      "deploy": "success",
+      "postdeploy": "success"
+    },
+    "receipts": [
+      "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=04e1f162-6ca5-4ef1-8161-aa74deefef68",
+      "PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS",
+      "Current Version ID: 65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+      "PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=65f4241b-b2ab-48db-ac3d-1c9d772bb981"
+    ]
+  },
+  "deployment": {
+    "id": "906a56a4-e3d0-4fb6-8de9-03320b2fcb16",
+    "versionCreatedOn": "2026-11-28T04:15:23.163702Z",
+    "createdOn": "2026-11-28T04:15:23.592476Z",
+    "checkedAt": "2026-11-28T04:19:59.056Z",
+    "traffic": [
+      {
+        "versionId": "65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+        "percentage": 100
+      }
+    ],
+    "bindingMetadata": {
+      "previousCount": 66,
+      "servingCount": 66,
+      "matchesPrevious": true
+    },
+    "auxiliaryHostnames": {
+      "workersDev": false,
+      "versionUrls": false
+    },
+    "catalogueWaf": {
+      "enabled": true,
+      "action": "block",
+      "paths": [
+        "/courses",
+        "/api/courses"
+      ]
+    }
+  },
+  "evidenceLimits": {
+    "schemaEvidence": "Release predeploy and postdeploy receipts",
+    "schemaIndependentlyRequeried": false,
+    "originalBuildArtifactAvailable": false,
+    "servingFrontendManifestReverified": false,
+    "frontendByteParityVerified": false
+  },
+  "authorizesDeployment": false,
+  "transition": {
+    "base": "530eb18adc333b995747640e608e64c2728397e9",
+    "previousHostnameTransition": "docs/public-release-transition-disable-hostnames.json",
+    "protectedBlobs": {
+      "scripts/check-public-release-state.mjs": {
+        "before": "96d99450bf4d0fe0b0ba9d7a29a9cca5635e4c51",
+        "after": "206b520fff9fb393475a130e7b9e366c5b920e89"
+      }
+    },
+    "procedure": {
+      "describe": "node scripts/verify-public-baseline-transition.mjs describe-v478 <full-head-sha>",
+      "verify": "node scripts/verify-public-baseline-transition.mjs verify-v478 <full-head-sha> <pr-number> <owner-comment-id>",
+      "ownerApproval": [
+        "HUB Public baseline transition v477 -> v478",
+        "pr=<pr-number>",
+        "base=<full-base-sha>",
+        "head=<full-head-sha>",
+        "diff_sha256=<full-diff-sha256>"
+      ],
+      "note": "The recorded approval is for release run 46105590774. Review and approval of a later baseline transition candidate are separate."
+    }
+  }
+}

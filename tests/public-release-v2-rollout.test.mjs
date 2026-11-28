@@ -22,6 +22,7 @@ const historicalV473='655fda62-1767-4fb9-992e-780de214d2ec';
 const historicalV474='782cd1c4-8ddb-41bc-9a51-9e2768a0b6e6';
 const historicalV475='4a9e7d99-c2cb-4206-8318-2b13b5fb249a';
 const historicalV476='78a4f08b-ea3b-4fad-839e-baec2da98c56';
+const historicalV477='04e1f162-6ca5-4ef1-8161-aa74deefef68';
 const v476BaselineCommit='8416837eb5ce648ce9c1c6237b4eed81802dbd03';
 const {objects:announcementObjects,ledger:announcementLedger}=announcementReleaseFixture();
 const scratch=new DatabaseSync(':memory:');
@@ -183,7 +184,7 @@ test('both hostname flags must be explicitly disabled in config and live before 
 
 test('wrong account, Auth DB, absent previous version or invalid phase fail before network access',async()=>{
   for(const patch of [{account:'wrong'},{token:''},{phase:'skip'},{phase:'postdeploy',beforeVersion:undefined},{phase:'postdeploy',beforeVersion:after},
-    {phase:'postdeploy',beforeVersion:historicalV470},{phase:'postdeploy',beforeVersion:historicalV472},{phase:'postdeploy',beforeVersion:historicalV473},
+    {phase:'postdeploy',beforeVersion:historicalV477},{phase:'postdeploy',beforeVersion:historicalV470},{phase:'postdeploy',beforeVersion:historicalV472},{phase:'postdeploy',beforeVersion:historicalV473},
     {phase:'postdeploy',beforeVersion:'ecee213b-dbe8-4ce9-98e8-a8c9a13e184b'},
     {phase:'postdeploy',beforeVersion:'79c4f615-cab1-49be-81b4-6622bfe415d1'},
     {phase:'postdeploy',beforeVersion:'bba26eca-7811-4f1a-802e-f6bc7c6f7421'},
@@ -286,7 +287,7 @@ test('historical v475 receipts remain intact without claiming deployment of prep
   assert.ok(e.limitations.some(text=>text.includes('PR #157')));
   // An old version remains historical evidence, never an alternative accepted pin.
   const api=fakeApi('predeploy');assert.equal((await checkPublicReleaseState(config,opts(api))).versionId,PUBLIC_RELEASE_PREDEPLOY_VERSION);
-  for(const versionId of [before,historicalV474,historicalV476,after]){
+  for(const versionId of [before,historicalV474,historicalV476,historicalV477,after]){
     const api=fakeApi('predeploy',url=>url.endsWith('/deployments')?{ok:true,json:async()=>({success:true,result:{deployments:[{created_on:'2026-11-01T10:21:54Z',versions:[{version_id:versionId,percentage:100}]}]}})}:undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(api)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!api.calls.some(call=>call.url.includes('/versions/')));
@@ -565,8 +566,8 @@ test('historical reviewed v470 baseline is backed by successful owner-approved r
   assert.ok(Date.parse(evidence.liveMetadata.deployment.createdOn)<=Date.parse(evidence.release.releasePublicCompletedAt));
 });
 
-test('predeploy accepts reviewed v477 and retains historical v469 provenance assertions',async()=>{
-  assert.equal(before,'04e1f162-6ca5-4ef1-8161-aa74deefef68');
+test('predeploy accepts reviewed v478 and retains historical v469 provenance assertions',async()=>{
+  assert.equal(before,'65f4241b-b2ab-48db-ac3d-1c9d772bb981');
   const evidence=JSON.parse(readFileSync('docs/public-release-baseline-e14d5e2c.json','utf8'));
   assert.equal(evidence.version,historicalBefore);assert.equal(evidence.runId,'39923225777');
   assert.equal(evidence.sha,'d92dc81c658891cbb0a60a93393dcc7ff41adae5');
@@ -660,7 +661,7 @@ test('predeploy accepts reviewed v477 and retains historical v469 provenance ass
   const unknown=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:after,percentage:100}]}]}):undefined);
   await assert.rejects(()=>checkPublicReleaseState(config,opts(unknown)),/UNREVIEWED_PREDEPLOY_VERSION/);
   assert.ok(!unknown.calls.some(c=>c.url.includes('/versions/')));
-  for(const obsoleteVersion of [historicalV475,historicalV474,historicalV473,historicalV472,historicalV471,historicalV470,historicalBefore,'ecee213b-dbe8-4ce9-98e8-a8c9a13e184b','79c4f615-cab1-49be-81b4-6622bfe415d1','bba26eca-7811-4f1a-802e-f6bc7c6f7421','f5abb252-a042-45e7-9f4e-96bdb550dd8e','58c94fc8-5bfe-41e3-97f5-d0c39bc8be65','cd1d81be-966f-4518-8729-0b1c3e5484ce','66bc5fd9-55f4-4983-9048-0a271550ef9f','93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
+  for(const obsoleteVersion of [historicalV477,historicalV475,historicalV474,historicalV473,historicalV472,historicalV471,historicalV470,historicalBefore,'ecee213b-dbe8-4ce9-98e8-a8c9a13e184b','79c4f615-cab1-49be-81b4-6622bfe415d1','bba26eca-7811-4f1a-802e-f6bc7c6f7421','f5abb252-a042-45e7-9f4e-96bdb550dd8e','58c94fc8-5bfe-41e3-97f5-d0c39bc8be65','cd1d81be-966f-4518-8729-0b1c3e5484ce','66bc5fd9-55f4-4983-9048-0a271550ef9f','93e9bad7-39f3-4635-bb97-c6d71ccc4524','3e7f80ec-e268-4869-976a-6e26c38244b0','cf44c795-ddf0-4f56-b55c-6100029d6d3e','77374643-bb94-420a-ab4c-fd456fca516d','e17bfe9f-5aa8-45e8-88fe-9fc63c26b2a3','799042c2-47a2-471c-80dc-e13c42e237ef','6ff2cbdb-5c4a-485b-8bb6-f310e5d39ec6','9497fa3b-9a0c-422f-ab0e-4e3fe4a98ac1','d102b7e6-0a37-448c-acce-5f8e795af13c']){
     const obsolete=fakeApi('predeploy',url=>url.endsWith('/deployments')?wrap({deployments:[{created_on:'2026-10-16T00:00:00Z',versions:[{version_id:obsoleteVersion,percentage:100}]}]}):undefined);
     await assert.rejects(()=>checkPublicReleaseState(config,opts(obsolete)),/UNREVIEWED_PREDEPLOY_VERSION/);
     assert.ok(!obsolete.calls.some(c=>c.url.includes('/versions/')));

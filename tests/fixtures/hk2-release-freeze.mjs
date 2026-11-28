@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
-import { COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION } from '../../scripts/verify-public-baseline-transition.mjs';
+import { COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION, V478_BASELINE } from '../../scripts/verify-public-baseline-transition.mjs';
 
 const guardPath = 'scripts/check-public-release-state.mjs';
 const v477Guard = {
@@ -36,7 +36,7 @@ function assertExactScope(anchor, paths, expected, end) {
   }
 }
 
-/** Verify the historical scope through pinned Facets E and then the exact hostname transition. */
+/** Verify every relevant freeze segment at its pinned anchor and then the working copy. */
 export function assertHk2ReleaseFreeze(anchor, paths, { v477PinTransition = false, courseFacetsTransition = false } = {}) {
   const expected = {
     ...(v477PinTransition ? { [guardPath]: v477Guard } : {}),
@@ -44,12 +44,17 @@ export function assertHk2ReleaseFreeze(anchor, paths, { v477PinTransition = fals
   };
   if (v477PinTransition) assert.ok(paths.includes(guardPath));
   if (courseFacetsTransition) assert.ok(paths.includes('cloudflare'));
-  const next = Object.fromEntries(Object.entries(HOSTNAME_TRANSITION.protectedBlobs)
-    .filter(([path]) => paths.some(scope => path === scope || path.startsWith(scope + '/'))));
-  if (!Object.keys(next).length) {
-    assertExactScope(anchor, paths, expected);
-    return;
+  const transitions = [HOSTNAME_TRANSITION, V478_BASELINE.transition];
+  const start = transitions.findIndex(t => t.base === anchor);
+  let segmentAnchor = anchor;
+  let segmentBlobs = expected;
+  for (const { base, protectedBlobs } of transitions.slice(Math.max(start, 0))) {
+    const next = Object.fromEntries(Object.entries(protectedBlobs)
+      .filter(([path]) => paths.some(scope => path === scope || path.startsWith(scope + '/'))));
+    if (!Object.keys(next).length) continue;
+    assertExactScope(segmentAnchor, paths, segmentBlobs, base);
+    segmentAnchor = base;
+    segmentBlobs = next;
   }
-  assertExactScope(anchor, paths, expected, HOSTNAME_TRANSITION.base);
-  assertExactScope(HOSTNAME_TRANSITION.base, paths, next);
+  assertExactScope(segmentAnchor, paths, segmentBlobs);
 }
