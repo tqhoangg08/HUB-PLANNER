@@ -25,6 +25,16 @@ export const COURSE_FACETS_TRANSITION = JSON.parse(readFileSync(
   new URL('../docs/public-release-transition-course-facets-e.json', import.meta.url), 'utf8'));
 export const HOSTNAME_TRANSITION = JSON.parse(readFileSync(
   new URL('../docs/public-release-transition-disable-hostnames.json', import.meta.url), 'utf8'));
+export const V478_BASELINE = JSON.parse(readFileSync(
+  new URL('../docs/public-release-baseline-65f4241b.json', import.meta.url), 'utf8'));
+const v478Scope = new Map([
+  ...Object.keys(V478_BASELINE.transition.protectedBlobs).map(path => [path, 'M']),
+  ['docs/public-release-baseline-65f4241b.json', 'A'],
+  ['scripts/verify-public-baseline-transition.mjs', 'M'],
+  ['tests/fixtures/hk2-release-freeze.mjs', 'M'],
+  ['tests/public-release-v2-rollout.test.mjs', 'M'],
+  ['tests/release-baseline-transition.test.mjs', 'M'],
+]);
 const hostnameScope = new Map([
   ...Object.keys(HOSTNAME_TRANSITION.protectedBlobs).map(path => [path, 'M']),
   ['docs/public-release-transition-disable-hostnames.json', 'A'],
@@ -51,6 +61,8 @@ const transitions = new Map([
     title: 'HUB Public course facets E transition (v477 remains pinned)', blobs: COURSE_FACETS_TRANSITION.runtimeBlobs }],
   ['hostnames', { base: HOSTNAME_TRANSITION.base, scope: hostnameScope,
     title: 'HUB Public auxiliary hostname transition (v477 remains pinned)', blobs: HOSTNAME_TRANSITION.protectedBlobs }],
+  ['v478', { base: V478_BASELINE.transition.base, scope: v478Scope,
+    title: 'HUB Public baseline transition v477 -> v478', blobs: V478_BASELINE.transition.protectedBlobs }],
 ]);
 
 function transitionSpec(name) {
@@ -124,11 +136,11 @@ export async function verifyTransition({ head, pr, comment, token, git, transiti
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const [command, head, pr, comment, ...extra] = process.argv.slice(2);
-    const transition = command?.endsWith('-hostnames') ? 'hostnames' : command?.endsWith('-e') ? 'e' : 'v477';
-    if (['describe', 'describe-e', 'describe-hostnames'].includes(command) && pr === undefined) {
+    const [, transition = 'v477'] = (command ?? '').split('-');
+    if (['describe', 'describe-e', 'describe-hostnames', 'describe-v478'].includes(command) && pr === undefined) {
       console.log(JSON.stringify(describeTransition(head, { transition })));
     }
-    else if (['verify', 'verify-e', 'verify-hostnames'].includes(command) && !extra.length) {
+    else if (['verify', 'verify-e', 'verify-hostnames', 'verify-v478'].includes(command) && !extra.length) {
       const candidate = await verifyTransition({ head, pr: Number(pr), comment: Number(comment), token: process.env.GH_TOKEN, transition });
       console.log(JSON.stringify({ ...candidate, owner_transition_approval: 'verified' }));
     } else throw Error('EXPECTED_DESCRIBE_OR_VERIFY');

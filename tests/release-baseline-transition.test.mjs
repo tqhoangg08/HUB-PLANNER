@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { approvalText, describeTransition, TRANSITION_BASE, COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION, verifyTransition } from '../scripts/verify-public-baseline-transition.mjs';
+import { approvalText, describeTransition, TRANSITION_BASE, COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION, V478_BASELINE, verifyTransition } from '../scripts/verify-public-baseline-transition.mjs';
 import { assertHk2ReleaseFreeze, readPreHostnameTransitionFile } from './fixtures/hk2-release-freeze.mjs';
 
 const candidate = 'c'.repeat(40);
@@ -273,6 +273,112 @@ test('hostname owner verifier checks exact files, modes, blobs, base, head and a
     /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
   await assert.rejects(verify(pull, { ...owner, updated_at: '2026-11-27T02:01:00Z' }),
     /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, owner, raw.replace('2'.repeat(40), '3'.repeat(40))),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+});
+
+test('v478 receipt ties the exact deploy and live version to the only pin and provenance changes', () => {
+  const r = V478_BASELINE;
+  const guard = 'scripts/check-public-release-state.mjs';
+  assert.equal(r.transition.base, '530eb18adc333b995747640e608e64c2728397e9');
+  assert.equal(r.sha, r.transition.base);
+  assert.equal(r.tree, execFileSync('git', ['rev-parse', `${r.sha}^{tree}`], { encoding: 'utf8' }).trim());
+  assert.equal(r.runId, 46105590774);
+  assert.equal(r.version, '65f4241b-b2ab-48db-ac3d-1c9d772bb981');
+  assert.equal(r.versionNumber, 478);
+  assert.equal(r.previousVersion, '04e1f162-6ca5-4ef1-8161-aa74deefef68');
+  assert.equal(r.previousReceipt, 'docs/public-release-baseline-04e1f162.json');
+  assert.equal(r.transition.previousHostnameTransition, 'docs/public-release-transition-disable-hostnames.json');
+  assert.equal(r.authorizesDeployment, false);
+  assert.deepEqual(r.exactMainCi, { runId: 46104090498, attempt: 1, conclusion: 'success', checkoutSha: r.sha });
+  assert.deepEqual(r.release.stepConclusions, { validate: 'success', predeploy: 'success', ownerApproval: 'success', deploy: 'success', postdeploy: 'success' });
+  assert.deepEqual(r.release.ownerEnvironmentReview, { environment: 'public-production', reviewerId: 252552483, state: 'approved' });
+  assert.deepEqual(r.release.receipts, [
+    `PUBLIC_LIVE_STATE_GATE=PASS; PHASE=predeploy; PUBLIC_VERSION=${r.previousVersion}`,
+    'PUBLIC_ONLY_SOLO_OWNER_APPROVAL=PASS',
+    `Current Version ID: ${r.version}`,
+    `PUBLIC_LIVE_STATE_GATE=PASS; PHASE=postdeploy; PUBLIC_VERSION=${r.version}`,
+  ]);
+  assert.equal(r.deployment.id, '906a56a4-e3d0-4fb6-8de9-03320b2fcb16');
+  assert.deepEqual(r.deployment.traffic, [{ versionId: r.version, percentage: 100 }]);
+  assert.deepEqual(r.deployment.bindingMetadata, { previousCount: 66, servingCount: 66, matchesPrevious: true });
+  assert.deepEqual(r.deployment.auxiliaryHostnames, { workersDev: false, versionUrls: false });
+  assert.deepEqual(r.deployment.catalogueWaf, { enabled: true, action: 'block', paths: ['/courses', '/api/courses'] });
+  assert.equal(r.evidenceLimits.schemaIndependentlyRequeried, false);
+  assert.equal(r.evidenceLimits.originalBuildArtifactAvailable, false);
+  assert.equal(r.evidenceLimits.servingFrontendManifestReverified, false);
+  assert.equal(r.evidenceLimits.frontendByteParityVerified, false);
+
+  assert.deepEqual(Object.keys(r.transition.protectedBlobs), [guard]);
+  assertHk2ReleaseFreeze(r.transition.base, [guard, 'cloudflare', 'scripts/hk2-2026-2027', 'data/hk2-2026-2027', '.github',
+    r.previousReceipt, r.transition.previousHostnameTransition, 'docs/public-release-transition-course-facets-e.json']);
+  const old = execFileSync('git', ['show', `${r.transition.base}:${guard}`], { encoding: 'utf8' });
+  const next = readFileSync(guard, 'utf8').replace(/\r\n/g, '\n');
+  const pin = version => `export const PUBLIC_RELEASE_PREDEPLOY_VERSION='${version}';`;
+  assert.ok(old.includes(pin(r.previousVersion)));
+  assert.equal(next, old
+    .replace(/^\/\/ Reviewed release baseline:.*$/m, `// Reviewed release baseline: run ${r.runId}, deployed SHA ${r.sha}.`)
+    .replace(/^\/\/ See docs\/public-release-baseline-.*$/m, '// See docs/public-release-baseline-65f4241b.json for receipts and evidence limitations.')
+    .replace(pin(r.previousVersion), pin(r.version)));
+});
+
+test('v478 transition verifies the exact diff and independent owner approval', async () => {
+  const { base, protectedBlobs } = V478_BASELINE.transition;
+  const guard = 'scripts/check-public-release-state.mjs';
+  const transitions = [
+    ['M', guard], ['A', 'docs/public-release-baseline-65f4241b.json'],
+    ['M', 'scripts/verify-public-baseline-transition.mjs'], ['M', 'tests/fixtures/hk2-release-freeze.mjs'],
+    ['M', 'tests/public-release-v2-rollout.test.mjs'], ['M', 'tests/release-baseline-transition.test.mjs'],
+  ];
+  const raw = transitions.map(([status, path]) => {
+    const added = status === 'A';
+    const before = protectedBlobs[path]?.before ?? (added ? '0' : '1').repeat(40);
+    const after = protectedBlobs[path]?.after ?? '2'.repeat(40);
+    return `:${added ? '000000' : '100644'} 100644 ${before} ${after} ${status}\0${path}\0`;
+  }).join('');
+  const git = (diff = raw) => (cmd, ...args) => {
+    if (cmd === 'cat-file') {
+      assert.deepEqual(args, ['-t', candidate]);
+      return Buffer.from('commit\n');
+    }
+    if (cmd === 'merge-base') {
+      assert.deepEqual(args, ['--is-ancestor', base, candidate]);
+      return Buffer.alloc(0);
+    }
+    assert.equal(cmd, 'diff-tree');
+    assert.deepEqual(args.slice(-3), [base, candidate, '--']);
+    return Buffer.from(diff);
+  };
+  const describe = diff => describeTransition(candidate, { transition: 'v478', git: git(diff) });
+  const expected = describe();
+  assert.equal(expected.base, base);
+  assert.equal(expected.head, candidate);
+  assert.throws(() => describe(raw.replace(protectedBlobs[guard].after, '9'.repeat(40))), /TRANSITION_RUNTIME_BLOB_MISMATCH/);
+  assert.throws(() => describe(raw.replace('100644 100644', '100644 100755')), /TRANSITION_SCOPE_MISMATCH/);
+  assert.throws(() => describe(raw + `:100644 100644 ${'1'.repeat(40)} ${'2'.repeat(40)} M\0package.json\0`),
+    /TRANSITION_SCOPE_MISMATCH/);
+
+  const pr = 52, comment = 62;
+  const pull = { state: 'open', number: pr, base: { ref: 'main', sha: base, repo }, head: { sha: candidate, repo } };
+  const owner = { id: comment, issue_url: prefix + '/issues/52', user: { id: 252552483, type: 'User' },
+    created_at: '2026-11-28T04:30:00Z', updated_at: '2026-11-28T04:30:00Z', body: approvalText(pr, expected, 'v478') };
+  const verify = (livePull = pull, approval = owner, diff = raw) => verifyTransition({
+    head: candidate, pr, comment, token: 'mock-only', transition: 'v478', git: git(diff),
+    fetchImpl: async (url, options) => {
+      assert.equal(options.method, 'GET');
+      return Response.json(url.includes('/issues/comments/') ? approval : livePull);
+    },
+  });
+  assert.deepEqual(await verify(), expected);
+  await assert.rejects(verify({ ...pull, base: { ...pull.base, sha: 'e'.repeat(40) } }), /PR_SHA_OR_REPOSITORY_CHANGED/);
+  await assert.rejects(verify({ ...pull, head: { ...pull.head, sha: 'e'.repeat(40) } }), /PR_SHA_OR_REPOSITORY_CHANGED/);
+  await assert.rejects(verify(pull, { ...owner, user: { ...owner.user, id: 7 } }), /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, body: owner.body.replace(expected.diff_sha256, '0'.repeat(64)) }),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, body: owner.body.replaceAll('\n', '\r\n') }),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, body: owner.body + '\n' }), /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, updated_at: '2026-11-28T04:31:00Z' }), /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
   await assert.rejects(verify(pull, owner, raw.replace('2'.repeat(40), '3'.repeat(40))),
     /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
 });
