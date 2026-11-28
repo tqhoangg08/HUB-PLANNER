@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "base": "b01f26be304c0de8758e6a00bb8e29279e74cf77",
+  "previousBaseline": {
+    "version": "65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+    "receipt": "docs/public-release-baseline-65f4241b.json"
+  },
+  "authorizesDeployment": false,
+  "scope": {
+    ".github/workflows/deploy-cloudflare-production.yml": "M",
+    ".github/workflows/prepare-v478-assets-artifact.yml": "A",
+    "cloudflare/worker/src/index.ts": "M",
+    "components/MobileSchedule.tsx": "M",
+    "components/ScheduleBoard.tsx": "M",
+    "docs/catalogue-s1-release-packaging.md": "A",
+    "docs/github-environment-release-approval.md": "M",
+    "docs/public-release-assets-v478.json": "A",
+    "docs/public-release-transition-catalogue-s1.json": "A",
+    "index.tsx": "M",
+    "package.json": "M",
+    "public/hub-sw.js": "M",
+    "scripts/package-s1-release-assets.mjs": "A",
+    "scripts/release-assistant.mjs": "M",
+    "scripts/retain-previous-frontend-assets.mjs": "A",
+    "scripts/verify-and-package-v478-artifact.py": "A",
+    "scripts/verify-public-baseline-transition.mjs": "M",
+    "tests/catalogue-s1.test.mjs": "A",
+    "tests/fixtures/hk2-release-freeze.mjs": "M",
+    "tests/hk2-course-publication.test.mjs": "M",
+    "tests/hk2-publication.browser.test.mjs": "M",
+    "tests/public-release-v2-rollout.test.mjs": "M",
+    "tests/release-baseline-transition.test.mjs": "M",
+    "tests/schedule-import-preview.test.ts": "M",
+    "tests/v478-artifact-packaging.test.py": "A",
+    "utils/coursesApi.ts": "M",
+    "utils/publicWorkerApi.ts": "M",
+    "utils/scheduleCoursePageCache.ts": "M",
+    "vite.config.ts": "M"
+  },
+  "protectedBlobs": {
+    ".github/workflows/deploy-cloudflare-production.yml": {
+      "before": "6eed3fc5b0ef31876da36f698249ef437ff16031",
+      "after": "bf77c8b521ac337aeb5eb3f41d8be652091e1a9c"
+    },
+    ".github/workflows/prepare-v478-assets-artifact.yml": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "4f9a6425a345ebe8496a972e486ad9f4d553b3a9"
+    },
+    "cloudflare/worker/src/index.ts": {
+      "before": "4f280c06b1278ef85a28594306a979d81bc987e1",
+      "after": "26c206c79b985b2f4e7e81fcda4e817f5df415d9"
+    },
+    "components/MobileSchedule.tsx": {
+      "before": "69f5cf26b678b5f5247928389672fa4270e1bc61",
+      "after": "43d5e6d115cb04af3780a31f838f39ac74f75fdc"
+    },
+    "components/ScheduleBoard.tsx": {
+      "before": "06cc82a22ceac325a412385c7138f02d7cf98ad5",
+      "after": "6c8a67f4a81d76624639eb999a6c1c8d6a9051f2"
+    },
+    "docs/catalogue-s1-release-packaging.md": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "3b06bdccf2aab8304f3a6d2aa215e708907696ee"
+    },
+    "docs/github-environment-release-approval.md": {
+      "before": "af66ecca580fec5f97c3df2d735724e16a322099",
+      "after": "b2be8dc05fe44f6e2f40ac2df546f3f79915e92f"
+    },
+    "docs/public-release-assets-v478.json": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "bb0bbeeec0aad6ccc21fc911e82df43c1145d4d7"
+    },
+    "index.tsx": {
+      "before": "f5600041c7b14989a8be7afa861a8ac104f4ebd2",
+      "after": "aa1711597dfc151637b882cbcfa25fea9e7dee49"
+    },
+    "package.json": {
+      "before": "aca12b9a349f18ae7f3d77950a0f7d38ef961b7a",
+      "after": "7270ff38e43c05f737f5e47c75b7c41bb4f4c74e"
+    },
+    "public/hub-sw.js": {
+      "before": "2f2c892850653544749e7d173a2769acfeb7ce0c",
+      "after": "1e5015bc0e744e7bb0492cad70b5ce463f3b89b7"
+    },
+    "scripts/package-s1-release-assets.mjs": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "eddec75b1967f64d29d330eac550cf45267cc5c5"
+    },
+    "scripts/release-assistant.mjs": {
+      "before": "dc9f7020e43dc56ae157aa0fc77208e5f891c3a5",
+      "after": "35e5cfbd44d6fa44c4b5bf0ea627c63f76cb524c"
+    },
+    "scripts/retain-previous-frontend-assets.mjs": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "9574d5a04ed8dc57f408f1d99dd4c38eb4b624ef"
+    },
+    "scripts/verify-and-package-v478-artifact.py": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "8846342f7395135ff7a3ddfc9f1fcd4123e2fc72"
+    },
+    "tests/catalogue-s1.test.mjs": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "4721fffcd7182ca78b31f49a3bff43b892992e7f"
+    },
+    "tests/hk2-course-publication.test.mjs": {
+      "before": "bc907e2d739b33d0190b406357f7bfa736b1bf7d",
+      "after": "c3af631cf359f7ec65b665717a7c82155875a861"
+    },
+    "tests/hk2-publication.browser.test.mjs": {
+      "before": "d9ec33f4ad01d65c54851eeeb1c47e25223228c1",
+      "after": "4745f51a65a9404bcdf73c3203b8ca26490e0223"
+    },
+    "tests/public-release-v2-rollout.test.mjs": {
+      "before": "e524121959cacdb341a9595bd6e29b3face96d6e",
+      "after": "ca8cc7c0925ba65af8b82ba1a814e82adca6d6b3"
+    },
+    "tests/schedule-import-preview.test.ts": {
+      "before": "e88c23c0dd49fec76fff0661390d0c2bc2a06a20",
+      "after": "3581e617c1c756e8c3f47d9c76b218edd0a70bbd"
+    },
+    "tests/v478-artifact-packaging.test.py": {
+      "before": "0000000000000000000000000000000000000000",
+      "after": "7c9fa652e57079be3982881be7ad54ba64206cf5"
+    },
+    "utils/coursesApi.ts": {
+      "before": "ac82ddded1670cb5566a81537faa993c45606560",
+      "after": "e2c0598421dc901858f888a4e4fb26a2db4036fa"
+    },
+    "utils/publicWorkerApi.ts": {
+      "before": "3fc6ec409ac07a70031b82693cd3f3402fa4b78c",
+      "after": "d8f7c93e96d4bf187f1a503374bf1daa663e910f"
+    },
+    "utils/scheduleCoursePageCache.ts": {
+      "before": "3377a1744bfcab478e1489550b4093dc9368c1f6",
+      "after": "714171eba01b3ab4398b015bc2bda5333caddb1f"
+    },
+    "vite.config.ts": {
+      "before": "5418a1d68f59b8345d719dab9ced9c219afef999",
+      "after": "a189d73920d184ce11417cb08a7a8d6d21bd1a7c"
+    }
+  },
+  "assetProvenance": "docs/public-release-assets-v478.json"
+}

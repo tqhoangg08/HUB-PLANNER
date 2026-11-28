@@ -12,6 +12,22 @@ on:
         description: Full 40-character main HEAD SHA approved separately
         type: string
         required: true
+      v478_assets_run_id:
+        description: Run ID containing the independently reviewed v478-frontend-assets artifact
+        type: string
+        required: true
+      v478_assets_artifact_id:
+        description: Exact GitHub Actions artifact ID from the approved source run
+        type: string
+        required: true
+      v478_assets_github_zip_sha256:
+        description: SHA-256 of the raw GitHub Artifact API ZIP wrapper
+        type: string
+        required: true
+      v478_assets_manifest_sha256:
+        description: Independently approved SHA-256 of the exact v478 asset manifest bytes
+        type: string
+        required: true
 
 concurrency:
   group: cloudflare-production
@@ -65,6 +81,15 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
+      - name: Package verified v478 hashed assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_RUN_ID: ${{ inputs.v478_assets_run_id }}
+          ASSET_ARTIFACT_ID: ${{ inputs.v478_assets_artifact_id }}
+          ASSET_GITHUB_ZIP_SHA256: ${{ inputs.v478_assets_github_zip_sha256 }}
+          ASSET_MANIFEST_SHA256: ${{ inputs.v478_assets_manifest_sha256 }}
+        run: python3 scripts/verify-and-package-v478-artifact.py consume dist
+
       - run: git diff --check HEAD^ HEAD
 
   release-public:
@@ -86,6 +111,14 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run build
+      - name: Package verified v478 hashed assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_RUN_ID: ${{ inputs.v478_assets_run_id }}
+          ASSET_ARTIFACT_ID: ${{ inputs.v478_assets_artifact_id }}
+          ASSET_GITHUB_ZIP_SHA256: ${{ inputs.v478_assets_github_zip_sha256 }}
+          ASSET_MANIFEST_SHA256: ${{ inputs.v478_assets_manifest_sha256 }}
+        run: python3 scripts/verify-and-package-v478-artifact.py consume dist
       - name: Verify live settings and schema without applying migrations
         id: public-preflight
         env:

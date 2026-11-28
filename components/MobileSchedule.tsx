@@ -47,11 +47,6 @@ import {
 } from '../utils/courseAuthorityApi';
 import { fetchStaffSchedules, fetchStaffSchedulesPayload } from '../utils/staffSchedulesApi';
 import {
-  readScheduleCoursePageCache,
-  removeScheduleCoursePageCache,
-  writeScheduleCoursePageCache,
-} from '../utils/scheduleCoursePageCache';
-import {
   buildScheduleImportPreview,
   replaceUserScheduleFromPreview,
   type ScheduleImportPreviewRow,
@@ -657,30 +652,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     const isSuggestionMode = isSystemCatalog && !term;
     const page = isSuggestionMode ? 0 : (options.page ?? 0);
     const pageSize = ADMIN_LIST_PAGE_SIZE;
-    const cacheScope = JSON.stringify({
-      surface: 'mobile',
-      semester: selectedSemester,
-      phase: selectedPhase,
-      search: term,
-      effectiveAdminView,
-      adminTab,
-      pageSize,
-    });
-
     setIsLoading(true);
     try {
-        if (options.force) removeScheduleCoursePageCache(cacheScope, page);
-        const cachedPage = options.force
-          ? null
-          : readScheduleCoursePageCache<Course>(cacheScope, page);
-        if (cachedPage) {
-          setAvailableCourses(cachedPage.data);
-          setHasMoreAdminCourses(cachedPage.hasMore);
-          setAdminCoursesTotal(cachedPage.total);
-          setAdminCoursesPage(page);
-          return;
-        }
-
         const params = new URLSearchParams({
             semester: selectedSemester,
             limit: String(pageSize),
@@ -693,7 +666,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         if (isSuggestionMode) params.set('suggestions', 'true');
         if (term) params.set('search', term);
 
-        const response = await fetchPublicCourses(`/courses?${params.toString()}`);
+        const response = await fetchPublicCourses(`/courses?${params.toString()}`, options.force ? { cache: "reload" } : undefined);
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
         const rows = Array.isArray(payload.data) ? payload.data : [];
@@ -702,7 +675,6 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
           hasMore: isSuggestionMode ? false : Boolean(payload.hasMore),
           total: isSuggestionMode ? rows.length : Number(payload.total || rows.length),
         };
-        writeScheduleCoursePageCache(cacheScope, page, pagePayload);
         setAvailableCourses(pagePayload.data);
         setHasMoreAdminCourses(pagePayload.hasMore);
         setAdminCoursesTotal(pagePayload.total);

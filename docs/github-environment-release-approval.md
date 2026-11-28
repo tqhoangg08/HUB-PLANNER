@@ -17,7 +17,7 @@ This proposal changes the *approval interface*, not deployment authority. It doe
 
 1. Make sure the desired changes are merged to `main`. Run **AI Advisor PR validation (no deployment)** manually on `main`, then verify the successful workflow run uses the current exact `main` SHA.
 2. Open **Actions → Approved Public-only production release → Run workflow**.
-3. Select `main`, check `approve_public_release`, and paste the **full 40-character main SHA** into `approved_sha`. Only the repository owner may dispatch.
+3. Select `main`, check `approve_public_release`, and paste the **full 40-character main SHA** into `approved_sha`. Only the repository owner may dispatch. Supply the reviewed source run, artifact ID, outer ZIP digest and manifest digest described in [S1 release packaging](catalogue-s1-release-packaging.md).
 4. Review the run summary, then use GitHub's **Review deployments → Approve and deploy** for the `public-production` environment. Wait timers and required reviewers are GitHub-enforced. No local `gh` installation, `release:prepare`, `release:approve`, or manual Environment variable edits are needed in the configured GitHub-review mode.
 5. Confirm `validate`, `release-public`, live predeploy guard, deploy and postdeploy verification all PASS. Inspect the new Cloudflare Worker version and ensure one version serves 100% traffic; a successful upload alone is not final proof.
 

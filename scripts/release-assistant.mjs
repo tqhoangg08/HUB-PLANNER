@@ -41,6 +41,19 @@ function readConfig() {
   const parsed=ts.parseConfigFileTextToJson('cloudflare/wrangler.jsonc',readFileSync('cloudflare/wrangler.jsonc','utf8'));
   if(parsed.error) fail('CONFIG_PARSE_FAILED'); return parsed.config;
 }
+function v478AssetInputs(env) {
+  const run = env.PUBLIC_RELEASE_V478_ASSETS_RUN_ID;
+  const artifact = env.PUBLIC_RELEASE_V478_ASSETS_ARTIFACT_ID;
+  const archive = env.PUBLIC_RELEASE_V478_ASSETS_GITHUB_ZIP_SHA256;
+  const manifest = env.PUBLIC_RELEASE_V478_ASSETS_MANIFEST_SHA256;
+  const id = /^[1-9][0-9]{0,18}$/;
+  const sha256 = /^[a-f0-9]{64}$/;
+  if (!id.test(run ?? '') || !id.test(artifact ?? '') || !sha256.test(archive ?? '') || !sha256.test(manifest ?? '')) {
+    fail('REVIEWED_V478_ASSET_ARCHIVE_REQUIRED');
+  }
+  return { v478_assets_run_id: run, v478_assets_artifact_id: artifact,
+    v478_assets_github_zip_sha256: archive, v478_assets_manifest_sha256: manifest };
+}
 export function createIO(api,store) {
   const config=readConfig();
   const io={...store,now:()=>Date.now(),print:console.log,confirm,target:async()=>verifyTarget(),snapshot:id=>snapshot(api,id),
@@ -61,7 +74,7 @@ export function createIO(api,store) {
     },
     dispatchRelease:async sha=>{
       if((await api('/branches/main')).commit.sha!==sha) fail('MAIN_CHANGED');
-      await api(`/actions/workflows/${WORKFLOW.split('/').at(-1)}/dispatches`,{method:'POST',body:{ref:'main',inputs:{approve_public_release:true,approved_sha:sha}}});
+      await api(`/actions/workflows/${WORKFLOW.split('/').at(-1)}/dispatches`,{method:'POST',body:{ref:'main',inputs:{approve_public_release:true,approved_sha:sha,...v478AssetInputs(process.env)}}});
     },
     waitCI:async sha=>{
       console.log('Waiting for exact-main independent CI (up to 45 minutes). Ctrl+C stops local waiting.');
@@ -149,11 +162,12 @@ export async function baseline(io,store) {
 }
 export async function main(args=process.argv.slice(2)) {
   if(args[0]==='--help'||args.length===0) {
-    console.log('HUB Release Assistant: prepare | approve [--manual] | status | baseline\nUse a clean checkout of freshly fetched origin/main. Node 22+, Git, Owner GH_TOKEN or authenticated gh, and scoped read-only CLOUDFLARE_API_TOKEN. No --yes or token arguments.');return;
+    console.log('HUB Release Assistant: prepare | approve [--manual] | status | baseline\nFor prepare, set the four reviewed PUBLIC_RELEASE_V478_ASSETS_* inputs from docs/catalogue-s1-release-packaging.md.\nUse a clean checkout of freshly fetched origin/main. Node 22+, Git, Owner GH_TOKEN or authenticated gh, and scoped read-only CLOUDFLARE_API_TOKEN. No --yes or token arguments.');return;
   }
   const [command,...flags]=args;
   if(!['prepare','approve','status','baseline'].includes(command)||flags.length>1||flags.length===1&&!(command==='approve'&&flags[0]==='--manual')) fail('UNSUPPORTED_RELEASE_ARGUMENT');
   if(process.env.GITHUB_ACTIONS==='true') fail('LOCAL_OWNER_TERMINAL_ONLY');
+  if(command==='prepare') v478AssetInputs(process.env);
   const store=stateStore();const unlock=store.lock();
   try {
     const api=githubAPI(ownerToken());const io=createIO(api,store);

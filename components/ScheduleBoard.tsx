@@ -49,12 +49,6 @@ import {
 } from '../utils/courseAuthorityApi';
 import { fetchStaffSchedules } from '../utils/staffSchedulesApi';
 import {
-  readScheduleCoursePageCache,
-  isPublicationSensitiveCourseScope,
-  removeScheduleCoursePageCache,
-  writeScheduleCoursePageCache,
-} from '../utils/scheduleCoursePageCache';
-import {
   buildScheduleImportPreview,
   replaceUserScheduleFromPreview,
   type ScheduleImportPreviewRow,
@@ -756,9 +750,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       return next;
     });
   };
-  const coursePageCacheRef = useRef(new Map<string, { data: Course[]; total: number; hasMore: boolean }>());
-  const courseDetailCacheRef = useRef(new Map<string, Course>());
-  const courseFilterOptionsCacheRef = useRef(new Map<string, { subjectNameOptions: string[]; majorOptions: string[]; cohortOptions: string[]; groupNameOptions: string[]; academicProgramOptions: string[] }>());
   const courseFilterKeyRef = useRef('');
 
   useEffect(() => {
@@ -1013,28 +1004,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         if (courseFilterKeyRef.current !== filterKey) {
             courseFilterKeyRef.current = filterKey;
-            coursePageCacheRef.current.clear();
             setAvailableCourses([]);
             setCourseTotal(0);
             setCourseHasMore(false);
             // Keep URL-selected page when entering via refresh or browser history.
-        }
-
-        const pageCacheKey = `${filterKey}:page:${requestPage}`;
-        if (options.force) {
-            coursePageCacheRef.current.delete(pageCacheKey);
-            removeScheduleCoursePageCache(filterKey, requestPage);
-        }
-        const cachedPage = options.force || isPublicationSensitiveCourseScope(filterKey)
-            ? null
-            : coursePageCacheRef.current.get(pageCacheKey)
-                || readScheduleCoursePageCache<Course>(filterKey, requestPage);
-        if (cachedPage) {
-            coursePageCacheRef.current.set(pageCacheKey, cachedPage);
-            setAvailableCourses(cachedPage.data);
-            setCourseTotal(cachedPage.total);
-            setCourseHasMore(cachedPage.hasMore);
-            return;
         }
 
         const baseParams = new URLSearchParams({
@@ -1064,7 +1037,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (isSuggestionMode) baseParams.set('suggestions', 'true');
         if (term) baseParams.set('search', term);
 
-        const response = await fetchPublicCourses(`/courses?${baseParams.toString()}`);
+        const response = await fetchPublicCourses(`/courses?${baseParams.toString()}`, options.force ? { cache: "reload" } : undefined);
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
 
@@ -1074,8 +1047,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             total: isSuggestionMode ? rows.length : Number(payload.total || rows.length),
             hasMore: isSuggestionMode ? false : Boolean(payload.hasMore),
         };
-        if (!isPublicationSensitiveCourseScope(filterKey)) coursePageCacheRef.current.set(pageCacheKey, pagePayload);
-        writeScheduleCoursePageCache(filterKey, requestPage, pagePayload);
         setAvailableCourses(pagePayload.data);
         setCourseTotal(pagePayload.total);
         setCourseHasMore(pagePayload.hasMore);
@@ -1105,23 +1076,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fetchCourseFilterOptions = async () => {
     if (!isAuthenticated) return;
     try {
-        const optionsCacheKey = JSON.stringify({
-            semesters: selectedFilterSemesters,
-            phases: selectedFilterPhases,
-            majors: selectedFilterMajors,
-            cohorts: selectedFilterCohorts,
-            academicPrograms: selectedFilterPrograms,
-        });
-        const cachedOptions = isPublicationSensitiveCourseScope(optionsCacheKey) ? undefined : courseFilterOptionsCacheRef.current.get(optionsCacheKey);
-        if (cachedOptions) {
-            setSubjectNameOptions(cachedOptions.subjectNameOptions);
-            setMajorOptions(cachedOptions.majorOptions);
-            setCohortOptions(cachedOptions.cohortOptions);
-            setGroupNameOptions(cachedOptions.groupNameOptions);
-            setAcademicProgramOptions(normalizeAcademicProgramOptions(cachedOptions.academicProgramOptions));
-            return;
-        }
-
         const params = new URLSearchParams({ resource: 'filter-options' });
         selectedFilterSemesters.forEach(value => params.append('semester', value));
         selectedFilterPhases.forEach(value => params.append('phase', value));
@@ -1139,7 +1093,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             groupNameOptions: Array.isArray(payload.groupNameOptions) ? payload.groupNameOptions : [],
             academicProgramOptions: normalizeAcademicProgramOptions(Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : []),
         };
-        if (!isPublicationSensitiveCourseScope(optionsCacheKey)) courseFilterOptionsCacheRef.current.set(optionsCacheKey, nextOptions);
         setSubjectNameOptions(nextOptions.subjectNameOptions);
         setMajorOptions(nextOptions.majorOptions);
         setCohortOptions(nextOptions.cohortOptions);
@@ -1169,8 +1122,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   };
 
   const refreshCourseListAndFilters = () => {
-    coursePageCacheRef.current.clear();
-    courseFilterOptionsCacheRef.current.clear();
     courseFilterKeyRef.current = '';
     fetchCourseFilterOptions();
     if (coursePage !== 0) {
@@ -1192,16 +1143,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         return;
     }
 
-    const cachedDetail = selectedCourseInfo.course.semester === 'HK2_2026_2027' ? undefined : courseDetailCacheRef.current.get(courseId);
-    if (cachedDetail) {
-        setSelectedCourseInfo(prev => prev?.course.id === courseId
-            ? { ...prev, course: { ...prev.course, ...cachedDetail, __detailLoaded: true } as Course }
-            : prev
-        );
-        setIsCourseDetailLoading(false);
-        return;
-    }
-
     let cancelled = false;
     setIsCourseDetailLoading(true);
     const loadCourseDetail = async () => {
@@ -1211,7 +1152,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             const payload = await response.json();
             if (!response.ok) throw new Error(payload?.error || 'Không tải được chi tiết môn.');
             if (cancelled || !payload?.data) return;
-            if (payload.data.semester !== 'HK2_2026_2027') courseDetailCacheRef.current.set(courseId, payload.data);
             setSelectedCourseInfo(prev => prev?.course.id === courseId
                 ? { ...prev, course: { ...prev.course, ...payload.data, __detailLoaded: true } as Course }
                 : prev
@@ -1770,14 +1710,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const ensureCourseDetail = async (course: Course) => {
     if (course.user_schedule_id || (course as any).__detailLoaded) return course;
-    const cachedDetail = courseDetailCacheRef.current.get(course.id);
-    if (cachedDetail) return { ...course, ...cachedDetail, __detailLoaded: true } as Course;
 
     const params = new URLSearchParams({ resource: 'course-detail', id: course.id });
     const response = await fetchPublicCourses(`/courses?${params.toString()}`);
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error || 'Không tải được chi tiết môn.');
-    courseDetailCacheRef.current.set(course.id, payload.data);
     return { ...course, ...payload.data, __detailLoaded: true } as Course;
   };
 

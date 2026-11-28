@@ -19,7 +19,7 @@ async function withCatalog(rows: Record<string, unknown>[], run: (calls: URL[]) 
   globalThis.fetch = (async (input, init) => {
     assert.equal(init?.method || 'GET', 'GET', 'preview must never save');
     const url = new URL(String(input), 'https://example.test');
-    assert.equal(url.pathname, '/courses');
+    assert.equal(url.pathname, '/api/courses');
     assert.equal(url.searchParams.get('semester'), semester);
     calls.push(url);
     return Response.json({ data: rows, total: rows.length });

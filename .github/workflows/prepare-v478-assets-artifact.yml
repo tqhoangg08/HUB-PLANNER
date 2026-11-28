@@ -1,0 +1,46 @@
+name: Prepare reviewed v478 assets artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      capsule_release_asset_id:
+        description: Exact repository Release asset ID containing the reviewed capsule
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish-reviewed-capsule:
+    if: github.repository_id == '1126820605' && github.ref == 'refs/heads/main' && github.actor_id == '252552483'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify the owner release asset and pinned v478 capsule
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAPSULE_RELEASE_ASSET_ID: ${{ inputs.capsule_release_asset_id }}
+        run: python3 scripts/verify-and-package-v478-artifact.py stage "$RUNNER_TEMP/v478-frontend-assets.zip"
+      - name: Publish verified capsule as a single-member Actions artifact
+        id: capture
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: v478-frontend-assets
+          path: ${{ runner.temp }}/v478-frontend-assets.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Record the immutable Actions artifact identity
+        env:
+          ASSET_ARTIFACT_ID: ${{ steps.capture.outputs.artifact-id }}
+          ASSET_GITHUB_ZIP_SHA256: ${{ steps.capture.outputs.artifact-digest }}
+        shell: bash
+        run: |
+          [[ "$ASSET_ARTIFACT_ID" =~ ^[1-9][0-9]{0,18}$ ]]
+          [[ "$ASSET_GITHUB_ZIP_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          printf 'Source run %s\nArtifact ID %s\nGitHub ZIP SHA-256 %s\n' \
+            "$GITHUB_RUN_ID" "$ASSET_ARTIFACT_ID" "$ASSET_GITHUB_ZIP_SHA256" >> "$GITHUB_STEP_SUMMARY"
