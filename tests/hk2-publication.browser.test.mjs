@@ -53,7 +53,7 @@ test('actual desktop/mobile components ignore stale HK2 pages; real client + loc
       return{cached,payload:await response.json(),cacheControl:response.headers.get('Cache-Control')};
     });
     assert.equal(cacheResult.cached,null);assert.equal(cacheResult.payload.total,0);assert.equal(cacheResult.cacheControl,'no-store');
-    const nextResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/courses'&&!new URL(r.url()).searchParams.has('resource')&&new URL(r.url()).searchParams.getAll('semester').includes('HK2_2026_2027'));
+    const nextResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/courses'&&!new URL(r.url()).searchParams.has('resource')&&new URL(r.url()).searchParams.getAll('semester').includes('HK2_2026_2027'));
     await page.evaluate(surface=>window.acceptanceState(`components/${surface==='desktop'?'ScheduleBoard':'MobileSchedule'}.tsx`,surface==='desktop'
       ?{selectedFilterSemesters:['HK2_2026_2027'],searchTerm:'AI',isCourseResultsOpen:true}
       :{selectedSemester:'HK2_2026_2027',searchTerm:'AI'}),surface);

@@ -741,7 +741,9 @@ test('historical v475 security surfaces remain byte-equivalent under the current
   for(const path of ['scripts/check-public-release-approval.mjs','scripts/release-assistant-core.mjs','scripts/release-assistant-api.mjs',
     '.github/workflows/deploy-cloudflare-production.yml','.github/workflows/ai-advisor-pr-validation.yml','cloudflare/wrangler.jsonc',
     'scripts/scholarship-release-schema.mjs','scripts/announcement-release-schema.mjs','scripts/announcement-release-schema.json']){
-    const current=path==='cloudflare/wrangler.jsonc'?readPreHostnameTransitionFile(path):readFileSync(path,'utf8');
+    const workflow = '.github/workflows/deploy-cloudflare-production.yml';
+    const current=['cloudflare/wrangler.jsonc', workflow].includes(path)
+      ? readPreHostnameTransitionFile(path) : readFileSync(path,'utf8');
     assert.equal(current.replace(/\r\n/g,'\n'),original(path),path);
   }
 });
@@ -754,8 +756,10 @@ test('v474 baseline changes only the reviewed pin and comments; release workflow
     .replace(/export const PUBLIC_RELEASE_PREDEPLOY_VERSION='[^']+';/,'<BASELINE_PIN>');
   const path='scripts/check-public-release-state.mjs';
   assert.equal(normalize(readPreHostnameTransitionFile(path).replace(/\r\n/g,'\n')),normalize(git(path)));
-  for(const path of ['scripts/check-public-release-approval.mjs','.github/workflows/deploy-cloudflare-production.yml'])
-    assert.equal(readFileSync(path,'utf8').replace(/\r\n/g,'\n'),git(path));
+  const workflow = '.github/workflows/deploy-cloudflare-production.yml';
+  assert.equal(readFileSync('scripts/check-public-release-approval.mjs','utf8').replace(/\r\n/g,'\n'),git('scripts/check-public-release-approval.mjs'));
+  assert.equal(readPreHostnameTransitionFile(workflow).replace(/\r\n/g,'\n'),git(workflow));
+  assertHk2ReleaseFreeze(evidence.sha,[workflow]);
 });
 
 test('0060 extends the gate without changing historical checks or baseline Git evidence',()=>{

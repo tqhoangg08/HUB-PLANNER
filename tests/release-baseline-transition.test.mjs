@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { approvalText, describeTransition, TRANSITION_BASE, COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION, V478_BASELINE, verifyTransition } from '../scripts/verify-public-baseline-transition.mjs';
 import { assertHk2ReleaseFreeze, readPreHostnameTransitionFile } from './fixtures/hk2-release-freeze.mjs';
 
@@ -381,4 +381,111 @@ test('v478 transition verifies the exact diff and independent owner approval', a
   await assert.rejects(verify(pull, { ...owner, updated_at: '2026-11-28T04:31:00Z' }), /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
   await assert.rejects(verify(pull, owner, raw.replace('2'.repeat(40), '3'.repeat(40))),
     /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+});
+
+test('S1 packaged release refuses missing, tampered or mismatched v478 assets', async t => {
+  const { createHash } = await import('node:crypto');
+  const { mkdtemp, mkdir, writeFile, readFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { packageS1ReleaseAssets } = await import('../scripts/package-s1-release-assets.mjs');
+  const root = await mkdtemp(join(tmpdir(), 'hub-v478-package-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const archive = join(root, 'archive'), dist = join(root, 'dist');
+  const manifestPath = join(archive, 'manifest.json');
+  const bytes = 'export const syntheticAsset = true;';
+  const hash = data => createHash('sha256').update(data).digest('hex');
+  const name = 'view-01234567.js';
+  const oldFile = join(archive, 'assets', name), newFile = join(dist, 'assets', name);
+  const manifest = { schema: 1, workerVersion: V478_BASELINE.version, releaseSha: V478_BASELINE.sha,
+    releaseRunId: V478_BASELINE.runId, deploymentId: V478_BASELINE.deployment.id, assets: { ['assets/' + name]: hash(bytes) } };
+  const writeManifest = async data => { await writeFile(manifestPath, data); return hash(data); };
+  await mkdir(join(archive, 'assets'), { recursive: true });
+  await mkdir(join(dist, 'assets'), { recursive: true });
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, 'a'.repeat(64)));
+  const approved = await writeManifest(JSON.stringify(manifest));
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, approved), /manifest must cover/);
+  await writeFile(oldFile, 'wrong asset');
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, approved), /asset digest mismatch/);
+  await writeFile(oldFile, bytes);
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, 'a'.repeat(64)), /manifest SHA-256 mismatch/);
+  for (const field of ['workerVersion', 'releaseSha', 'releaseRunId', 'deploymentId']) {
+    const wrong = await writeManifest(JSON.stringify({ ...manifest, [field]: 'wrong' }));
+    await assert.rejects(packageS1ReleaseAssets(archive, dist, wrong), /release identity mismatch/);
+  }
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, await writeManifest('{')), SyntaxError);
+  const fixtureOnly = await writeManifest(JSON.stringify({ ...manifest, fixtureOnly: true }));
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, fixtureOnly), /release identity mismatch/);
+  await writeManifest(JSON.stringify(manifest));
+  await writeFile(join(archive, 'assets', 'sw.js'), 'stale worker');
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, approved), /Unexpected file/);
+  await rm(join(archive, 'assets', 'sw.js'));
+  await writeFile(newFile, 'another build used this name');
+  await assert.rejects(packageS1ReleaseAssets(archive, dist, approved), /collision/);
+  await rm(newFile);
+  assert.deepEqual(await packageS1ReleaseAssets(archive, dist, approved), { verified: 1, copied: 1 });
+  assert.equal(await readFile(newFile, 'utf8'), bytes);
+});
+
+test('S1 transition validates exact stage, modes and artifact-packaging workflow before owner approval', async () => {
+  const { CATALOGUE_S1_TRANSITION: s1 } = await import('../scripts/verify-public-baseline-transition.mjs');
+  assert.equal(s1.base, 'b01f26be304c0de8758e6a00bb8e29279e74cf77');
+  assert.equal(s1.previousBaseline.version, V478_BASELINE.version);
+  assert.equal(s1.authorizesDeployment, false);
+  const raw = execFileSync('git', ['diff', '--raw', '-z', '--no-abbrev', '--no-renames', s1.base, '--']);
+  const git = (diff = raw) => (cmd, ...args) => {
+    if (cmd === 'cat-file') {
+      assert.deepEqual(args, ['-t', candidate]);
+      return Buffer.from('commit\n');
+    }
+    if (cmd === 'merge-base') {
+      assert.deepEqual(args, ['--is-ancestor', s1.base, candidate]);
+      return Buffer.alloc(0);
+    }
+    assert.equal(cmd, 'diff-tree');
+    assert.deepEqual(args.slice(-3), [s1.base, candidate, '--']);
+    return diff;
+  };
+  const describe = diff => describeTransition(candidate, { transition: 's1', git: git(diff) });
+  const reviewed = describe();
+  assert.equal(reviewed.base, s1.base);
+  const mutated = (before, after) => Buffer.from(raw.toString().replace(before, after));
+  assert.throws(() => describe(mutated('100644 100644', '100644 100755')), /TRANSITION_SCOPE_MISMATCH/);
+  assert.throws(() => describe(mutated(s1.protectedBlobs['cloudflare/worker/src/index.ts'].after, '9'.repeat(40))),
+    /TRANSITION_RUNTIME_BLOB_MISMATCH/);
+  assert.throws(() => describe(Buffer.concat([raw, Buffer.from(`:100644 100644 ${'1'.repeat(40)} ${'2'.repeat(40)} M\0README.md\0`)])),
+    /TRANSITION_SCOPE_MISMATCH/);
+  const pr = 53, comment = 63;
+  const pull = { state: 'open', number: pr, base: { ref: 'main', sha: s1.base, repo }, head: { sha: candidate, repo } };
+  const owner = { id: comment, issue_url: prefix + '/issues/53', body: approvalText(pr, reviewed, 's1'),
+    user: { id: 252552483, type: 'User' }, created_at: '2026-11-28T04:30:00Z', updated_at: '2026-11-28T04:30:00Z' };
+  const verify = (p = pull, o = owner) => verifyTransition({ head: candidate, pr, comment, token: 'mock-only',
+    transition: 's1', git: git(), fetchImpl: async url => Response.json(url.includes('/issues/comments/') ? o : p) });
+  assert.deepEqual(await verify(), reviewed);
+  await assert.rejects(verify({ ...pull, base: { ...pull.base, sha: 'e'.repeat(40) } }), /PR_SHA_OR_REPOSITORY_CHANGED/);
+  await assert.rejects(verify({ ...pull, head: { ...pull.head, sha: 'e'.repeat(40) } }), /PR_SHA_OR_REPOSITORY_CHANGED/);
+  await assert.rejects(verify(pull, { ...owner, user: { ...owner.user, id: 7 } }), /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+  await assert.rejects(verify(pull, { ...owner, body: owner.body.replace(reviewed.diff_sha256, '0'.repeat(64)) }),
+    /AUTHENTIC_OWNER_TRANSITION_APPROVAL_REQUIRED/);
+
+  const workflow = '.github/workflows/deploy-cloudflare-production.yml';
+  const [validate, release] = readFileSync(workflow, 'utf8').split('  release-public:');
+  assert.match(validate, /npm run build[\s\S]+ASSET_ARTIFACT_ID[\s\S]+ASSET_GITHUB_ZIP_SHA256[\s\S]+verify-and-package-v478-artifact\.py consume dist/);
+  assert.match(release, /environment: public-production[\s\S]+npm run build[\s\S]+ASSET_ARTIFACT_ID[\s\S]+ASSET_GITHUB_ZIP_SHA256[\s\S]+verify-and-package-v478-artifact\.py consume dist[\s\S]+--predeploy[\s\S]+check-public-release-approval\.mjs[\s\S]+wrangler deploy[\s\S]+--postdeploy/);
+  assert.doesNotMatch(validate + release, /gh run download/);
+  const publisher = '.github/workflows/prepare-v478-assets-artifact.yml';
+  const upload = readFileSync(publisher, 'utf8');
+  assert.match(upload, /workflow_dispatch[\s\S]+github.actor_id[\s\S]+verify-and-package-v478-artifact\.py stage[\s\S]+actions\/upload-artifact@[a-f0-9]{40}[\s\S]+retention-days: 30/);
+  assert.doesNotMatch(upload, /wrangler|CLOUDFLARE_API_TOKEN|environment: public-production|actions: write/);
+  const assistant = 'scripts/release-assistant.mjs';
+  const old = execFileSync('git', ['show', `${s1.base}:${assistant}`], { encoding: 'utf8' });
+  assert.ok(old.includes("inputs:{approve_public_release:true,approved_sha:sha}"));
+  assert.match(readFileSync(assistant, 'utf8'), /inputs:\{approve_public_release:true,approved_sha:sha,\.\.\.v478AssetInputs\(process\.env\)\}/);
+  assertHk2ReleaseFreeze(s1.base, [workflow, publisher, assistant, 'cloudflare', 'components', 'utils']);
+});
+
+test('S1 raw artifact validates ZIP and provenance offline before copying assets', () => {
+  const python = process.platform === 'win32' ? 'python' : 'python3';
+  const result = spawnSync(python, ['-B', 'tests/v478-artifact-packaging.test.py'], { encoding: 'utf8', timeout: 15000 });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
 });

@@ -27,6 +27,8 @@ export const HOSTNAME_TRANSITION = JSON.parse(readFileSync(
   new URL('../docs/public-release-transition-disable-hostnames.json', import.meta.url), 'utf8'));
 export const V478_BASELINE = JSON.parse(readFileSync(
   new URL('../docs/public-release-baseline-65f4241b.json', import.meta.url), 'utf8'));
+export const CATALOGUE_S1_TRANSITION = JSON.parse(readFileSync(
+  new URL('../docs/public-release-transition-catalogue-s1.json', import.meta.url), 'utf8'));
 const v478Scope = new Map([
   ...Object.keys(V478_BASELINE.transition.protectedBlobs).map(path => [path, 'M']),
   ['docs/public-release-baseline-65f4241b.json', 'A'],
@@ -56,6 +58,9 @@ const eScope = new Map([
   ['tests/release-baseline-transition.test.mjs', 'M'],
 ]);
 const transitions = new Map([
+  ['s1', { base: CATALOGUE_S1_TRANSITION.base, scope: new Map(Object.entries(CATALOGUE_S1_TRANSITION.scope)),
+    title: 'HUB Public catalogue compatibility S1 transition (v478 remains pinned)',
+    blobs: CATALOGUE_S1_TRANSITION.protectedBlobs }],
   ['v477', { base: TRANSITION_BASE, scope: v477Scope, title: 'HUB Public baseline transition v476 -> v477', blobs: {} }],
   ['e', { base: COURSE_FACETS_TRANSITION.base, scope: eScope,
     title: 'HUB Public course facets E transition (v477 remains pinned)', blobs: COURSE_FACETS_TRANSITION.runtimeBlobs }],
@@ -137,10 +142,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const [command, head, pr, comment, ...extra] = process.argv.slice(2);
     const [, transition = 'v477'] = (command ?? '').split('-');
-    if (['describe', 'describe-e', 'describe-hostnames', 'describe-v478'].includes(command) && pr === undefined) {
+    if (['describe', 'describe-e', 'describe-hostnames', 'describe-v478', 'describe-s1'].includes(command) && pr === undefined) {
       console.log(JSON.stringify(describeTransition(head, { transition })));
     }
-    else if (['verify', 'verify-e', 'verify-hostnames', 'verify-v478'].includes(command) && !extra.length) {
+    else if (['verify', 'verify-e', 'verify-hostnames', 'verify-v478', 'verify-s1'].includes(command) && !extra.length) {
       const candidate = await verifyTransition({ head, pr: Number(pr), comment: Number(comment), token: process.env.GH_TOKEN, transition });
       console.log(JSON.stringify({ ...candidate, owner_transition_approval: 'verified' }));
     } else throw Error('EXPECTED_DESCRIBE_OR_VERIFY');

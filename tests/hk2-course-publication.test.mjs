@@ -172,19 +172,21 @@ test('Worker ignores a warm ungated edge cache for unscoped/HK2 reads and keeps 
   const bundle=await build({entryPoints:['cloudflare/worker/src/index.ts'],bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:*'],logLevel:'silent'});
   const code=bundle.outputFiles[0].text, exported=code.match(/\b(\w+)\s+as\s+default\b/);
   assert.ok(exported,'Locate the actual bundled Worker entrypoint');
-  const script=`let fixtureCacheReads=0;
-    const caches={default:{async match(request){fixtureCacheReads++;const hk1=new URL(request.url).searchParams.get('semester')==='HK1_2026_2027';return Response.json({success:true,data:[{id:hk1?'cached-hk1':'UNPUBLISHED-CACHE-LEAK'}],total:1});},async put(){}}};
+  const script=`let fixtureCacheReads=0, fixtureCachePath='';
+    const caches={default:{async match(request){fixtureCacheReads++;const url=new URL(request.url);fixtureCachePath=url.pathname;const hk1=url.searchParams.get('semester')==='HK1_2026_2027';return Response.json({success:true,data:[{id:hk1?'cached-hk1':'UNPUBLISHED-CACHE-LEAK'}],total:1});},async put(){}}};
     ${code.replace(/\b\w+\s+as\s+default\s*,?/,'')}
-    export default {async fetch(r,e,c){const response=await ${exported[1]}.fetch(r,e,c);const result=new Response(response.body,response);result.headers.set('X-Fixture-CacheReads',String(fixtureCacheReads));return result;}};`;
+    export default {async fetch(r,e,c){const response=await ${exported[1]}.fetch(r,e,c);const result=new Response(response.body,response);result.headers.set('X-Fixture-CacheReads',String(fixtureCacheReads));result.headers.set('X-Fixture-CachePath',fixtureCachePath);return result;}};`;
   const f=await publicationFixture({workerScript:script});t.after(()=>f.mf.dispose());await f.migrate();await f.insertTo(1);
   for(const path of ['/courses',`/courses?semester=${HK2}`,`/api/courses?semester=${HK2}`,`/courses?resource=filter-options&semester=${HK2}`,`/courses?resource=course-detail&id=${f.plan.rows[0].id}`]){
     const response=await f.mf.dispatchFetch(`https://example.test${path}`,{headers:{Accept:'application/json'}});
     assert.ok([200,404].includes(response.status),await response.clone().text());
     assert.equal(response.headers.get('X-Fixture-CacheReads'),'0');
-    assert.equal(response.headers.get('Cache-Control'),'no-store');
+    assert.equal(response.headers.get('Cache-Control'),'private, no-store');
     assert.ok(!(await response.text()).includes('UNPUBLISHED-CACHE-LEAK'));
   }
   const hk1=await f.mf.dispatchFetch('https://example.test/courses?semester=HK1_2026_2027',{headers:{Accept:'application/json'}});
   assert.equal(hk1.headers.get('X-Fixture-CacheReads'),'1');
+  assert.equal(hk1.headers.get('X-Fixture-CachePath'),'/__hub_cache/compatible-catalogue-v1/courses');
+  assert.equal(hk1.headers.get('Cache-Control'),'private, no-store');
   assert.equal((await hk1.json()).data[0].id,'cached-hk1');
 });

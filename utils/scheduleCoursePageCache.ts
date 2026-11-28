@@ -98,3 +98,15 @@ export const removeScheduleCoursePageCache = (scope: string, page: number) => {
     // Cache invalidation is best-effort.
   }
 };
+
+export const purgeLegacyCataloguePages = () => {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(CACHE_PREFIX + ':') || key.startsWith('hub_schedule_course_page_v1:')) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // Local storage can be disabled or full.
+  }
+};

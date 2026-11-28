@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
-import { COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION, V478_BASELINE } from '../../scripts/verify-public-baseline-transition.mjs';
+import { COURSE_FACETS_TRANSITION, HOSTNAME_TRANSITION, V478_BASELINE, CATALOGUE_S1_TRANSITION } from '../../scripts/verify-public-baseline-transition.mjs';
 
 const guardPath = 'scripts/check-public-release-state.mjs';
 const v477Guard = {
@@ -18,12 +18,13 @@ function assertExactScope(anchor, paths, expected, end) {
   const targets = Object.keys(expected).sort();
   const revisions = end ? [anchor, end] : [anchor];
   const actual = git('diff', '--name-status', '-z', '--no-renames', ...revisions, '--', ...paths);
-  assert.equal(actual, targets.map(path => `M\0${path}\0`).join(''), 'Unexpected change in the historical release freeze');
+  assert.equal(actual, targets.map(path => `${/^0{40}$/.test(expected[path].before) ? 'A' : 'M'}\0${path}\0`).join(''), 'Unexpected change in the historical release freeze');
   if (!end) assert.equal(git('ls-files', '--others', '--exclude-standard', '-z', '--', ...paths), '',
     'Untracked file in the historical release freeze');
   for (const path of targets) {
+    const before = expected[path].before;
     assert.equal(git('ls-tree', anchor, '--', path).trim(),
-      `100644 blob ${expected[path].before}\t${path}`);
+      /^0{40}$/.test(before) ? '' : `100644 blob ${before}\t${path}`);
     if (end) {
       assert.equal(git('ls-tree', end, '--', path).trim(),
         `100644 blob ${expected[path].after}\t${path}`);
@@ -44,7 +45,7 @@ export function assertHk2ReleaseFreeze(anchor, paths, { v477PinTransition = fals
   };
   if (v477PinTransition) assert.ok(paths.includes(guardPath));
   if (courseFacetsTransition) assert.ok(paths.includes('cloudflare'));
-  const transitions = [HOSTNAME_TRANSITION, V478_BASELINE.transition];
+  const transitions = [HOSTNAME_TRANSITION, V478_BASELINE.transition, CATALOGUE_S1_TRANSITION];
   const start = transitions.findIndex(t => t.base === anchor);
   let segmentAnchor = anchor;
   let segmentBlobs = expected;

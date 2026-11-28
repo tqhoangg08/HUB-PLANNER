@@ -11,39 +11,15 @@ import '@fontsource/inter/vietnamese-600.css';
 import '@fontsource/inter/vietnamese-700.css';
 import '@fontsource/inter/vietnamese-800.css';
 import './index.css';
+import { purgeLegacyCataloguePages } from './utils/scheduleCoursePageCache';
 import { selectApplicationEntry } from './app/bootstrap/selectApplicationEntry';
 
+purgeLegacyCataloguePages();
+
 if ('serviceWorker' in navigator) {
-  let isRefreshing = false;
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (isRefreshing) return;
-    isRefreshing = true;
-    window.location.reload();
-  });
-
   const checkForServiceWorkerUpdate = () => {
     navigator.serviceWorker.getRegistration()
-      .then((registration) => {
-        if (!registration) return undefined;
-
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        }
-
-        registration.addEventListener('updatefound', () => {
-          const worker = registration.installing;
-          if (!worker) return;
-
-          worker.addEventListener('statechange', () => {
-            if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-              worker.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
-        });
-
-        return registration.update();
-      })
+      .then(registration => registration?.update())
       .catch(() => {});
   };
 

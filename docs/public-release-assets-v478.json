@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "servingRelease": {
+    "workerVersion": "65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+    "deploymentId": "906a56a4-e3d0-4fb6-8de9-03320b2fcb16",
+    "releaseSha": "530eb18adc333b995747640e608e64c2728397e9",
+    "releaseRunId": 46105590774
+  },
+  "assetCount": 134,
+  "manifestSha256": "88b0eca80dbc1338c3fb4672b85197ae4ee4c26e845db9866453004423d03f50",
+  "capsuleSha256": "a11710378f5f019016a7944a28a8f07bc9605464a8b8848f1414ed3bc73e78a6",
+  "auxiliaryAssets": {
+    "workbox-9c191d2f.js": "04b086f1b2f4215ee4b659a7bc9c76162894abdb43fa876247bc7c0bd6fd1c37"
+  },
+  "provenance": {
+    "source": "Identity-decoded responses from the serving v478 deployment",
+    "hashedAssetEvidenceSha256": "8b463eaaf0c50b9dd35c30e9d73262d8f70906f272859d8d36ec6f41e1cdb573",
+    "hashedAssetReceiptListSha256": "98c74a4b7bb6b838d4f6b93450812b495c0aefebab13ae891a6ef2a2ec47bd81",
+    "previousCapsuleSha256": "ae5bc2a673380eda218483f5118b5e1d1d1bf0dd88fe29544d2d9ba5e232a287",
+    "sourceJobs": [
+      {
+        "conclusion": "success",
+        "head_sha": "8416837eb5ce648ce9c1c6237b4eed81802dbd03",
+        "html_url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/44764100186/job/136387619881",
+        "id": 136387619881,
+        "name": "release-public",
+        "run_id": 44764100186,
+        "expectedVersion": "04e1f162-6ca5-4ef1-8161-aa74deefef68",
+        "rawLogSha256": "b351372665f9fdc09e423dfe12fdd6a747bbdd1955cef9855c69147e28edce34",
+        "wranglerFiles": 179,
+        "precacheEntries": 115,
+        "noUpdatedAssetFiles": false
+      },
+      {
+        "conclusion": "success",
+        "head_sha": "530eb18adc333b995747640e608e64c2728397e9",
+        "html_url": "https://github.com/tqhoangg08/HUB-PLANNER/actions/runs/46105590774/job/140859414757",
+        "id": 140859414757,
+        "name": "release-public",
+        "run_id": 46105590774,
+        "expectedVersion": "65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+        "rawLogSha256": "ee40680ba458153267fddc37fccb04eb8fae3a8c23234793ff51e944802d25e8",
+        "wranglerFiles": 179,
+        "precacheEntries": 115,
+        "noUpdatedAssetFiles": true
+      }
+    ],
+    "workbox": {
+      "path": "/workbox-9c191d2f.js",
+      "method": "GET",
+      "status": 200,
+      "mime": "text/javascript",
+      "bytes": 15112,
+      "sha256": "04b086f1b2f4215ee4b659a7bc9c76162894abdb43fa876247bc7c0bd6fd1c37",
+      "requestedAt": "2026-11-28T15:12:51.826673+00:00",
+      "cfCacheStatus": "HIT"
+    },
+    "beforeWorkbox": {
+      "observedAt": "2026-11-28T15:12:33.304Z",
+      "id": "906a56a4-e3d0-4fb6-8de9-03320b2fcb16",
+      "versions": [
+        {
+          "version_id": "65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+          "percentage": 100
+        }
+      ]
+    },
+    "afterWorkbox": {
+      "observedAt": "2026-11-28T15:12:54.269Z",
+      "id": "906a56a4-e3d0-4fb6-8de9-03320b2fcb16",
+      "versions": [
+        {
+          "version_id": "65f4241b-b2ab-48db-ac3d-1c9d772bb981",
+          "percentage": 100
+        }
+      ]
+    },
+    "originalReleaseBuildArchiveAvailable": false
+  }
+}

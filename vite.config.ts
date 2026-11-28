@@ -177,14 +177,14 @@ export default defineConfig(({ mode }) => {
     react(),
     pushServiceWorkerFallbackPlugin(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       injectRegister: 'script', 
       devOptions: {
         enabled: mode !== 'development'
       },
       workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
+        skipWaiting: false,
+        clientsClaim: false,
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 5000000,
         navigateFallbackDenylist: [/^\/api\//],

@@ -7,13 +7,18 @@ const toSameOriginPath = (path: string) => {
 
 /**
  * Sends a public read to the Public Worker on the current origin.
- * Public mirror reads must never carry a Better Auth session or fall back to
- * the legacy Supabase browser API.
+ * The catalogue can opt in to browser session credentials on its exact API path.
+ * Other public reads omit credentials.
  */
 export const fetchPublicWorker = async (
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  credentials: 'omit' | 'same-origin' = 'omit',
 ): Promise<Response> => {
+  const requestPath = toSameOriginPath(path);
+  if (credentials === 'same-origin' && requestPath.split('?', 1)[0] !== '/api/courses') {
+    throw new Error('Session credentials are only supported on the catalogue endpoint.');
+  }
   const controller = new AbortController();
   const abortFromCaller = () => controller.abort(init.signal?.reason);
   if (init.signal) {
@@ -31,10 +36,10 @@ export const fetchPublicWorker = async (
   headers.delete('Cookie');
 
   try {
-    return await fetch(toSameOriginPath(path), {
+    return await fetch(requestPath, {
       ...init,
       headers,
-      credentials: 'omit',
+      credentials,
       signal: controller.signal,
     });
   } finally {

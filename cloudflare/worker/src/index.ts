@@ -2473,15 +2473,26 @@ const worker = {
       return json({ error: 'Không tìm thấy endpoint.' }, 404, cors);
     }
 
-    const bypassCache =
-      requestUrl.searchParams.has('refresh') ||
-      String(request.headers.get('Cache-Control') || '').includes('no-cache');
-    const courseCacheAllowed = !isCoursesPath || canCacheCourseRequest(requestUrl);
-    const cached = bypassCache || !courseCacheAllowed ? null : await readCachedResponse(request);
-    if (cached) return cached;
+    const forceRefresh = requestUrl.searchParams.has('refresh');
+    const revalidate = String(request.headers.get('Cache-Control') || '').includes('no-cache');
 
     if (isCoursesPath) {
+      // Marked clients use browser no-store on ordinary reads and refresh=1 for a forced read.
+      const courseBypassesCache = forceRefresh || (revalidate && request.headers.get('X-Hub-Catalogue-Cache') !== 'v1');
+      const courseCacheAllowed = canCacheCourseRequest(requestUrl);
+      const edgeUrl = new URL(request.url);
+      edgeUrl.pathname = '/__hub_cache/compatible-catalogue-v1' + edgeUrl.pathname;
+      const edgeRequest = new Request(edgeUrl, { headers: request.headers });
+      const forClient = (response: Response) => {
+        const headers = new Headers(response.headers);
+        headers.set('Cache-Control', 'private, no-store');
+        return new Response(response.body, { status: response.status, headers });
+      };
       try {
+        if (!courseBypassesCache && courseCacheAllowed) {
+          const cached = await readCachedResponse(edgeRequest);
+          if (cached) return forClient(cached);
+        }
         const result = await handleCourses(requestUrl, env);
         const response = json(result.payload, result.status, {
           ...cors,
@@ -2490,18 +2501,22 @@ const worker = {
               ? `public, max-age=300, s-maxage=${COURSE_EDGE_TTL_SECONDS}, stale-while-revalidate=3600`
               : 'no-store',
         });
-        if (result.status === 200 && !bypassCache && courseCacheAllowed) {
-          storeCachedResponse(request, response, ctx);
+        if (result.status === 200 && !courseBypassesCache && courseCacheAllowed) {
+          storeCachedResponse(edgeRequest, response, ctx);
         }
-        return response;
+        return forClient(response);
       } catch (error) {
         console.error('course_query_failed', error);
         return json({ error: 'Không tải được danh sách môn.' }, 500, {
           ...cors,
-          'Cache-Control': 'no-store',
+          'Cache-Control': 'private, no-store',
         });
       }
     }
+
+    const bypassCache = forceRefresh || revalidate;
+    const cached = bypassCache ? null : await readCachedResponse(request);
+    if (cached) return cached;
 
     const resource = String(requestUrl.searchParams.get('resource') || '');
     const isLostFoundRequest =
